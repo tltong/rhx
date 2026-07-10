@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ReadyHeroX</title>
+
+    <style>
+      body {
+        align-items: center;
+        background: #eef3f8;
+        box-sizing: border-box;
+        display: flex;
+        font-family: Arial, Helvetica, sans-serif;
+        justify-content: center;
+        margin: 0;
+        min-height: 100vh;
+        padding: 24px;
+      }
+
+      main {
+        display: grid;
+        gap: 12px;
+        max-width: 360px;
+        width: 100%;
+      }
+
+      button {
+        background: #0369a1;
+        border: 0;
+        border-radius: 6px;
+        color: #ffffff;
+        cursor: pointer;
+        font: inherit;
+        font-weight: 700;
+        padding: 14px 18px;
+        width: 100%;
+      }
+
+      button:hover {
+        background: #075985;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <button type="button" data-href="/pages/guardian_sign_up/guardian_sign_up.html">Guardian Sign Up</button>
+      <button type="button" data-href="/pages/guardian_sign_in/guardian_sign_in.html">Guardian Sign In</button>
+      <button type="button" data-href="/pages/student_sign_up/student_sign_up.html">Student Sign Up</button>
+      <button type="button" data-href="/pages/student_sign_in/student_sign_in.html">Student Sign In</button>
+      <button type="button" data-href="/pages/admin/syllabus_admin/syllabus_admin.html">Syllabus Admin</button>
+    </main>
+
+    <script>
+      document.querySelectorAll("button[data-href]").forEach((button) => {
+        button.addEventListener("click", () => {
+          window.location.href = button.dataset.href;
+        });
+      });
+    </script>
+  </body>
+</html>
