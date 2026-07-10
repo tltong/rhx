@@ -1,24 +1,31 @@
 import {
-  getSyllabusScope,
-  readSyllabusWithTopics,
+  readSyllabusScopes
+} from "/handler/syllabusscope_handler.js?v=20260711-new-syllabus-admin";
+import {
+  createSubtopicId,
+  deleteSyllabusByScope,
+  readSyllabusByScopeWithTopics,
+  readSyllabusSubjects,
   saveSyllabusWithTopics
-} from "/handler/syllabus_handler.js?v=20260710-syllabus-admin";
+} from "/handler/syllabus_handler.js?v=20260711-delete-subject";
 
-const standardSelect = document.querySelector("#syllabus-standard");
-const subjectSelect = document.querySelector("#syllabus-subject");
+const countrySelect = document.querySelector("#country");
+const levelSelect = document.querySelector("#level");
+const gradeSelect = document.querySelector("#grade");
+const subjectSelect = document.querySelector("#subject-select");
+const newSubjectInput = document.querySelector("#new-subject");
 const loadButton = document.querySelector("#load-syllabus");
 const saveButton = document.querySelector("#save-syllabus");
+const confirmDeleteSubjectCheckbox = document.querySelector("#confirm-delete-subject");
+const deleteSubjectButton = document.querySelector("#delete-subject");
 const addTopicButton = document.querySelector("#add-topic");
 const topicsList = document.querySelector("#topics-list");
 const statusEl = document.querySelector("#syllabus-status");
 const topicTemplate = document.querySelector("#topic-template");
 const subtopicTemplate = document.querySelector("#subtopic-template");
 
-let hasUnsavedChanges = false;
-let loadedScope = {
-  standard: "",
-  subject: ""
-};
+let syllabusScopes = [];
+let currentSyllabusId = "";
 
 function setStatus(message, isError = false) {
   statusEl.classList.toggle("is-error", isError);
@@ -26,11 +33,13 @@ function setStatus(message, isError = false) {
 }
 
 function setBusy(isBusy) {
-  loadButton.disabled = isBusy;
-  saveButton.disabled = isBusy;
-  addTopicButton.disabled = isBusy;
-  standardSelect.disabled = isBusy;
-  subjectSelect.disabled = isBusy;
+  document.querySelectorAll("button, input, select").forEach((element) => {
+    element.disabled = isBusy;
+  });
+
+  if (!isBusy) {
+    refreshDeleteSubjectState();
+  }
 }
 
 function showError(error, fallbackMessage) {
@@ -38,27 +47,154 @@ function showError(error, fallbackMessage) {
   setStatus(error.message || fallbackMessage, true);
 }
 
-function markDirty() {
-  hasUnsavedChanges = true;
+function createOption(value, text = value) {
+  const option = document.createElement("option");
+
+  option.value = value;
+  option.textContent = text;
+
+  return option;
 }
 
-function populateSelect(selectEl, values) {
+function clearSelect(selectEl, placeholder) {
   selectEl.innerHTML = "";
+  selectEl.append(createOption("", placeholder));
+}
 
-  values.forEach((value) => {
-    const option = document.createElement("option");
+function normalizeGradeKey(gradeKey) {
+  const match = String(gradeKey).match(/^grade_(\d+)$/);
 
-    option.value = value;
-    option.textContent = value;
-    selectEl.append(option);
-  });
+  return match ? match[1] : String(gradeKey);
 }
 
 function getSelectedScope() {
+  return syllabusScopes.find((scope) => scope.country === countrySelect.value) || null;
+}
+
+function getLevelGrades(scope, level) {
+  const grades = scope?.levels?.[level] || {};
+
+  return Object.entries(grades)
+    .filter(([, isSelected]) => Boolean(isSelected))
+    .map(([grade]) => normalizeGradeKey(grade))
+    .filter((grade, index, list) => list.indexOf(grade) === index)
+    .sort((left, right) => Number(left) - Number(right));
+}
+
+function getAvailableLevels(scope) {
+  return Object.keys(scope?.levels || {})
+    .filter((level) => getLevelGrades(scope, level).length > 0)
+    .sort();
+}
+
+function resetEditor() {
+  currentSyllabusId = "";
+  confirmDeleteSubjectCheckbox.checked = false;
+  refreshDeleteSubjectState();
+  renderTopics([]);
+}
+
+function populateCountries() {
+  clearSelect(countrySelect, "Select country");
+
+  syllabusScopes
+    .filter((scope) => getAvailableLevels(scope).length > 0)
+    .sort((left, right) => (left.country || "").localeCompare(right.country || ""))
+    .forEach((scope) => {
+      countrySelect.append(createOption(scope.country));
+    });
+}
+
+function populateLevels() {
+  const scope = getSelectedScope();
+
+  clearSelect(levelSelect, "Select level");
+  clearSelect(gradeSelect, "Select grade");
+
+  getAvailableLevels(scope).forEach((level) => {
+    levelSelect.append(createOption(level, `${level.charAt(0).toUpperCase()}${level.slice(1)}`));
+  });
+}
+
+function populateGrades() {
+  const scope = getSelectedScope();
+
+  clearSelect(gradeSelect, "Select grade");
+
+  getLevelGrades(scope, levelSelect.value).forEach((grade) => {
+    gradeSelect.append(createOption(grade, `Grade ${grade}`));
+  });
+}
+
+function getScopeSelection() {
+  const country = countrySelect.value;
+  const level = levelSelect.value;
+  const grade = Number(gradeSelect.value);
+
+  if (!country || !level || !gradeSelect.value) {
+    throw new Error("Country, level, and grade must be selected.");
+  }
+
   return {
-    standard: standardSelect.value,
-    subject: subjectSelect.value
+    country,
+    level,
+    grade
   };
+}
+
+function getSubjectSelection() {
+  return newSubjectInput.value.trim() || subjectSelect.value;
+}
+
+function getExistingSubjectSelection() {
+  if (newSubjectInput.value.trim()) {
+    throw new Error("Clear the new subject field before deleting an existing subject.");
+  }
+
+  if (!subjectSelect.value) {
+    throw new Error("Select an existing subject to delete.");
+  }
+
+  return subjectSelect.value;
+}
+
+function refreshDeleteSubjectState() {
+  deleteSubjectButton.disabled = !confirmDeleteSubjectCheckbox.checked
+    || !subjectSelect.value
+    || Boolean(newSubjectInput.value.trim());
+}
+
+function populateSubjects(subjects = [], selectedSubject = "") {
+  clearSelect(subjectSelect, "Select subject");
+
+  subjects.forEach((subject) => {
+    subjectSelect.append(createOption(subject));
+  });
+
+  if (selectedSubject && subjects.includes(selectedSubject)) {
+    subjectSelect.value = selectedSubject;
+  }
+}
+
+async function loadSubjectOptions(selectedSubject = "") {
+  populateSubjects([]);
+
+  if (!countrySelect.value || !levelSelect.value || !gradeSelect.value) {
+    return;
+  }
+
+  setStatus("Loading subjects...");
+
+  try {
+    const subjects = await readSyllabusSubjects(getScopeSelection());
+
+    populateSubjects(subjects, selectedSubject);
+    setStatus(subjects.length > 0
+      ? "Select an existing subject or enter a new subject."
+      : "No subjects yet for this scope. Enter a new subject.");
+  } catch (error) {
+    showError(error, "Could not load subjects.");
+  }
 }
 
 function renderEmptyState() {
@@ -75,17 +211,16 @@ function removeEmptyState() {
   topicsList.querySelector(".empty-state")?.remove();
 }
 
-function createSubtopicRow(subtopicName = "") {
+function createSubtopicRow(subtopicId = "", subtopicName = "") {
   const fragment = subtopicTemplate.content.cloneNode(true);
   const row = fragment.querySelector(".subtopic-row");
-  const nameInput = fragment.querySelector(".subtopic-name");
+  const input = fragment.querySelector(".subtopic-name");
   const removeButton = fragment.querySelector(".remove-subtopic");
 
-  nameInput.value = subtopicName;
-  nameInput.addEventListener("input", markDirty);
+  row.dataset.subtopicId = subtopicId;
+  input.value = subtopicName;
   removeButton.addEventListener("click", () => {
     row.remove();
-    markDirty();
   });
 
   return fragment;
@@ -98,19 +233,16 @@ function createTopicCard(topic = {}) {
   const subtopicsList = fragment.querySelector(".subtopics-list");
   const addSubtopicButton = fragment.querySelector(".add-subtopic");
   const removeTopicButton = fragment.querySelector(".remove-topic");
-  const subtopics = topic.subtopics || {};
 
   card.dataset.topicId = topic.id || "";
   topicNameInput.value = topic.topicName || "";
-  topicNameInput.addEventListener("input", markDirty);
 
-  Object.values(subtopics).forEach((subtopicName) => {
-    subtopicsList.append(createSubtopicRow(subtopicName));
+  Object.entries(topic.subtopics || {}).forEach(([subtopicId, subtopicName]) => {
+    subtopicsList.append(createSubtopicRow(subtopicId, subtopicName));
   });
 
   addSubtopicButton.addEventListener("click", () => {
     subtopicsList.append(createSubtopicRow());
-    markDirty();
   });
 
   removeTopicButton.addEventListener("click", () => {
@@ -119,8 +251,6 @@ function createTopicCard(topic = {}) {
     if (topicsList.querySelectorAll(".topic-card").length === 0) {
       renderEmptyState();
     }
-
-    markDirty();
   });
 
   return fragment;
@@ -129,7 +259,6 @@ function createTopicCard(topic = {}) {
 function addTopic(topic = {}) {
   removeEmptyState();
   topicsList.append(createTopicCard(topic));
-  markDirty();
 }
 
 function renderTopics(topics = []) {
@@ -137,15 +266,26 @@ function renderTopics(topics = []) {
 
   if (topics.length === 0) {
     renderEmptyState();
-    hasUnsavedChanges = false;
     return;
   }
 
   topics.forEach((topic) => {
-    topicsList.append(createTopicCard(topic));
+    addTopic(topic);
   });
+}
 
-  hasUnsavedChanges = false;
+function getSyllabusSelection() {
+  const scope = getScopeSelection();
+  const subject = getSubjectSelection();
+
+  if (!subject) {
+    throw new Error("Country, level, grade, and subject must be selected.");
+  }
+
+  return {
+    ...scope,
+    subject
+  };
 }
 
 function collectTopics() {
@@ -154,7 +294,6 @@ function collectTopics() {
   topicsList.querySelectorAll(".topic-card").forEach((card) => {
     const topicName = card.querySelector(".topic-name").value.trim();
     const subtopics = {};
-    let subtopicIndex = 1;
 
     card.querySelectorAll(".subtopic-row").forEach((row) => {
       const subtopicName = row.querySelector(".subtopic-name").value.trim();
@@ -163,8 +302,7 @@ function collectTopics() {
         return;
       }
 
-      subtopics[`subtopic_${subtopicIndex}`] = subtopicName;
-      subtopicIndex += 1;
+      subtopics[row.dataset.subtopicId || createSubtopicId()] = subtopicName;
     });
 
     if (!topicName && Object.keys(subtopics).length === 0) {
@@ -186,20 +324,18 @@ function collectTopics() {
 }
 
 async function loadSyllabus() {
-  const { standard, subject } = getSelectedScope();
-
   setBusy(true);
   setStatus("Loading syllabus...");
 
   try {
-    const result = await readSyllabusWithTopics(standard, subject);
+    const selection = getSyllabusSelection();
+    const result = await readSyllabusByScopeWithTopics(selection);
 
+    currentSyllabusId = result.syllabus?.id || "";
     renderTopics(result.topics || []);
-    loadedScope = {
-      standard,
-      subject
-    };
-    setStatus(`Loaded ${subject} Standard ${standard}.`);
+    setStatus(result.syllabus
+      ? `Loaded ${selection.subject} syllabus.`
+      : "No syllabus exists for this scope yet.");
   } catch (error) {
     showError(error, "Could not load syllabus.");
   } finally {
@@ -208,21 +344,22 @@ async function loadSyllabus() {
 }
 
 async function saveSyllabus() {
-  const { standard, subject } = getSelectedScope();
-
   setBusy(true);
   setStatus("Saving syllabus...");
 
   try {
+    const selection = getSyllabusSelection();
     const topics = collectTopics();
     const result = await saveSyllabusWithTopics({
-      standard,
-      subject,
+      ...selection,
       topics
     });
 
+    currentSyllabusId = result.syllabus?.id || currentSyllabusId;
+    await loadSubjectOptions(selection.subject);
+    newSubjectInput.value = "";
     renderTopics(result.topics || []);
-    setStatus(`Saved ${topics.length} topics for ${subject} Standard ${standard}.`);
+    setStatus(`Saved ${topics.length} topics for ${selection.subject}.`);
   } catch (error) {
     showError(error, "Could not save syllabus.");
   } finally {
@@ -230,29 +367,97 @@ async function saveSyllabus() {
   }
 }
 
-async function reloadAfterScopeChange() {
-  if (hasUnsavedChanges && !globalThis.confirm("Discard unsaved syllabus changes?")) {
-    standardSelect.value = loadedScope.standard;
-    subjectSelect.value = loadedScope.subject;
+async function deleteSelectedSubject() {
+  if (!confirmDeleteSubjectCheckbox.checked) {
     return;
   }
 
-  await loadSyllabus();
+  setBusy(true);
+  setStatus("Deleting subject...");
+
+  try {
+    const selection = {
+      ...getScopeSelection(),
+      subject: getExistingSubjectSelection()
+    };
+    const result = await deleteSyllabusByScope(selection);
+
+    await loadSubjectOptions();
+    subjectSelect.value = "";
+    newSubjectInput.value = "";
+    confirmDeleteSubjectCheckbox.checked = false;
+    currentSyllabusId = "";
+    renderTopics([]);
+    setStatus(result.deleted
+      ? `Deleted ${selection.subject} and its topics.`
+      : `No syllabus found for ${selection.subject}.`);
+  } catch (error) {
+    showError(error, "Could not delete subject.");
+  } finally {
+    setBusy(false);
+  }
 }
 
-function init() {
-  const scope = getSyllabusScope();
+async function loadScopeOptions() {
+  setBusy(true);
+  setStatus("Loading syllabus scope...");
 
-  populateSelect(standardSelect, scope.standards);
-  populateSelect(subjectSelect, scope.subjects);
-
-  loadButton.addEventListener("click", reloadAfterScopeChange);
-  saveButton.addEventListener("click", saveSyllabus);
-  addTopicButton.addEventListener("click", () => addTopic());
-  standardSelect.addEventListener("change", reloadAfterScopeChange);
-  subjectSelect.addEventListener("change", reloadAfterScopeChange);
-
-  loadSyllabus();
+  try {
+    syllabusScopes = await readSyllabusScopes();
+    populateCountries();
+    populateLevels();
+    populateGrades();
+    await loadSubjectOptions();
+    resetEditor();
+    setStatus(syllabusScopes.length > 0
+      ? "Select a country, level, grade, and subject."
+      : "No syllabus scope records found.");
+  } catch (error) {
+    showError(error, "Could not load syllabus scope.");
+  } finally {
+    setBusy(false);
+  }
 }
 
-init();
+countrySelect.addEventListener("change", () => {
+  populateLevels();
+  populateGrades();
+  loadSubjectOptions();
+  resetEditor();
+});
+
+levelSelect.addEventListener("change", () => {
+  populateGrades();
+  loadSubjectOptions();
+  resetEditor();
+});
+
+gradeSelect.addEventListener("change", () => {
+  loadSubjectOptions();
+  resetEditor();
+});
+
+subjectSelect.addEventListener("change", () => {
+  if (subjectSelect.value) {
+    newSubjectInput.value = "";
+  }
+
+  refreshDeleteSubjectState();
+  resetEditor();
+});
+
+newSubjectInput.addEventListener("input", () => {
+  if (newSubjectInput.value.trim()) {
+    subjectSelect.value = "";
+  }
+
+  refreshDeleteSubjectState();
+  resetEditor();
+});
+confirmDeleteSubjectCheckbox.addEventListener("change", refreshDeleteSubjectState);
+loadButton.addEventListener("click", loadSyllabus);
+saveButton.addEventListener("click", saveSyllabus);
+deleteSubjectButton.addEventListener("click", deleteSelectedSubject);
+addTopicButton.addEventListener("click", () => addTopic());
+
+loadScopeOptions();

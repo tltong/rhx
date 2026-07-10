@@ -22,7 +22,7 @@
       main {
         box-sizing: border-box;
         margin: 0 auto;
-        max-width: 900px;
+        max-width: 960px;
         padding: 36px 20px;
       }
 
@@ -36,6 +36,11 @@
       h1 {
         font-size: 26px;
         margin: 0 0 8px;
+      }
+
+      h2 {
+        font-size: 20px;
+        margin: 0;
       }
 
       p {
@@ -85,7 +90,7 @@
       }
 
       button:disabled {
-        cursor: wait;
+        cursor: not-allowed;
         opacity: 0.65;
       }
 
@@ -93,7 +98,7 @@
         align-items: end;
         display: grid;
         gap: 14px;
-        grid-template-columns: 1fr 1fr auto auto;
+        grid-template-columns: 1fr 1fr 1fr 1.3fr 1.3fr auto auto;
         margin-bottom: 22px;
       }
 
@@ -106,9 +111,27 @@
         padding-top: 20px;
       }
 
-      .topics-header h2 {
-        font-size: 20px;
+      .subject-delete-panel {
+        align-items: center;
+        background: #fff7ed;
+        border: 1px solid #fed7aa;
+        border-radius: 8px;
+        display: flex;
+        gap: 12px;
+        justify-content: space-between;
+        margin: 0 0 22px;
+        padding: 12px;
+      }
+
+      .confirm-delete {
+        align-items: center;
+        display: flex;
+        gap: 8px;
         margin: 0;
+      }
+
+      input[type="checkbox"] {
+        width: auto;
       }
 
       #topics-list {
@@ -171,7 +194,13 @@
         color: #991b1b;
       }
 
-      @media (max-width: 760px) {
+      @media (max-width: 920px) {
+        .toolbar {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+
+      @media (max-width: 640px) {
         main {
           padding: 0;
         }
@@ -192,6 +221,11 @@
           align-items: stretch;
           flex-direction: column;
         }
+
+        .subject-delete-panel {
+          align-items: stretch;
+          flex-direction: column;
+        }
       }
     </style>
   </head>
@@ -199,21 +233,44 @@
     <main>
       <section aria-labelledby="syllabus-admin-title">
         <h1 id="syllabus-admin-title">Syllabus Admin</h1>
-        <p>Create and edit syllabus topics and subtopics for each standard and subject.</p>
+        <p>Select a defined syllabus scope, then edit topics and subtopics for a subject.</p>
 
         <div class="toolbar">
           <div>
-            <label for="syllabus-standard">Standard</label>
-            <select id="syllabus-standard"></select>
+            <label for="country">Country</label>
+            <select id="country"></select>
           </div>
 
           <div>
-            <label for="syllabus-subject">Subject</label>
-            <select id="syllabus-subject"></select>
+            <label for="level">Level</label>
+            <select id="level"></select>
+          </div>
+
+          <div>
+            <label for="grade">Grade</label>
+            <select id="grade"></select>
+          </div>
+
+          <div>
+            <label for="subject-select">Existing subject</label>
+            <select id="subject-select"></select>
+          </div>
+
+          <div>
+            <label for="new-subject">New subject</label>
+            <input id="new-subject" type="text" placeholder="Add subject">
           </div>
 
           <button id="load-syllabus" class="secondary" type="button">Load</button>
           <button id="save-syllabus" type="button">Save</button>
+        </div>
+
+        <div class="subject-delete-panel">
+          <label class="confirm-delete" for="confirm-delete-subject">
+            <input id="confirm-delete-subject" type="checkbox">
+            Confirm delete selected subject and all its topics
+          </label>
+          <button id="delete-subject" class="danger" type="button" disabled>Delete Subject</button>
         </div>
 
         <div class="topics-header">
@@ -223,7 +280,7 @@
 
         <div id="topics-list"></div>
 
-        <div id="syllabus-status" role="status">Ready.</div>
+        <div id="syllabus-status" role="status">Loading syllabus scope...</div>
       </section>
     </main>
 
@@ -255,6 +312,6 @@
       </div>
     </template>
 
-    <script type="module" src="/pages/admin/syllabus_admin/syllabus_admin.js?v=20260710-subtopic-sequence"></script>
+    <script type="module" src="/pages/admin/syllabus_admin/syllabus_admin.js?v=20260711-delete-subject"></script>
   </body>
 </html>
