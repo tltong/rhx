@@ -11,7 +11,7 @@ export const syllabusesSchema = {
   fields: {
     country: "string",
     level: "string",
-    grade: "number",
+    year: "number",
     subject: "string"
   },
   subcollections: {

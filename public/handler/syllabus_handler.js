@@ -33,26 +33,26 @@ function requireDocumentId(value, name) {
   return requireNonEmptyString(value, name);
 }
 
-function normalizeGrade(grade) {
-  const value = typeof grade === "number" ? grade : Number(grade);
+function normalizeYear(year) {
+  const value = typeof year === "number" ? year : Number(year);
 
   if (!Number.isInteger(value) || value <= 0) {
-    throw new Error("grade must be a positive whole number.");
+    throw new Error("year must be a positive whole number.");
   }
 
   return value;
 }
 
-function normalizeSyllabusScopeData({ country, level, grade } = {}) {
+function normalizeSyllabusScopeData({ country, level, year, grade } = {}) {
   return {
     country: requireNonEmptyString(country, "country"),
     level: requireNonEmptyString(level, "level"),
-    grade: normalizeGrade(grade)
+    year: normalizeYear(year ?? grade)
   };
 }
 
-function normalizeSyllabusData({ country, level, grade, subject } = {}) {
-  const scope = normalizeSyllabusScopeData({ country, level, grade });
+function normalizeSyllabusData({ country, level, year, grade, subject } = {}) {
+  const scope = normalizeSyllabusScopeData({ country, level, year, grade });
 
   return {
     ...scope,
@@ -73,8 +73,12 @@ function normalizeSyllabusUpdates(updates = {}) {
     allowedUpdates.level = requireNonEmptyString(updates.level, "level");
   }
 
+  if (Object.prototype.hasOwnProperty.call(updates, "year")) {
+    allowedUpdates.year = normalizeYear(updates.year);
+  }
+
   if (Object.prototype.hasOwnProperty.call(updates, "grade")) {
-    allowedUpdates.grade = normalizeGrade(updates.grade);
+    allowedUpdates.year = normalizeYear(updates.grade);
   }
 
   if (Object.prototype.hasOwnProperty.call(updates, "subject")) {
@@ -183,7 +187,7 @@ export class SyllabusHandler {
       collection
         .where("country", "==", scope.country)
         .where("level", "==", scope.level)
-        .where("grade", "==", scope.grade)
+        .where("year", "==", scope.year)
     );
     const subjects = syllabuses
       .map((syllabus) => syllabus.subject)
@@ -199,7 +203,7 @@ export class SyllabusHandler {
       collection
         .where("country", "==", data.country)
         .where("level", "==", data.level)
-        .where("grade", "==", data.grade)
+        .where("year", "==", data.year)
         .where("subject", "==", data.subject)
         .limit(1)
     );
@@ -395,8 +399,8 @@ export class SyllabusHandler {
     return this.readTopic(syllabusId, topicId);
   }
 
-  async saveSyllabusWithTopics({ country, level, grade, subject, topics = [] } = {}) {
-    const syllabusData = normalizeSyllabusData({ country, level, grade, subject });
+  async saveSyllabusWithTopics({ country, level, year, grade, subject, topics = [] } = {}) {
+    const syllabusData = normalizeSyllabusData({ country, level, year, grade, subject });
     const normalizedTopics = normalizeTopicList(topics);
     const seenTopicIds = new Set();
 

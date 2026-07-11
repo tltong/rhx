@@ -1,4 +1,17 @@
 {
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ]
+    }
+  ],
   "hosting": {
     "public": "public",
     "ignore": [
@@ -7,6 +20,13 @@
       "**/node_modules/**"
     ],
     "rewrites": [
+      {
+        "source": "/api/generateDeepseekText",
+        "function": {
+          "functionId": "generateDeepseekText",
+          "region": "us-central1"
+        }
+      },
       {
         "source": "**",
         "destination": "/index.html"

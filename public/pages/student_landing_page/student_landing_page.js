@@ -1,13 +1,17 @@
 import {
   getCurrentStudent,
+  getCurrentStudentAssignedPractices,
   onStudentAuthStateChanged,
   signOutStudent
-} from "/handler/student_handler.js";
+} from "/handler/student_handler.js?v=20260711-practice-commence";
 
 const STUDENT_SIGN_IN_PAGE_URL = "/pages/student_sign_in/student_sign_in.html";
 const STUDENT_LOG_OUT_REDIRECT_URL = "/index.html";
+const PRACTICE_COMMENCE_PAGE_URL = "/pages/practice_commence/practice_commence.html";
 const subtitleEl = document.querySelector("#student-landing-subtitle");
 const profileEl = document.querySelector("#student-profile");
+const practicesEl = document.querySelector("#student-practices");
+const practiceListEl = document.querySelector("#student-practice-list");
 const statusEl = document.querySelector("#student-landing-status");
 const logOutButton = document.querySelector("#student-log-out, #student-sign-out");
 let isLoggingOut = false;
@@ -58,6 +62,80 @@ function formatDate(value) {
   return String(value);
 }
 
+function formatPracticeTitle(practice = {}) {
+  return [
+    practice.country,
+    practice.level,
+    practice.year ? `Year ${practice.year}` : "",
+    practice.subject
+  ]
+    .filter(Boolean)
+    .join(" / ");
+}
+
+function renderEmptyPractices() {
+  if (!practiceListEl) {
+    return;
+  }
+
+  practiceListEl.innerHTML = "";
+
+  const empty = document.createElement("p");
+
+  empty.className = "empty-state";
+  empty.textContent = "No practices assigned yet.";
+  practiceListEl.append(empty);
+}
+
+function renderPracticeCard(practice = {}) {
+  const card = document.createElement("div");
+  const title = document.createElement("p");
+  const meta = document.createElement("p");
+  const action = document.createElement("a");
+  const questionCount = Array.isArray(practice.questions)
+    ? practice.questions.length
+    : 0;
+
+  card.className = "practice-card";
+  title.className = "practice-card-title";
+  meta.className = "practice-card-meta";
+  title.textContent = formatPracticeTitle(practice) || `Practice ${practice.id || ""}`.trim();
+  meta.textContent = [
+    practice.difficulty,
+    practice.language,
+    `${questionCount} question${questionCount === 1 ? "" : "s"}`,
+    practice.dateGenerated ? `Generated ${formatDate(practice.dateGenerated)}` : ""
+  ]
+    .filter(Boolean)
+    .join(" | ");
+  action.className = "practice-card-action";
+  action.href = `${PRACTICE_COMMENCE_PAGE_URL}?practiceId=${encodeURIComponent(practice.id || "")}`;
+  action.textContent = "Start Practice";
+
+  card.append(title, meta, action);
+
+  return card;
+}
+
+function renderAssignedPractices(practices = []) {
+  setHidden(practicesEl, false);
+
+  if (!practiceListEl) {
+    return;
+  }
+
+  practiceListEl.innerHTML = "";
+
+  if (practices.length === 0) {
+    renderEmptyPractices();
+    return;
+  }
+
+  practices.forEach((practice) => {
+    practiceListEl.append(renderPracticeCard(practice));
+  });
+}
+
 function renderStudent(student) {
   setText(fieldEls.name, student.name || "");
   setText(fieldEls.username, student.username || "");
@@ -94,6 +172,13 @@ onStudentAuthStateChanged(async (user) => {
     }
 
     renderStudent(currentStudent.student);
+
+    const practices = await getCurrentStudentAssignedPractices();
+
+    renderAssignedPractices(practices);
+    setStatus(practices.length > 0
+      ? `Signed in. ${practices.length} practice(s) assigned.`
+      : "Signed in. No practices assigned yet.");
   } catch (error) {
     console.error(error);
     setStatus(error.message || "Could not load student profile.", true);

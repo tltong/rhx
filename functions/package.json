@@ -1,0 +1,11 @@
+{
+  "name": "functions",
+  "main": "index.js",
+  "engines": {
+    "node": "22"
+  },
+  "dependencies": {
+    "firebase-functions": "^7.2.5",
+    "openai": "^6.46.0"
+  }
+}

@@ -38,6 +38,11 @@
         margin: 0 0 8px;
       }
 
+      h2 {
+        font-size: 20px;
+        margin: 28px 0 12px;
+      }
+
       p {
         color: #52606d;
         margin: 0 0 20px;
@@ -56,6 +61,47 @@
       }
 
       dd {
+        margin: 0;
+      }
+
+      .practice-list {
+        display: grid;
+        gap: 12px;
+        margin-top: 12px;
+      }
+
+      .practice-card {
+        border: 1px solid #d9e2ec;
+        border-radius: 8px;
+        padding: 14px;
+      }
+
+      .practice-card-title {
+        color: #102a43;
+        font-weight: 700;
+        margin: 0 0 6px;
+      }
+
+      .practice-card-meta {
+        color: #52606d;
+        font-size: 14px;
+        margin: 0;
+      }
+
+      .practice-card-action {
+        background: #0369a1;
+        border-radius: 6px;
+        color: #ffffff;
+        display: inline-block;
+        font-size: 14px;
+        font-weight: 700;
+        margin-top: 12px;
+        padding: 8px 12px;
+        text-decoration: none;
+      }
+
+      .empty-state {
+        color: #64748b;
         margin: 0;
       }
 
@@ -122,11 +168,16 @@
           <dd id="student-profile-standard"></dd>
         </dl>
 
+        <div id="student-practices" hidden>
+          <h2>Assigned Practices</h2>
+          <div id="student-practice-list" class="practice-list"></div>
+        </div>
+
         <button id="student-log-out" type="button" hidden>Log Out</button>
         <div id="student-landing-status" role="status">Checking sign in status...</div>
       </section>
     </main>
 
-    <script type="module" src="/pages/student_landing_page/student_landing_page.js?v=20260709-handler-cache-fix"></script>
+    <script type="module" src="/pages/student_landing_page/student_landing_page.js?v=20260711-practice-current-user"></script>
   </body>
 </html>

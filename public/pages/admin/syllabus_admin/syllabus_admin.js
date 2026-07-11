@@ -7,11 +7,11 @@ import {
   readSyllabusByScopeWithTopics,
   readSyllabusSubjects,
   saveSyllabusWithTopics
-} from "/handler/syllabus_handler.js?v=20260711-delete-subject";
+} from "/handler/syllabus_handler.js?v=20260711-year-field";
 
 const countrySelect = document.querySelector("#country");
 const levelSelect = document.querySelector("#level");
-const gradeSelect = document.querySelector("#grade");
+const yearSelect = document.querySelector("#year");
 const subjectSelect = document.querySelector("#subject-select");
 const newSubjectInput = document.querySelector("#new-subject");
 const loadButton = document.querySelector("#load-syllabus");
@@ -61,29 +61,29 @@ function clearSelect(selectEl, placeholder) {
   selectEl.append(createOption("", placeholder));
 }
 
-function normalizeGradeKey(gradeKey) {
-  const match = String(gradeKey).match(/^grade_(\d+)$/);
+function normalizeYearKey(yearKey) {
+  const match = String(yearKey).match(/^grade_(\d+)$/);
 
-  return match ? match[1] : String(gradeKey);
+  return match ? match[1] : String(yearKey);
 }
 
 function getSelectedScope() {
   return syllabusScopes.find((scope) => scope.country === countrySelect.value) || null;
 }
 
-function getLevelGrades(scope, level) {
-  const grades = scope?.levels?.[level] || {};
+function getLevelYears(scope, level) {
+  const years = scope?.levels?.[level] || {};
 
-  return Object.entries(grades)
+  return Object.entries(years)
     .filter(([, isSelected]) => Boolean(isSelected))
-    .map(([grade]) => normalizeGradeKey(grade))
-    .filter((grade, index, list) => list.indexOf(grade) === index)
+    .map(([year]) => normalizeYearKey(year))
+    .filter((year, index, list) => list.indexOf(year) === index)
     .sort((left, right) => Number(left) - Number(right));
 }
 
 function getAvailableLevels(scope) {
   return Object.keys(scope?.levels || {})
-    .filter((level) => getLevelGrades(scope, level).length > 0)
+    .filter((level) => getLevelYears(scope, level).length > 0)
     .sort();
 }
 
@@ -109,36 +109,36 @@ function populateLevels() {
   const scope = getSelectedScope();
 
   clearSelect(levelSelect, "Select level");
-  clearSelect(gradeSelect, "Select grade");
+  clearSelect(yearSelect, "Select year");
 
   getAvailableLevels(scope).forEach((level) => {
     levelSelect.append(createOption(level, `${level.charAt(0).toUpperCase()}${level.slice(1)}`));
   });
 }
 
-function populateGrades() {
+function populateYears() {
   const scope = getSelectedScope();
 
-  clearSelect(gradeSelect, "Select grade");
+  clearSelect(yearSelect, "Select year");
 
-  getLevelGrades(scope, levelSelect.value).forEach((grade) => {
-    gradeSelect.append(createOption(grade, `Grade ${grade}`));
+  getLevelYears(scope, levelSelect.value).forEach((year) => {
+    yearSelect.append(createOption(year, `Year ${year}`));
   });
 }
 
 function getScopeSelection() {
   const country = countrySelect.value;
   const level = levelSelect.value;
-  const grade = Number(gradeSelect.value);
+  const year = Number(yearSelect.value);
 
-  if (!country || !level || !gradeSelect.value) {
-    throw new Error("Country, level, and grade must be selected.");
+  if (!country || !level || !yearSelect.value) {
+    throw new Error("Country, level, and year must be selected.");
   }
 
   return {
     country,
     level,
-    grade
+    year
   };
 }
 
@@ -179,7 +179,7 @@ function populateSubjects(subjects = [], selectedSubject = "") {
 async function loadSubjectOptions(selectedSubject = "") {
   populateSubjects([]);
 
-  if (!countrySelect.value || !levelSelect.value || !gradeSelect.value) {
+  if (!countrySelect.value || !levelSelect.value || !yearSelect.value) {
     return;
   }
 
@@ -279,7 +279,7 @@ function getSyllabusSelection() {
   const subject = getSubjectSelection();
 
   if (!subject) {
-    throw new Error("Country, level, grade, and subject must be selected.");
+    throw new Error("Country, level, year, and subject must be selected.");
   }
 
   return {
@@ -406,11 +406,11 @@ async function loadScopeOptions() {
     syllabusScopes = await readSyllabusScopes();
     populateCountries();
     populateLevels();
-    populateGrades();
+    populateYears();
     await loadSubjectOptions();
     resetEditor();
     setStatus(syllabusScopes.length > 0
-      ? "Select a country, level, grade, and subject."
+      ? "Select a country, level, year, and subject."
       : "No syllabus scope records found.");
   } catch (error) {
     showError(error, "Could not load syllabus scope.");
@@ -421,18 +421,18 @@ async function loadScopeOptions() {
 
 countrySelect.addEventListener("change", () => {
   populateLevels();
-  populateGrades();
+  populateYears();
   loadSubjectOptions();
   resetEditor();
 });
 
 levelSelect.addEventListener("change", () => {
-  populateGrades();
+  populateYears();
   loadSubjectOptions();
   resetEditor();
 });
 
-gradeSelect.addEventListener("change", () => {
+yearSelect.addEventListener("change", () => {
   loadSubjectOptions();
   resetEditor();
 });
