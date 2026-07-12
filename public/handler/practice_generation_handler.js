@@ -12,7 +12,9 @@ import {
   readDocument,
   writeDocument
 } from "../utils/firebase/firebase_ops.js";
-import questionGenerationHandler from "./question_generation_handler.js";
+import questionHandler from "./question_handler.js?v=20260711-nested";
+import questionGenerationHandler from "./question_generation_handler.js?v=20260712-deepseek-empty-retry";
+import { readCompletedQuestionIds } from "./user_completed_questions_handler.js";
 
 function requireNonEmptyString(value, name) {
   if (typeof value !== "string" || value.trim() === "") {
@@ -98,7 +100,7 @@ function getAssignedPracticesCollectionPath(studentId) {
   return `${STUDENT_PRACTICES_COLLECTION}/${studentId}/${ASSIGNED_PRACTICES_SUBCOLLECTION}`;
 }
 
-function getQuestionIds(questions = []) {
+function getQuestionRefs(questions = []) {
   if (!Array.isArray(questions)) {
     throw new Error("Generated questions must be an array.");
   }
@@ -106,31 +108,86 @@ function getQuestionIds(questions = []) {
   return questions.map((question, index) => {
     const source = requireObject(question, `questions[${index}]`);
 
-    return requireNonEmptyString(source.id, `questions[${index}].id`);
+    return {
+      syllabusId: requireNonEmptyString(source.syllabusId, `questions[${index}].syllabusId`),
+      topicId: requireNonEmptyString(source.topicId, `questions[${index}].topicId`),
+      questionId: requireNonEmptyString(
+        source.questionId || source.id,
+        `questions[${index}].questionId`
+      )
+    };
   });
 }
 
-function normalizeExistingQuestionIds(questionIds = []) {
-  if (!Array.isArray(questionIds)) {
+function getQuestionIds(questions = []) {
+  return getQuestionRefs(questions).map((questionRef) => questionRef.questionId);
+}
+
+function getQuestionRefKey(questionRef) {
+  return `${questionRef.syllabusId}/${questionRef.topicId}/${questionRef.questionId}`;
+}
+
+function getQuestionRef(question) {
+  const source = requireObject(question, "question");
+
+  return {
+    syllabusId: requireNonEmptyString(source.syllabusId, "question.syllabusId"),
+    topicId: requireNonEmptyString(source.topicId, "question.topicId"),
+    questionId: requireNonEmptyString(source.questionId || source.id, "question.questionId")
+  };
+}
+
+function normalizeComparableString(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function questionMatchesPracticeInput(question, input) {
+  return normalizeComparableString(question.syllabusId) === normalizeComparableString(input.syllabusId) &&
+    normalizeComparableString(question.topicId) === normalizeComparableString(input.topicId) &&
+    normalizeComparableString(question.difficulty) === normalizeComparableString(input.difficulty) &&
+    normalizeComparableString(question.language) === normalizeComparableString(input.language);
+}
+
+function normalizeExistingQuestionRefs(questionRefs = []) {
+  if (!Array.isArray(questionRefs)) {
     return [];
   }
 
-  return questionIds
-    .filter((questionId) => typeof questionId === "string" && questionId.trim() !== "")
-    .map((questionId) => questionId.trim());
+  return questionRefs
+    .filter((questionRef) => questionRef && typeof questionRef === "object" && !Array.isArray(questionRef))
+    .map((questionRef, index) => ({
+      syllabusId: requireNonEmptyString(questionRef.syllabusId, `questions[${index}].syllabusId`),
+      topicId: requireNonEmptyString(questionRef.topicId, `questions[${index}].topicId`),
+      questionId: requireNonEmptyString(questionRef.questionId || questionRef.id, `questions[${index}].questionId`)
+    }));
 }
 
-function mergeQuestionIds(existingQuestionIds = [], generatedQuestionIds = [], replaceQuestions = false) {
-  const baseQuestionIds = replaceQuestions
-    ? []
-    : normalizeExistingQuestionIds(existingQuestionIds);
+function getLegacyQuestionIds(questionRefs = []) {
+  if (!Array.isArray(questionRefs)) {
+    return [];
+  }
 
-  return [...new Set([...baseQuestionIds, ...generatedQuestionIds])];
+  return questionRefs
+    .filter((questionRef) => typeof questionRef === "string" && questionRef.trim() !== "")
+    .map((questionRef) => questionRef.trim());
+}
+
+function mergeQuestionRefs(existingQuestionRefs = [], generatedQuestionRefs = [], replaceQuestions = false) {
+  const baseQuestionRefs = replaceQuestions
+    ? []
+    : normalizeExistingQuestionRefs(existingQuestionRefs);
+  const refsByKey = new Map();
+
+  [...baseQuestionRefs, ...generatedQuestionRefs].forEach((questionRef) => {
+    refsByKey.set(getQuestionRefKey(questionRef), questionRef);
+  });
+
+  return [...refsByKey.values()];
 }
 
 function buildPracticeData(generationResult, existingPractice = null, options = {}) {
   const input = generationResult.input;
-  const generatedQuestionIds = getQuestionIds(generationResult.questions);
+  const generatedQuestionRefs = getQuestionRefs(generationResult.questions);
 
   return {
     country: input.country,
@@ -140,9 +197,9 @@ function buildPracticeData(generationResult, existingPractice = null, options = 
     difficulty: input.difficulty,
     language: input.language,
     dateGenerated: new Date(),
-    questions: mergeQuestionIds(
+    questions: mergeQuestionRefs(
       existingPractice?.questions,
-      generatedQuestionIds,
+      generatedQuestionRefs,
       options.replaceQuestions === true
     )
   };
@@ -156,10 +213,28 @@ function getQuestionGenerationOptions(options = {}) {
   };
 }
 
+function buildQuestionSelectionResult(input, reusedQuestions, generatedResult) {
+  const generatedQuestions = generatedResult?.questions || [];
+  const questions = [...reusedQuestions, ...generatedQuestions];
+
+  return {
+    input: {
+      ...input,
+      numberOfQuestions: questions.length
+    },
+    requestedQuestionCount: input.numberOfQuestions,
+    reusedQuestionCount: reusedQuestions.length,
+    generatedQuestionCount: generatedQuestions.length,
+    questions,
+    questionGeneration: generatedResult
+  };
+}
+
 export class PracticeGenerationHandler {
   constructor(options = {}) {
     this.questionGenerationHandler =
       options.questionGenerationHandler || questionGenerationHandler;
+    this.questionHandler = options.questionHandler || questionHandler;
   }
 
   getSchema() {
@@ -175,6 +250,42 @@ export class PracticeGenerationHandler {
 
   readPractices(buildQuery = null) {
     return readCollection(PRACTICES_COLLECTION, buildQuery);
+  }
+
+  async readAssignedPracticeIds(studentId) {
+    const normalizedStudentId = requireNonEmptyString(studentId, "studentId");
+    const assignedPracticeRefs = await readCollection(
+      getAssignedPracticesCollectionPath(normalizedStudentId)
+    );
+
+    return assignedPracticeRefs.map((practiceRef) => practiceRef.id);
+  }
+
+  async readAssignedQuestionUsage(studentId) {
+    const assignedPracticeIds = await this.readAssignedPracticeIds(studentId);
+    const assignedPractices = await Promise.all(
+      assignedPracticeIds.map((practiceId) => this.readPractice(practiceId))
+    );
+    const questionRefKeys = new Set();
+    const questionIds = new Set();
+
+    assignedPractices
+      .filter(Boolean)
+      .forEach((practice) => {
+        normalizeExistingQuestionRefs(practice.questions).forEach((questionRef) => {
+          questionRefKeys.add(getQuestionRefKey(questionRef));
+          questionIds.add(questionRef.questionId);
+        });
+
+        getLegacyQuestionIds(practice.questions).forEach((questionId) => {
+          questionIds.add(questionId);
+        });
+      });
+
+    return {
+      questionRefKeys,
+      questionIds
+    };
   }
 
   async assignPracticeToStudent(studentId, practiceId) {
@@ -196,12 +307,75 @@ export class PracticeGenerationHandler {
     };
   }
 
+  async readMatchingQuestions(input) {
+    const exactMatches = await this.questionHandler.readQuestionsByTopic(
+      input.syllabusId,
+      input.topicId,
+      (collection) => collection
+        .where("difficulty", "==", input.difficulty)
+        .where("language", "==", input.language)
+    );
+
+    if (exactMatches.length > 0) {
+      return exactMatches;
+    }
+
+    const topicQuestions = await this.questionHandler.readQuestionsByTopic(
+      input.syllabusId,
+      input.topicId
+    );
+
+    return topicQuestions.filter((question) => questionMatchesPracticeInput(question, input));
+  }
+
+  async readReusableQuestions(input, existingPractice = null, options = {}) {
+    if (!input.studentId) {
+      return [];
+    }
+
+    const completedQuestionIds = new Set(await readCompletedQuestionIds(
+      input.studentId,
+      input.syllabusId,
+      input.topicId
+    ));
+    const assignedQuestionUsage = await this.readAssignedQuestionUsage(input.studentId);
+    const existingPracticeQuestionRefs = options.replaceQuestions === true
+      ? new Set()
+      : new Set(
+          normalizeExistingQuestionRefs(existingPractice?.questions)
+            .map((questionRef) => getQuestionRefKey(questionRef))
+        );
+    const candidateQuestions = await this.readMatchingQuestions(input);
+
+    return candidateQuestions
+      .filter((question) => questionMatchesPracticeInput(question, input))
+      .filter((question) => !completedQuestionIds.has(question.id))
+      .filter((question) => !assignedQuestionUsage.questionIds.has(question.id))
+      .filter((question) => !assignedQuestionUsage.questionRefKeys.has(getQuestionRefKey(getQuestionRef(question))))
+      .filter((question) => !existingPracticeQuestionRefs.has(getQuestionRefKey(getQuestionRef(question))))
+      .slice(0, input.numberOfQuestions);
+  }
+
+  async buildQuestionSet(input, existingPractice = null, options = {}) {
+    const reusedQuestions = await this.readReusableQuestions(input, existingPractice, options);
+    const remainingQuestionCount = input.numberOfQuestions - reusedQuestions.length;
+    let generatedResult = null;
+
+    if (remainingQuestionCount > 0) {
+      generatedResult = await this.questionGenerationHandler.generateQuestions(
+        {
+          ...input,
+          numberOfQuestions: remainingQuestionCount
+        },
+        getQuestionGenerationOptions(options)
+      );
+    }
+
+    return buildQuestionSelectionResult(input, reusedQuestions, generatedResult);
+  }
+
   async generatePractice(input = {}, options = {}) {
     const normalizedInput = normalizePracticeGenerationInput(input);
-    const generationResult = await this.questionGenerationHandler.generateQuestions(
-      normalizedInput,
-      getQuestionGenerationOptions(options)
-    );
     let existingPractice = null;
     let practiceId = normalizedInput.practiceId;
 
@@ -209,7 +383,12 @@ export class PracticeGenerationHandler {
       existingPractice = await this.readPractice(practiceId);
     }
 
-    const practiceData = buildPracticeData(generationResult, existingPractice, options);
+    const questionSelection = await this.buildQuestionSet(
+      normalizedInput,
+      existingPractice,
+      options
+    );
+    const practiceData = buildPracticeData(questionSelection, existingPractice, options);
 
     if (practiceId) {
       await writeDocument(PRACTICES_COLLECTION, practiceId, practiceData, { merge: true });
@@ -227,8 +406,14 @@ export class PracticeGenerationHandler {
     return {
       practice,
       assignment,
-      questionGeneration: generationResult,
-      questionIds: getQuestionIds(generationResult.questions)
+      questionGeneration: questionSelection.questionGeneration,
+      questionSelection: {
+        requestedQuestionCount: questionSelection.requestedQuestionCount,
+        reusedQuestionCount: questionSelection.reusedQuestionCount,
+        generatedQuestionCount: questionSelection.generatedQuestionCount
+      },
+      questionRefs: getQuestionRefs(questionSelection.questions),
+      questionIds: getQuestionIds(questionSelection.questions)
     };
   }
 

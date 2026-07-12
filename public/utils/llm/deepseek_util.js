@@ -133,15 +133,57 @@ function isHostingRewriteEndpoint(endpointUrl) {
   return endpointUrl === DEEPSEEK_HOSTING_REWRITE_PATH;
 }
 
+function formatRawTextSnippet(rawText, maxLength = 700) {
+  const text = String(rawText || "").trim();
+
+  if (!text) {
+    return "";
+  }
+
+  if (text.length <= maxLength) {
+    return text;
+  }
+
+  return `${text.slice(0, maxLength)}...`;
+}
+
+function formatPayloadDebugSnippet(payload) {
+  const rawTextSnippet = formatRawTextSnippet(
+    payload?.rawText ||
+      payload?.retryRawText ||
+      payload?.repairedRawText
+  );
+
+  if (rawTextSnippet) {
+    return `Raw response: ${rawTextSnippet}`;
+  }
+
+  if (!payload?.diagnostics) {
+    return "";
+  }
+
+  return `Diagnostics: ${formatRawTextSnippet(
+    JSON.stringify(payload.diagnostics),
+    700
+  )}`;
+}
+
 function createHttpError(response, payload) {
-  const message = payload?.error ||
+  const baseMessage = payload?.error ||
     payload?.message ||
     `DeepSeek function request failed with HTTP ${response.status}.`;
+  const payloadDebugSnippet = formatPayloadDebugSnippet(payload);
+  const message = payloadDebugSnippet
+    ? `${baseMessage} ${payloadDebugSnippet}`
+    : baseMessage;
   const error = new Error(message);
 
   error.status = response.status;
   error.statusText = response.statusText;
   error.payload = payload;
+  error.rawText = payload?.rawText || null;
+  error.retryRawText = payload?.retryRawText || null;
+  error.repairedRawText = payload?.repairedRawText || null;
 
   return error;
 }

@@ -6,7 +6,7 @@ import {
   DEFAULT_QUESTION_GENERATION_TEMPERATURE,
   generateQuestions as generateAndStoreQuestions,
   getQuestionGenerationPromptPreview
-} from "../../../handler/question_generation_handler.js?v=20260711-prompt-preview";
+} from "../../../handler/question_generation_handler.js?v=20260712-deepseek-empty-retry";
 
 const countrySelect = document.querySelector("#country");
 const levelSelect = document.querySelector("#level");

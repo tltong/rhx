@@ -4,12 +4,11 @@ import {
 } from "../../../handler/syllabus_handler.js?v=20260711-year-field";
 import {
   readStudents
-} from "../../../handler/student_handler.js?v=20260711-generate-practice";
+} from "../../../handler/student_handler.js?v=20260711-nested-questions";
 import {
-  assignPracticeToStudent,
   generatePractice,
   readPractice
-} from "../../../handler/practice_generation_handler.js?v=20260711-student-assignment";
+} from "../../../handler/practice_generation_handler.js?v=20260712-deepseek-empty-retry";
 
 const countrySelect = document.querySelector("#country");
 const levelSelect = document.querySelector("#level");
@@ -365,13 +364,14 @@ async function loadInitialData() {
   }
 }
 
-function getPracticeInput(topic, numberOfQuestions, practiceId = null) {
+function getPracticeInput(topic, numberOfQuestions, practiceId = null, studentId = null) {
   if (!currentSyllabus) {
     throw new Error("Select a syllabus first.");
   }
 
   return {
     practiceId,
+    studentId,
     country: currentSyllabus.country,
     level: currentSyllabus.level,
     year: currentSyllabus.year,
@@ -428,7 +428,7 @@ async function generatePracticeForStudent() {
       );
 
       const result = await generatePractice(
-        getPracticeInput(topic, questionCount, practiceId),
+        getPracticeInput(topic, questionCount, practiceId, studentId),
         { temperature }
       );
 
@@ -441,12 +441,12 @@ async function generatePracticeForStudent() {
       });
     }
 
-    const assignment = await assignPracticeToStudent(studentId, practiceId);
     const practice = await readPractice(practiceId);
     const selectedStudent = students.find((student) => student.id === studentId) || null;
+    const latestTopicResult = topicResults[topicResults.length - 1]?.result || {};
     const response = {
       practice,
-      assignment,
+      assignment: latestTopicResult.assignment || null,
       student: selectedStudent,
       requestedQuestionCount: totalQuestionCount,
       selectedTopicCount: selectedTopics.length,

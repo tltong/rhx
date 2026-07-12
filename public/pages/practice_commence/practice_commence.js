@@ -2,7 +2,7 @@ import {
   completeStudentPractice,
   onStudentAuthStateChanged,
   readStudentAssignedPractice
-} from "/handler/student_handler.js?v=20260711-practice-commence";
+} from "/handler/student_handler.js?v=20260711-nested-questions";
 
 const STUDENT_SIGN_IN_PAGE_URL = "/pages/student_sign_in/student_sign_in.html";
 const STUDENT_LANDING_PAGE_URL = "/pages/student_landing_page/student_landing_page.html";

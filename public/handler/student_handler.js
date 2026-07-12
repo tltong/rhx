@@ -3,12 +3,12 @@ import {
   studentSchema
 } from "../config/firebase/student_schema.js";
 import { PRACTICES_COLLECTION } from "../config/firebase/practice_schema.js";
-import { QUESTIONS_COLLECTION } from "../config/firebase/question_schema.js";
 import {
   ASSIGNED_PRACTICES_SUBCOLLECTION,
   COMPLETED_PRACTICES_SUBCOLLECTION,
   STUDENT_PRACTICES_COLLECTION
 } from "../config/firebase/student_practice_schema.js";
+import { readQuestion } from "./question_handler.js?v=20260711-nested";
 import { addCompletedQuestionIds } from "./user_completed_questions_handler.js";
 import {
   getCurrentFirebaseAuthUser,
@@ -119,6 +119,31 @@ function buildCompletedQuestionGroups(questions = []) {
 
     return groups;
   }, new Map());
+}
+
+function normalizePracticeQuestionRef(questionRef, index) {
+  if (typeof questionRef === "string") {
+    return {
+      questionId: requireNonEmptyString(questionRef, `questions[${index}]`)
+    };
+  }
+
+  if (questionRef === null || typeof questionRef !== "object" || Array.isArray(questionRef)) {
+    throw new Error(`questions[${index}] must be a question reference.`);
+  }
+
+  return {
+    syllabusId: questionRef.syllabusId
+      ? requireNonEmptyString(questionRef.syllabusId, `questions[${index}].syllabusId`)
+      : null,
+    topicId: questionRef.topicId
+      ? requireNonEmptyString(questionRef.topicId, `questions[${index}].topicId`)
+      : null,
+    questionId: requireNonEmptyString(
+      questionRef.questionId || questionRef.id,
+      `questions[${index}].questionId`
+    )
+  };
 }
 
 function normalizeUsername(username) {
@@ -246,14 +271,16 @@ export async function readStudentAssignedPractice(studentId, practiceId) {
     throw new Error("Practice was not found.");
   }
 
-  const questionIds = Array.isArray(practice.questions) ? practice.questions : [];
+  const questionRefs = Array.isArray(practice.questions)
+    ? practice.questions.map(normalizePracticeQuestionRef)
+    : [];
   const questions = await Promise.all(
-    questionIds.map((questionId) => readDocument(QUESTIONS_COLLECTION, questionId))
+    questionRefs.map((questionRef) => readQuestion(questionRef))
   );
   const missingQuestionIndex = questions.findIndex((question) => !question);
 
   if (missingQuestionIndex >= 0) {
-    throw new Error(`Question ${questionIds[missingQuestionIndex]} was not found.`);
+    throw new Error(`Question ${questionRefs[missingQuestionIndex].questionId} was not found.`);
   }
 
   return {

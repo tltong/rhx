@@ -1,7 +1,7 @@
 import {
   checkStudentUsernameAvailability,
   createStudentAccount
-} from "/handler/student_handler.js?v=20260709-username-message-fix";
+} from "/handler/student_handler.js?v=20260711-nested-questions";
 
 const form = document.querySelector("#student-sign-up-form");
 const submitButton = document.querySelector("#student-sign-up-submit");

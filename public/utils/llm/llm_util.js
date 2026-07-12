@@ -1,7 +1,7 @@
 import deepseekUtil, {
   callDeepseek,
   generateDeepseekText
-} from "./deepseek_util.js?v=20260711-rewrite-fallback";
+} from "./deepseek_util.js?v=20260712-deepseek-empty-retry";
 
 export const LLM_PROVIDERS = Object.freeze({
   DEEPSEEK: "deepseek"

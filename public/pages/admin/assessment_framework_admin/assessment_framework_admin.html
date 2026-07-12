@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Assessment Framework Admin</title>
+
+    <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script type="module" src="/init_fb.js"></script>
+
+    <style>
+      body {
+        background: #eef3f8;
+        color: #1f2933;
+        font-family: Arial, Helvetica, sans-serif;
+        margin: 0;
+      }
+
+      main {
+        box-sizing: border-box;
+        margin: 0 auto;
+        max-width: 980px;
+        padding: 36px 20px;
+      }
+
+      section {
+        background: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+        padding: 28px;
+      }
+
+      h1 {
+        font-size: 26px;
+        margin: 0 0 8px;
+      }
+
+      h2 {
+        font-size: 20px;
+        margin: 0;
+      }
+
+      p {
+        color: #52606d;
+        line-height: 1.5;
+        margin: 0 0 20px;
+      }
+
+      label {
+        color: #334155;
+        display: block;
+        font-size: 14px;
+        font-weight: 700;
+        margin: 0 0 6px;
+      }
+
+      input,
+      select {
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        box-sizing: border-box;
+        font: inherit;
+        padding: 10px 12px;
+        width: 100%;
+      }
+
+      button {
+        background: #0369a1;
+        border: 0;
+        border-radius: 6px;
+        color: #ffffff;
+        cursor: pointer;
+        font: inherit;
+        font-weight: 700;
+        padding: 10px 14px;
+      }
+
+      button.secondary {
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        color: #1f2933;
+      }
+
+      button.danger {
+        background: #fee2e2;
+        color: #991b1b;
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.65;
+      }
+
+      input[type="checkbox"] {
+        width: auto;
+      }
+
+      .toolbar {
+        align-items: end;
+        display: grid;
+        gap: 14px;
+        grid-template-columns: 1fr auto auto;
+        margin-bottom: 22px;
+      }
+
+      .framework-fields,
+      .level-grid {
+        display: grid;
+        gap: 14px;
+      }
+
+      .framework-fields {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .delete-panel {
+        align-items: center;
+        background: #fff7ed;
+        border: 1px solid #fed7aa;
+        border-radius: 8px;
+        display: flex;
+        gap: 12px;
+        justify-content: space-between;
+        margin: 20px 0;
+        padding: 12px;
+      }
+
+      .confirm-delete {
+        align-items: center;
+        display: flex;
+        gap: 8px;
+        margin: 0;
+      }
+
+      .levels-header {
+        align-items: center;
+        border-top: 1px solid #d9e2ec;
+        display: flex;
+        gap: 12px;
+        justify-content: space-between;
+        margin-top: 22px;
+        padding-top: 20px;
+      }
+
+      #levels-list {
+        display: grid;
+        gap: 14px;
+        margin-top: 14px;
+      }
+
+      .level-card {
+        border: 1px solid #d9e2ec;
+        border-radius: 8px;
+        padding: 16px;
+      }
+
+      .level-grid {
+        grid-template-columns: 1.3fr 0.8fr 1fr 1fr 1fr 1fr auto;
+      }
+
+      .empty-state {
+        background: #f8fafc;
+        border: 1px dashed #cbd5e1;
+        border-radius: 8px;
+        color: #52606d;
+        padding: 18px;
+        text-align: center;
+      }
+
+      #assessment-framework-status {
+        background: #e0f2fe;
+        border-radius: 6px;
+        color: #075985;
+        margin-top: 18px;
+        min-height: 20px;
+        padding: 12px;
+      }
+
+      #assessment-framework-status.is-error {
+        background: #fee2e2;
+        color: #991b1b;
+      }
+
+      @media (max-width: 980px) {
+        .level-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+
+      @media (max-width: 700px) {
+        main {
+          padding: 0;
+        }
+
+        section {
+          border-radius: 0;
+          box-shadow: none;
+          min-height: 100vh;
+        }
+
+        .toolbar,
+        .framework-fields,
+        .level-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .delete-panel,
+        .levels-header {
+          align-items: stretch;
+          flex-direction: column;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section aria-labelledby="assessment-framework-admin-title">
+        <h1 id="assessment-framework-admin-title">Assessment Framework Admin</h1>
+        <p>Define assessment frameworks and their progression levels.</p>
+
+        <div class="toolbar">
+          <div>
+            <label for="framework-select">Assessment framework</label>
+            <select id="framework-select"></select>
+          </div>
+
+          <button id="new-framework" class="secondary" type="button">New Framework</button>
+          <button id="save-framework" type="button">Save Framework</button>
+        </div>
+
+        <div class="framework-fields">
+          <div>
+            <label for="framework-name">Name</label>
+            <input id="framework-name" type="text" placeholder="Framework name">
+          </div>
+
+          <div>
+            <label for="end-level-name">End level name</label>
+            <input id="end-level-name" type="text" placeholder="Completion level name">
+          </div>
+        </div>
+
+        <div class="delete-panel">
+          <label class="confirm-delete" for="confirm-delete-framework">
+            <input id="confirm-delete-framework" type="checkbox">
+            Confirm delete selected framework and all levels
+          </label>
+          <button id="delete-framework" class="danger" type="button" disabled>Delete Framework</button>
+        </div>
+
+        <div class="levels-header">
+          <h2>Levels</h2>
+          <button id="add-level" class="secondary" type="button">Add Level</button>
+        </div>
+
+        <div id="levels-list"></div>
+
+        <div id="assessment-framework-status" role="status">Loading assessment frameworks...</div>
+      </section>
+    </main>
+
+    <template id="level-template">
+      <article class="level-card">
+        <div class="level-grid">
+          <div>
+            <label>Level name</label>
+            <input class="level-name" type="text" placeholder="Level name">
+          </div>
+
+          <div>
+            <label>Sequence</label>
+            <input class="sequence-order" type="number" step="1" min="1" placeholder="1">
+          </div>
+
+          <div>
+            <label>Practices</label>
+            <input class="required-practice-count" type="number" step="1" min="0" placeholder="3">
+          </div>
+
+          <div>
+            <label>Minimum score</label>
+            <input class="minimum-score" type="number" step="1" min="0" max="100" placeholder="80">
+          </div>
+
+          <div>
+            <label>Questions</label>
+            <input class="questions-per-practice" type="number" step="1" min="1" placeholder="10">
+          </div>
+
+          <div>
+            <label>Difficulty</label>
+            <select class="difficulty-level">
+              <option value="Easy">Easy</option>
+              <option value="Medium">Medium</option>
+              <option value="Hard">Hard</option>
+            </select>
+          </div>
+
+          <button class="danger remove-level" type="button">Remove</button>
+        </div>
+      </article>
+    </template>
+
+    <script type="module" src="/pages/admin/assessment_framework_admin/assessment_framework_admin.js?v=20260712-select-load"></script>
+  </body>
+</html>

@@ -1,7 +1,7 @@
 import syllabusHandler from "./syllabus_handler.js";
-import questionHandler from "./question_handler.js?v=20260711-language";
-import { questionLanguages } from "../config/firebase/question_schema.js?v=20260711-language";
-import { generateLlmText } from "../utils/llm/llm_ops.js";
+import questionHandler from "./question_handler.js?v=20260711-nested";
+import { questionLanguages } from "../config/firebase/question_schema.js?v=20260711-nested";
+import { generateLlmText } from "../utils/llm/llm_ops.js?v=20260712-deepseek-empty-retry";
 
 const DIFFICULTY_LEVELS = {
   EASY: "Easy",
@@ -201,6 +201,7 @@ function buildQuestionGenerationMessages(input, syllabus, topic) {
         `Special instruction: ${input.specialInstruction || "None"}`,
         "",
         "Rules:",
+        "- The response must start with { and end with }.",
         "- Each question must have exactly four options: a, b, c, d.",
         "- correctAnswer must be one lowercase letter: a, b, c, or d.",
         "- Do not include explanations or markdown.",

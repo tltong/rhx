@@ -100,6 +100,234 @@ function getDeepseekClient() {
   });
 }
 
+function stripJsonCodeFence(content) {
+  return String(content || "")
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+}
+
+function extractFirstJsonValue(content) {
+  const text = String(content || "");
+  const start = text.search(/[\[{]/);
+
+  if (start < 0) {
+    return "";
+  }
+
+  const openingChar = text[start];
+  const closingChar = openingChar === "{" ? "}" : "]";
+  let depth = 0;
+  let inString = false;
+  let isEscaped = false;
+
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index];
+
+    if (inString) {
+      if (isEscaped) {
+        isEscaped = false;
+      } else if (char === "\\") {
+        isEscaped = true;
+      } else if (char === "\"") {
+        inString = false;
+      }
+
+      continue;
+    }
+
+    if (char === "\"") {
+      inString = true;
+      continue;
+    }
+
+    if (char === openingChar) {
+      depth += 1;
+    } else if (char === closingChar) {
+      depth -= 1;
+
+      if (depth === 0) {
+        return text.slice(start, index + 1);
+      }
+    }
+  }
+
+  return "";
+}
+
+function repairJsonCandidate(candidate) {
+  return String(candidate || "")
+    .trim()
+    .replace(/^\uFEFF/, "")
+    .replace(/[\u201C\u201D]/g, "\"")
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/,\s*([}\]])/g, "$1");
+}
+
+function parseModelJson(content) {
+  const rawCandidates = [
+    String(content || "").trim(),
+    stripJsonCodeFence(content),
+    extractFirstJsonValue(content),
+  ].filter(Boolean);
+  const candidates = [];
+
+  rawCandidates.forEach((candidate) => {
+    const repairedCandidate = repairJsonCandidate(candidate);
+
+    candidates.push(candidate);
+
+    if (repairedCandidate !== candidate) {
+      candidates.push(repairedCandidate);
+    }
+  });
+
+  for (const candidate of candidates) {
+    try {
+      return JSON.parse(candidate);
+    } catch (error) {
+      // Try the next candidate.
+    }
+  }
+
+  return null;
+}
+
+function truncateText(value, maxLength = 12000) {
+  const text = String(value || "");
+
+  if (text.length <= maxLength) {
+    return text;
+  }
+
+  return `${text.slice(0, maxLength)}\n... [truncated]`;
+}
+
+async function createDeepseekCompletion({
+  model,
+  messages,
+  maxTokens,
+  temperature,
+  useJsonMode = true,
+  thinkingType = "disabled",
+}) {
+  const request = {
+    model,
+    messages,
+    max_tokens: maxTokens,
+    temperature,
+    stream: false,
+  };
+
+  if (useJsonMode) {
+    request.response_format = { type: "json_object" };
+  }
+
+  if (thinkingType) {
+    request.thinking = { type: thinkingType };
+  }
+
+  return getDeepseekClient().chat.completions.create(request);
+}
+
+function getContentPartText(part) {
+  if (typeof part === "string") {
+    return part;
+  }
+
+  if (!part || typeof part !== "object") {
+    return "";
+  }
+
+  if (typeof part.text === "string") {
+    return part.text;
+  }
+
+  if (typeof part.content === "string") {
+    return part.content;
+  }
+
+  return JSON.stringify(part);
+}
+
+function getCompletionContent(completion) {
+  const choice = completion?.choices?.[0] || {};
+  const content = choice.message?.content;
+
+  if (typeof content === "string") {
+    return content;
+  }
+
+  if (Array.isArray(content)) {
+    return content.map(getContentPartText).join("");
+  }
+
+  if (content && typeof content === "object") {
+    return JSON.stringify(content);
+  }
+
+  if (typeof choice.text === "string") {
+    return choice.text;
+  }
+
+  return "";
+}
+
+function getCompletionDiagnostics(completion) {
+  const choice = completion?.choices?.[0] || {};
+  const message = choice.message || {};
+
+  return {
+    model: completion?.model || null,
+    finishReason: choice.finish_reason || null,
+    messageKeys: Object.keys(message),
+    contentType: Array.isArray(message.content) ? "array" : typeof message.content,
+    usage: completion?.usage || null,
+  };
+}
+
+function buildPlainJsonRetryMessages(messages) {
+  return [
+    ...messages,
+    {
+      role: "user",
+      content:
+        "Retry now. Return only the JSON object requested above. The first character must be { and the last character must be }. Do not use markdown, code fences, explanations, or extra text.",
+    },
+  ];
+}
+
+async function repairJsonWithDeepseek({ model, content, maxTokens }) {
+  const rawText = String(content || "").trim();
+
+  if (!rawText) {
+    return null;
+  }
+
+  return createDeepseekCompletion({
+    model,
+    maxTokens,
+    temperature: 0,
+    useJsonMode: false,
+    messages: [
+      {
+        role: "system",
+        content:
+          "You repair invalid JSON. Return only one strict JSON object. Use double quotes, no markdown, no comments, and no trailing commas.",
+      },
+      {
+        role: "user",
+        content: [
+          "Repair this output into valid JSON while preserving the same data and structure:",
+          "",
+          truncateText(rawText),
+        ].join("\n"),
+      },
+    ],
+  });
+}
+
 const generateDeepseekText = onRequest(
   {
     cors: [
@@ -140,24 +368,71 @@ const generateDeepseekText = onRequest(
     const temperature = normalizeNumber(body.temperature, 0.3, 0, 2);
 
     try {
-      const completion = await getDeepseekClient().chat.completions.create({
+      let completion = await createDeepseekCompletion({
         model,
         messages,
-        response_format: { type: "json_object" },
-        max_tokens: maxTokens,
+        maxTokens,
         temperature,
-        stream: false,
       });
+      const initialDiagnostics = getCompletionDiagnostics(completion);
+      let content = getCompletionContent(completion);
+      let json = parseModelJson(content);
+      let retryRawText = "";
+      let repairedRawText = "";
+      let retryDiagnostics = null;
+      let repairDiagnostics = null;
 
-      const content = completion.choices?.[0]?.message?.content || "";
-      let json;
+      if (json === null && !content.trim()) {
+        const retryCompletion = await createDeepseekCompletion({
+          model,
+          messages: buildPlainJsonRetryMessages(messages),
+          maxTokens,
+          temperature: Math.min(temperature, 0.2),
+          useJsonMode: false,
+        });
 
-      try {
-        json = JSON.parse(content);
-      } catch (error) {
+        retryDiagnostics = getCompletionDiagnostics(retryCompletion);
+        retryRawText = getCompletionContent(retryCompletion);
+        json = parseModelJson(retryRawText);
+
+        if (json !== null) {
+          completion = retryCompletion;
+          content = retryRawText;
+        }
+      }
+
+      if (json === null && (retryRawText || content).trim()) {
+        const repairCompletion = await repairJsonWithDeepseek({
+          model,
+          content: retryRawText || content,
+          maxTokens,
+        });
+
+        repairDiagnostics = repairCompletion
+          ? getCompletionDiagnostics(repairCompletion)
+          : null;
+        repairedRawText = repairCompletion
+          ? getCompletionContent(repairCompletion)
+          : "";
+        json = parseModelJson(repairedRawText);
+
+        if (json !== null) {
+          completion = repairCompletion;
+          content = repairedRawText;
+        }
+      }
+
+      if (json === null) {
         res.status(502).json({
           error: "DeepSeek did not return valid JSON.",
           rawText: content,
+          retryRawText,
+          repairedRawText,
+          diagnostics: {
+            initial: initialDiagnostics,
+            retry: retryDiagnostics,
+            repair: repairDiagnostics,
+          },
         });
         return;
       }

@@ -1,4 +1,4 @@
-import { signInStudent } from "/handler/student_handler.js";
+import { signInStudent } from "/handler/student_handler.js?v=20260711-nested-questions";
 
 const form = document.querySelector("#student-sign-in-form");
 const submitButton = document.querySelector("#student-sign-in-submit");
