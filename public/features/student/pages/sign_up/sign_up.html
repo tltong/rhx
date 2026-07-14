@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Student Sign Up</title>
+
+    <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script type="module" src="/init_fb.js"></script>
+
+    <style>
+      body {
+        background: #eef3f8;
+        color: #102a43;
+        font-family: Arial, Helvetica, sans-serif;
+        margin: 0;
+      }
+
+      main {
+        box-sizing: border-box;
+        margin: 0 auto;
+        max-width: 520px;
+        padding: 40px 20px;
+      }
+
+      section {
+        background: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+        padding: 28px;
+      }
+
+      h1 {
+        font-size: 28px;
+        margin: 0 0 8px;
+      }
+
+      p {
+        color: #52606d;
+        margin: 0 0 20px;
+      }
+
+      form {
+        display: grid;
+        gap: 16px;
+      }
+
+      label {
+        color: #334155;
+        display: grid;
+        font-weight: 700;
+        gap: 6px;
+      }
+
+      input,
+      select {
+        border: 1px solid #bcccdc;
+        border-radius: 6px;
+        box-sizing: border-box;
+        font: inherit;
+        padding: 10px 12px;
+        width: 100%;
+      }
+
+      button,
+      .home-link {
+        background: #0369a1;
+        border: 0;
+        border-radius: 6px;
+        color: #ffffff;
+        cursor: pointer;
+        display: inline-block;
+        font: inherit;
+        font-weight: 700;
+        padding: 12px 16px;
+        text-align: center;
+        text-decoration: none;
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.65;
+      }
+
+      .status {
+        background: #e0f2fe;
+        border-radius: 6px;
+        color: #075985;
+        margin-top: 18px;
+        padding: 12px;
+      }
+
+      .status.is-error {
+        background: #fee2e2;
+        color: #991b1b;
+      }
+
+      .actions {
+        display: grid;
+        gap: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section>
+        <h1>Student Sign Up</h1>
+        <p>Create a student account.</p>
+
+        <form id="student-sign-up-form">
+          <label>
+            Student name
+            <input id="student-name" name="name" autocomplete="name" required>
+          </label>
+
+          <label>
+            Username
+            <input id="student-username" name="username" autocomplete="username" required>
+          </label>
+
+          <label>
+            6 digit PIN
+            <input id="student-pin" name="pin" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" required>
+          </label>
+
+          <label>
+            Year of birth
+            <input id="student-year-of-birth" name="yearOfBirth" inputmode="numeric" required>
+          </label>
+
+          <label>
+            Level
+            <select id="student-level" name="level" required>
+              <option value="">Select level</option>
+            </select>
+          </label>
+
+          <label>
+            Standard
+            <select id="student-standard" name="standard" required>
+              <option value="">Select standard</option>
+              <option value="1">Standard 1</option>
+              <option value="2">Standard 2</option>
+              <option value="3">Standard 3</option>
+              <option value="4">Standard 4</option>
+              <option value="5">Standard 5</option>
+              <option value="6">Standard 6</option>
+            </select>
+          </label>
+
+          <div class="actions">
+            <button id="student-sign-up-submit" type="submit">Sign Up</button>
+            <a class="home-link" href="/index.html">Back To Home</a>
+          </div>
+        </form>
+
+        <div id="student-sign-up-status" class="status" role="status">Ready.</div>
+      </section>
+    </main>
+
+    <script type="module" src="./sign_up.js?v=20260715-student-levels"></script>
+  </body>
+</html>

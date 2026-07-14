@@ -24,6 +24,7 @@ export const studentPracticeSchema = {
         dateCompleted: "timestamp",
         questionsCorrect: "number",
         totalQuestions: "number",
+        score: "number",
         timeTakenSeconds: "number",
         studentAnswers: {
           type: "map",

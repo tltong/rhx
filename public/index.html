@@ -9,7 +9,7 @@
       body {
         align-items: center;
         background: #eef3f8;
-        box-sizing: border-box;
+        color: #102a43;
         display: flex;
         font-family: Arial, Helvetica, sans-serif;
         justify-content: center;
@@ -19,48 +19,46 @@
       }
 
       main {
-        display: grid;
-        gap: 12px;
-        max-width: 360px;
-        width: 100%;
+        text-align: center;
       }
 
-      button {
+      nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        justify-content: center;
+      }
+
+      h1 {
+        font-size: 32px;
+        margin: 0 0 8px;
+      }
+
+      p {
+        color: #52606d;
+        margin: 0 0 20px;
+      }
+
+      a {
         background: #0369a1;
-        border: 0;
         border-radius: 6px;
         color: #ffffff;
-        cursor: pointer;
-        font: inherit;
+        display: inline-block;
         font-weight: 700;
-        padding: 14px 18px;
-        width: 100%;
-      }
-
-      button:hover {
-        background: #075985;
+        padding: 12px 16px;
+        text-decoration: none;
       }
     </style>
   </head>
   <body>
     <main>
-      <button type="button" data-href="/pages/guardian_sign_up/guardian_sign_up.html">Guardian Sign Up</button>
-      <button type="button" data-href="/pages/guardian_sign_in/guardian_sign_in.html">Guardian Sign In</button>
-      <button type="button" data-href="/pages/student_sign_up/student_sign_up.html">Student Sign Up</button>
-      <button type="button" data-href="/pages/student_sign_in/student_sign_in.html">Student Sign In</button>
-      <button type="button" data-href="/pages/admin/syllabus_admin/syllabus_admin.html">Syllabus Admin</button>
-      <button type="button" data-href="/pages/admin/syllabusscope_admin/syllabusscope_admin.html">Syllabus Scope Admin</button>
-      <button type="button" data-href="/pages/admin/assessment_framework_admin/assessment_framework_admin.html">Assessment Framework Admin</button>
-      <button type="button" data-href="/pages/admin/generate_questions/generate_questions.html">Generate Questions</button>
-      <button type="button" data-href="/pages/admin/generate_practice/generate_practice.html">Generate Practice</button>
+      <h1>ReadyHeroX</h1>
+      <p>Ready for the next build step.</p>
+      <nav>
+        <a href="/features/student/pages/sign_up/sign_up.html">Student Sign Up</a>
+        <a href="/features/syllabusscope/pages/admin/syllabusscope_admin.html">Syllabus Scope Admin</a>
+        <a href="/features/assessment_framework/pages/admin/assessment_framework_admin.html">Assessment Framework Admin</a>
+      </nav>
     </main>
-
-    <script>
-      document.querySelectorAll("button[data-href]").forEach((button) => {
-        button.addEventListener("click", () => {
-          window.location.href = button.dataset.href;
-        });
-      });
-    </script>
   </body>
 </html>

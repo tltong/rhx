@@ -4,6 +4,7 @@ export const SYLLABUS_TOPICS_SUBCOLLECTION = "topics";
 export const syllabusDocumentIdPattern = "[auto_generated_id]";
 export const syllabusTopicDocumentIdPattern = "[auto_generated_id]";
 export const syllabusSubtopicIdPattern = "[auto_generated_subtopic_id]";
+export const syllabusAssessmentFrameworkIdPattern = "[assessment_framework_id]";
 
 export const syllabusesSchema = {
   collection: SYLLABUSES_COLLECTION,
@@ -12,7 +13,16 @@ export const syllabusesSchema = {
     country: "string",
     level: "string",
     year: "number",
-    subject: "string"
+    subject: "string",
+    active: {
+      type: "boolean",
+      default: false
+    },
+    assessmentFrameworkId: {
+      type: "string",
+      pattern: syllabusAssessmentFrameworkIdPattern,
+      references: "assessmentFrameworks/{assessmentFrameworkId}"
+    }
   },
   subcollections: {
     topics: {
@@ -37,5 +47,6 @@ export default {
   syllabusDocumentIdPattern,
   syllabusTopicDocumentIdPattern,
   syllabusSubtopicIdPattern,
+  syllabusAssessmentFrameworkIdPattern,
   syllabusesSchema
 };

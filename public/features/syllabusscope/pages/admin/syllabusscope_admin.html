@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Syllabus Scope Admin</title>
+    <link rel="stylesheet" href="./syllabusscope_admin.css?v=20260715-country-sections">
+    <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script type="module" src="/init_fb.js"></script>
+  </head>
+  <body>
+    <main class="page">
+      <header class="page-header">
+        <a class="back-link" href="/">Back to Home</a>
+        <h1>Syllabus Scope Admin</h1>
+        <p>Define which school years are available for each country and level.</p>
+      </header>
+
+      <section class="panel">
+        <div class="country-sections">
+          <section class="country-section">
+            <h2>Existing Country</h2>
+            <label class="field">
+              <span>Added country</span>
+              <select id="scope-country-select">
+                <option value="">Select country</option>
+              </select>
+            </label>
+
+            <div class="delete-row">
+              <label class="confirm-delete">
+                <input id="confirm-delete-country" type="checkbox">
+                <span>Confirm delete selected country</span>
+              </label>
+              <button id="delete-scope" type="button" class="danger" disabled>Delete Country</button>
+            </div>
+          </section>
+
+          <section class="country-section">
+            <h2>Add New Country</h2>
+            <div class="add-country-row">
+              <label class="field">
+                <span>New country</span>
+                <input id="scope-country" type="text" autocomplete="off" placeholder="Malaysia">
+              </label>
+              <button id="new-scope" type="button" class="secondary">Use New Country</button>
+            </div>
+          </section>
+        </div>
+
+        <div id="levels-container" class="levels"></div>
+
+        <div class="actions">
+          <button id="save-scope" type="button">Save Scope</button>
+        </div>
+
+        <p id="status-message" class="status" hidden></p>
+      </section>
+    </main>
+
+    <script type="module" src="./syllabusscope_admin.js?v=20260715-country-sections"></script>
+  </body>
+</html>

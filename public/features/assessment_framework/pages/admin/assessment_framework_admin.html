@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assessment Framework Admin</title>
+    <link rel="stylesheet" href="./assessment_framework_admin.css?v=20260715-sequence-reorder">
+    <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script type="module" src="/init_fb.js"></script>
+  </head>
+  <body>
+    <main class="page">
+      <header class="page-header">
+        <a class="back-link" href="/">Back to Home</a>
+        <h1>Assessment Framework Admin</h1>
+        <p>Define progression frameworks and the criteria for each level.</p>
+      </header>
+
+      <section class="panel">
+        <div class="framework-sections">
+          <section class="framework-section">
+            <h2>Existing Framework</h2>
+            <label class="field">
+              <span>Assessment framework</span>
+              <select id="framework-select">
+                <option value="">Select framework</option>
+              </select>
+            </label>
+
+            <div class="delete-row">
+              <label class="confirm-delete">
+                <input id="confirm-delete-framework" type="checkbox">
+                <span>Confirm delete selected framework</span>
+              </label>
+              <button id="delete-framework" type="button" class="danger" disabled>Delete Framework</button>
+            </div>
+          </section>
+
+          <section class="framework-section">
+            <h2>Add New Framework</h2>
+            <div class="add-framework-row">
+              <label class="field">
+                <span>Framework name</span>
+                <input id="new-framework-name" type="text" autocomplete="off" placeholder="Primary framework">
+              </label>
+              <button id="use-new-framework" type="button" class="secondary">Use New Framework</button>
+            </div>
+          </section>
+        </div>
+
+        <section class="details">
+          <div class="details-grid">
+            <label class="field">
+              <span>Name</span>
+              <input id="framework-name" type="text" autocomplete="off">
+            </label>
+            <label class="field">
+              <span>End level name</span>
+              <input id="framework-end-level-name" type="text" autocomplete="off" placeholder="Ready">
+            </label>
+          </div>
+        </section>
+
+        <section class="levels-section">
+          <div class="levels-header">
+            <h2>Levels</h2>
+            <button id="add-level" type="button" class="secondary">Add Level</button>
+          </div>
+          <div id="levels-container" class="levels"></div>
+        </section>
+
+        <div class="actions">
+          <button id="save-framework" type="button">Save Framework</button>
+        </div>
+
+        <p id="status-message" class="status" hidden></p>
+      </section>
+    </main>
+
+    <template id="level-template">
+      <section class="level-row">
+        <label class="field">
+          <span>Level name</span>
+          <input data-field="levelName" type="text" autocomplete="off">
+        </label>
+        <label class="field small">
+          <span>Sequence</span>
+          <input data-field="sequenceOrder" type="number" min="1" step="1" readonly>
+        </label>
+        <label class="field small">
+          <span>Practices</span>
+          <input data-field="requiredPracticeCount" type="number" min="0" step="1">
+        </label>
+        <label class="field small">
+          <span>Minimum score</span>
+          <input data-field="minimumScore" type="number" min="0" max="100" step="1">
+        </label>
+        <label class="field small">
+          <span>Questions</span>
+          <input data-field="questionsPerPractice" type="number" min="1" step="1">
+        </label>
+        <label class="field">
+          <span>Difficulty</span>
+          <select data-field="difficultyLevel">
+            <option value="Easy">Easy</option>
+            <option value="Medium">Medium</option>
+            <option value="Hard">Hard</option>
+          </select>
+        </label>
+        <div class="row-actions">
+          <button data-action="move-up" type="button" class="secondary">Up</button>
+          <button data-action="move-down" type="button" class="secondary">Down</button>
+          <button data-action="remove-level" type="button" class="danger">Remove</button>
+        </div>
+      </section>
+    </template>
+
+    <script type="module" src="./assessment_framework_admin.js?v=20260715-sequence-reorder"></script>
+  </body>
+</html>
