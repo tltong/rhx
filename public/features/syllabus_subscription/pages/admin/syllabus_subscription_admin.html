@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Syllabus Subscription Admin</title>
+    <link rel="stylesheet" href="./syllabus_subscription_admin.css?v=20260716-no-eager-auth">
+    <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script type="module" src="/init_fb.js"></script>
+  </head>
+  <body>
+    <main class="page">
+      <header class="page-header">
+        <a class="back-link" href="/">Back to Home</a>
+        <h1>Syllabus Subscription Admin</h1>
+        <p>Link students to syllabuses and manage each subscription state.</p>
+      </header>
+
+      <section class="panel">
+        <div class="selection-grid">
+          <section class="selection-section">
+            <h2>Student</h2>
+            <div id="students-container" class="option-list"></div>
+          </section>
+
+          <section class="selection-section">
+            <h2>Syllabus</h2>
+            <div id="syllabuses-container" class="option-list"></div>
+          </section>
+        </div>
+
+        <section class="subscription-status">
+          <h2>Selected Subscription</h2>
+          <dl>
+            <div>
+              <dt>Student</dt>
+              <dd id="selected-student">Not selected</dd>
+            </div>
+            <div>
+              <dt>Syllabus</dt>
+              <dd id="selected-syllabus">Not selected</dd>
+            </div>
+            <div>
+              <dt>State</dt>
+              <dd id="selected-state">Not subscribed</dd>
+            </div>
+          </dl>
+        </section>
+
+        <div class="actions">
+          <button id="subscribe-syllabus" type="button" disabled>Subscribe</button>
+          <button id="unsubscribe-syllabus" type="button" class="danger" disabled>Unsubscribe</button>
+          <button id="activate-syllabus" type="button" disabled>Activate</button>
+          <button id="deactivate-syllabus" type="button" class="secondary" disabled>Deactivate</button>
+        </div>
+
+        <p id="status-message" class="status" hidden></p>
+      </section>
+    </main>
+
+    <script type="module" src="./syllabus_subscription_admin.js?v=20260716-no-eager-auth"></script>
+  </body>
+</html>

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Syllabus Admin</title>
+    <link rel="stylesheet" href="./syllabus_admin.css?v=20260715-scope-subject">
+    <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script type="module" src="/init_fb.js"></script>
+  </head>
+  <body>
+    <main class="page">
+      <header class="page-header">
+        <a class="back-link" href="/">Back to Home</a>
+        <h1>Syllabus Admin</h1>
+        <p>Define syllabuses from available scope and attach assessment frameworks.</p>
+      </header>
+
+      <section class="panel">
+        <div class="syllabus-sections">
+          <section class="syllabus-section">
+            <h2>Existing Syllabus</h2>
+            <label class="field">
+              <span>Syllabus</span>
+              <select id="syllabus-select">
+                <option value="">Select syllabus</option>
+              </select>
+            </label>
+
+            <div class="delete-row">
+              <label class="confirm-delete">
+                <input id="confirm-delete-syllabus" type="checkbox">
+                <span>Confirm delete selected syllabus</span>
+              </label>
+              <button id="delete-syllabus" type="button" class="danger" disabled>Delete Syllabus</button>
+            </div>
+          </section>
+
+          <section class="syllabus-section">
+            <h2>Add New Syllabus</h2>
+            <button id="use-new-syllabus" type="button" class="secondary">Use New Syllabus</button>
+          </section>
+        </div>
+
+        <section class="details">
+          <div class="details-grid">
+            <label class="field">
+              <span>Country</span>
+              <select id="country-select">
+                <option value="">Select country</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Level</span>
+              <select id="level-select">
+                <option value="">Select level</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Year</span>
+              <select id="year-select">
+                <option value="">Select year</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Subject</span>
+              <select id="subject-select">
+                <option value="">Select subject</option>
+              </select>
+            </label>
+            <div class="add-subject-row">
+              <label class="field">
+                <span>New subject</span>
+                <input id="new-subject-input" type="text" autocomplete="off" placeholder="Mathematics">
+              </label>
+              <button id="use-new-subject" type="button" class="secondary">Use New Subject</button>
+            </div>
+            <label class="field">
+              <span>Assessment framework</span>
+              <select id="assessment-framework-select">
+                <option value="">Select framework</option>
+              </select>
+            </label>
+            <label class="toggle-field">
+              <input id="active-input" type="checkbox">
+              <span>Active syllabus</span>
+            </label>
+          </div>
+        </section>
+
+        <section class="topics-section">
+          <div class="topics-header">
+            <h2>Topics</h2>
+            <button id="add-topic" type="button" class="secondary">Add Topic</button>
+          </div>
+          <div id="topics-container" class="topics"></div>
+        </section>
+
+        <div class="actions">
+          <button id="save-syllabus" type="button">Save Syllabus</button>
+        </div>
+
+        <p id="status-message" class="status" hidden></p>
+      </section>
+    </main>
+
+    <template id="topic-template">
+      <section class="topic-row">
+        <div class="topic-header">
+          <label class="field">
+            <span>Topic name</span>
+            <input data-field="topicName" type="text" autocomplete="off">
+          </label>
+          <button data-action="remove-topic" type="button" class="danger">Remove Topic</button>
+        </div>
+        <div data-role="subtopics" class="subtopics"></div>
+        <button data-action="add-subtopic" type="button" class="secondary">Add Subtopic</button>
+      </section>
+    </template>
+
+    <template id="subtopic-template">
+      <div class="subtopic-row">
+        <label class="field">
+          <span>Subtopic</span>
+          <input data-field="subtopicName" type="text" autocomplete="off">
+        </label>
+        <button data-action="remove-subtopic" type="button" class="danger">Remove</button>
+      </div>
+    </template>
+
+    <script type="module" src="./syllabus_admin.js?v=20260715-scope-subject"></script>
+  </body>
+</html>

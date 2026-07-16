@@ -49,4 +49,12 @@ export class StudentAuthService {
   }
 }
 
-export const studentAuthService = new StudentAuthService();
+let defaultStudentAuthService = null;
+
+export function getStudentAuthService() {
+  if (!defaultStudentAuthService) {
+    defaultStudentAuthService = new StudentAuthService();
+  }
+
+  return defaultStudentAuthService;
+}

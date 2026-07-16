@@ -1,21 +1,21 @@
-export class StudentRepository {
-  async getById(studentId) {
+export class SyllabusRepository {
+  async getById(syllabusId) {
     throw new Error("getById() is not implemented.");
-  }
-
-  async findByUsername(username) {
-    throw new Error("findByUsername() is not implemented.");
   }
 
   async list() {
     throw new Error("list() is not implemented.");
   }
 
-  async save(student) {
+  async findByScope(scope) {
+    throw new Error("findByScope() is not implemented.");
+  }
+
+  async save(syllabus) {
     throw new Error("save() is not implemented.");
   }
 
-  async delete(studentId) {
+  async delete(syllabusId) {
     throw new Error("delete() is not implemented.");
   }
 }

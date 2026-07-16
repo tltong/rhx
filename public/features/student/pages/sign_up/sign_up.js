@@ -2,7 +2,7 @@ import {
   createStudentRecord,
   findStudentByUsername,
   signUpStudent
-} from "../../student_module.js?v=20260715-student-levels";
+} from "../../student_module.js?v=20260716-no-eager-auth";
 import { studentLevels } from "../../../../config/firebase/student_schema.js?v=20260715-student-levels";
 
 const STUDENT_EMAIL_DOMAIN = "rhx.com";

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Prompt Config Admin</title>
+    <link rel="stylesheet" href="./llm_prompt_config_admin.css?v=20260717-llm-prompt-config">
+    <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script type="module" src="/init_fb.js"></script>
+  </head>
+  <body>
+    <main class="page">
+      <header class="page-header">
+        <a class="back-link" href="/">Back to Home</a>
+        <h1>LLM Prompt Config Admin</h1>
+        <p>Manage reusable instruction blocks for LLM question generation.</p>
+      </header>
+
+      <section class="panel">
+        <div class="config-sections">
+          <section class="config-section">
+            <h2>Existing Config</h2>
+            <label class="field">
+              <span>Prompt config</span>
+              <select id="config-select">
+                <option value="">Select config</option>
+              </select>
+            </label>
+
+            <div class="delete-row">
+              <label class="confirm-delete">
+                <input id="confirm-delete-config" type="checkbox">
+                <span>Confirm delete selected config</span>
+              </label>
+              <button id="delete-config" type="button" class="danger" disabled>Delete Config</button>
+            </div>
+          </section>
+
+          <section class="config-section">
+            <h2>Add New Config</h2>
+            <div class="add-config-row">
+              <label class="field">
+                <span>Identifier</span>
+                <input id="new-config-identifier" type="text" autocomplete="off" placeholder="default">
+              </label>
+              <button id="new-config" type="button" class="secondary">Use New Config</button>
+            </div>
+          </section>
+        </div>
+
+        <section class="editor">
+          <h2>Instruction Fields</h2>
+
+          <label class="field">
+            <span>Identifier</span>
+            <input id="config-identifier" type="text" autocomplete="off" placeholder="default">
+          </label>
+
+          <label class="field">
+            <span>Primary context</span>
+            <textarea id="primary-context" rows="5"></textarea>
+          </label>
+
+          <label class="field">
+            <span>Secondary context</span>
+            <textarea id="secondary-context" rows="5"></textarea>
+          </label>
+
+          <label class="field">
+            <span>Overall additional instructions</span>
+            <textarea id="overall-additional-instructions" rows="5"></textarea>
+          </label>
+        </section>
+
+        <section class="year-section">
+          <h2>Primary Year Instructions</h2>
+          <div id="primary-year-instructions" class="year-grid"></div>
+        </section>
+
+        <section class="year-section">
+          <h2>Secondary Year Instructions</h2>
+          <div id="secondary-year-instructions" class="year-grid"></div>
+        </section>
+
+        <div class="actions">
+          <button id="save-config" type="button">Save Config</button>
+        </div>
+
+        <p id="status-message" class="status" hidden></p>
+      </section>
+    </main>
+
+    <script type="module" src="./llm_prompt_config_admin.js?v=20260717-llm-prompt-config"></script>
+  </body>
+</html>

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Question Generator Admin</title>
+    <link rel="stylesheet" href="./question_generator_admin.css?v=20260717-question-prompt-display">
+    <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script type="module" src="/init_fb.js"></script>
+  </head>
+  <body>
+    <main class="page">
+      <header class="page-header">
+        <a class="back-link" href="/">Back to Home</a>
+        <h1>Question Generator Admin</h1>
+        <p>Generate syllabus questions with an LLM and store them in Firestore.</p>
+      </header>
+
+      <section class="panel">
+        <div class="selection-grid">
+          <label class="field">
+            <span>LLM prompt config</span>
+            <select id="config-select">
+              <option value="">Select prompt config</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Syllabus</span>
+            <select id="syllabus-select">
+              <option value="">Select syllabus</option>
+            </select>
+          </label>
+        </div>
+
+        <section id="syllabus-summary" class="syllabus-summary" hidden>
+          <h2>Selected Syllabus</h2>
+          <dl class="summary-grid">
+            <div>
+              <dt>Country</dt>
+              <dd id="summary-country"></dd>
+            </div>
+            <div>
+              <dt>Level</dt>
+              <dd id="summary-level"></dd>
+            </div>
+            <div>
+              <dt>Year</dt>
+              <dd id="summary-year"></dd>
+            </div>
+            <div>
+              <dt>Subject</dt>
+              <dd id="summary-subject"></dd>
+            </div>
+          </dl>
+        </section>
+
+        <fieldset class="topics-section">
+          <legend>Topics</legend>
+          <div id="topics-container" class="topics-list">
+            <p class="empty-message">Select a syllabus to load its topics.</p>
+          </div>
+        </fieldset>
+
+        <section class="generation-fields">
+          <label class="field">
+            <span>Number of questions</span>
+            <input id="number-of-questions" type="number" min="1" step="1" value="10">
+          </label>
+
+          <label class="field">
+            <span>Difficulty level</span>
+            <select id="difficulty-level"></select>
+          </label>
+
+          <label class="field full-width">
+            <span>Additional instructions</span>
+            <textarea id="additional-instructions" rows="5" placeholder="Optional instructions for this generation request"></textarea>
+          </label>
+        </section>
+
+        <div class="actions">
+          <button id="generate-questions" type="button" disabled>Generate and Store Questions</button>
+        </div>
+
+        <p id="status-message" class="status" hidden></p>
+
+        <section id="prompt-section" class="prompt-section" hidden>
+          <div class="section-header">
+            <h2>LLM Prompt Used</h2>
+            <button id="copy-prompt" type="button" class="secondary">Copy Prompt</button>
+          </div>
+          <textarea id="prompt-output" rows="20" readonly></textarea>
+        </section>
+
+        <section id="results-section" class="results-section" hidden>
+          <div class="results-header">
+            <h2>Generated Questions</h2>
+            <span id="results-count" class="results-count"></span>
+          </div>
+          <div id="results-container" class="results-list"></div>
+        </section>
+      </section>
+    </main>
+
+    <script type="module" src="./question_generator_admin.js?v=20260717-question-prompt-display"></script>
+  </body>
+</html>

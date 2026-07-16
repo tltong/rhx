@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Prompt Generator</title>
+    <link rel="stylesheet" href="./llm_prompt_generator_admin.css?v=20260717-llm-prompt-generator">
+    <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script type="module" src="/init_fb.js"></script>
+  </head>
+  <body>
+    <main class="page">
+      <header class="page-header">
+        <a class="back-link" href="/">Back to Home</a>
+        <h1>LLM Prompt Generator</h1>
+        <p>Build a question-generation prompt from saved instructions and syllabus content.</p>
+      </header>
+
+      <section class="panel">
+        <div class="selection-grid">
+          <label class="field">
+            <span>LLM prompt config</span>
+            <select id="config-select">
+              <option value="">Select prompt config</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Syllabus</span>
+            <select id="syllabus-select">
+              <option value="">Select syllabus</option>
+            </select>
+          </label>
+        </div>
+
+        <section id="syllabus-summary" class="syllabus-summary" hidden>
+          <h2>Selected Syllabus</h2>
+          <dl class="summary-grid">
+            <div>
+              <dt>Country</dt>
+              <dd id="summary-country"></dd>
+            </div>
+            <div>
+              <dt>Level</dt>
+              <dd id="summary-level"></dd>
+            </div>
+            <div>
+              <dt>Year</dt>
+              <dd id="summary-year"></dd>
+            </div>
+            <div>
+              <dt>Subject</dt>
+              <dd id="summary-subject"></dd>
+            </div>
+          </dl>
+        </section>
+
+        <fieldset class="topics-section">
+          <legend>Topics</legend>
+          <div id="topics-container" class="topics-list">
+            <p class="empty-message">Select a syllabus to load its topics.</p>
+          </div>
+        </fieldset>
+
+        <section class="generation-fields">
+          <label class="field">
+            <span>Number of questions</span>
+            <input id="number-of-questions" type="number" min="1" step="1" value="10">
+          </label>
+
+          <label class="field">
+            <span>Difficulty level</span>
+            <select id="difficulty-level"></select>
+          </label>
+
+          <label class="field full-width">
+            <span>Additional instructions</span>
+            <textarea id="additional-instructions" rows="5" placeholder="Optional instructions for this request"></textarea>
+          </label>
+        </section>
+
+        <div class="actions">
+          <button id="generate-prompt" type="button" disabled>Generate Prompt</button>
+        </div>
+
+        <p id="status-message" class="status" hidden></p>
+
+        <section class="output-section">
+          <div class="output-header">
+            <h2>Generated Prompt</h2>
+            <button id="copy-prompt" type="button" class="secondary" disabled>Copy Prompt</button>
+          </div>
+          <textarea id="prompt-output" rows="20" readonly placeholder="The generated prompt will appear here."></textarea>
+        </section>
+      </section>
+    </main>
+
+    <script type="module" src="./llm_prompt_generator_admin.js?v=20260717-llm-prompt-generator"></script>
+  </body>
+</html>

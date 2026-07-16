@@ -1,0 +1,246 @@
+:root {
+  color: #102033;
+  font-family: Arial, sans-serif;
+  background: #eef4f8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  min-height: 42px;
+  border: 1px solid #0b6fa4;
+  border-radius: 6px;
+  padding: 0 18px;
+  color: #ffffff;
+  background: #0b6fa4;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button.secondary {
+  color: #0b3150;
+  border-color: #c6d4df;
+  background: #ffffff;
+}
+
+button.danger {
+  border-color: #b91c1c;
+  background: #b91c1c;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.page {
+  width: min(1120px, calc(100% - 32px));
+  margin: 32px auto;
+}
+
+.page-header {
+  margin-bottom: 22px;
+}
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 12px;
+  color: #0b6fa4;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+h1 {
+  margin: 0 0 8px;
+  font-size: 30px;
+}
+
+h2 {
+  margin: 0 0 14px;
+  font-size: 20px;
+}
+
+p {
+  margin: 0;
+  color: #405066;
+}
+
+.panel {
+  border: 1px solid #cddbe7;
+  border-radius: 8px;
+  padding: 22px;
+  background: #ffffff;
+}
+
+.syllabus-sections {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(220px, 0.6fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.syllabus-section,
+.details,
+.topics-section {
+  border: 1px solid #d5e1ec;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.field {
+  display: grid;
+  gap: 7px;
+  font-weight: 700;
+}
+
+input,
+select {
+  min-height: 42px;
+  border: 1px solid #c6d4df;
+  border-radius: 6px;
+  padding: 0 12px;
+}
+
+input:disabled,
+select:disabled {
+  color: #405066;
+  background: #f4f7fa;
+}
+
+.delete-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid #ffd0d0;
+  border-radius: 8px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: #fff7f7;
+}
+
+.confirm-delete,
+.toggle-field {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 700;
+}
+
+.confirm-delete input,
+.toggle-field input {
+  min-height: auto;
+}
+
+.details {
+  margin-bottom: 24px;
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  align-items: end;
+}
+
+.add-subject-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.topics-header,
+.topic-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.topics {
+  display: grid;
+  gap: 14px;
+}
+
+.topic-row {
+  border: 1px solid #d5e1ec;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.topic-header .field {
+  flex: 1;
+}
+
+.subtopics {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.subtopic-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 22px;
+}
+
+.status {
+  margin-top: 16px;
+  border-radius: 6px;
+  padding: 12px 14px;
+  color: #0b3150;
+  background: #e8f4ff;
+}
+
+.status.error {
+  color: #9b1111;
+  background: #fde2e2;
+}
+
+@media (max-width: 900px) {
+  .syllabus-sections,
+  .details-grid,
+  .add-subject-row,
+  .subtopic-row {
+    grid-template-columns: 1fr;
+  }
+
+  .delete-row,
+  .topics-header,
+  .topic-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .actions {
+    justify-content: stretch;
+  }
+
+  .actions button,
+  .add-subject-row button,
+  .topic-row button,
+  .subtopic-row button {
+    width: 100%;
+  }
+}

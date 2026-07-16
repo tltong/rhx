@@ -1,0 +1,200 @@
+:root {
+  color: #102033;
+  font-family: Arial, sans-serif;
+  background: #eef4f8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+button {
+  min-height: 42px;
+  border: 1px solid #0b6fa4;
+  border-radius: 6px;
+  padding: 0 18px;
+  color: #ffffff;
+  background: #0b6fa4;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button.secondary {
+  color: #0b3150;
+  border-color: #c6d4df;
+  background: #ffffff;
+}
+
+button.danger {
+  border-color: #b91c1c;
+  background: #b91c1c;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.page {
+  width: min(1120px, calc(100% - 32px));
+  margin: 32px auto;
+}
+
+.page-header {
+  margin-bottom: 22px;
+}
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 12px;
+  color: #0b6fa4;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+h1 {
+  margin: 0 0 8px;
+  font-size: 30px;
+}
+
+h2 {
+  margin: 0 0 14px;
+  font-size: 20px;
+}
+
+p {
+  margin: 0;
+  color: #405066;
+}
+
+.panel {
+  border: 1px solid #cddbe7;
+  border-radius: 8px;
+  padding: 22px;
+  background: #ffffff;
+}
+
+.selection-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.selection-section,
+.subscription-status {
+  border: 1px solid #d5e1ec;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.option-list {
+  display: grid;
+  gap: 10px;
+  max-height: 420px;
+  overflow: auto;
+}
+
+.option-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid #d5e1ec;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.option-main {
+  display: grid;
+  gap: 3px;
+}
+
+.option-title {
+  font-weight: 700;
+}
+
+.option-detail {
+  color: #52606d;
+  font-size: 14px;
+}
+
+.state-pill {
+  border-radius: 999px;
+  padding: 4px 10px;
+  color: #405066;
+  background: #eef3f8;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.state-pill.active {
+  color: #0f6b2f;
+  background: #dff6e7;
+}
+
+.state-pill.inactive {
+  color: #895400;
+  background: #fff3d8;
+}
+
+.subscription-status {
+  margin-bottom: 22px;
+}
+
+dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin: 0;
+}
+
+dt {
+  color: #52606d;
+  font-weight: 700;
+}
+
+dd {
+  margin: 4px 0 0;
+  font-weight: 700;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.status {
+  margin-top: 16px;
+  border-radius: 6px;
+  padding: 12px 14px;
+  color: #0b3150;
+  background: #e8f4ff;
+}
+
+.status.error {
+  color: #9b1111;
+  background: #fde2e2;
+}
+
+@media (max-width: 800px) {
+  .selection-grid,
+  dl {
+    grid-template-columns: 1fr;
+  }
+
+  .actions {
+    justify-content: stretch;
+  }
+
+  .actions button {
+    width: 100%;
+  }
+}

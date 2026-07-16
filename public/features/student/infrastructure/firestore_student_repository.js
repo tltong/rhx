@@ -1,5 +1,5 @@
-import { Student } from "../domain/student.js?v=20260714-level";
-import { StudentRepository } from "../domain/student_repository.js?v=20260714-level";
+import { Student } from "../domain/student.js?v=20260716-no-eager-auth";
+import { StudentRepository } from "../domain/student_repository.js?v=20260716-no-eager-auth";
 import {
   STUDENTS_COLLECTION,
   studentLevels
@@ -68,6 +68,20 @@ export class FirestoreStudentRepository extends StudentRepository {
     );
 
     return toStudent(students[0] || null);
+  }
+
+  async list() {
+    const students = await readCollection(STUDENTS_COLLECTION);
+
+    return students
+      .map(toStudent)
+      .filter(Boolean)
+      .sort((first, second) => {
+        const firstName = first.name || first.username || first.id;
+        const secondName = second.name || second.username || second.id;
+
+        return firstName.localeCompare(secondName);
+      });
   }
 
   async save(student) {
