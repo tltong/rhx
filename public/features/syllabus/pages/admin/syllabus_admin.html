@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Syllabus Admin</title>
-    <link rel="stylesheet" href="./syllabus_admin.css?v=20260715-scope-subject">
+    <link rel="stylesheet" href="./syllabus_admin.css?v=20260718-syllabus-languages">
     <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
     <script defer src="/__/firebase/init.js"></script>
@@ -15,7 +15,7 @@
       <header class="page-header">
         <a class="back-link" href="/">Back to Home</a>
         <h1>Syllabus Admin</h1>
-        <p>Define syllabuses from available scope and attach assessment frameworks.</p>
+        <p>Define syllabuses from available scope, languages, and assessment frameworks.</p>
       </header>
 
       <section class="panel">
@@ -88,6 +88,13 @@
               <span>Active syllabus</span>
             </label>
           </div>
+
+          <fieldset class="languages-fieldset">
+            <legend>Languages</legend>
+            <div id="languages-container" class="language-options">
+              <p class="languages-empty">Select a country to load available languages.</p>
+            </div>
+          </fieldset>
         </section>
 
         <section class="topics-section">
@@ -130,6 +137,6 @@
       </div>
     </template>
 
-    <script type="module" src="./syllabus_admin.js?v=20260715-scope-subject"></script>
+    <script type="module" src="./syllabus_admin.js?v=20260718-syllabus-languages"></script>
   </body>
 </html>

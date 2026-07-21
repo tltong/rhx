@@ -97,6 +97,28 @@ p {
   grid-column: 1 / -1;
 }
 
+.diagram-option {
+  display: flex;
+  align-items: center;
+  align-self: end;
+  gap: 10px;
+  min-height: 42px;
+  border: 1px solid #c6d4df;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-weight: 700;
+}
+
+.diagram-option input {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  min-height: auto;
+  margin: 0;
+  padding: 0;
+  accent-color: #0b6fa4;
+}
+
 input,
 select,
 textarea {
@@ -116,14 +138,12 @@ textarea {
 }
 
 .syllabus-summary,
-.topics-section,
 .generation-fields,
 .output-section {
   margin-top: 20px;
 }
 
 .syllabus-summary,
-.topics-section,
 .output-section {
   border: 1px solid #d5e1ec;
   border-radius: 8px;
@@ -150,57 +170,6 @@ textarea {
 .summary-grid dd {
   margin: 5px 0 0;
   overflow-wrap: anywhere;
-}
-
-.topics-section {
-  min-width: 0;
-}
-
-.topics-section legend {
-  padding: 0 6px;
-  font-size: 20px;
-  font-weight: 700;
-}
-
-.topics-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.topic-option {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 10px;
-  align-items: start;
-  border: 1px solid #d5e1ec;
-  border-radius: 6px;
-  padding: 12px;
-}
-
-.topic-option input {
-  width: auto;
-  min-height: auto;
-  margin-top: 3px;
-}
-
-.topic-name {
-  display: block;
-  font-weight: 700;
-}
-
-.subtopic-list {
-  margin: 7px 0 0;
-  padding-left: 18px;
-  color: #52606d;
-}
-
-.subtopic-list li + li {
-  margin-top: 4px;
-}
-
-.empty-message {
-  grid-column: 1 / -1;
 }
 
 .actions {
@@ -241,8 +210,7 @@ textarea {
 @media (max-width: 760px) {
   .selection-grid,
   .generation-fields,
-  .summary-grid,
-  .topics-list {
+  .summary-grid {
     grid-template-columns: 1fr;
   }
 

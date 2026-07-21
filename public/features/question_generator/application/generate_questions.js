@@ -1,285 +1,279 @@
-import { Question } from "../domain/question.js";
 import {
-  questionLanguages,
-  questionOptionKeys
-} from "../../../config/firebase/question_schema.js";
+  createQuestionBatchSizes,
+  mapLlmResponseToQuestionInputs,
+  normalizeQuestionGenerationInput,
+  resolveQuestionGenerationContext
+} from "../domain/question_generation.js?v=20260722-resilient-diagrams";
 
-const OPTION_KEYS = Object.values(questionOptionKeys);
-const DIFFICULTY_VALUES = Object.freeze(["Easy", "Medium", "Hard"]);
-const LANGUAGE_VALUES = Object.values(questionLanguages);
+/**
+ * @typedef {import("../../llm_prompt_generator/domain/llm_prompt_generator.js").LlmPromptGenerationInput}
+ * LlmPromptGenerationInput
+ */
+/**
+ * @typedef {import("../domain/question_generation.js").QuestionGenerationResult}
+ * QuestionGenerationResult
+ */
 
-function normalizeText(value) {
-  return String(value ?? "").trim();
-}
+function requireIdentifier(value, fieldName) {
+  const identifier = String(value ?? "").trim();
 
-function requireText(value, fieldName) {
-  const normalizedValue = normalizeText(value);
-
-  if (!normalizedValue) {
+  if (!identifier) {
     throw new Error(`${fieldName} is required.`);
   }
 
-  return normalizedValue;
+  return identifier;
 }
 
-function normalizeQuestionCount(value) {
-  const questionCount = Number(value);
+const STANDARD_QUESTION_MAX_TOKENS = 4096;
+const DIAGRAM_QUESTION_MAX_TOKENS = 8192;
 
-  if (!Number.isInteger(questionCount) || questionCount < 1) {
-    throw new Error("Number of questions must be a positive integer.");
+function isMalformedGenerationError(error) {
+  const message = String(error?.message || "");
+
+  return error?.status === 502
+    || /valid JSON|questions array|LLM returned|Question \d+|Mermaid/i.test(message);
+}
+
+function isTransientGenerationError(error) {
+  const transientStatuses = new Set([408, 429, 500, 503, 504]);
+  const message = String(error?.message || "");
+
+  return transientStatuses.has(error?.status)
+    || /failed to fetch|network|timeout|temporar/i.test(message);
+}
+
+function attachPromptContext(error, prompts) {
+  if (error && typeof error === "object") {
+    error.prompts = [...prompts];
+    error.prompt = prompts.at(-1) || null;
   }
 
-  return questionCount;
+  return error;
 }
 
-function normalizeDifficulty(value) {
-  const requestedDifficulty = normalizeText(value).toLowerCase();
-  const difficulty = DIFFICULTY_VALUES.find(
-    (item) => item.toLowerCase() === requestedDifficulty
+function createDiagramRepairDescription(question) {
+  const optionLines = Object.entries(question.options || {}).map(
+    ([optionKey, optionText]) => `${optionKey}: ${optionText}`
   );
 
-  if (!difficulty) {
-    throw new Error("Difficulty level must be Easy, Medium, or Hard.");
-  }
-
-  return difficulty;
-}
-
-function normalizeLanguage(value) {
-  const requestedLanguage = normalizeText(value).toLowerCase();
-  const language = LANGUAGE_VALUES.find(
-    (item) => item.toLowerCase() === requestedLanguage
-  );
-
-  if (!language) {
-    throw new Error(`Language must be one of: ${LANGUAGE_VALUES.join(", ")}.`);
-  }
-
-  return language;
-}
-
-function normalizeTopicIds(topicIds) {
-  if (topicIds === undefined || topicIds === null) {
-    return [];
-  }
-
-  if (!Array.isArray(topicIds)) {
-    throw new Error("topicIds must be an array.");
-  }
-
-  return Array.from(
-    new Set(topicIds.map(normalizeText).filter(Boolean))
-  );
-}
-
-function getSelectedTopics(syllabus, topicIds) {
-  const syllabusTopics = Array.isArray(syllabus.topics) ? syllabus.topics : [];
-  const selectedTopicIds = normalizeTopicIds(topicIds);
-  const selectedTopicIdSet = new Set(selectedTopicIds);
-  const selectedTopics = selectedTopicIds.length === 0
-    ? syllabusTopics
-    : syllabusTopics.filter((topic) => selectedTopicIdSet.has(topic.id));
-
-  if (selectedTopics.length === 0) {
-    throw new Error("The syllabus must have at least one selected topic.");
-  }
-
-  if (selectedTopicIds.length > 0 && selectedTopics.length !== selectedTopicIds.length) {
-    throw new Error("One or more selected topics do not belong to the syllabus.");
-  }
-
-  return selectedTopics;
-}
-
-function getTopicNameKey(topicName) {
-  return requireText(topicName, "topicName")
-    .replace(/\s+/g, " ")
-    .toLowerCase();
-}
-
-function buildTopicMap(topics) {
-  const topicMap = new Map();
-
-  topics.forEach((topic) => {
-    const topicKey = getTopicNameKey(topic.topicName);
-
-    if (topicMap.has(topicKey)) {
-      throw new Error(
-        "Selected syllabus topics must have unique topic names for question generation."
-      );
-    }
-
-    topicMap.set(topicKey, topic);
-  });
-
-  return topicMap;
-}
-
-function normalizeOptions(options, questionNumber) {
-  if (!options || typeof options !== "object" || Array.isArray(options)) {
-    throw new Error(`Question ${questionNumber} options must be an object.`);
-  }
-
-  return Object.fromEntries(
-    OPTION_KEYS.map((key) => [
-      key,
-      requireText(options[key], `Question ${questionNumber} option ${key}`)
-    ])
-  );
-}
-
-function getResponseQuestions(response) {
-  if (!response || typeof response !== "object" || Array.isArray(response)) {
-    throw new Error("The LLM response must be a JSON object.");
-  }
-
-  if (!Array.isArray(response.questions)) {
-    throw new Error("The LLM response must contain a questions array.");
-  }
-
-  return response.questions;
-}
-
-function toQuestion({
-  generatedQuestion,
-  questionIndex,
-  syllabusId,
-  topicMap,
-  difficulty,
-  specialInstruction,
-  language
-}) {
-  const questionNumber = questionIndex + 1;
-
-  if (
-    !generatedQuestion ||
-    typeof generatedQuestion !== "object" ||
-    Array.isArray(generatedQuestion)
-  ) {
-    throw new Error(`Question ${questionNumber} must be an object.`);
-  }
-
-  const topicName = requireText(
-    generatedQuestion.topicName,
-    `Question ${questionNumber} topicName`
-  );
-  const topic = topicMap.get(getTopicNameKey(topicName));
-
-  if (!topic) {
-    throw new Error(
-      `Question ${questionNumber} topicName does not match a selected syllabus topic.`
-    );
-  }
-
-  const correctAnswer = requireText(
-    generatedQuestion.correctAnswer,
-    `Question ${questionNumber} correctAnswer`
-  ).toLowerCase();
-
-  if (!OPTION_KEYS.includes(correctAnswer)) {
-    throw new Error(
-      `Question ${questionNumber} correctAnswer must be a, b, c, or d.`
-    );
-  }
-
-  return new Question({
-    syllabusId,
-    topicId: topic.id,
-    topicName: topic.topicName,
-    questionText: requireText(
-      generatedQuestion.questionText,
-      `Question ${questionNumber} questionText`
-    ),
-    options: normalizeOptions(generatedQuestion.options, questionNumber),
-    correctAnswer,
-    difficulty,
-    specialInstruction,
-    language
-  });
+  return [
+    "Repair only the Mermaid syntax for this educational question.",
+    `Question: ${question.questionText}`,
+    "Options:",
+    ...optionLines,
+    `Correct answer: ${question.correctAnswer}`,
+    `Answer explanation: ${question.explanation}`
+  ].join("\n").slice(0, 4500);
 }
 
 export class GenerateQuestions {
   constructor({
-    generateLlmPrompt,
+    generatePrompt,
     generateLlmText,
     getSyllabusById,
-    questionRepository
+    writeQuestions,
+    renderMermaidDiagram = null,
+    hasDiagram = false
   }) {
-    this.generateLlmPrompt = generateLlmPrompt;
+    this.generatePrompt = generatePrompt;
     this.generateLlmText = generateLlmText;
     this.getSyllabusById = getSyllabusById;
-    this.questionRepository = questionRepository;
+    this.writeQuestions = writeQuestions;
+    this.renderMermaidDiagram = renderMermaidDiagram;
+    this.hasDiagram = hasDiagram === true;
+
+    if (
+      this.hasDiagram
+      && typeof this.renderMermaidDiagram !== "function"
+    ) {
+      throw new Error(
+        "renderMermaidDiagram is required for diagram question generation."
+      );
+    }
   }
 
-  async execute({
-    llmPromptConfigId,
-    syllabusId,
-    topicIds = [],
-    numberOfQuestions,
-    difficultyLevel,
-    additionalInstructions = "",
-    language = questionLanguages.ENGLISH
-  }) {
-    const selectedSyllabusId = requireText(syllabusId, "syllabusId");
-    const selectedConfigId = requireText(
-      llmPromptConfigId,
-      "llmPromptConfigId"
-    );
-    const questionCount = normalizeQuestionCount(numberOfQuestions);
-    const difficulty = normalizeDifficulty(difficultyLevel);
-    const selectedLanguage = normalizeLanguage(language);
-    const specialInstruction = normalizeText(additionalInstructions);
-    const syllabus = await this.getSyllabusById(selectedSyllabusId);
+  async renderQuestionDiagrams(questionInputs) {
+    const renderedQuestionInputs = [];
 
-    if (!syllabus) {
-      throw new Error("Selected syllabus could not be found.");
-    }
+    for (const questionInput of questionInputs) {
+      const { mermaidCode, ...questionData } = questionInput;
 
-    const selectedTopics = getSelectedTopics(syllabus, topicIds);
-    const topicMap = buildTopicMap(selectedTopics);
-    const selectedTopicIds = selectedTopics.map((topic) => topic.id);
-    const prompt = await this.generateLlmPrompt({
-      llmPromptConfigId: selectedConfigId,
-      syllabusId: selectedSyllabusId,
-      topicIds: selectedTopicIds,
-      numberOfQuestions: questionCount,
-      difficultyLevel: difficulty,
-      additionalInstructions: specialInstruction
-    });
-    try {
-      const response = await this.generateLlmText(prompt);
-      const generatedQuestions = getResponseQuestions(response);
-
-      if (generatedQuestions.length !== questionCount) {
-        throw new Error(
-          `The LLM returned ${generatedQuestions.length} questions; ${questionCount} were requested.`
-        );
+      if (!this.hasDiagram) {
+        renderedQuestionInputs.push(questionData);
+        continue;
       }
 
-      const questions = generatedQuestions.map((generatedQuestion, questionIndex) => (
-        toQuestion({
-          generatedQuestion,
-          questionIndex,
-          syllabusId: selectedSyllabusId,
-          topicMap,
-          difficulty,
-          specialInstruction,
-          language: selectedLanguage
-        })
-      ));
+      const renderResult = await this.renderMermaidDiagram(
+        mermaidCode,
+        createDiagramRepairDescription(questionData)
+      );
+      const svg = String(renderResult?.svg || "").trim();
 
-      const savedQuestions = await this.questionRepository.saveMany(questions);
+      if (!svg) {
+        throw new Error("Mermaid renderer returned an empty SVG.");
+      }
 
-      return {
-        prompt,
-        questions: savedQuestions
-      };
+      renderedQuestionInputs.push({
+        ...questionData,
+        svg
+      });
+    }
+
+    return renderedQuestionInputs;
+  }
+
+  async generateBatch({
+    llmPromptConfigId,
+    syllabusId,
+    generationInput,
+    topics,
+    batchSize,
+    questionOffset,
+    prompts,
+    retryAttempt = 0
+  }) {
+    const batchInput = {
+      ...generationInput,
+      numberOfQuestions: batchSize
+    };
+    const prompt = await this.generatePrompt(
+      llmPromptConfigId,
+      syllabusId,
+      batchInput
+    );
+
+    prompts.push(prompt);
+
+    try {
+      const response = await this.generateLlmText(prompt, {
+        maxTokens: this.hasDiagram
+          ? DIAGRAM_QUESTION_MAX_TOKENS
+          : STANDARD_QUESTION_MAX_TOKENS
+      });
+      const questionInputs = mapLlmResponseToQuestionInputs({
+        response,
+        expectedQuestionCount: batchSize,
+        syllabusId,
+        topics,
+        generationInput,
+        hasDiagram: this.hasDiagram,
+        questionOffset
+      });
+
+      return this.renderQuestionDiagrams(questionInputs);
     } catch (error) {
-      if (error && typeof error === "object") {
-        error.prompt = prompt;
+      const shouldSplitImmediately = isMalformedGenerationError(error);
+      const shouldRetrySameBatch = retryAttempt === 0
+        && !shouldSplitImmediately
+        && isTransientGenerationError(error);
+
+      if (shouldRetrySameBatch) {
+        return this.generateBatch({
+          llmPromptConfigId,
+          syllabusId,
+          generationInput,
+          topics,
+          batchSize,
+          questionOffset,
+          prompts,
+          retryAttempt: 1
+        });
+      }
+
+      if (batchSize > 1) {
+        const firstBatchSize = Math.ceil(batchSize / 2);
+        const secondBatchSize = batchSize - firstBatchSize;
+        const firstQuestions = await this.generateBatch({
+          llmPromptConfigId,
+          syllabusId,
+          generationInput,
+          topics,
+          batchSize: firstBatchSize,
+          questionOffset,
+          prompts
+        });
+        const secondQuestions = await this.generateBatch({
+          llmPromptConfigId,
+          syllabusId,
+          generationInput,
+          topics,
+          batchSize: secondBatchSize,
+          questionOffset: questionOffset + firstQuestions.length,
+          prompts
+        });
+
+        return [...firstQuestions, ...secondQuestions];
+      }
+
+      if (retryAttempt === 0) {
+        return this.generateBatch({
+          llmPromptConfigId,
+          syllabusId,
+          generationInput,
+          topics,
+          batchSize,
+          questionOffset,
+          prompts,
+          retryAttempt: 1
+        });
       }
 
       throw error;
+    }
+  }
+
+  /**
+   * @param {string} llmPromptConfigId
+   * @param {string} syllabusId
+   * @param {LlmPromptGenerationInput} generationInput
+   * @returns {Promise<QuestionGenerationResult>}
+   */
+  async execute(llmPromptConfigId, syllabusId, generationInput) {
+    const normalizedConfigId = requireIdentifier(
+      llmPromptConfigId,
+      "llmPromptConfigId"
+    );
+    const normalizedSyllabusId = requireIdentifier(
+      syllabusId,
+      "syllabusId"
+    );
+    const normalizedInput = normalizeQuestionGenerationInput(
+      generationInput
+    );
+    const syllabus = await this.getSyllabusById(normalizedSyllabusId);
+    const context = resolveQuestionGenerationContext(
+      syllabus,
+      normalizedInput
+    );
+    const batchSizes = createQuestionBatchSizes(
+      context.generationInput.numberOfQuestions
+    );
+    const prompts = [];
+    const questionInputs = [];
+
+    try {
+      for (const batchSize of batchSizes) {
+        const batchQuestionInputs = await this.generateBatch({
+          llmPromptConfigId: normalizedConfigId,
+          syllabusId: normalizedSyllabusId,
+          generationInput: context.generationInput,
+          topics: context.topics,
+          batchSize,
+          questionOffset: questionInputs.length,
+          prompts
+        });
+
+        questionInputs.push(...batchQuestionInputs);
+      }
+
+      const questions = await this.writeQuestions(questionInputs);
+
+      return {
+        prompts,
+        questions
+      };
+    } catch (error) {
+      throw attachPromptContext(error, prompts);
     }
   }
 }

@@ -4,15 +4,15 @@ import {
   getSyllabusById,
   listSyllabuses,
   updateSyllabusRecord
-} from "../../syllabus_module.js?v=20260715-scope-subject";
+} from "../../syllabus_module.js?v=20260718-syllabus-languages";
 
 import {
   listSyllabusScopes
-} from "../../../syllabusscope/syllabusscope_module.js?v=20260715-scope-subject";
+} from "../../../syllabusscope/syllabusscope_module.js?v=20260718-syllabus-languages";
 
 import {
   listAssessmentFrameworks
-} from "../../../assessment_framework/assessment_framework_module.js?v=20260715-scope-subject";
+} from "../../../assessment_framework/assessment_framework_module.js?v=20260718-syllabus-languages";
 
 const syllabusSelect = document.querySelector("#syllabus-select");
 const useNewSyllabusButton = document.querySelector("#use-new-syllabus");
@@ -24,6 +24,7 @@ const newSubjectInput = document.querySelector("#new-subject-input");
 const useNewSubjectButton = document.querySelector("#use-new-subject");
 const assessmentFrameworkSelect = document.querySelector("#assessment-framework-select");
 const activeInput = document.querySelector("#active-input");
+const languagesContainer = document.querySelector("#languages-container");
 const addTopicButton = document.querySelector("#add-topic");
 const topicsContainer = document.querySelector("#topics-container");
 const topicTemplate = document.querySelector("#topic-template");
@@ -81,6 +82,9 @@ function setBusy(isBusy) {
     saveButton
   ].forEach((control) => {
     control.disabled = isBusy;
+  });
+  languagesContainer.querySelectorAll("input[type='checkbox']").forEach((input) => {
+    input.disabled = isBusy || input.dataset.unavailable === "true";
   });
   updateScopeControls();
   updateDeleteControls();
@@ -140,6 +144,92 @@ function renderCountryOptions() {
 
 function getSelectedScope() {
   return syllabusScopes.find((scope) => scope.country === countrySelect.value) || null;
+}
+
+function getAvailableLanguages(scope) {
+  const languageMap = new Map();
+
+  (scope?.languages || []).forEach((language) => {
+    const normalizedLanguage = normalizeText(language);
+
+    if (normalizedLanguage) {
+      languageMap.set(normalizedLanguage.toLowerCase(), normalizedLanguage);
+    }
+  });
+
+  return Array.from(languageMap.values()).sort((first, second) => (
+    first.localeCompare(second)
+  ));
+}
+
+function renderLanguages(selectedLanguages = []) {
+  languagesContainer.replaceChildren();
+
+  const scope = getSelectedScope();
+
+  if (!scope) {
+    const message = document.createElement("p");
+    message.className = "languages-empty";
+    message.textContent = "Select a country to load available languages.";
+    languagesContainer.append(message);
+    return;
+  }
+
+  const availableLanguages = getAvailableLanguages(scope);
+  const availableLanguageKeys = new Set(
+    availableLanguages.map((language) => language.toLowerCase())
+  );
+  const selectedLanguageMap = new Map();
+
+  selectedLanguages.forEach((language) => {
+    const normalizedLanguage = normalizeText(language);
+
+    if (normalizedLanguage) {
+      selectedLanguageMap.set(normalizedLanguage.toLowerCase(), normalizedLanguage);
+    }
+  });
+
+  const languages = [...availableLanguages];
+
+  selectedLanguageMap.forEach((language, languageKey) => {
+    if (!availableLanguageKeys.has(languageKey)) {
+      languages.push(language);
+    }
+  });
+
+  if (languages.length === 0) {
+    const message = document.createElement("p");
+    message.className = "languages-empty";
+    message.textContent = "No languages are defined for this country scope.";
+    languagesContainer.append(message);
+    return;
+  }
+
+  languages.forEach((language) => {
+    const languageKey = language.toLowerCase();
+    const isAvailable = availableLanguageKeys.has(languageKey);
+    const option = document.createElement("label");
+    const checkbox = document.createElement("input");
+    const text = document.createElement("span");
+
+    option.className = "language-option";
+    option.classList.toggle("unavailable", !isAvailable);
+    checkbox.type = "checkbox";
+    checkbox.value = language;
+    checkbox.checked = selectedLanguageMap.has(languageKey);
+    checkbox.dataset.language = language;
+    checkbox.dataset.unavailable = String(!isAvailable);
+    checkbox.disabled = pageBusy || !isAvailable;
+    text.textContent = isAvailable ? language : `${language} (not in scope)`;
+    option.append(checkbox, text);
+    languagesContainer.append(option);
+  });
+}
+
+function readSelectedLanguages() {
+  return Array.from(
+    languagesContainer.querySelectorAll("input[data-language]:checked")
+  ).map((input) => input.dataset.language);
 }
 
 function getAvailableLevels(scope) {
@@ -304,6 +394,7 @@ function resetForm() {
   countrySelect.value = "";
   renderLevelOptions();
   renderYearOptions();
+  renderLanguages();
   subjectSelect.value = "";
   newSubjectInput.value = "";
   assessmentFrameworkSelect.value = "";
@@ -322,6 +413,7 @@ function prepareNewSyllabus() {
   countrySelect.value = "";
   renderLevelOptions();
   renderYearOptions();
+  renderLanguages();
   subjectSelect.value = "";
   newSubjectInput.value = "";
   assessmentFrameworkSelect.value = "";
@@ -344,6 +436,7 @@ function displaySyllabus(syllabus, message) {
   countrySelect.value = syllabus.country || "";
   renderLevelOptions(syllabus.level || "");
   renderYearOptions(syllabus.year || "");
+  renderLanguages(syllabus.languages || []);
   ensureSubjectOption(syllabus.subject);
   renderSubjectOptions(subjects, syllabus.subject || "");
   newSubjectInput.value = "";
@@ -456,6 +549,7 @@ async function saveSyllabus() {
       level,
       year,
       subject,
+      languages: readSelectedLanguages(),
       active: activeInput.checked,
       assessmentFrameworkId,
       topics: readTopics()
@@ -540,6 +634,7 @@ async function loadSelectedSyllabus() {
 }
 
 async function initPage() {
+  renderLanguages();
   renderTopics();
 
   try {
@@ -568,6 +663,7 @@ useNewSubjectButton.addEventListener("click", useNewSubject);
 countrySelect.addEventListener("change", () => {
   renderLevelOptions();
   renderYearOptions();
+  renderLanguages();
 });
 levelSelect.addEventListener("change", () => {
   renderYearOptions();

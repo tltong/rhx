@@ -32,6 +32,7 @@ export class Syllabus {
     level,
     year,
     subject,
+    languages = [],
     active = false,
     assessmentFrameworkId = null,
     topics = []
@@ -41,6 +42,7 @@ export class Syllabus {
     this.level = level;
     this.year = year;
     this.subject = subject;
+    this.languages = languages;
     this.active = active;
     this.assessmentFrameworkId = assessmentFrameworkId;
     this.topics = topics;
@@ -51,6 +53,7 @@ export class Syllabus {
     level,
     year,
     subject,
+    languages,
     active,
     assessmentFrameworkId,
     topics
@@ -71,6 +74,10 @@ export class Syllabus {
       this.subject = subject;
     }
 
+    if (languages !== undefined) {
+      this.languages = languages;
+    }
+
     if (active !== undefined) {
       this.active = active;
     }
@@ -82,6 +89,38 @@ export class Syllabus {
     if (topics !== undefined) {
       this.topics = topics;
     }
+
+    return this;
+  }
+
+  addLanguage(language) {
+    const selectedLanguage = String(language || "").trim();
+
+    if (!selectedLanguage) {
+      throw new Error("language is required.");
+    }
+
+    const languageExists = this.languages.some(
+      (item) => String(item).trim().toLowerCase() === selectedLanguage.toLowerCase()
+    );
+
+    if (!languageExists) {
+      this.languages = [...this.languages, selectedLanguage];
+    }
+
+    return this;
+  }
+
+  deleteLanguage(language) {
+    const selectedLanguage = String(language || "").trim();
+
+    if (!selectedLanguage) {
+      throw new Error("language is required.");
+    }
+
+    this.languages = this.languages.filter(
+      (item) => String(item).trim().toLowerCase() !== selectedLanguage.toLowerCase()
+    );
 
     return this;
   }

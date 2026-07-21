@@ -13,13 +13,6 @@ export const questionOptionKeys = {
   D: "d"
 };
 
-export const questionLanguages = {
-  ENGLISH: "English",
-  CHINESE: "Chinese",
-  MALAY: "Malay",
-  TAMIL: "Tamil"
-};
-
 export const questionSchema = {
   collection: QUESTIONS_COLLECTION,
   documentId: questionSyllabusDocumentIdPattern,
@@ -45,12 +38,12 @@ export const questionSchema = {
               }
             },
             correctAnswer: "string",
+            hasDiagram: "boolean",
+            svg: "string",
+            explanation: "string",
             difficulty: "string",
             specialInstruction: "string",
-            language: {
-              type: "string",
-              enum: Object.values(questionLanguages)
-            },
+            language: "string",
             syllabusId: "string",
             topicId: "string"
           }
@@ -68,6 +61,5 @@ export default {
   questionTopicDocumentIdPattern,
   questionDocumentIdPattern,
   questionOptionKeys,
-  questionLanguages,
   questionSchema
 };

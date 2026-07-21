@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagram Generator</title>
+    <link rel="stylesheet" href="./diagram_generator_admin.css?v=20260719-diagram-generator">
+  </head>
+  <body>
+    <main class="page">
+      <header class="page-header">
+        <a class="back-link" href="/">Back to Home</a>
+        <h1>Diagram Generator</h1>
+        <p>Describe a diagram and generate a Mermaid visualization.</p>
+      </header>
+
+      <section class="workspace">
+        <section class="input-pane" aria-labelledby="description-heading">
+          <h2 id="description-heading">Diagram Description</h2>
+          <label class="field" for="diagram-description">
+            <span>Description</span>
+            <textarea id="diagram-description" rows="13">Create a flowchart showing how a student signs in, selects an assigned practice, answers questions, submits the practice, and receives a score.</textarea>
+          </label>
+
+          <div class="actions">
+            <button id="generate-diagram" type="button">Generate Diagram</button>
+          </div>
+
+          <p id="status-message" class="status" hidden></p>
+        </section>
+
+        <section class="preview-pane" aria-labelledby="preview-heading">
+          <div class="section-header">
+            <div>
+              <h2 id="preview-heading">Diagram Preview</h2>
+              <p id="diagram-meta" class="diagram-meta" hidden></p>
+            </div>
+            <button id="download-svg" class="secondary" type="button" disabled>Download SVG</button>
+          </div>
+
+          <div id="diagram-preview" class="diagram-preview">
+            <p class="empty-state">The generated diagram will appear here.</p>
+          </div>
+        </section>
+      </section>
+
+      <section id="source-section" class="source-section" hidden>
+        <div class="section-header">
+          <h2>Mermaid Source</h2>
+          <button id="copy-source" class="secondary" type="button">Copy Source</button>
+        </div>
+        <textarea id="mermaid-source" rows="14" readonly></textarea>
+      </section>
+    </main>
+
+    <script type="module" src="./diagram_generator_admin.js?v=20260722-mermaid-chart-repair"></script>
+  </body>
+</html>

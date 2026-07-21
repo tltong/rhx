@@ -1,14 +1,17 @@
 import {
+  addSyllabusScopeLanguage,
   createSyllabusScopeRecord,
+  deleteSyllabusScopeLanguage,
   deleteSyllabusScopeRecord,
   getSyllabusScopeById,
-  listSyllabusScopes
-} from "../../syllabusscope_module.js?v=20260715-module-api";
+  listSyllabusScopes,
+  updateSyllabusScopeRecord
+} from "../../syllabusscope_module.js?v=20260718-scope-languages";
 
 import {
   syllabusScopeGradeNumbers,
   syllabusScopeLevelTypes
-} from "../../../../config/firebase/syllabusscope_schema.js?v=20260715-country-sections";
+} from "../../../../config/firebase/syllabusscope_schema.js?v=20260718-scope-languages";
 
 const countryInput = document.querySelector("#scope-country");
 const countrySelect = document.querySelector("#scope-country-select");
@@ -16,6 +19,9 @@ const newButton = document.querySelector("#new-scope");
 const saveButton = document.querySelector("#save-scope");
 const deleteButton = document.querySelector("#delete-scope");
 const confirmDeleteInput = document.querySelector("#confirm-delete-country");
+const languageInput = document.querySelector("#scope-language");
+const addLanguageButton = document.querySelector("#add-language");
+const languagesList = document.querySelector("#languages-list");
 const levelsContainer = document.querySelector("#levels-container");
 const statusMessage = document.querySelector("#status-message");
 
@@ -25,6 +31,10 @@ let pendingCountry = "";
 
 function normalizeCountry(country) {
   return country.trim().replace(/\s+/g, " ");
+}
+
+function normalizeLanguage(language) {
+  return language.trim().replace(/\s+/g, " ");
 }
 
 function buildCountryId(country) {
@@ -54,6 +64,14 @@ function setBusy(isBusy) {
   countrySelect.disabled = isBusy;
   newButton.disabled = isBusy;
   saveButton.disabled = isBusy;
+  languageInput.disabled = isBusy || !loadedScope;
+  addLanguageButton.disabled = isBusy || !loadedScope;
+  languagesList.querySelectorAll("button").forEach((button) => {
+    button.disabled = isBusy;
+  });
+  levelsContainer.querySelectorAll("input").forEach((input) => {
+    input.disabled = isBusy;
+  });
   updateDeleteControls();
 }
 
@@ -119,6 +137,47 @@ function renderLevelPanels(levels = {}) {
   });
 }
 
+function renderLanguages(languages = []) {
+  languagesList.replaceChildren();
+
+  if (!loadedScope) {
+    const message = document.createElement("span");
+    message.className = "languages-empty";
+    message.textContent = "Save or load a country before adding languages.";
+    languagesList.append(message);
+    languageInput.disabled = true;
+    addLanguageButton.disabled = true;
+    return;
+  }
+
+  languageInput.disabled = pageBusy;
+  addLanguageButton.disabled = pageBusy;
+
+  if (languages.length === 0) {
+    const message = document.createElement("span");
+    message.className = "languages-empty";
+    message.textContent = "No languages added.";
+    languagesList.append(message);
+    return;
+  }
+
+  languages.forEach((language) => {
+    const item = document.createElement("span");
+    const label = document.createElement("span");
+    const removeButton = document.createElement("button");
+
+    item.className = "language-item";
+    label.textContent = language;
+    removeButton.type = "button";
+    removeButton.className = "danger";
+    removeButton.textContent = "Remove";
+    removeButton.disabled = pageBusy;
+    removeButton.addEventListener("click", () => removeLanguage(language));
+    item.append(label, removeButton);
+    languagesList.append(item);
+  });
+}
+
 function readSelectedLevels() {
   const levels = {};
   const checkboxes = levelsContainer.querySelectorAll("input[type='checkbox']");
@@ -146,7 +205,9 @@ function resetForm() {
   pendingCountry = "";
   countrySelect.value = "";
   countryInput.value = "";
+  languageInput.value = "";
   confirmDeleteInput.checked = false;
+  renderLanguages();
   renderLevelPanels();
   updateDeleteControls();
   clearStatus();
@@ -162,6 +223,8 @@ function displayScope(scope, message) {
   }
 
   countryInput.value = "";
+  languageInput.value = "";
+  renderLanguages(scope.languages || []);
   renderLevelPanels(scope.levels);
   updateDeleteControls();
   setStatus(message);
@@ -186,11 +249,16 @@ async function saveScope() {
   clearStatus();
 
   try {
-    loadedScope = await createSyllabusScopeRecord({
-      id,
-      country,
-      levels: readSelectedLevels()
-    });
+    const levels = readSelectedLevels();
+
+    loadedScope = loadedScope
+      ? await updateSyllabusScopeRecord(loadedScope, { levels })
+      : await createSyllabusScopeRecord({
+        id,
+        country,
+        languages: [],
+        levels
+      });
 
     await refreshCountryOptions(loadedScope.id);
     displayScope(loadedScope, "Syllabus scope saved.");
@@ -223,6 +291,8 @@ async function deleteScope() {
     pendingCountry = "";
     confirmDeleteInput.checked = false;
     countryInput.value = "";
+    languageInput.value = "";
+    renderLanguages();
     renderLevelPanels();
 
     const scopes = await refreshCountryOptions();
@@ -238,6 +308,62 @@ async function deleteScope() {
   } finally {
     setBusy(false);
     updateDeleteControls();
+  }
+}
+
+async function addLanguage() {
+  if (!loadedScope) {
+    setStatus("Save or load a country before adding languages.", true);
+    return;
+  }
+
+  const language = normalizeLanguage(languageInput.value);
+
+  if (!language) {
+    setStatus("Language is required.", true);
+    return;
+  }
+
+  const languageExists = loadedScope.languages.some(
+    (item) => item.toLowerCase() === language.toLowerCase()
+  );
+
+  if (languageExists) {
+    setStatus(`${language} is already added.`, true);
+    return;
+  }
+
+  setBusy(true);
+  clearStatus();
+
+  try {
+    loadedScope = await addSyllabusScopeLanguage(loadedScope.id, language);
+    languageInput.value = "";
+    renderLanguages(loadedScope.languages);
+    setStatus(`${language} added to ${loadedScope.country}.`);
+  } catch (error) {
+    setStatus(error.message || "Could not add language.", true);
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function removeLanguage(language) {
+  if (!loadedScope) {
+    return;
+  }
+
+  setBusy(true);
+  clearStatus();
+
+  try {
+    loadedScope = await deleteSyllabusScopeLanguage(loadedScope.id, language);
+    renderLanguages(loadedScope.languages);
+    setStatus(`${language} removed from ${loadedScope.country}.`);
+  } catch (error) {
+    setStatus(error.message || "Could not remove language.", true);
+  } finally {
+    setBusy(false);
   }
 }
 
@@ -282,12 +408,15 @@ function prepareNewCountry() {
   pendingCountry = country;
   countrySelect.value = "";
   confirmDeleteInput.checked = false;
+  languageInput.value = "";
+  renderLanguages();
   renderLevelPanels();
   updateDeleteControls();
   setStatus(`Ready to create ${country}. Select years and save scope.`);
 }
 
 async function initPage() {
+  renderLanguages();
   renderLevelPanels();
 
   try {
@@ -310,5 +439,12 @@ confirmDeleteInput.addEventListener("change", updateDeleteControls);
 newButton.addEventListener("click", prepareNewCountry);
 saveButton.addEventListener("click", saveScope);
 deleteButton.addEventListener("click", deleteScope);
+addLanguageButton.addEventListener("click", addLanguage);
+languageInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    addLanguage();
+  }
+});
 
 initPage();

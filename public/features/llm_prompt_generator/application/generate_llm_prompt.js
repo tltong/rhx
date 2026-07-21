@@ -1,24 +1,37 @@
+/**
+ * @typedef {import("../domain/llm_prompt_generator.js").LlmPromptGenerationInput}
+ * LlmPromptGenerationInput
+ */
+
 export class GenerateLlmPrompt {
   constructor({
     getLlmPromptConfigById,
-    getDefaultLlmPromptConfig,
     getSyllabusById,
     promptGenerator
   }) {
     this.getLlmPromptConfigById = getLlmPromptConfigById;
-    this.getDefaultLlmPromptConfig = getDefaultLlmPromptConfig;
     this.getSyllabusById = getSyllabusById;
     this.promptGenerator = promptGenerator;
   }
 
-  async execute({
-    llmPromptConfigId = null,
-    syllabusId,
-    topicIds = [],
-    numberOfQuestions,
-    difficultyLevel,
-    additionalInstructions = ""
-  }) {
+  generatePrompt(input) {
+    return this.promptGenerator.generate(input);
+  }
+
+  /**
+   * @param {string} llmPromptConfigId
+   * @param {string} syllabusId
+   * @param {LlmPromptGenerationInput} generationInput
+   * @returns {Promise<string>}
+   */
+  async execute(llmPromptConfigId, syllabusId, generationInput = {}) {
+    const {
+      numberOfQuestions,
+      difficultyLevel,
+      language,
+      topicIds = [],
+      additionalInstructions = ""
+    } = generationInput;
     const normalizedSyllabusId = String(syllabusId || "").trim();
     const normalizedConfigId = String(llmPromptConfigId || "").trim();
 
@@ -26,10 +39,12 @@ export class GenerateLlmPrompt {
       throw new Error("Syllabus is required.");
     }
 
+    if (!normalizedConfigId) {
+      throw new Error("LLM prompt config is required.");
+    }
+
     const [llmPromptConfig, syllabus] = await Promise.all([
-      normalizedConfigId
-        ? this.getLlmPromptConfigById(normalizedConfigId)
-        : this.getDefaultLlmPromptConfig(),
+      this.getLlmPromptConfigById(normalizedConfigId),
       this.getSyllabusById(normalizedSyllabusId)
     ]);
 
@@ -41,12 +56,13 @@ export class GenerateLlmPrompt {
       throw new Error("Selected syllabus could not be found.");
     }
 
-    return this.promptGenerator.generate({
+    return this.generatePrompt({
       llmPromptConfig,
       syllabus,
       topicIds,
       numberOfQuestions,
       difficultyLevel,
+      language,
       additionalInstructions
     });
   }

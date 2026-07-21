@@ -31,6 +31,27 @@ function requireObject(value, name) {
   return value;
 }
 
+function normalizeLanguages(languages = []) {
+  if (!Array.isArray(languages)) {
+    throw new Error("languages must be an array.");
+  }
+
+  const normalizedLanguages = [];
+  const languageKeys = new Set();
+
+  languages.forEach((language) => {
+    const normalizedLanguage = requireNonEmptyString(language, "language");
+    const languageKey = normalizedLanguage.toLowerCase();
+
+    if (!languageKeys.has(languageKey)) {
+      languageKeys.add(languageKey);
+      normalizedLanguages.push(normalizedLanguage);
+    }
+  });
+
+  return normalizedLanguages;
+}
+
 function normalizeLevels(levels = {}) {
   const source = requireObject(levels, "levels");
   const normalizedLevels = {};
@@ -112,6 +133,7 @@ function toSyllabusScope(data) {
   return new SyllabusScope({
     id: data.id,
     country,
+    languages: normalizeLanguages(data.languages || []),
     levels: getLevels(data)
   });
 }
@@ -119,6 +141,7 @@ function toSyllabusScope(data) {
 function toSyllabusScopeRecord(syllabusScope) {
   return {
     country: requireNonEmptyString(syllabusScope.country, "country"),
+    languages: normalizeLanguages(syllabusScope.languages || []),
     levels: normalizeLevels(syllabusScope.levels || {})
   };
 }

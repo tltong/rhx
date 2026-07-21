@@ -20,6 +20,10 @@ export const syllabusScopeSchema = {
   documentId: syllabusScopeDocumentIdPattern,
   fields: {
     country: "string",
+    languages: {
+      type: "array",
+      items: "string"
+    },
     levels: {
       type: "map",
       allowedKeys: syllabusScopeLevelTypes,

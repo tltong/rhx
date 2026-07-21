@@ -14,6 +14,10 @@ export const syllabusesSchema = {
     level: "string",
     year: "number",
     subject: "string",
+    languages: {
+      type: "array",
+      items: "string"
+    },
     active: {
       type: "boolean",
       default: false

@@ -51,6 +51,27 @@ function requireObject(value, name) {
   return value;
 }
 
+function normalizeLanguages(languages = []) {
+  if (!Array.isArray(languages)) {
+    throw new Error("languages must be an array.");
+  }
+
+  const normalizedLanguages = [];
+  const languageKeys = new Set();
+
+  languages.forEach((language) => {
+    const normalizedLanguage = requireNonEmptyString(language, "language");
+    const languageKey = normalizedLanguage.toLowerCase();
+
+    if (!languageKeys.has(languageKey)) {
+      languageKeys.add(languageKey);
+      normalizedLanguages.push(normalizedLanguage);
+    }
+  });
+
+  return normalizedLanguages;
+}
+
 function getTopicsCollectionPath(syllabusId) {
   return [
     SYLLABUSES_COLLECTION,
@@ -109,6 +130,7 @@ function toSyllabus(data, topics = []) {
     level: data.level,
     year: data.year,
     subject: data.subject,
+    languages: normalizeLanguages(data.languages || []),
     active: Boolean(data.active),
     assessmentFrameworkId: data.assessmentFrameworkId || null,
     topics: topics.map(toSyllabusTopic).filter(Boolean)
@@ -122,6 +144,7 @@ function toSyllabusRecord(syllabus) {
     level: requireNonEmptyString(syllabus.level, "level"),
     year: requireNumber(syllabus.year, "year"),
     subject: requireNonEmptyString(syllabus.subject, "subject"),
+    languages: normalizeLanguages(syllabus.languages || []),
     active: Boolean(syllabus.active)
   };
 

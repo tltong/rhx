@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Syllabus Scope Admin</title>
-    <link rel="stylesheet" href="./syllabusscope_admin.css?v=20260715-country-sections">
+    <link rel="stylesheet" href="./syllabusscope_admin.css?v=20260718-scope-languages">
     <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
     <script defer src="/__/firebase/init.js"></script>
@@ -15,7 +15,7 @@
       <header class="page-header">
         <a class="back-link" href="/">Back to Home</a>
         <h1>Syllabus Scope Admin</h1>
-        <p>Define which school years are available for each country and level.</p>
+        <p>Define available languages and school years for each country and level.</p>
       </header>
 
       <section class="panel">
@@ -50,6 +50,18 @@
           </section>
         </div>
 
+        <section class="languages-section">
+          <h2>Languages</h2>
+          <div class="add-language-row">
+            <label class="field">
+              <span>New language</span>
+              <input id="scope-language" type="text" autocomplete="off" placeholder="English">
+            </label>
+            <button id="add-language" type="button">Add Language</button>
+          </div>
+          <div id="languages-list" class="languages-list"></div>
+        </section>
+
         <div id="levels-container" class="levels"></div>
 
         <div class="actions">
@@ -60,6 +72,6 @@
       </section>
     </main>
 
-    <script type="module" src="./syllabusscope_admin.js?v=20260715-country-sections"></script>
+    <script type="module" src="./syllabusscope_admin.js?v=20260718-scope-languages"></script>
   </body>
 </html>

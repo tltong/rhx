@@ -1,13 +1,13 @@
 import {
-  listLlmPromptConfigs
-} from "../../../llm_prompt_config/llm_prompt_config_module.js?v=20260717-llm-prompt-generator";
-import {
-  listSyllabuses
-} from "../../../syllabus/syllabus_module.js?v=20260717-llm-prompt-generator";
-import {
   generateLlmPrompt,
-  llmPromptDifficultyLevels
-} from "../../llm_prompt_generator_module.js?v=20260717-llm-prompt-generator";
+  generateLlmPromptWithDiagram,
+  loadLlmPromptGeneratorOptions
+} from "../../llm_prompt_generator_module.js?v=20260722-mermaid-chart-repair";
+
+/**
+ * @typedef {import("../../domain/llm_prompt_generator.js").LlmPromptGenerationInput}
+ * LlmPromptGenerationInput
+ */
 
 const configSelect = document.querySelector("#config-select");
 const syllabusSelect = document.querySelector("#syllabus-select");
@@ -16,9 +16,10 @@ const summaryCountry = document.querySelector("#summary-country");
 const summaryLevel = document.querySelector("#summary-level");
 const summaryYear = document.querySelector("#summary-year");
 const summarySubject = document.querySelector("#summary-subject");
-const topicsContainer = document.querySelector("#topics-container");
 const numberOfQuestionsInput = document.querySelector("#number-of-questions");
 const difficultyLevelSelect = document.querySelector("#difficulty-level");
+const languageSelect = document.querySelector("#language-select");
+const includeDiagramInput = document.querySelector("#include-diagram");
 const additionalInstructionsInput = document.querySelector(
   "#additional-instructions"
 );
@@ -57,6 +58,7 @@ function updateGenerateButton() {
     || !configSelect.value
     || !syllabusSelect.value
     || !difficultyLevelSelect.value
+    || !languageSelect.value
     || !isQuestionCountValid();
 }
 
@@ -68,13 +70,11 @@ function setBusy(isBusy) {
     syllabusSelect,
     numberOfQuestionsInput,
     difficultyLevelSelect,
+    languageSelect,
+    includeDiagramInput,
     additionalInstructionsInput
   ].forEach((control) => {
     control.disabled = isBusy;
-  });
-
-  topicsContainer.querySelectorAll("input[type='checkbox']").forEach((input) => {
-    input.disabled = isBusy;
   });
 
   copyPromptButton.disabled = isBusy || !promptOutput.value;
@@ -131,63 +131,12 @@ function renderSyllabusOptions(nextSyllabuses) {
   });
 }
 
-function renderEmptyTopics(message) {
-  topicsContainer.replaceChildren();
-
-  const emptyMessage = document.createElement("p");
-  emptyMessage.className = "empty-message";
-  emptyMessage.textContent = message;
-  topicsContainer.append(emptyMessage);
-}
-
-function renderTopics(topics) {
-  topicsContainer.replaceChildren();
-
-  if (topics.length === 0) {
-    renderEmptyTopics("This syllabus has no defined topics. The prompt will use its subject.");
-    return;
-  }
-
-  topics.forEach((topic) => {
-    const label = document.createElement("label");
-    const checkbox = document.createElement("input");
-    const content = document.createElement("span");
-    const topicName = document.createElement("span");
-    const subtopicNames = Object.values(topic.subtopics || {}).filter(Boolean);
-
-    label.className = "topic-option";
-    checkbox.type = "checkbox";
-    checkbox.value = topic.id;
-    checkbox.checked = true;
-    checkbox.dataset.topicId = topic.id;
-    topicName.className = "topic-name";
-    topicName.textContent = topic.topicName;
-    content.append(topicName);
-
-    if (subtopicNames.length > 0) {
-      const subtopicList = document.createElement("ul");
-      subtopicList.className = "subtopic-list";
-
-      subtopicNames.forEach((subtopic) => {
-        const item = document.createElement("li");
-        item.textContent = subtopic;
-        subtopicList.append(item);
-      });
-
-      content.append(subtopicList);
-    }
-
-    label.append(checkbox, content);
-    topicsContainer.append(label);
-  });
-}
-
 function displaySelectedSyllabus() {
   const syllabus = getSelectedSyllabus();
 
   if (!syllabus) {
     syllabusSummary.hidden = true;
-    renderEmptyTopics("Select a syllabus to load its topics.");
+    renderLanguageOptions();
     updateGenerateButton();
     return;
   }
@@ -197,33 +146,30 @@ function displaySelectedSyllabus() {
   summaryYear.textContent = `Year ${syllabus.year}`;
   summarySubject.textContent = syllabus.subject;
   syllabusSummary.hidden = false;
-  renderTopics(syllabus.topics || []);
+  renderLanguageOptions(syllabus.languages || []);
   updateGenerateButton();
 }
 
-function renderDifficultyOptions() {
-  difficultyLevelSelect.replaceChildren();
+function renderLanguageOptions(languages = []) {
+  languageSelect.replaceChildren();
 
-  Object.values(llmPromptDifficultyLevels).forEach((difficulty) => {
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = languages.length
+    ? "Select language"
+    : "No syllabus languages available";
+  languageSelect.append(placeholder);
+
+  languages.forEach((language) => {
     const option = document.createElement("option");
-    option.value = difficulty;
-    option.textContent = difficulty;
-    difficultyLevelSelect.append(option);
+    option.value = language;
+    option.textContent = language;
+    languageSelect.append(option);
   });
 
-  difficultyLevelSelect.value = llmPromptDifficultyLevels.MEDIUM;
-}
-
-function readSelectedTopicIds(syllabus) {
-  const topicIds = Array.from(
-    topicsContainer.querySelectorAll("input[data-topic-id]:checked")
-  ).map((input) => input.dataset.topicId);
-
-  if ((syllabus.topics || []).length > 0 && topicIds.length === 0) {
-    throw new Error("Select at least one syllabus topic.");
+  if (languages.length === 1) {
+    languageSelect.value = languages[0];
   }
-
-  return topicIds;
 }
 
 async function generatePrompt() {
@@ -238,18 +184,30 @@ async function generatePrompt() {
   clearStatus();
 
   try {
-    const prompt = await generateLlmPrompt({
-      llmPromptConfigId: configSelect.value,
-      syllabusId: syllabus.id,
-      topicIds: readSelectedTopicIds(syllabus),
+    const promptGenerator = includeDiagramInput.checked
+      ? generateLlmPromptWithDiagram
+      : generateLlmPrompt;
+
+    /** @type {LlmPromptGenerationInput} */
+    const generationInput = {
       numberOfQuestions: Number(numberOfQuestionsInput.value),
       difficultyLevel: difficultyLevelSelect.value,
+      language: languageSelect.value,
       additionalInstructions: additionalInstructionsInput.value
-    });
+    };
+    const prompt = await promptGenerator(
+      configSelect.value,
+      syllabus.id,
+      generationInput
+    );
 
     promptOutput.value = prompt;
     copyPromptButton.disabled = false;
-    setStatus("Prompt generated.");
+    setStatus(
+      includeDiagramInput.checked
+        ? "Prompt with diagrams generated."
+        : "Prompt generated."
+    );
   } catch (error) {
     setStatus(error.message || "Could not generate the prompt.", true);
   } finally {
@@ -273,13 +231,12 @@ async function copyPrompt() {
 }
 
 async function initPage() {
-  renderDifficultyOptions();
+  renderLanguageOptions();
 
   try {
-    const [configs, loadedSyllabuses] = await Promise.all([
-      listLlmPromptConfigs(),
-      listSyllabuses()
-    ]);
+    const options = await loadLlmPromptGeneratorOptions();
+    const configs = options.promptConfigs;
+    const loadedSyllabuses = options.syllabuses;
 
     syllabuses = loadedSyllabuses;
     renderConfigOptions(configs);
@@ -309,6 +266,7 @@ configSelect.addEventListener("change", updateGenerateButton);
 syllabusSelect.addEventListener("change", displaySelectedSyllabus);
 numberOfQuestionsInput.addEventListener("input", updateGenerateButton);
 difficultyLevelSelect.addEventListener("change", updateGenerateButton);
+languageSelect.addEventListener("change", updateGenerateButton);
 generatePromptButton.addEventListener("click", generatePrompt);
 copyPromptButton.addEventListener("click", copyPrompt);
 

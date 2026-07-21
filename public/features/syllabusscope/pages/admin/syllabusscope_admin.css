@@ -110,6 +110,52 @@ p {
   font-weight: 700;
 }
 
+.languages-section {
+  border: 1px solid #d5e1ec;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  padding: 18px;
+}
+
+.languages-section h2 {
+  margin: 0 0 14px;
+  font-size: 20px;
+}
+
+.add-language-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto;
+  gap: 14px;
+  align-items: end;
+}
+
+.languages-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.language-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 6px;
+  padding: 7px 8px 7px 12px;
+  color: #0b3150;
+  background: #e8f4ff;
+  font-weight: 700;
+}
+
+.language-item button {
+  min-height: 32px;
+  padding: 0 10px;
+}
+
+.languages-empty {
+  color: #52606d;
+}
+
 input,
 select {
   min-height: 42px;
@@ -199,7 +245,8 @@ select {
 
 @media (max-width: 700px) {
   .country-sections,
-  .add-country-row {
+  .add-country-row,
+  .add-language-row {
     grid-template-columns: 1fr;
   }
 

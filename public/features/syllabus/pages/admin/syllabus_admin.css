@@ -155,6 +155,48 @@ select:disabled {
   align-items: end;
 }
 
+.languages-fieldset {
+  min-width: 0;
+  border: 1px solid #d5e1ec;
+  border-radius: 8px;
+  margin-top: 18px;
+  padding: 14px;
+}
+
+.languages-fieldset legend {
+  padding: 0 6px;
+  font-weight: 700;
+}
+
+.language-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.language-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #d5e1ec;
+  border-radius: 6px;
+  padding: 9px 12px;
+  font-weight: 700;
+}
+
+.language-option input {
+  min-height: auto;
+}
+
+.language-option.unavailable {
+  color: #697586;
+  background: #f4f7fa;
+}
+
+.languages-empty {
+  color: #52606d;
+}
+
 .add-subject-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

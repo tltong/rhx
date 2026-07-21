@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LLM Prompt Generator</title>
-    <link rel="stylesheet" href="./llm_prompt_generator_admin.css?v=20260717-llm-prompt-generator">
+    <link rel="stylesheet" href="./llm_prompt_generator_admin.css?v=20260720-diagram-toggle">
     <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
     <script defer src="/__/firebase/init.js"></script>
@@ -57,13 +57,6 @@
           </dl>
         </section>
 
-        <fieldset class="topics-section">
-          <legend>Topics</legend>
-          <div id="topics-container" class="topics-list">
-            <p class="empty-message">Select a syllabus to load its topics.</p>
-          </div>
-        </fieldset>
-
         <section class="generation-fields">
           <label class="field">
             <span>Number of questions</span>
@@ -72,7 +65,23 @@
 
           <label class="field">
             <span>Difficulty level</span>
-            <select id="difficulty-level"></select>
+            <select id="difficulty-level">
+              <option value="Easy">Easy</option>
+              <option value="Medium" selected>Medium</option>
+              <option value="Hard">Hard</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Language</span>
+            <select id="language-select">
+              <option value="">Select language</option>
+            </select>
+          </label>
+
+          <label class="diagram-option">
+            <input id="include-diagram" type="checkbox">
+            <span>Include a diagram in every question</span>
           </label>
 
           <label class="field full-width">
@@ -97,6 +106,6 @@
       </section>
     </main>
 
-    <script type="module" src="./llm_prompt_generator_admin.js?v=20260717-llm-prompt-generator"></script>
+    <script type="module" src="./llm_prompt_generator_admin.js?v=20260722-mermaid-chart-repair"></script>
   </body>
 </html>
