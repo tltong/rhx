@@ -26,7 +26,7 @@ export class RenderMermaidDiagram {
     this.mermaidRenderer = mermaidRenderer;
   }
 
-  async execute(mermaidCode, description) {
+  async execute(mermaidCode, description, llmOptions = {}) {
     const normalizedMermaidCode = requireText(
       mermaidCode,
       "Mermaid code"
@@ -54,7 +54,7 @@ export class RenderMermaidDiagram {
           description: normalizedDescription,
           mermaidCode: normalizedMermaidCode,
           errorMessage: initialRenderError?.message
-        });
+        }, llmOptions);
         const renderResult = await this.mermaidRenderer.render(
           repairedMermaidCode
         );

@@ -43,10 +43,11 @@ export class GenerateDiagram {
     this.mermaidRenderer = mermaidRenderer;
   }
 
-  async execute(description) {
+  async execute(description, llmOptions = {}) {
     const normalizedDescription = requireDescription(description);
     const initialMermaidCode = await this.generateMermaidInstruction.execute(
-      normalizedDescription
+      normalizedDescription,
+      llmOptions
     );
 
     try {
@@ -68,7 +69,7 @@ export class GenerateDiagram {
           description: normalizedDescription,
           mermaidCode: initialMermaidCode,
           errorMessage: initialRenderError?.message
-        });
+        }, llmOptions);
         const renderResult = await this.mermaidRenderer.render(
           repairedMermaidCode
         );

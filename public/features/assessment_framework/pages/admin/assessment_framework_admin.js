@@ -1,10 +1,14 @@
 import {
+  ASSESSMENT_FRAMEWORK_END_LEVEL_ID,
+  assessmentFrameworkPreAssessmentDifficultyLevels,
+  assessmentFrameworkPreAssessmentScoreThresholds,
   createAssessmentFrameworkRecord,
   deleteAssessmentFrameworkRecord,
   getAssessmentFrameworkById,
   listAssessmentFrameworks,
+  saveAssessmentFrameworkPreAssessment,
   updateAssessmentFrameworkRecord
-} from "../../assessment_framework_module.js?v=20260715-sequence-reorder";
+} from "../../assessment_framework_module.js?v=20260729-framework-wide-pre-assessment";
 
 const frameworkSelect = document.querySelector("#framework-select");
 const newFrameworkNameInput = document.querySelector("#new-framework-name");
@@ -17,10 +21,26 @@ const levelTemplate = document.querySelector("#level-template");
 const saveButton = document.querySelector("#save-framework");
 const deleteButton = document.querySelector("#delete-framework");
 const confirmDeleteInput = document.querySelector("#confirm-delete-framework");
+const preAssessmentAvailability = document.querySelector(
+  "#pre-assessment-availability"
+);
+const preAssessmentFields = document.querySelector("#pre-assessment-fields");
+const preAssessmentQuestionCountInput = document.querySelector(
+  "#pre-assessment-question-count"
+);
+const difficultyInputs = Array.from(
+  document.querySelectorAll("[data-difficulty-field]")
+);
+const difficultyTotal = document.querySelector("#difficulty-total");
+const scoreLevelMappings = document.querySelector("#score-level-mappings");
+const savePreAssessmentButton = document.querySelector(
+  "#save-pre-assessment"
+);
 const statusMessage = document.querySelector("#status-message");
 
 let loadedFramework = null;
 let pageBusy = false;
+let frameworkLevelsDirty = false;
 
 function normalizeText(value) {
   return String(value || "").trim().replace(/\s+/g, " ");
@@ -43,6 +63,37 @@ function updateDeleteControls() {
   deleteButton.disabled = pageBusy || !loadedFramework || !confirmDeleteInput.checked;
 }
 
+function hasSavedLevels() {
+  return Boolean(
+    loadedFramework?.id &&
+    Array.isArray(loadedFramework.levels) &&
+    loadedFramework.levels.length > 0
+  );
+}
+
+function updatePreAssessmentControls() {
+  const levelsAreReady = hasSavedLevels() && !frameworkLevelsDirty;
+  const canEdit = !pageBusy && levelsAreReady;
+
+  preAssessmentFields.disabled = !canEdit;
+  savePreAssessmentButton.disabled = !canEdit;
+
+  if (!loadedFramework?.id || !hasSavedLevels()) {
+    preAssessmentAvailability.textContent =
+      "Save at least one framework level before configuring pre-assessment.";
+    return;
+  }
+
+  if (frameworkLevelsDirty) {
+    preAssessmentAvailability.textContent =
+      "Save the framework level changes before editing pre-assessment.";
+    return;
+  }
+
+  preAssessmentAvailability.textContent =
+    "This pre-assessment configuration applies to every topic.";
+}
+
 function setBusy(isBusy) {
   pageBusy = isBusy;
   frameworkSelect.disabled = isBusy;
@@ -54,6 +105,7 @@ function setBusy(isBusy) {
   saveButton.disabled = isBusy;
   updateLevelControls();
   updateDeleteControls();
+  updatePreAssessmentControls();
 }
 
 function renderFrameworkOptions(frameworks, selectedFrameworkId = "") {
@@ -84,6 +136,11 @@ async function refreshFrameworkOptions(selectedFrameworkId = "") {
 
 function getLevelRows() {
   return Array.from(levelsContainer.querySelectorAll(".level-row"));
+}
+
+function markFrameworkLevelsDirty() {
+  frameworkLevelsDirty = true;
+  updatePreAssessmentControls();
 }
 
 function updateLevelControls() {
@@ -117,6 +174,7 @@ function moveLevelRow(row, direction) {
     levelsContainer.insertBefore(sibling, row);
   }
 
+  markFrameworkLevelsDirty();
   updateLevelControls();
 }
 
@@ -143,8 +201,11 @@ function addLevelRow(level = {}) {
   });
   row.querySelector("[data-action='remove-level']").addEventListener("click", () => {
     row.remove();
+    markFrameworkLevelsDirty();
     updateLevelControls();
   });
+  row.addEventListener("input", markFrameworkLevelsDirty);
+  row.addEventListener("change", markFrameworkLevelsDirty);
 
   levelsContainer.append(row);
   updateLevelControls();
@@ -157,20 +218,117 @@ function renderLevels(levels = []) {
   updateLevelControls();
 }
 
+function getDifficultyDefaults() {
+  return {
+    easyPercentage: 34,
+    mediumPercentage: 33,
+    hardPercentage: 33
+  };
+}
+
+function renderScoreLevelMappings(levels = [], endLevelName = "") {
+  scoreLevelMappings.replaceChildren();
+
+  assessmentFrameworkPreAssessmentScoreThresholds.forEach((threshold) => {
+    const label = document.createElement("label");
+    const scoreLabel = document.createElement("span");
+    const select = document.createElement("select");
+
+    label.className = "score-mapping";
+    scoreLabel.textContent = `>${threshold}%`;
+    select.dataset.scoreField = `over${threshold}Percent`;
+
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "Select level";
+    select.append(placeholder);
+
+    levels.forEach((level) => {
+      const option = document.createElement("option");
+      option.value = level.id;
+      option.textContent = level.levelName;
+      select.append(option);
+    });
+
+    const endLevelOption = document.createElement("option");
+    endLevelOption.value = ASSESSMENT_FRAMEWORK_END_LEVEL_ID;
+    endLevelOption.textContent =
+      `End level: ${endLevelName || "End level"}`;
+    select.append(endLevelOption);
+
+    label.append(scoreLabel, select);
+    scoreLevelMappings.append(label);
+  });
+}
+
+function updateDifficultyTotal() {
+  const total = difficultyInputs.reduce(
+    (sum, input) => sum + (Number(input.value) || 0),
+    0
+  );
+
+  difficultyTotal.value = `${total}%`;
+  difficultyTotal.textContent = `${total}%`;
+  difficultyTotal.classList.toggle("error", Math.abs(total - 100) > 0.0001);
+}
+
+function renderPreAssessmentEditor() {
+  const preAssessment = loadedFramework?.preAssessment;
+  const difficultySplit = preAssessment?.difficultySplit ||
+    getDifficultyDefaults();
+
+  renderScoreLevelMappings(
+    loadedFramework?.levels || [],
+    loadedFramework?.endLevelName || ""
+  );
+  preAssessmentQuestionCountInput.value =
+    preAssessment?.numberOfQuestions ?? 10;
+
+  difficultyInputs.forEach((input) => {
+    input.value = difficultySplit[input.dataset.difficultyField] ?? 0;
+  });
+
+  scoreLevelMappings.querySelectorAll("[data-score-field]").forEach(
+    (select) => {
+      select.value =
+        preAssessment?.scoreLevelSplit?.[select.dataset.scoreField] || "";
+    }
+  );
+
+  updateDifficultyTotal();
+  updatePreAssessmentControls();
+}
+
+function resetPreAssessmentEditor() {
+  renderScoreLevelMappings([]);
+  preAssessmentQuestionCountInput.value = 10;
+  const defaults = getDifficultyDefaults();
+
+  difficultyInputs.forEach((input) => {
+    input.value = defaults[input.dataset.difficultyField];
+  });
+
+  updateDifficultyTotal();
+  updatePreAssessmentControls();
+}
+
 function resetForm() {
   loadedFramework = null;
+  frameworkLevelsDirty = false;
   frameworkSelect.value = "";
   frameworkNameInput.value = "";
   endLevelNameInput.value = "";
   newFrameworkNameInput.value = "";
   confirmDeleteInput.checked = false;
   renderLevels();
+  resetPreAssessmentEditor();
   updateDeleteControls();
   clearStatus();
 }
 
 function displayFramework(framework, message) {
   loadedFramework = framework;
+  frameworkLevelsDirty = false;
   confirmDeleteInput.checked = false;
   newFrameworkNameInput.value = "";
 
@@ -181,6 +339,7 @@ function displayFramework(framework, message) {
   frameworkNameInput.value = framework.name || "";
   endLevelNameInput.value = framework.endLevelName || "";
   renderLevels(framework.levels || []);
+  renderPreAssessmentEditor();
   updateDeleteControls();
   setStatus(message);
 }
@@ -194,6 +353,7 @@ function prepareNewFramework() {
   }
 
   loadedFramework = null;
+  frameworkLevelsDirty = true;
   frameworkSelect.value = "";
   confirmDeleteInput.checked = false;
   frameworkNameInput.value = frameworkName;
@@ -201,6 +361,7 @@ function prepareNewFramework() {
   renderLevels();
   addLevelRow();
   updateDeleteControls();
+  resetPreAssessmentEditor();
   setStatus(`Ready to create ${frameworkName}. Add levels and save.`);
 }
 
@@ -288,6 +449,98 @@ async function saveFramework() {
   }
 }
 
+function readDifficultySplit() {
+  const difficultySplit = Object.fromEntries(
+    assessmentFrameworkPreAssessmentDifficultyLevels.map((difficulty) => {
+      const fieldName = `${difficulty}Percentage`;
+      const input = difficultyInputs.find(
+        (item) => item.dataset.difficultyField === fieldName
+      );
+
+      return [fieldName, Number(input?.value)];
+    })
+  );
+  const total = Object.values(difficultySplit).reduce(
+    (sum, percentage) => sum + percentage,
+    0
+  );
+
+  if (
+    Object.values(difficultySplit).some(
+      (percentage) => !Number.isFinite(percentage)
+    )
+  ) {
+    throw new Error("All difficulty percentages are required.");
+  }
+
+  if (Math.abs(total - 100) > 0.0001) {
+    throw new Error("Difficulty percentages must total 100.");
+  }
+
+  return difficultySplit;
+}
+
+function readScoreLevelSplit() {
+  return Object.fromEntries(
+    assessmentFrameworkPreAssessmentScoreThresholds.map((threshold) => {
+      const fieldName = `over${threshold}Percent`;
+      const select = scoreLevelMappings.querySelector(
+        `[data-score-field="${fieldName}"]`
+      );
+
+      if (!select?.value) {
+        throw new Error(`Select a level for scores over ${threshold}%.`);
+      }
+
+      return [fieldName, select.value];
+    })
+  );
+}
+
+async function savePreAssessment() {
+  if (!loadedFramework?.id || !hasSavedLevels() || frameworkLevelsDirty) {
+    setStatus(
+      "Save the assessment framework levels before configuring pre-assessment.",
+      true
+    );
+    return;
+  }
+
+  const numberOfQuestions = Number(preAssessmentQuestionCountInput.value);
+
+  if (!Number.isInteger(numberOfQuestions) || numberOfQuestions < 1) {
+    setStatus("Number of questions must be a positive whole number.", true);
+    return;
+  }
+
+  setBusy(true);
+  clearStatus();
+
+  try {
+    await saveAssessmentFrameworkPreAssessment(loadedFramework.id, {
+      numberOfQuestions,
+      difficultySplit: readDifficultySplit(),
+      scoreLevelSplit: readScoreLevelSplit()
+    });
+
+    const refreshedFramework = await getAssessmentFrameworkById(
+      loadedFramework.id
+    );
+
+    displayFramework(
+      refreshedFramework,
+      "Framework-wide pre-assessment settings saved."
+    );
+  } catch (error) {
+    setStatus(
+      error.message || "Could not save pre-assessment settings.",
+      true
+    );
+  } finally {
+    setBusy(false);
+  }
+}
+
 async function deleteFramework() {
   if (!loadedFramework) {
     setStatus("Load a saved framework before deleting.", true);
@@ -350,6 +603,7 @@ async function loadSelectedFramework() {
 
 async function initPage() {
   renderLevels();
+  resetPreAssessmentEditor();
 
   try {
     const frameworks = await refreshFrameworkOptions();
@@ -367,9 +621,17 @@ async function initPage() {
 
 frameworkSelect.addEventListener("change", loadSelectedFramework);
 useNewFrameworkButton.addEventListener("click", prepareNewFramework);
-addLevelButton.addEventListener("click", () => addLevelRow());
+addLevelButton.addEventListener("click", () => {
+  addLevelRow();
+  markFrameworkLevelsDirty();
+});
 saveButton.addEventListener("click", saveFramework);
 deleteButton.addEventListener("click", deleteFramework);
 confirmDeleteInput.addEventListener("change", updateDeleteControls);
+endLevelNameInput.addEventListener("input", markFrameworkLevelsDirty);
+difficultyInputs.forEach((input) => {
+  input.addEventListener("input", updateDifficultyTotal);
+});
+savePreAssessmentButton.addEventListener("click", savePreAssessment);
 
 initPage();

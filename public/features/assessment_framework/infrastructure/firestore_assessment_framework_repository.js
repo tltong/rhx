@@ -1,12 +1,18 @@
 import {
   AssessmentFramework,
-  AssessmentFrameworkLevel
-} from "../domain/assessment_framework.js";
+  AssessmentFrameworkLevel,
+  AssessmentFrameworkPreAssessment
+} from "../domain/assessment_framework.js?v=20260729-framework-wide-pre-assessment";
 import { AssessmentFrameworkRepository } from "../domain/assessment_framework_repository.js";
 import {
   ASSESSMENT_FRAMEWORKS_COLLECTION,
-  ASSESSMENT_FRAMEWORK_LEVELS_SUBCOLLECTION
-} from "../../../config/firebase/assessment_framework_schema.js";
+  ASSESSMENT_FRAMEWORK_END_LEVEL_ID,
+  ASSESSMENT_FRAMEWORK_LEVELS_SUBCOLLECTION,
+  ASSESSMENT_FRAMEWORK_PRE_ASSESSMENT_DOCUMENT_ID,
+  ASSESSMENT_FRAMEWORK_PRE_ASSESSMENT_SUBCOLLECTION,
+  assessmentFrameworkPreAssessmentDifficultyLevels,
+  assessmentFrameworkPreAssessmentScoreThresholds
+} from "../../../config/firebase/assessment_framework_schema.js?v=20260729-framework-wide-pre-assessment";
 import {
   createDocument,
   deleteDocument,
@@ -46,6 +52,14 @@ function getLevelsCollectionPath(assessmentFrameworkId) {
     ASSESSMENT_FRAMEWORKS_COLLECTION,
     assessmentFrameworkId,
     ASSESSMENT_FRAMEWORK_LEVELS_SUBCOLLECTION
+  ].join("/");
+}
+
+function getPreAssessmentCollectionPath(assessmentFrameworkId) {
+  return [
+    ASSESSMENT_FRAMEWORKS_COLLECTION,
+    assessmentFrameworkId,
+    ASSESSMENT_FRAMEWORK_PRE_ASSESSMENT_SUBCOLLECTION
   ].join("/");
 }
 
@@ -103,11 +117,112 @@ function normalizeLevels(levels = []) {
     .sort((first, second) => first.sequenceOrder - second.sequenceOrder);
 }
 
-function toAssessmentFrameworkLevel(data) {
-  return normalizeLevel(data, 0);
+function requirePositiveInteger(value, name) {
+  const numberValue = Number(value);
+
+  if (!Number.isInteger(numberValue) || numberValue < 1) {
+    throw new Error(`${name} must be a positive integer.`);
+  }
+
+  return numberValue;
 }
 
-function toAssessmentFramework(data, levels = []) {
+function normalizePercentage(value, name) {
+  const percentage = requireNumber(value, name);
+
+  if (percentage < 0 || percentage > 100) {
+    throw new Error(`${name} must be between 0 and 100.`);
+  }
+
+  return percentage;
+}
+
+function normalizeDifficultySplit(difficultySplit = {}) {
+  const source = requireObject(difficultySplit, "difficultySplit");
+  const normalizedSplit = Object.fromEntries(
+    assessmentFrameworkPreAssessmentDifficultyLevels.map((difficulty) => {
+      const fieldName = `${difficulty}Percentage`;
+
+      return [
+        fieldName,
+        normalizePercentage(
+          source[fieldName],
+          `difficultySplit.${fieldName}`
+        )
+      ];
+    })
+  );
+  const total = Object.values(normalizedSplit).reduce(
+    (sum, percentage) => sum + percentage,
+    0
+  );
+
+  if (Math.abs(total - 100) > 0.0001) {
+    throw new Error("Difficulty percentages must total 100.");
+  }
+
+  return normalizedSplit;
+}
+
+function normalizeScoreLevelSplit(scoreLevelSplit = {}, levelIds) {
+  const source = requireObject(scoreLevelSplit, "scoreLevelSplit");
+  const validTargetIds = new Set([
+    ...levelIds,
+    ASSESSMENT_FRAMEWORK_END_LEVEL_ID
+  ]);
+
+  return Object.fromEntries(
+    assessmentFrameworkPreAssessmentScoreThresholds.map((threshold) => {
+      const fieldName = `over${threshold}Percent`;
+      const levelId = requireNonEmptyString(
+        source[fieldName],
+        `scoreLevelSplit.${fieldName}`
+      );
+
+      if (!validTargetIds.has(levelId)) {
+        throw new Error(
+          `scoreLevelSplit.${fieldName} must reference an existing level or the end level.`
+        );
+      }
+
+      return [fieldName, levelId];
+    })
+  );
+}
+
+function normalizePreAssessment(preAssessment, levels) {
+  const levelIds = new Set(levels.map((level) => level.id));
+
+  if (levelIds.size === 0) {
+    throw new Error(
+      "Assessment framework levels must be saved before pre-assessment configuration."
+    );
+  }
+
+  return new AssessmentFrameworkPreAssessment({
+    numberOfQuestions: requirePositiveInteger(
+      preAssessment.numberOfQuestions,
+      "numberOfQuestions"
+    ),
+    difficultySplit: normalizeDifficultySplit(
+      preAssessment.difficultySplit
+    ),
+    scoreLevelSplit: normalizeScoreLevelSplit(
+      preAssessment.scoreLevelSplit,
+      levelIds
+    )
+  });
+}
+
+function toAssessmentFrameworkPreAssessment(data, levels) {
+  return normalizePreAssessment({
+    numberOfQuestions: data.numberOfQuestions,
+    difficultySplit: data.difficultySplit,
+    scoreLevelSplit: data.scoreLevelSplit
+  }, levels);
+}
+
+function toAssessmentFramework(data, levels = [], preAssessment = null) {
   if (!data) {
     return null;
   }
@@ -116,7 +231,8 @@ function toAssessmentFramework(data, levels = []) {
     id: data.id,
     name: data.name,
     endLevelName: data.endLevelName,
-    levels: levels.map(toAssessmentFrameworkLevel)
+    levels,
+    preAssessment
   });
 }
 
@@ -138,6 +254,14 @@ function toAssessmentFrameworkLevelRecord(level) {
   };
 }
 
+function toAssessmentFrameworkPreAssessmentRecord(preAssessment) {
+  return {
+    numberOfQuestions: preAssessment.numberOfQuestions,
+    difficultySplit: { ...preAssessment.difficultySplit },
+    scoreLevelSplit: { ...preAssessment.scoreLevelSplit }
+  };
+}
+
 export class FirestoreAssessmentFrameworkRepository
   extends AssessmentFrameworkRepository {
   async getById(assessmentFrameworkId) {
@@ -150,11 +274,19 @@ export class FirestoreAssessmentFrameworkRepository
       return null;
     }
 
-    const levels = await readCollection(
-      getLevelsCollectionPath(assessmentFrameworkId)
-    );
+    const [levelRecords, preAssessmentRecord] = await Promise.all([
+      readCollection(getLevelsCollectionPath(assessmentFrameworkId)),
+      readDocument(
+        getPreAssessmentCollectionPath(assessmentFrameworkId),
+        ASSESSMENT_FRAMEWORK_PRE_ASSESSMENT_DOCUMENT_ID
+      )
+    ]);
+    const levels = normalizeLevels(levelRecords);
+    const preAssessment = preAssessmentRecord
+      ? toAssessmentFrameworkPreAssessment(preAssessmentRecord, levels)
+      : null;
 
-    return toAssessmentFramework(data, levels);
+    return toAssessmentFramework(data, levels, preAssessment);
   }
 
   async list() {
@@ -196,6 +328,12 @@ export class FirestoreAssessmentFrameworkRepository
     const levelsPath = getLevelsCollectionPath(assessmentFramework.id);
     const existingLevels = await readCollection(levelsPath);
     const normalizedLevels = normalizeLevels(assessmentFramework.levels || []);
+    if (assessmentFramework.preAssessment) {
+      normalizePreAssessment(
+        assessmentFramework.preAssessment,
+        normalizedLevels
+      );
+    }
     const nextLevelIds = new Set(normalizedLevels.map((level) => level.id));
 
     await Promise.all(
@@ -216,12 +354,57 @@ export class FirestoreAssessmentFrameworkRepository
     assessmentFramework.levels = normalizedLevels;
   }
 
-  async delete(assessmentFrameworkId) {
-    const levelsPath = getLevelsCollectionPath(assessmentFrameworkId);
-    const levels = await readCollection(levelsPath);
+  async savePreAssessment(assessmentFramework, preAssessment) {
+    const normalizedPreAssessment = normalizePreAssessment(
+      preAssessment,
+      assessmentFramework.levels || []
+    );
+    const preAssessmentPath = getPreAssessmentCollectionPath(
+      assessmentFramework.id
+    );
+    const existingPreAssessmentRecords = await readCollection(
+      preAssessmentPath
+    );
 
     await Promise.all(
-      levels.map((level) => deleteDocument(levelsPath, level.id))
+      existingPreAssessmentRecords
+        .filter(
+          (item) =>
+            item.id !== ASSESSMENT_FRAMEWORK_PRE_ASSESSMENT_DOCUMENT_ID
+        )
+        .map((item) => deleteDocument(preAssessmentPath, item.id))
+    );
+
+    await writeDocument(
+      preAssessmentPath,
+      ASSESSMENT_FRAMEWORK_PRE_ASSESSMENT_DOCUMENT_ID,
+      toAssessmentFrameworkPreAssessmentRecord(normalizedPreAssessment),
+      { merge: false }
+    );
+
+    assessmentFramework.preAssessment = normalizedPreAssessment;
+
+    return normalizedPreAssessment;
+  }
+
+  async delete(assessmentFrameworkId) {
+    const levelsPath = getLevelsCollectionPath(assessmentFrameworkId);
+    const preAssessmentPath = getPreAssessmentCollectionPath(
+      assessmentFrameworkId
+    );
+    const [levels, preAssessmentRecords] = await Promise.all([
+      readCollection(levelsPath),
+      readCollection(preAssessmentPath)
+    ]);
+
+    await Promise.all(
+      [
+        ...levels.map((level) => deleteDocument(levelsPath, level.id)),
+        ...preAssessmentRecords.map((preAssessment) => deleteDocument(
+          preAssessmentPath,
+          preAssessment.id
+        ))
+      ]
     );
 
     await deleteDocument(

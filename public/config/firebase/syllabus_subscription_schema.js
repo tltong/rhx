@@ -17,6 +17,7 @@ export const syllabusSubscriptionSchema = {
       collection: SYLLABUS_SUBSCRIPTION_SYLLABUSES_SUBCOLLECTION,
       documentId: syllabusSubscriptionSyllabusDocumentIdPattern,
       fields: {
+        language: "string",
         state: {
           type: "string",
           enum: Object.values(syllabusSubscriptionStates)

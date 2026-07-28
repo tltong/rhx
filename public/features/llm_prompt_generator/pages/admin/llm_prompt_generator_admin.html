@@ -33,6 +33,13 @@
               <option value="">Select syllabus</option>
             </select>
           </label>
+
+          <label class="field">
+            <span>Topic</span>
+            <select id="topic-select">
+              <option value="">Select topic</option>
+            </select>
+          </label>
         </div>
 
         <section id="syllabus-summary" class="syllabus-summary" hidden>
@@ -79,9 +86,17 @@
             </select>
           </label>
 
+          <div class="field">
+            <span>Configured diagram percentage</span>
+            <output
+              id="diagram-percentage"
+              class="diagram-percentage-output"
+            >Select topic</output>
+          </div>
+
           <label class="diagram-option">
             <input id="include-diagram" type="checkbox">
-            <span>Include a diagram in every question</span>
+            <span>Apply the topic's configured diagram percentage</span>
           </label>
 
           <label class="field full-width">
@@ -106,6 +121,6 @@
       </section>
     </main>
 
-    <script type="module" src="./llm_prompt_generator_admin.js?v=20260722-mermaid-chart-repair"></script>
+    <script type="module" src="./llm_prompt_generator_admin.js?v=20260727-topic-diagram-percentage"></script>
   </body>
 </html>

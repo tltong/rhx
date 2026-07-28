@@ -1,4 +1,6 @@
-import { AssessmentFramework } from "../domain/assessment_framework.js";
+import {
+  AssessmentFramework
+} from "../domain/assessment_framework.js?v=20260729-framework-wide-pre-assessment";
 
 export class CreateAssessmentFramework {
   constructor(assessmentFrameworkRepository) {

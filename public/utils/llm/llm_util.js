@@ -1,7 +1,7 @@
 import deepseekUtil, {
   callDeepseek,
   generateDeepseekText
-} from "./deepseek_util.js?v=20260712-deepseek-empty-retry";
+} from "./deepseek_util.js?v=20260724-thinking-disabled";
 
 export const LLM_PROVIDERS = Object.freeze({
   DEEPSEEK: "deepseek"

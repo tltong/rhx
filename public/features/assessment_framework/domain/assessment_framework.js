@@ -32,23 +32,38 @@ export class AssessmentFrameworkLevel {
   }
 }
 
+export class AssessmentFrameworkPreAssessment {
+  constructor({
+    numberOfQuestions,
+    difficultySplit = {},
+    scoreLevelSplit = {}
+  }) {
+    this.numberOfQuestions = numberOfQuestions;
+    this.difficultySplit = difficultySplit;
+    this.scoreLevelSplit = scoreLevelSplit;
+  }
+}
+
 export class AssessmentFramework {
   constructor({
     id = null,
     name,
     endLevelName,
-    levels = []
+    levels = [],
+    preAssessment = null
   }) {
     this.id = id;
     this.name = name;
     this.endLevelName = endLevelName;
     this.levels = levels;
+    this.preAssessment = preAssessment;
   }
 
   update({
     name,
     endLevelName,
-    levels
+    levels,
+    preAssessment
   }) {
     if (name !== undefined) {
       this.name = name;
@@ -60,6 +75,10 @@ export class AssessmentFramework {
 
     if (levels !== undefined) {
       this.levels = levels;
+    }
+
+    if (preAssessment !== undefined) {
+      this.preAssessment = preAssessment;
     }
 
     return this;

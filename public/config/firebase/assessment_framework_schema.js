@@ -1,8 +1,18 @@
 export const ASSESSMENT_FRAMEWORKS_COLLECTION = "assessmentFrameworks";
 export const ASSESSMENT_FRAMEWORK_LEVELS_SUBCOLLECTION = "levels";
+export const ASSESSMENT_FRAMEWORK_PRE_ASSESSMENT_SUBCOLLECTION =
+  "preAssessment";
+export const ASSESSMENT_FRAMEWORK_PRE_ASSESSMENT_DOCUMENT_ID = "default";
+export const ASSESSMENT_FRAMEWORK_END_LEVEL_ID = "endLevel";
 
 export const assessmentFrameworkDocumentIdPattern = "[auto_generated_id]";
 export const assessmentFrameworkLevelDocumentIdPattern = "[level_id]";
+export const assessmentFrameworkPreAssessmentDocumentIdPattern =
+  ASSESSMENT_FRAMEWORK_PRE_ASSESSMENT_DOCUMENT_ID;
+export const assessmentFrameworkPreAssessmentDifficultyLevels =
+  Object.freeze(["easy", "medium", "hard"]);
+export const assessmentFrameworkPreAssessmentScoreThresholds =
+  Object.freeze([10, 20, 30, 40, 50, 60, 70, 80, 90]);
 
 export const assessmentFrameworkSchema = {
   collection: ASSESSMENT_FRAMEWORKS_COLLECTION,
@@ -28,6 +38,110 @@ export const assessmentFrameworkSchema = {
           }
         }
       }
+    },
+    preAssessment: {
+      collection: ASSESSMENT_FRAMEWORK_PRE_ASSESSMENT_SUBCOLLECTION,
+      documentId: assessmentFrameworkPreAssessmentDocumentIdPattern,
+      fields: {
+        numberOfQuestions: "number",
+        difficultySplit: {
+          type: "map",
+          fields: {
+            easyPercentage: {
+              type: "number",
+              minimum: 0,
+              maximum: 100
+            },
+            mediumPercentage: {
+              type: "number",
+              minimum: 0,
+              maximum: 100
+            },
+            hardPercentage: {
+              type: "number",
+              minimum: 0,
+              maximum: 100
+            }
+          }
+        },
+        scoreLevelSplit: {
+          type: "map",
+          fields: {
+            over10Percent: {
+              type: "string",
+              references: [
+                "assessmentFrameworks/{assessmentFrameworkId}/levels/{levelId}",
+                "assessmentFrameworks/{assessmentFrameworkId}.endLevelName"
+              ],
+              endLevelValue: ASSESSMENT_FRAMEWORK_END_LEVEL_ID
+            },
+            over20Percent: {
+              type: "string",
+              references: [
+                "assessmentFrameworks/{assessmentFrameworkId}/levels/{levelId}",
+                "assessmentFrameworks/{assessmentFrameworkId}.endLevelName"
+              ],
+              endLevelValue: ASSESSMENT_FRAMEWORK_END_LEVEL_ID
+            },
+            over30Percent: {
+              type: "string",
+              references: [
+                "assessmentFrameworks/{assessmentFrameworkId}/levels/{levelId}",
+                "assessmentFrameworks/{assessmentFrameworkId}.endLevelName"
+              ],
+              endLevelValue: ASSESSMENT_FRAMEWORK_END_LEVEL_ID
+            },
+            over40Percent: {
+              type: "string",
+              references: [
+                "assessmentFrameworks/{assessmentFrameworkId}/levels/{levelId}",
+                "assessmentFrameworks/{assessmentFrameworkId}.endLevelName"
+              ],
+              endLevelValue: ASSESSMENT_FRAMEWORK_END_LEVEL_ID
+            },
+            over50Percent: {
+              type: "string",
+              references: [
+                "assessmentFrameworks/{assessmentFrameworkId}/levels/{levelId}",
+                "assessmentFrameworks/{assessmentFrameworkId}.endLevelName"
+              ],
+              endLevelValue: ASSESSMENT_FRAMEWORK_END_LEVEL_ID
+            },
+            over60Percent: {
+              type: "string",
+              references: [
+                "assessmentFrameworks/{assessmentFrameworkId}/levels/{levelId}",
+                "assessmentFrameworks/{assessmentFrameworkId}.endLevelName"
+              ],
+              endLevelValue: ASSESSMENT_FRAMEWORK_END_LEVEL_ID
+            },
+            over70Percent: {
+              type: "string",
+              references: [
+                "assessmentFrameworks/{assessmentFrameworkId}/levels/{levelId}",
+                "assessmentFrameworks/{assessmentFrameworkId}.endLevelName"
+              ],
+              endLevelValue: ASSESSMENT_FRAMEWORK_END_LEVEL_ID
+            },
+            over80Percent: {
+              type: "string",
+              references: [
+                "assessmentFrameworks/{assessmentFrameworkId}/levels/{levelId}",
+                "assessmentFrameworks/{assessmentFrameworkId}.endLevelName"
+              ],
+              endLevelValue: ASSESSMENT_FRAMEWORK_END_LEVEL_ID
+            },
+            over90Percent: {
+              type: "string",
+              references: [
+                "assessmentFrameworks/{assessmentFrameworkId}/levels/{levelId}",
+                "assessmentFrameworks/{assessmentFrameworkId}.endLevelName"
+              ],
+              endLevelValue: ASSESSMENT_FRAMEWORK_END_LEVEL_ID
+            }
+          }
+        }
+      }
     }
   }
 };
@@ -35,7 +149,13 @@ export const assessmentFrameworkSchema = {
 export default {
   ASSESSMENT_FRAMEWORKS_COLLECTION,
   ASSESSMENT_FRAMEWORK_LEVELS_SUBCOLLECTION,
+  ASSESSMENT_FRAMEWORK_PRE_ASSESSMENT_SUBCOLLECTION,
+  ASSESSMENT_FRAMEWORK_PRE_ASSESSMENT_DOCUMENT_ID,
+  ASSESSMENT_FRAMEWORK_END_LEVEL_ID,
   assessmentFrameworkDocumentIdPattern,
   assessmentFrameworkLevelDocumentIdPattern,
+  assessmentFrameworkPreAssessmentDocumentIdPattern,
+  assessmentFrameworkPreAssessmentDifficultyLevels,
+  assessmentFrameworkPreAssessmentScoreThresholds,
   assessmentFrameworkSchema
 };

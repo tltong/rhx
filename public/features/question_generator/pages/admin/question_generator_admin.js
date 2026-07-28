@@ -1,12 +1,13 @@
 import {
   generateQuestions,
   generateQuestionsWithDiagram,
-  loadQuestionGeneratorOptions
-} from "../../question_generator_module.js?v=20260722-mermaid-chart-repair";
+  loadQuestionGeneratorOptions,
+  practiceTypes
+} from "../../question_generator_module.js?v=20260727-topic-diagram-config";
 
 /**
- * @typedef {import("../../../llm_prompt_generator/domain/llm_prompt_generator.js").LlmPromptGenerationInput}
- * LlmPromptGenerationInput
+ * @typedef {import("../../domain/question_generation.js").QuestionGenerationInput}
+ * QuestionGenerationInput
  */
 
 const configSelect = document.querySelector("#config-select");
@@ -19,6 +20,7 @@ const summarySubject = document.querySelector("#summary-subject");
 const topicsContainer = document.querySelector("#topics-container");
 const numberOfQuestionsInput = document.querySelector("#number-of-questions");
 const difficultyLevelSelect = document.querySelector("#difficulty-level");
+const questionGroupSelect = document.querySelector("#question-group");
 const languageSelect = document.querySelector("#language-select");
 const includeDiagramInput = document.querySelector("#include-diagram");
 const additionalInstructionsInput = document.querySelector(
@@ -62,10 +64,10 @@ function getSelectedSyllabus() {
   ) || null;
 }
 
-function getSelectedTopicIds() {
-  return Array.from(
-    topicsContainer.querySelectorAll("input[data-topic-id]:checked")
-  ).map((input) => input.dataset.topicId);
+function getSelectedTopicId() {
+  return topicsContainer.querySelector(
+    "input[data-topic-id]:checked"
+  )?.dataset.topicId || "";
 }
 
 function isQuestionCountValid() {
@@ -79,9 +81,10 @@ function updateGenerateButton() {
     || !configSelect.value
     || !syllabusSelect.value
     || !difficultyLevelSelect.value
+    || !questionGroupSelect.value
     || !languageSelect.value
     || !isQuestionCountValid()
-    || getSelectedTopicIds().length === 0;
+    || !getSelectedTopicId();
 }
 
 function setBusy(isBusy) {
@@ -92,6 +95,7 @@ function setBusy(isBusy) {
     syllabusSelect,
     numberOfQuestionsInput,
     difficultyLevelSelect,
+    questionGroupSelect,
     languageSelect,
     includeDiagramInput,
     additionalInstructionsInput
@@ -99,7 +103,7 @@ function setBusy(isBusy) {
     control.disabled = isBusy;
   });
 
-  topicsContainer.querySelectorAll("input[type='checkbox']").forEach((input) => {
+  topicsContainer.querySelectorAll("input[data-topic-id]").forEach((input) => {
     input.disabled = isBusy;
   });
 
@@ -182,6 +186,27 @@ function renderLanguageOptions(languages = []) {
   }
 }
 
+function renderQuestionGroupOptions() {
+  questionGroupSelect.replaceChildren();
+
+  const placeholder = document.createElement("option");
+
+  placeholder.value = "";
+  placeholder.textContent = "Select question group";
+  questionGroupSelect.append(placeholder);
+
+  Object.values(practiceTypes).forEach((group) => {
+    const option = document.createElement("option");
+
+    option.value = group;
+    option.textContent = group
+      .split(" ")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+    questionGroupSelect.append(option);
+  });
+}
+
 function renderEmptyTopics(message) {
   topicsContainer.replaceChildren();
 
@@ -209,8 +234,9 @@ function renderTopics(topics = []) {
       .filter(Boolean);
 
     label.className = "topic-option";
-    checkbox.type = "checkbox";
-    checkbox.checked = true;
+    checkbox.type = "radio";
+    checkbox.name = "question-topic";
+    checkbox.checked = topics.length === 1;
     checkbox.dataset.topicId = topic.id;
     topicName.className = "topic-name";
     topicName.textContent = topic.topicName;
@@ -316,6 +342,7 @@ function renderQuestions(questions = []) {
     heading.append(
       number,
       createBadge(question.id || "Unsaved"),
+      createBadge(question.group),
       createBadge(question.difficulty),
       createBadge(question.language),
       createBadge(`Topic ${question.topicId}`)
@@ -384,10 +411,10 @@ async function generateAndSaveQuestions() {
     return;
   }
 
-  const topicIds = getSelectedTopicIds();
+  const topicId = getSelectedTopicId();
 
-  if (topicIds.length === 0) {
-    setStatus("Select at least one syllabus topic.", true);
+  if (!topicId) {
+    setStatus("Select one syllabus topic.", true);
     return;
   }
 
@@ -400,12 +427,13 @@ async function generateAndSaveQuestions() {
       ? generateQuestionsWithDiagram
       : generateQuestions;
 
-    /** @type {LlmPromptGenerationInput} */
+    /** @type {QuestionGenerationInput} */
     const generationInput = {
       numberOfQuestions: Number(numberOfQuestionsInput.value),
       difficultyLevel: difficultyLevelSelect.value,
+      group: questionGroupSelect.value,
       language: languageSelect.value,
-      topicIds,
+      topicId,
       additionalInstructions: additionalInstructionsInput.value
     };
     const result = await questionGenerator(
@@ -446,6 +474,7 @@ async function copyPrompt() {
 
 async function initPage() {
   renderLanguageOptions();
+  renderQuestionGroupOptions();
 
   try {
     const options = await loadQuestionGeneratorOptions();
@@ -484,6 +513,7 @@ syllabusSelect.addEventListener("change", displaySelectedSyllabus);
 topicsContainer.addEventListener("change", updateGenerateButton);
 numberOfQuestionsInput.addEventListener("input", updateGenerateButton);
 difficultyLevelSelect.addEventListener("change", updateGenerateButton);
+questionGroupSelect.addEventListener("change", updateGenerateButton);
 languageSelect.addEventListener("change", updateGenerateButton);
 generateQuestionsButton.addEventListener("click", generateAndSaveQuestions);
 promptBatchSelect.addEventListener("change", displaySelectedPrompt);

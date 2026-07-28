@@ -1,8 +1,12 @@
 import {
   llmQuestionResponseFields
 } from "../../llm_prompt_generator/domain/llm_prompt_generator.js?v=20260722-resilient-diagrams";
+import {
+  practiceTypes
+} from "../../../config/firebase/practice_schema.js?v=20260727-question-group";
 
 const QUESTION_OPTION_KEYS = Object.freeze(["a", "b", "c", "d"]);
+const QUESTION_GROUP_VALUES = new Set(Object.values(practiceTypes));
 
 export const QUESTION_GENERATION_BATCH_SIZE = 5;
 
@@ -12,6 +16,16 @@ export const QUESTION_GENERATION_BATCH_SIZE = 5;
  * @typedef {Object} QuestionGenerationResult
  * @property {string[]} prompts
  * @property {import("../../question/domain/question.js").Question[]} questions
+ */
+
+/**
+ * @typedef {Object} QuestionGenerationInput
+ * @property {number} numberOfQuestions
+ * @property {string} difficultyLevel
+ * @property {string} language
+ * @property {string} group
+ * @property {string} topicId
+ * @property {string} [additionalInstructions]
  */
 
 function normalizeText(value) {
@@ -38,18 +52,16 @@ function normalizeQuestionCount(value) {
   return questionCount;
 }
 
-function normalizeTopicIds(topicIds) {
-  if (topicIds === undefined || topicIds === null) {
-    return [];
+function normalizeQuestionGroup(value) {
+  const group = requireText(value, "Question group").toLowerCase();
+
+  if (!QUESTION_GROUP_VALUES.has(group)) {
+    throw new Error(
+      `Question group must be one of: ${[...QUESTION_GROUP_VALUES].join(", ")}.`
+    );
   }
 
-  if (!Array.isArray(topicIds)) {
-    throw new Error("topicIds must be an array.");
-  }
-
-  return Array.from(
-    new Set(topicIds.map(normalizeText).filter(Boolean))
-  );
+  return group;
 }
 
 function normalizeTopicNameKey(topicName) {
@@ -117,7 +129,7 @@ function toQuestionInput({
   syllabusId,
   topicMap,
   generationInput,
-  hasDiagram
+  allowDiagrams
 }) {
   if (
     !generatedQuestion
@@ -151,13 +163,15 @@ function toQuestionInput({
     );
   }
 
-  if (typeof generatedQuestion[fields.hasDiagram] !== "boolean") {
+  const hasDiagram = generatedQuestion[fields.hasDiagram];
+
+  if (typeof hasDiagram !== "boolean") {
     throw new Error(`Question ${questionNumber} hasDiagram must be a boolean.`);
   }
 
-  if (generatedQuestion[fields.hasDiagram] !== hasDiagram) {
+  if (hasDiagram && !allowDiagrams) {
     throw new Error(
-      `Question ${questionNumber} hasDiagram does not match the requested generation mode.`
+      `Question ${questionNumber} includes a diagram when diagrams were not requested.`
     );
   }
 
@@ -185,6 +199,7 @@ function toQuestionInput({
       questionNumber
     ),
     correctAnswer,
+    group: generationInput.group,
     explanation,
     hasDiagram,
     ...(mermaidCode ? { mermaidCode } : {}),
@@ -211,8 +226,9 @@ export function normalizeQuestionGenerationInput(generationInput = {}) {
       generationInput.difficultyLevel,
       "Difficulty level"
     ),
+    group: normalizeQuestionGroup(generationInput.group),
     language: requireText(generationInput.language, "Language"),
-    topicIds: normalizeTopicIds(generationInput.topicIds),
+    topicId: requireText(generationInput.topicId, "Topic"),
     additionalInstructions: normalizeText(
       generationInput.additionalInstructions
     )
@@ -257,20 +273,12 @@ export function resolveQuestionGenerationContext(
   const syllabusTopics = Array.isArray(syllabus.topics)
     ? syllabus.topics
     : [];
-  const selectedTopicIdSet = new Set(generationInput.topicIds);
-  const topics = generationInput.topicIds.length === 0
-    ? syllabusTopics
-    : syllabusTopics.filter((topic) => selectedTopicIdSet.has(topic.id));
+  const topic = syllabusTopics.find(
+    (syllabusTopic) => syllabusTopic.id === generationInput.topicId
+  );
 
-  if (topics.length === 0) {
-    throw new Error("The selected syllabus must have at least one topic.");
-  }
-
-  if (
-    generationInput.topicIds.length > 0
-    && topics.length !== generationInput.topicIds.length
-  ) {
-    throw new Error("One or more selected topics do not belong to the syllabus.");
+  if (!topic) {
+    throw new Error("The selected topic does not belong to the syllabus.");
   }
 
   const syllabusLanguages = Array.isArray(syllabus.languages)
@@ -284,15 +292,15 @@ export function resolveQuestionGenerationContext(
     throw new Error("Language must be available on the selected syllabus.");
   }
 
-  buildTopicMap(topics);
+  buildTopicMap([topic]);
 
   return {
     generationInput: {
       ...generationInput,
       language,
-      topicIds: topics.map((topic) => topic.id)
+      topicId: topic.id
     },
-    topics
+    topics: [topic]
   };
 }
 
@@ -302,7 +310,7 @@ export function mapLlmResponseToQuestionInputs({
   syllabusId,
   topics,
   generationInput,
-  hasDiagram = false,
+  allowDiagrams = false,
   questionOffset = 0
 }) {
   const generatedQuestions = getResponseQuestions(response);
@@ -322,7 +330,7 @@ export function mapLlmResponseToQuestionInputs({
       syllabusId,
       topicMap,
       generationInput,
-      hasDiagram
+      allowDiagrams
     })
   ));
 }

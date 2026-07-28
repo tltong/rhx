@@ -1,4 +1,6 @@
-import { Question } from "../domain/question.js";
+import {
+  Question
+} from "../domain/question.js?v=20260727-question-group";
 
 export class WriteQuestions {
   constructor(questionRepository) {

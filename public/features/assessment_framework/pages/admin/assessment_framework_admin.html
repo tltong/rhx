@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Assessment Framework Admin</title>
-    <link rel="stylesheet" href="./assessment_framework_admin.css?v=20260715-sequence-reorder">
+    <link rel="stylesheet" href="./assessment_framework_admin.css?v=20260729-framework-wide-pre-assessment">
     <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
     <script defer src="/__/firebase/init.js"></script>
@@ -75,6 +75,82 @@
           <button id="save-framework" type="button">Save Framework</button>
         </div>
 
+        <section class="pre-assessment-section">
+          <div class="pre-assessment-header">
+            <div>
+              <h2>Pre-assessment</h2>
+              <p id="pre-assessment-availability">
+                Save at least one framework level before configuring pre-assessment.
+              </p>
+            </div>
+            <button id="save-pre-assessment" type="button" disabled>
+              Save Pre-assessment
+            </button>
+          </div>
+
+          <fieldset id="pre-assessment-fields" disabled>
+            <div class="pre-assessment-grid single-column">
+              <label class="field">
+                <span>Number of questions</span>
+                <input
+                  id="pre-assessment-question-count"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value="10"
+                >
+              </label>
+            </div>
+
+            <section class="pre-assessment-group">
+              <div class="pre-assessment-group-header">
+                <h3>Difficulty split</h3>
+                <output id="difficulty-total">100%</output>
+              </div>
+              <div class="difficulty-grid">
+                <label class="field">
+                  <span>Easy (%)</span>
+                  <input
+                    data-difficulty-field="easyPercentage"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value="34"
+                  >
+                </label>
+                <label class="field">
+                  <span>Medium (%)</span>
+                  <input
+                    data-difficulty-field="mediumPercentage"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value="33"
+                  >
+                </label>
+                <label class="field">
+                  <span>Hard (%)</span>
+                  <input
+                    data-difficulty-field="hardPercentage"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value="33"
+                  >
+                </label>
+              </div>
+            </section>
+
+            <section class="pre-assessment-group">
+              <h3>Score to level mapping</h3>
+              <div id="score-level-mappings" class="score-level-mappings"></div>
+            </section>
+          </fieldset>
+        </section>
+
         <p id="status-message" class="status" hidden></p>
       </section>
     </main>
@@ -117,6 +193,6 @@
       </section>
     </template>
 
-    <script type="module" src="./assessment_framework_admin.js?v=20260715-sequence-reorder"></script>
+    <script type="module" src="./assessment_framework_admin.js?v=20260729-framework-wide-pre-assessment"></script>
   </body>
 </html>

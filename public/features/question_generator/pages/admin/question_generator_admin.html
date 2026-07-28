@@ -58,7 +58,7 @@
         </section>
 
         <fieldset class="topics-section">
-          <legend>Topics</legend>
+          <legend>Topic</legend>
           <div id="topics-container" class="topics-list">
             <p class="empty-message">Select a syllabus to load its topics.</p>
           </div>
@@ -80,6 +80,13 @@
           </label>
 
           <label class="field">
+            <span>Question group</span>
+            <select id="question-group">
+              <option value="">Select question group</option>
+            </select>
+          </label>
+
+          <label class="field">
             <span>Language</span>
             <select id="language-select">
               <option value="">Select language</option>
@@ -88,7 +95,7 @@
 
           <label class="diagram-option">
             <input id="include-diagram" type="checkbox">
-            <span>Include a diagram in every question</span>
+            <span>Apply the topic's configured diagram percentage</span>
           </label>
 
           <label class="field full-width">
@@ -130,6 +137,6 @@
       </section>
     </main>
 
-    <script type="module" src="./question_generator_admin.js?v=20260722-question-diagram-preview"></script>
+    <script type="module" src="./question_generator_admin.js?v=20260727-topic-diagram-config"></script>
   </body>
 </html>

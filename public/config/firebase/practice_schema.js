@@ -5,16 +5,19 @@ export const practiceQuestionSyllabusIdPattern = "[syllabus_id]";
 export const practiceQuestionTopicIdPattern = "[topic_id]";
 export const practiceQuestionIdPattern = "[question_id]";
 
+export const practiceTypes = Object.freeze({
+  ASSESSMENT: "assessment",
+  PRE_ASSESSMENT: "pre assessment"
+});
+
 export const practiceSchema = {
   collection: PRACTICES_COLLECTION,
   documentId: practiceDocumentIdPattern,
   fields: {
-    country: "string",
-    level: "string",
-    year: "number",
-    subject: "string",
-    difficulty: "string",
-    language: "string",
+    type: {
+      type: "string",
+      enum: Object.values(practiceTypes)
+    },
     dateGenerated: "timestamp",
     questions: {
       type: "array",
@@ -46,5 +49,6 @@ export default {
   practiceQuestionSyllabusIdPattern,
   practiceQuestionTopicIdPattern,
   practiceQuestionIdPattern,
+  practiceTypes,
   practiceSchema
 };

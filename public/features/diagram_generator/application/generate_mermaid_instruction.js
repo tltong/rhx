@@ -81,16 +81,17 @@ export class GenerateMermaidInstruction {
     this.generateLlmText = generateLlmText;
   }
 
-  async execute(description) {
+  async execute(description, llmOptions = {}) {
     const normalizedDescription = requireDescription(description);
     const response = await this.generateLlmText(
-      buildGenerationPrompt(normalizedDescription)
+      buildGenerationPrompt(normalizedDescription),
+      llmOptions
     );
 
     return getMermaidCode(response);
   }
 
-  async repair({ description, mermaidCode, errorMessage }) {
+  async repair({ description, mermaidCode, errorMessage }, llmOptions = {}) {
     const normalizedDescription = requireDescription(description);
     const normalizedMermaidCode = stripMarkdownFence(mermaidCode);
 
@@ -98,11 +99,14 @@ export class GenerateMermaidInstruction {
       throw new Error("Mermaid code is required for repair.");
     }
 
-    const response = await this.generateLlmText(buildRepairPrompt({
-      description: normalizedDescription,
-      mermaidCode: normalizedMermaidCode,
-      errorMessage
-    }));
+    const response = await this.generateLlmText(
+      buildRepairPrompt({
+        description: normalizedDescription,
+        mermaidCode: normalizedMermaidCode,
+        errorMessage
+      }),
+      llmOptions
+    );
 
     return getMermaidCode(response);
   }

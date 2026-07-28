@@ -40,6 +40,22 @@ button:disabled {
   cursor: default;
 }
 
+select {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid #c6d4df;
+  border-radius: 6px;
+  padding: 0 12px;
+  color: #102033;
+  background: #ffffff;
+  font: inherit;
+}
+
+select:disabled {
+  color: #6b7785;
+  background: #eef3f8;
+}
+
 .page {
   width: min(1120px, calc(100% - 32px));
   margin: 32px auto;
@@ -87,6 +103,7 @@ p {
 }
 
 .selection-section,
+.active-subscriptions,
 .subscription-status {
   border: 1px solid #d5e1ec;
   border-radius: 8px;
@@ -143,8 +160,69 @@ p {
   background: #fff3d8;
 }
 
+.active-subscriptions,
 .subscription-status {
   margin-bottom: 22px;
+}
+
+.section-heading {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.section-heading h2 {
+  margin-bottom: 0;
+}
+
+.active-subscription-count {
+  border-radius: 6px;
+  color: #0f6b2f;
+  background: #dff6e7;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 5px 9px;
+}
+
+.active-subscription-list {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.active-subscription-item {
+  align-items: start;
+  background: #ffffff;
+  border-color: #b9cec1;
+  color: #102033;
+  display: grid;
+  gap: 4px;
+  height: auto;
+  justify-items: start;
+  min-width: 0;
+  padding: 12px;
+  text-align: left;
+}
+
+.active-subscription-item:hover:not(:disabled),
+.active-subscription-item.selected {
+  background: #edf8f1;
+  border-color: #36935a;
+}
+
+.active-subscription-item .option-detail {
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+.empty-message {
+  border: 1px dashed #c6d4df;
+  border-radius: 6px;
+  grid-column: 1 / -1;
+  padding: 16px;
+  text-align: center;
 }
 
 dl {
@@ -161,6 +239,18 @@ dt {
 
 dd {
   margin: 4px 0 0;
+  font-weight: 700;
+}
+
+.language-field {
+  display: grid;
+  gap: 7px;
+  max-width: 360px;
+  margin-top: 18px;
+}
+
+.language-field label {
+  color: #52606d;
   font-weight: 700;
 }
 
@@ -186,8 +276,14 @@ dd {
 
 @media (max-width: 800px) {
   .selection-grid,
+  .active-subscription-list,
   dl {
     grid-template-columns: 1fr;
+  }
+
+  .section-heading {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .actions {

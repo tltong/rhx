@@ -93,7 +93,8 @@ p {
 
 .framework-section,
 .details,
-.levels-section {
+.levels-section,
+.pre-assessment-section {
   border: 1px solid #d5e1ec;
   border-radius: 8px;
   padding: 16px;
@@ -199,6 +200,90 @@ input[readonly] {
   margin-top: 22px;
 }
 
+.pre-assessment-section {
+  margin-top: 22px;
+}
+
+.pre-assessment-header,
+.pre-assessment-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.pre-assessment-header {
+  margin-bottom: 18px;
+}
+
+.pre-assessment-header h2,
+.pre-assessment-group h3 {
+  margin: 0 0 7px;
+}
+
+#pre-assessment-fields {
+  min-width: 0;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+#pre-assessment-fields:disabled {
+  opacity: 0.6;
+}
+
+.pre-assessment-grid,
+.difficulty-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 2fr) minmax(180px, 1fr);
+  gap: 14px;
+}
+
+.pre-assessment-grid.single-column {
+  grid-template-columns: minmax(180px, 360px);
+}
+
+.difficulty-grid {
+  grid-template-columns: repeat(3, minmax(120px, 1fr));
+}
+
+.pre-assessment-group {
+  margin-top: 20px;
+  border-top: 1px solid #d5e1ec;
+  padding-top: 18px;
+}
+
+#difficulty-total {
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: #0b3150;
+  background: #e8f4ff;
+  font-weight: 700;
+}
+
+#difficulty-total.error {
+  color: #9b1111;
+  background: #fde2e2;
+}
+
+.score-level-mappings {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.score-mapping {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+}
+
+.score-mapping span {
+  min-width: 50px;
+}
+
 .status {
   margin-top: 16px;
   border-radius: 6px;
@@ -216,6 +301,9 @@ input[readonly] {
   .framework-sections,
   .add-framework-row,
   .details-grid,
+  .pre-assessment-grid,
+  .difficulty-grid,
+  .score-level-mappings,
   .level-row,
   .row-actions {
     grid-template-columns: 1fr;
@@ -226,7 +314,8 @@ input[readonly] {
   }
 
   .delete-row,
-  .levels-header {
+  .levels-header,
+  .pre-assessment-header {
     align-items: stretch;
     flex-direction: column;
   }
@@ -236,6 +325,7 @@ input[readonly] {
   }
 
   .actions button,
+  .pre-assessment-header button,
   .level-row button {
     width: 100%;
   }

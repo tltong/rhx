@@ -11,6 +11,10 @@ export class AssessmentFrameworkRepository {
     throw new Error("save() is not implemented.");
   }
 
+  async savePreAssessment(assessmentFramework, preAssessment) {
+    throw new Error("savePreAssessment() is not implemented.");
+  }
+
   async delete(assessmentFrameworkId) {
     throw new Error("delete() is not implemented.");
   }

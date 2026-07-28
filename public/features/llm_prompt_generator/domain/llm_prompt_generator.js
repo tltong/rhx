@@ -5,7 +5,7 @@
  * @property {number} numberOfQuestions
  * @property {string} difficultyLevel
  * @property {string} language
- * @property {string[]} [topicIds]
+ * @property {string} topicId
  * @property {string} [additionalInstructions]
  */
 
@@ -72,60 +72,64 @@ function normalizeLanguage(value, syllabus) {
   return language;
 }
 
-function normalizeTopicIds(topicIds) {
-  if (topicIds === undefined || topicIds === null) {
-    return [];
-  }
-
-  if (!Array.isArray(topicIds)) {
-    throw new Error("topicIds must be an array.");
-  }
-
-  return Array.from(
-    new Set(topicIds.map(normalizeText).filter(Boolean))
-  );
-}
-
-function selectTopics(syllabus, topicIds) {
+function selectTopic(syllabus, topicId) {
   const topics = Array.isArray(syllabus.topics) ? syllabus.topics : [];
-  const selectedTopicIds = normalizeTopicIds(topicIds);
+  const selectedTopicId = requireText(topicId, "Topic");
+  const selectedTopic = topics.find(
+    (topic) => String(topic.id) === selectedTopicId
+  );
 
-  if (selectedTopicIds.length === 0) {
-    return topics;
+  if (!selectedTopic) {
+    throw new Error("The selected topic does not belong to the syllabus.");
   }
 
-  const selectedTopicIdSet = new Set(selectedTopicIds);
-  const selectedTopics = topics.filter((topic) => (
-    selectedTopicIdSet.has(topic.id)
-  ));
-
-  if (selectedTopics.length !== selectedTopicIds.length) {
-    throw new Error("One or more selected topics do not belong to the syllabus.");
-  }
-
-  return selectedTopics;
+  return selectedTopic;
 }
 
-function formatTopics(topics) {
-  if (topics.length === 0) {
-    return "- No topics are defined. Cover the subject at the specified level and year.";
+function formatTopic(topic) {
+  const topicName = requireText(topic.topicName, "Topic name");
+  const subtopicNames = Object.values(topic.subtopics || {})
+    .map(normalizeText)
+    .filter(Boolean);
+  const lines = [`Topic: ${topicName}`];
+
+  if (subtopicNames.length === 0) {
+    lines.push("Subtopics: None defined.");
+  } else {
+    lines.push("Subtopics:");
+    subtopicNames.forEach((subtopicName) => {
+      lines.push(`- ${subtopicName}`);
+    });
   }
 
-  return topics
-    .map((topic, topicIndex) => {
-      const topicName = requireText(topic.topicName, "Topic name");
-      const subtopicNames = Object.values(topic.subtopics || {})
-        .map(normalizeText)
-        .filter(Boolean);
-      const lines = [`${topicIndex + 1}. ${topicName}`];
+  return lines.join("\n");
+}
 
-      subtopicNames.forEach((subtopicName) => {
-        lines.push(`   - ${subtopicName}`);
-      });
+function normalizeDiagramPercentage(value) {
+  const percentage = Number(value);
 
-      return lines.join("\n");
-    })
-    .join("\n");
+  if (
+    !Number.isFinite(percentage)
+    || percentage < 0
+    || percentage > 100
+  ) {
+    throw new Error(
+      "Diagram question percentage must be between 0 and 100."
+    );
+  }
+
+  return percentage;
+}
+
+function calculateDiagramQuestionCount(questionCount, percentage) {
+  if (percentage === 0) {
+    return 0;
+  }
+
+  return Math.min(
+    questionCount,
+    Math.max(1, Math.round(questionCount * percentage / 100))
+  );
 }
 
 function getConfigInstructions(llmPromptConfig, level, year) {
@@ -197,11 +201,12 @@ export class LlmPromptGenerator {
   generate({
     llmPromptConfig,
     syllabus,
-    topicIds = [],
+    topicId,
     numberOfQuestions,
     difficultyLevel,
     language,
-    additionalInstructions = ""
+    additionalInstructions = "",
+    diagramQuestionPercentage = 0
   }, includeDiagram = false) {
     if (!llmPromptConfig) {
       throw new Error("LLM prompt config is required.");
@@ -218,8 +223,17 @@ export class LlmPromptGenerator {
     const questionCount = normalizeQuestionCount(numberOfQuestions);
     const difficulty = normalizeDifficulty(difficultyLevel);
     const selectedLanguage = normalizeLanguage(language, syllabus);
-    const topics = selectTopics(syllabus, topicIds);
+    const topic = selectTopic(syllabus, topicId);
+    const topicName = requireText(topic.topicName, "Topic name");
     const callerInstructions = normalizeText(additionalInstructions);
+    const diagramPercentage = includeDiagram
+      ? normalizeDiagramPercentage(diagramQuestionPercentage)
+      : 0;
+    const diagramQuestionCount = calculateDiagramQuestionCount(
+      questionCount,
+      diagramPercentage
+    );
+    const hasDiagramQuestions = diagramQuestionCount > 0;
 
     if (!Number.isInteger(year) || year < 1) {
       throw new Error("Syllabus year must be a positive integer.");
@@ -234,29 +248,40 @@ export class LlmPromptGenerator {
       level,
       year
     );
-    const topicAttributionInstruction = topics.length > 0
-      ? "Every question must include topicName, exactly matching one of the syllabus topic names."
-      : "Every question must include topicName with the most appropriate topic for that question.";
     const questionRequirements = [
       "Question requirements",
       `Number of questions: ${questionCount}`,
       `Difficulty level: ${difficulty}`,
       `Language: ${selectedLanguage}`,
+      `Subject: ${subject}`,
+      `Topic: ${topicName}`,
       "Each question must have exactly four options labelled a, b, c, and d.",
       "Each question must have exactly one correct answer.",
-      `Every question must include hasDiagram as a JSON boolean set to ${includeDiagram}.`,
+      "Every question must include hasDiagram as a JSON boolean.",
       "Every question must include an answerExplanation that adequately explains why the correct answer is correct.",
       "There is no word limit for answerExplanation; use as much explanation as needed for a clear and complete understanding.",
-      topicAttributionInstruction
+      `Every question must include topicName exactly equal to "${topicName}".`
     ];
 
     if (includeDiagram) {
       questionRequirements.push(
-        "Every question must include one diagram, and that diagram must be the primary source of information needed to answer the question.",
-        "The question text is only for brief context or supporting explanation and must not provide enough information to answer without interpreting the diagram.",
-        "The options and correct answer must be based primarily on information shown in the diagram.",
-        "The answerExplanation must refer to the relevant information shown in the diagram.",
-        "Generate every diagram from valid Mermaid source.",
+        `Configured diagram question percentage: ${diagramPercentage}%.`,
+        `Exactly ${diagramQuestionCount} of the ${questionCount} questions must set hasDiagram to true.`,
+        `The remaining ${questionCount - diagramQuestionCount} questions must set hasDiagram to false and must omit diagram.`
+      );
+    } else {
+      questionRequirements.push(
+        "Every question must set hasDiagram to false and must omit diagram."
+      );
+    }
+
+    if (hasDiagramQuestions) {
+      questionRequirements.push(
+        "Every question with hasDiagram set to true must include one diagram, and that diagram must be the primary source of information needed to answer the question.",
+        "For a diagram question, the question text is only for brief context or supporting explanation and must not provide enough information to answer without interpreting the diagram.",
+        "For a diagram question, the options and correct answer must be based primarily on information shown in the diagram.",
+        "For a diagram question, answerExplanation must refer to the relevant information shown in the diagram.",
+        "Generate each required diagram from valid Mermaid source.",
         "Choose the Mermaid diagram type and syntax best suited to each question; diagrams are not limited to flowcharts.",
         "Use only Mermaid 11 diagram types supported by the renderer, such as flowchart, sequenceDiagram, classDiagram, stateDiagram-v2, erDiagram, mindmap, timeline, pie, or xychart-beta.",
         "For bar or line charts, use xychart-beta syntax; never use bar as a Mermaid diagram type.",
@@ -274,9 +299,10 @@ export class LlmPromptGenerator {
         `Country: ${country}`,
         `Level: ${level}`,
         `Year: ${year}`,
-        `Subject: ${subject}`
+        `Subject: ${subject}`,
+        `Topic: ${topicName}`
       ].join("\n"),
-      `Topics and subtopics:\n${formatTopics(topics)}`,
+      `Selected topic and subtopics:\n${formatTopic(topic)}`,
       questionRequirements.join("\n"),
       `Configured instructions:\n${formatInstructionSections(configInstructions)}`
     ];
@@ -290,7 +316,7 @@ export class LlmPromptGenerator {
       "Return only valid JSON using this structure:",
       JSON.stringify(
         createLlmQuestionResponseStructure({
-          includeDiagram,
+          includeDiagram: hasDiagramQuestions,
           difficultyLevel: difficulty,
           language: selectedLanguage
         }),

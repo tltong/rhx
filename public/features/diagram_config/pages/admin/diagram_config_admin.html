@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagram Config Admin</title>
+    <link rel="stylesheet" href="./diagram_config_admin.css?v=20260724-diagram-config">
+    <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script type="module" src="/init_fb.js"></script>
+  </head>
+  <body>
+    <main class="page">
+      <header class="page-header">
+        <a class="back-link" href="/">Back to Home</a>
+        <h1>Diagram Config Admin</h1>
+        <p>Set the diagram-question allocation for each syllabus topic.</p>
+      </header>
+
+      <section class="panel syllabus-panel">
+        <label class="field" for="syllabus-select">
+          <span>Syllabus</span>
+          <select id="syllabus-select">
+            <option value="">Loading syllabuses...</option>
+          </select>
+        </label>
+
+        <dl id="syllabus-summary" class="syllabus-summary" hidden>
+          <div>
+            <dt>Country</dt>
+            <dd id="summary-country"></dd>
+          </div>
+          <div>
+            <dt>Level</dt>
+            <dd id="summary-level"></dd>
+          </div>
+          <div>
+            <dt>Year</dt>
+            <dd id="summary-year"></dd>
+          </div>
+          <div>
+            <dt>Subject</dt>
+            <dd id="summary-subject"></dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="panel topic-panel">
+        <div class="section-heading">
+          <div>
+            <h2>Topic Configuration</h2>
+            <p id="topic-count">Select a syllabus to load its topics.</p>
+          </div>
+          <div id="applicable-count" class="allocation-count" hidden></div>
+        </div>
+
+        <form id="diagram-config-form">
+          <div id="topic-list" class="topic-list">
+            <p class="empty-state">No syllabus selected.</p>
+          </div>
+
+          <div class="actions">
+            <button id="save-config" type="submit" disabled>
+              Save Diagram Config
+            </button>
+          </div>
+        </form>
+
+        <p id="status-message" class="status" hidden></p>
+      </section>
+    </main>
+
+    <script type="module" src="./diagram_config_admin.js?v=20260724-diagram-config"></script>
+  </body>
+</html>

@@ -1,4 +1,7 @@
-import { Question } from "../domain/question.js";
+import {
+  Question,
+  normalizeQuestionGroup
+} from "../domain/question.js?v=20260727-question-group";
 import { QuestionRepository } from "../domain/question_repository.js";
 import {
   QUESTIONS_COLLECTION,
@@ -57,6 +60,14 @@ function normalizeLimit(options = {}) {
   return limit;
 }
 
+function normalizeGroupFilter(options = {}) {
+  if (options.group === undefined || options.group === null) {
+    return null;
+  }
+
+  return normalizeQuestionGroup(options.group);
+}
+
 function toQuestion(data, syllabusId, topicId) {
   if (!data) {
     return null;
@@ -69,6 +80,7 @@ function toQuestion(data, syllabusId, topicId) {
     questionText: data.questionText,
     options: data.options,
     correctAnswer: data.correctAnswer,
+    group: data.group,
     explanation: data.explanation || "",
     hasDiagram: data.hasDiagram === true,
     svg: data.svg || "",
@@ -89,6 +101,7 @@ function toQuestionRecord(question) {
     questionText: question.questionText,
     options: { ...question.options },
     correctAnswer: question.correctAnswer,
+    group: question.group,
     hasDiagram: question.hasDiagram,
     svg: question.svg,
     explanation: question.explanation,
@@ -146,12 +159,19 @@ export class FirestoreQuestionRepository extends QuestionRepository {
     );
     const normalizedTopicId = requireIdentifier(topicId, "topicId");
     const limit = normalizeLimit(options);
+    const group = normalizeGroupFilter(options);
     const questions = await readCollection(
       getQuestionItemsCollectionPath(
         normalizedSyllabusId,
         normalizedTopicId
       ),
-      limit === null ? null : (collection) => collection.limit(limit)
+      (collection) => {
+        const query = group === null
+          ? collection
+          : collection.where("group", "==", group);
+
+        return limit === null ? query : query.limit(limit);
+      }
     );
 
     return questions

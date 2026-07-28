@@ -1,8 +1,9 @@
 import {
   generateLlmPrompt,
   generateLlmPromptWithDiagram,
+  getTopicDiagramPercentage,
   loadLlmPromptGeneratorOptions
-} from "../../llm_prompt_generator_module.js?v=20260722-mermaid-chart-repair";
+} from "../../llm_prompt_generator_module.js?v=20260727-topic-diagram-percentage";
 
 /**
  * @typedef {import("../../domain/llm_prompt_generator.js").LlmPromptGenerationInput}
@@ -11,6 +12,7 @@ import {
 
 const configSelect = document.querySelector("#config-select");
 const syllabusSelect = document.querySelector("#syllabus-select");
+const topicSelect = document.querySelector("#topic-select");
 const syllabusSummary = document.querySelector("#syllabus-summary");
 const summaryCountry = document.querySelector("#summary-country");
 const summaryLevel = document.querySelector("#summary-level");
@@ -19,6 +21,9 @@ const summarySubject = document.querySelector("#summary-subject");
 const numberOfQuestionsInput = document.querySelector("#number-of-questions");
 const difficultyLevelSelect = document.querySelector("#difficulty-level");
 const languageSelect = document.querySelector("#language-select");
+const diagramPercentageOutput = document.querySelector(
+  "#diagram-percentage"
+);
 const includeDiagramInput = document.querySelector("#include-diagram");
 const additionalInstructionsInput = document.querySelector(
   "#additional-instructions"
@@ -30,6 +35,7 @@ const statusMessage = document.querySelector("#status-message");
 
 let syllabuses = [];
 let pageBusy = false;
+let diagramPercentageRequestId = 0;
 
 function setStatus(message, isError = false) {
   statusMessage.textContent = message;
@@ -57,6 +63,7 @@ function updateGenerateButton() {
   generatePromptButton.disabled = pageBusy
     || !configSelect.value
     || !syllabusSelect.value
+    || !topicSelect.value
     || !difficultyLevelSelect.value
     || !languageSelect.value
     || !isQuestionCountValid();
@@ -68,6 +75,7 @@ function setBusy(isBusy) {
   [
     configSelect,
     syllabusSelect,
+    topicSelect,
     numberOfQuestionsInput,
     difficultyLevelSelect,
     languageSelect,
@@ -131,12 +139,74 @@ function renderSyllabusOptions(nextSyllabuses) {
   });
 }
 
+function renderTopicOptions(topics = []) {
+  topicSelect.replaceChildren();
+
+  const placeholder = document.createElement("option");
+
+  placeholder.value = "";
+  placeholder.textContent = topics.length
+    ? "Select topic"
+    : "No syllabus topics available";
+  topicSelect.append(placeholder);
+
+  topics.forEach((topic) => {
+    const option = document.createElement("option");
+
+    option.value = topic.id;
+    option.textContent = topic.topicName;
+    topicSelect.append(option);
+  });
+
+  if (topics.length === 1) {
+    topicSelect.value = topics[0].id;
+  }
+}
+
+async function displayDiagramPercentage() {
+  const syllabusId = syllabusSelect.value;
+  const topicId = topicSelect.value;
+  const requestId = ++diagramPercentageRequestId;
+
+  if (!syllabusId || !topicId) {
+    diagramPercentageOutput.textContent = "Select topic";
+    return;
+  }
+
+  diagramPercentageOutput.textContent = "Loading...";
+
+  try {
+    const percentage = await getTopicDiagramPercentage(
+      syllabusId,
+      topicId
+    );
+
+    if (requestId !== diagramPercentageRequestId) {
+      return;
+    }
+
+    diagramPercentageOutput.textContent = `${percentage}%`;
+  } catch (error) {
+    if (requestId !== diagramPercentageRequestId) {
+      return;
+    }
+
+    diagramPercentageOutput.textContent = "Unavailable";
+    setStatus(
+      error.message || "Could not load the diagram percentage.",
+      true
+    );
+  }
+}
+
 function displaySelectedSyllabus() {
   const syllabus = getSelectedSyllabus();
 
   if (!syllabus) {
     syllabusSummary.hidden = true;
     renderLanguageOptions();
+    renderTopicOptions();
+    void displayDiagramPercentage();
     updateGenerateButton();
     return;
   }
@@ -147,6 +217,8 @@ function displaySelectedSyllabus() {
   summarySubject.textContent = syllabus.subject;
   syllabusSummary.hidden = false;
   renderLanguageOptions(syllabus.languages || []);
+  renderTopicOptions(syllabus.topics || []);
+  void displayDiagramPercentage();
   updateGenerateButton();
 }
 
@@ -193,6 +265,7 @@ async function generatePrompt() {
       numberOfQuestions: Number(numberOfQuestionsInput.value),
       difficultyLevel: difficultyLevelSelect.value,
       language: languageSelect.value,
+      topicId: topicSelect.value,
       additionalInstructions: additionalInstructionsInput.value
     };
     const prompt = await promptGenerator(
@@ -205,7 +278,7 @@ async function generatePrompt() {
     copyPromptButton.disabled = false;
     setStatus(
       includeDiagramInput.checked
-        ? "Prompt with diagrams generated."
+        ? "Prompt using the configured diagram percentage generated."
         : "Prompt generated."
     );
   } catch (error) {
@@ -232,6 +305,8 @@ async function copyPrompt() {
 
 async function initPage() {
   renderLanguageOptions();
+  renderTopicOptions();
+  void displayDiagramPercentage();
 
   try {
     const options = await loadLlmPromptGeneratorOptions();
@@ -264,6 +339,10 @@ async function initPage() {
 
 configSelect.addEventListener("change", updateGenerateButton);
 syllabusSelect.addEventListener("change", displaySelectedSyllabus);
+topicSelect.addEventListener("change", () => {
+  updateGenerateButton();
+  void displayDiagramPercentage();
+});
 numberOfQuestionsInput.addEventListener("input", updateGenerateButton);
 difficultyLevelSelect.addEventListener("change", updateGenerateButton);
 languageSelect.addEventListener("change", updateGenerateButton);

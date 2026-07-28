@@ -3,11 +3,11 @@ import {
   mapLlmResponseToQuestionInputs,
   normalizeQuestionGenerationInput,
   resolveQuestionGenerationContext
-} from "../domain/question_generation.js?v=20260722-resilient-diagrams";
+} from "../domain/question_generation.js?v=20260727-topic-diagram-config";
 
 /**
- * @typedef {import("../../llm_prompt_generator/domain/llm_prompt_generator.js").LlmPromptGenerationInput}
- * LlmPromptGenerationInput
+ * @typedef {import("../domain/question_generation.js").QuestionGenerationInput}
+ * QuestionGenerationInput
  */
 /**
  * @typedef {import("../domain/question_generation.js").QuestionGenerationResult}
@@ -66,6 +66,23 @@ function createDiagramRepairDescription(question) {
   ].join("\n").slice(0, 4500);
 }
 
+function copyLlmOptions(llmOptions) {
+  if (
+    !llmOptions
+    || typeof llmOptions !== "object"
+    || Array.isArray(llmOptions)
+  ) {
+    throw new Error("llmOptions must be an object.");
+  }
+
+  return {
+    ...llmOptions,
+    ...(llmOptions.thinking
+      ? { thinking: { ...llmOptions.thinking } }
+      : {})
+  };
+}
+
 export class GenerateQuestions {
   constructor({
     generatePrompt,
@@ -73,7 +90,8 @@ export class GenerateQuestions {
     getSyllabusById,
     writeQuestions,
     renderMermaidDiagram = null,
-    hasDiagram = false
+    hasDiagram = false,
+    llmOptions = {}
   }) {
     this.generatePrompt = generatePrompt;
     this.generateLlmText = generateLlmText;
@@ -81,6 +99,7 @@ export class GenerateQuestions {
     this.writeQuestions = writeQuestions;
     this.renderMermaidDiagram = renderMermaidDiagram;
     this.hasDiagram = hasDiagram === true;
+    this.llmOptions = copyLlmOptions(llmOptions);
 
     if (
       this.hasDiagram
@@ -98,14 +117,15 @@ export class GenerateQuestions {
     for (const questionInput of questionInputs) {
       const { mermaidCode, ...questionData } = questionInput;
 
-      if (!this.hasDiagram) {
+      if (!questionData.hasDiagram) {
         renderedQuestionInputs.push(questionData);
         continue;
       }
 
       const renderResult = await this.renderMermaidDiagram(
         mermaidCode,
-        createDiagramRepairDescription(questionData)
+        createDiagramRepairDescription(questionData),
+        this.llmOptions
       );
       const svg = String(renderResult?.svg || "").trim();
 
@@ -146,6 +166,7 @@ export class GenerateQuestions {
 
     try {
       const response = await this.generateLlmText(prompt, {
+        ...this.llmOptions,
         maxTokens: this.hasDiagram
           ? DIAGRAM_QUESTION_MAX_TOKENS
           : STANDARD_QUESTION_MAX_TOKENS
@@ -156,7 +177,7 @@ export class GenerateQuestions {
         syllabusId,
         topics,
         generationInput,
-        hasDiagram: this.hasDiagram,
+        allowDiagrams: this.hasDiagram,
         questionOffset
       });
 
@@ -225,7 +246,7 @@ export class GenerateQuestions {
   /**
    * @param {string} llmPromptConfigId
    * @param {string} syllabusId
-   * @param {LlmPromptGenerationInput} generationInput
+   * @param {QuestionGenerationInput} generationInput
    * @returns {Promise<QuestionGenerationResult>}
    */
   async execute(llmPromptConfigId, syllabusId, generationInput) {

@@ -1,3 +1,9 @@
+import {
+  practiceTypes
+} from "./practice_schema.js";
+
+export { practiceTypes };
+
 export const QUESTIONS_COLLECTION = "questions";
 export const QUESTION_TOPICS_SUBCOLLECTION = "topics";
 export const QUESTION_ITEMS_SUBCOLLECTION = "questionItems";
@@ -38,6 +44,10 @@ export const questionSchema = {
               }
             },
             correctAnswer: "string",
+            group: {
+              type: "string",
+              enum: Object.values(practiceTypes)
+            },
             hasDiagram: "boolean",
             svg: "string",
             explanation: "string",
@@ -61,5 +71,6 @@ export default {
   questionTopicDocumentIdPattern,
   questionDocumentIdPattern,
   questionOptionKeys,
+  practiceTypes,
   questionSchema
 };

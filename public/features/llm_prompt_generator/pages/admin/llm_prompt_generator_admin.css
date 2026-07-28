@@ -19,6 +19,18 @@ textarea {
   font: inherit;
 }
 
+.diagram-percentage-output {
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+  border: 1px solid #c6d4df;
+  border-radius: 6px;
+  padding: 10px 12px;
+  color: #0b3150;
+  background: #eef4f8;
+  font-weight: 700;
+}
+
 button {
   min-height: 42px;
   border: 1px solid #0b6fa4;

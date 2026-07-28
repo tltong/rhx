@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Syllabus Subscription Admin</title>
-    <link rel="stylesheet" href="./syllabus_subscription_admin.css?v=20260716-no-eager-auth">
+    <link rel="stylesheet" href="./syllabus_subscription_admin.css?v=20260726-subscription-language">
     <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
     <script defer src="/__/firebase/init.js"></script>
@@ -31,6 +31,20 @@
           </section>
         </div>
 
+        <section class="active-subscriptions">
+          <div class="section-heading">
+            <h2>Active Subscriptions</h2>
+            <span id="active-subscription-count" class="active-subscription-count">
+              Select a student
+            </span>
+          </div>
+          <div id="active-subscriptions-container" class="active-subscription-list">
+            <p class="empty-message">
+              Select a student to view active subscriptions.
+            </p>
+          </div>
+        </section>
+
         <section class="subscription-status">
           <h2>Selected Subscription</h2>
           <dl>
@@ -47,6 +61,13 @@
               <dd id="selected-state">Not subscribed</dd>
             </div>
           </dl>
+
+          <div class="language-field">
+            <label for="subscription-language">Language</label>
+            <select id="subscription-language" disabled>
+              <option value="">Select language</option>
+            </select>
+          </div>
         </section>
 
         <div class="actions">
@@ -60,6 +81,6 @@
       </section>
     </main>
 
-    <script type="module" src="./syllabus_subscription_admin.js?v=20260716-no-eager-auth"></script>
+    <script type="module" src="./syllabus_subscription_admin.js?v=20260726-subscription-language"></script>
   </body>
 </html>

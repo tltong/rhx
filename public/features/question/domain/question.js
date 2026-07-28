@@ -1,4 +1,9 @@
+import {
+  practiceTypes
+} from "../../../config/firebase/practice_schema.js?v=20260727-question-group";
+
 const QUESTION_OPTION_KEYS = Object.freeze(["a", "b", "c", "d"]);
+const QUESTION_GROUP_VALUES = new Set(Object.values(practiceTypes));
 
 function normalizeText(value) {
   return String(value ?? "").trim();
@@ -55,6 +60,18 @@ function normalizeHasDiagram(value) {
   return value;
 }
 
+export function normalizeQuestionGroup(value) {
+  const group = requireText(value, "group").toLowerCase();
+
+  if (!QUESTION_GROUP_VALUES.has(group)) {
+    throw new Error(
+      `group must be one of: ${[...QUESTION_GROUP_VALUES].join(", ")}.`
+    );
+  }
+
+  return group;
+}
+
 /**
  * @typedef {Object} QuestionInput
  * @property {string} [id]
@@ -63,6 +80,7 @@ function normalizeHasDiagram(value) {
  * @property {string} questionText
  * @property {{a: string, b: string, c: string, d: string}} options
  * @property {string} correctAnswer
+ * @property {string} group
  * @property {string} [explanation]
  * @property {boolean} [hasDiagram]
  * @property {string} [svg]
@@ -80,6 +98,7 @@ export class Question {
     questionText,
     options,
     correctAnswer,
+    group,
     explanation = "",
     hasDiagram = false,
     svg = "",
@@ -93,6 +112,7 @@ export class Question {
     this.questionText = requireText(questionText, "questionText");
     this.options = normalizeOptions(options);
     this.correctAnswer = normalizeCorrectAnswer(correctAnswer);
+    this.group = normalizeQuestionGroup(group);
     this.explanation = optionalText(explanation);
     this.hasDiagram = normalizeHasDiagram(hasDiagram);
     this.svg = this.hasDiagram ? requireText(svg, "svg") : "";

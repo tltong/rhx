@@ -4,6 +4,27 @@ export const DEEPSEEK_FUNCTION_NAME = "generateDeepseekText";
 export const DEFAULT_DEEPSEEK_REGION = "us-central1";
 export const DEFAULT_FUNCTIONS_EMULATOR_PORT = 5001;
 export const DEEPSEEK_HOSTING_REWRITE_PATH = "/api/generateDeepseekText";
+export const DEEPSEEK_MODELS = Object.freeze({
+  PRO: "deepseek-v4-pro"
+});
+export const DEEPSEEK_THINKING_TYPES = Object.freeze({
+  DISABLED: "disabled"
+});
+export const DEEPSEEK_REQUEST_PROFILES = Object.freeze({
+  STANDARD_PRO: Object.freeze({
+    model: DEEPSEEK_MODELS.PRO,
+    thinking: Object.freeze({
+      type: DEEPSEEK_THINKING_TYPES.DISABLED
+    })
+  }),
+  DIAGRAM_PRO: Object.freeze({
+    model: DEEPSEEK_MODELS.PRO,
+    thinking: Object.freeze({
+      type: DEEPSEEK_THINKING_TYPES.DISABLED
+    }),
+    useDirectFunction: true
+  })
+});
 
 function requireNonEmptyString(value, name) {
   if (typeof value !== "string" || value.trim() === "") {
@@ -75,16 +96,30 @@ function normalizeMessages(messages) {
 }
 
 function normalizeRequest(input, options = {}) {
-  const request = typeof input === "string"
+  const source = typeof input === "string"
     ? { prompt: input }
     : { ...(input || {}) };
+  const request = {
+    ...(source.messages !== undefined
+      ? { messages: source.messages }
+      : { prompt: source.prompt }),
+    ...(source.systemPrompt !== undefined
+      ? { systemPrompt: source.systemPrompt }
+      : {}),
+    ...(source.maxTokens !== undefined
+      ? { maxTokens: source.maxTokens }
+      : {}),
+    ...(source.temperature !== undefined
+      ? { temperature: source.temperature }
+      : {}),
+    model: DEEPSEEK_MODELS.PRO,
+    thinking: {
+      type: DEEPSEEK_THINKING_TYPES.DISABLED
+    }
+  };
 
   if (options.systemPrompt !== undefined) {
     request.systemPrompt = options.systemPrompt;
-  }
-
-  if (options.model !== undefined) {
-    request.model = options.model;
   }
 
   if (options.maxTokens !== undefined) {
@@ -218,14 +253,17 @@ export class DeepseekUtil {
 
   async call(input, options = {}) {
     const body = normalizeRequest(input, options);
+    const endpointUrl = options.useDirectFunction === true
+      ? buildDirectFunctionUrl(options)
+      : this.endpointUrl;
 
     try {
-      return await this.postJson(this.endpointUrl, body, options);
+      return await this.postJson(endpointUrl, body, options);
     } catch (error) {
       if (
         error.status !== 404 ||
         options.allowDirectFunctionFallback === false ||
-        !isHostingRewriteEndpoint(this.endpointUrl)
+        !isHostingRewriteEndpoint(endpointUrl)
       ) {
         throw error;
       }

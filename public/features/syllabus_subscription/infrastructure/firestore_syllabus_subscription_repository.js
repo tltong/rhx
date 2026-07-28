@@ -1,4 +1,6 @@
-import { SyllabusSubscription } from "../domain/syllabus_subscription.js";
+import {
+  SyllabusSubscription
+} from "../domain/syllabus_subscription.js?v=20260726-subscription-language";
 import {
   SyllabusSubscriptionRepository
 } from "../domain/syllabus_subscription_repository.js";
@@ -54,6 +56,7 @@ function toSyllabusSubscription(data, studentId) {
   return new SyllabusSubscription({
     studentId,
     syllabusId: data.id,
+    language: data.language || null,
     state: normalizeState(data.state),
     subscribedAt: data.subscribedAt || null,
     updatedAt: data.updatedAt || null
@@ -64,6 +67,10 @@ function toSyllabusSubscriptionRecord(syllabusSubscription) {
   const now = new Date();
 
   return {
+    language: requireNonEmptyString(
+      syllabusSubscription.language,
+      "language"
+    ),
     state: normalizeState(syllabusSubscription.state),
     subscribedAt: syllabusSubscription.subscribedAt || now,
     updatedAt: syllabusSubscription.updatedAt || now
@@ -146,9 +153,23 @@ export class FirestoreSyllabusSubscriptionRepository
   }
 
   async delete(studentId, syllabusId) {
+    const selectedStudentId = requireNonEmptyString(studentId, "studentId");
+    const syllabusesPath = getStudentSyllabusesCollectionPath(
+      selectedStudentId
+    );
+
     await deleteDocument(
-      getStudentSyllabusesCollectionPath(studentId),
+      syllabusesPath,
       requireNonEmptyString(syllabusId, "syllabusId")
     );
+
+    const remainingSubscriptions = await readCollection(syllabusesPath);
+
+    if (remainingSubscriptions.length === 0) {
+      await deleteDocument(
+        SYLLABUS_SUBSCRIPTIONS_COLLECTION,
+        selectedStudentId
+      );
+    }
   }
 }

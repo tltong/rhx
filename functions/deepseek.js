@@ -5,7 +5,14 @@ const OpenAI = require("openai");
 const deepseekApiKey = defineSecret("DEEPSEEK_API_KEY");
 
 const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
-const DEFAULT_MODEL = "deepseek-v4-pro";
+const DEEPSEEK_MODELS = Object.freeze({
+  PRO: "deepseek-v4-pro",
+});
+const DEEPSEEK_THINKING_TYPES = Object.freeze({
+  DISABLED: "disabled",
+});
+const DEFAULT_MODEL = DEEPSEEK_MODELS.PRO;
+const DEFAULT_THINKING_TYPE = DEEPSEEK_THINKING_TYPES.DISABLED;
 const DEFAULT_MAX_TOKENS = 2048;
 const ALLOWED_ORIGINS = new Set([
   "https://readyherox.web.app",
@@ -205,27 +212,25 @@ function truncateText(value, maxLength = 12000) {
 }
 
 async function createDeepseekCompletion({
-  model,
   messages,
   maxTokens,
   temperature,
   useJsonMode = true,
-  thinkingType = "disabled",
 }) {
   const request = {
-    model,
+    model: DEFAULT_MODEL,
     messages,
     max_tokens: maxTokens,
-    temperature,
     stream: false,
+    thinking: { type: DEFAULT_THINKING_TYPE },
   };
+
+  if (temperature !== undefined && temperature !== null) {
+    request.temperature = temperature;
+  }
 
   if (useJsonMode) {
     request.response_format = { type: "json_object" };
-  }
-
-  if (thinkingType) {
-    request.thinking = { type: thinkingType };
   }
 
   return getDeepseekClient().chat.completions.create(request);
@@ -298,7 +303,10 @@ function buildPlainJsonRetryMessages(messages) {
   ];
 }
 
-async function repairJsonWithDeepseek({ model, content, maxTokens }) {
+async function repairJsonWithDeepseek({
+  content,
+  maxTokens,
+}) {
   const rawText = String(content || "").trim();
 
   if (!rawText) {
@@ -306,7 +314,6 @@ async function repairJsonWithDeepseek({ model, content, maxTokens }) {
   }
 
   return createDeepseekCompletion({
-    model,
     maxTokens,
     temperature: 0,
     useJsonMode: false,
@@ -338,6 +345,7 @@ const generateDeepseekText = onRequest(
     invoker: "public",
     region: "us-central1",
     secrets: [deepseekApiKey],
+    timeoutSeconds: 600,
   },
   async (req, res) => {
     setCorsHeaders(req, res);
@@ -354,22 +362,26 @@ const generateDeepseekText = onRequest(
 
     let body;
     let messages;
+    let maxTokens;
+    let temperature;
 
     try {
       body = parseRequestBody(req);
       messages = ensureJsonInstruction(normalizeMessages(body));
+      maxTokens = normalizeNumber(
+        body.maxTokens,
+        DEFAULT_MAX_TOKENS,
+        128,
+        8192,
+      );
+      temperature = normalizeNumber(body.temperature, 0.3, 0, 2);
     } catch (error) {
       res.status(400).json({ error: error.message });
       return;
     }
 
-    const model = body.model || DEFAULT_MODEL;
-    const maxTokens = normalizeNumber(body.maxTokens, DEFAULT_MAX_TOKENS, 128, 8192);
-    const temperature = normalizeNumber(body.temperature, 0.3, 0, 2);
-
     try {
       let completion = await createDeepseekCompletion({
-        model,
         messages,
         maxTokens,
         temperature,
@@ -384,7 +396,6 @@ const generateDeepseekText = onRequest(
 
       if (json === null && !content.trim()) {
         const retryCompletion = await createDeepseekCompletion({
-          model,
           messages: buildPlainJsonRetryMessages(messages),
           maxTokens,
           temperature: Math.min(temperature, 0.2),
@@ -403,7 +414,6 @@ const generateDeepseekText = onRequest(
 
       if (json === null && (retryRawText || content).trim()) {
         const repairCompletion = await repairJsonWithDeepseek({
-          model,
           content: retryRawText || content,
           maxTokens,
         });
@@ -439,7 +449,7 @@ const generateDeepseekText = onRequest(
 
       res.status(200).json({
         json,
-        model: completion.model || model,
+        model: completion.model || DEFAULT_MODEL,
         usage: completion.usage || null,
       });
     } catch (error) {
