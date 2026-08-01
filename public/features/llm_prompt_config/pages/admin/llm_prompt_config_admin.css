@@ -85,11 +85,46 @@ p {
   background: #ffffff;
 }
 
+.syllabus-instruction-panel {
+  margin-top: 22px;
+}
+
+.section-header {
+  margin-bottom: 18px;
+}
+
+.section-header h2 {
+  margin-bottom: 6px;
+}
+
 .config-sections {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
   margin-bottom: 24px;
+}
+
+.instruction-selection-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.instruction-editor {
+  margin-top: 20px;
+  border-top: 1px solid #d5e1ec;
+  padding-top: 18px;
+}
+
+.instruction-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.instruction-delete-row {
+  margin-top: 22px;
 }
 
 .config-section,
@@ -203,7 +238,8 @@ textarea {
 @media (max-width: 760px) {
   .config-sections,
   .add-config-row,
-  .year-grid {
+  .year-grid,
+  .instruction-selection-grid {
     grid-template-columns: 1fr;
   }
 
@@ -217,6 +253,15 @@ textarea {
   }
 
   .actions button {
+    width: 100%;
+  }
+
+  .instruction-actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+
+  .instruction-actions button {
     width: 100%;
   }
 }

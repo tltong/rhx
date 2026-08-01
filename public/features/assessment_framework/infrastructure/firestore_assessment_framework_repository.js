@@ -2,7 +2,7 @@ import {
   AssessmentFramework,
   AssessmentFrameworkLevel,
   AssessmentFrameworkPreAssessment
-} from "../domain/assessment_framework.js?v=20260729-framework-wide-pre-assessment";
+} from "../domain/assessment_framework.js?v=20260730-score-bands";
 import { AssessmentFrameworkRepository } from "../domain/assessment_framework_repository.js";
 import {
   ASSESSMENT_FRAMEWORKS_COLLECTION,
@@ -11,8 +11,8 @@ import {
   ASSESSMENT_FRAMEWORK_PRE_ASSESSMENT_DOCUMENT_ID,
   ASSESSMENT_FRAMEWORK_PRE_ASSESSMENT_SUBCOLLECTION,
   assessmentFrameworkPreAssessmentDifficultyLevels,
-  assessmentFrameworkPreAssessmentScoreThresholds
-} from "../../../config/firebase/assessment_framework_schema.js?v=20260729-framework-wide-pre-assessment";
+  assessmentFrameworkPreAssessmentScoreBands
+} from "../../../config/firebase/assessment_framework_schema.js?v=20260730-score-bands";
 import {
   createDocument,
   deleteDocument,
@@ -172,20 +172,19 @@ function normalizeScoreLevelSplit(scoreLevelSplit = {}, levelIds) {
   ]);
 
   return Object.fromEntries(
-    assessmentFrameworkPreAssessmentScoreThresholds.map((threshold) => {
-      const fieldName = `over${threshold}Percent`;
+    assessmentFrameworkPreAssessmentScoreBands.map(({ field }) => {
       const levelId = requireNonEmptyString(
-        source[fieldName],
-        `scoreLevelSplit.${fieldName}`
+        source[field],
+        `scoreLevelSplit.${field}`
       );
 
       if (!validTargetIds.has(levelId)) {
         throw new Error(
-          `scoreLevelSplit.${fieldName} must reference an existing level or the end level.`
+          `scoreLevelSplit.${field} must reference an existing level or the end level.`
         );
       }
 
-      return [fieldName, levelId];
+      return [field, levelId];
     })
   );
 }

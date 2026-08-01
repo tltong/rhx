@@ -1,6 +1,6 @@
 import {
   AssessmentFramework
-} from "../domain/assessment_framework.js?v=20260729-framework-wide-pre-assessment";
+} from "../domain/assessment_framework.js?v=20260730-score-bands";
 
 export class CreateAssessmentFramework {
   constructor(assessmentFrameworkRepository) {

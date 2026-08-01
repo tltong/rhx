@@ -4,7 +4,7 @@ import {
   getSyllabusById,
   listSyllabuses,
   updateSyllabusRecord
-} from "../../syllabus_module.js?v=20260718-syllabus-languages";
+} from "../../syllabus_module.js?v=20260730-topic-pre-assessment";
 
 import {
   listSyllabusScopes
@@ -500,10 +500,17 @@ function readTopics() {
         subtopics[subtopicId] = subtopicName;
       });
 
+      const topicId = topicRow.dataset.topicId || null;
+      const existingTopic = loadedSyllabus?.topics.find(
+        (topic) => topic.id === topicId
+      );
+
       return {
-        id: topicRow.dataset.topicId || null,
+        id: topicId,
         topicName,
-        subtopics
+        subtopics,
+        preAssessmentPractices:
+          existingTopic?.preAssessmentPractices || {}
       };
     });
 }

@@ -1,17 +1,70 @@
+function requireText(value, fieldName) {
+  const text = String(value ?? "").trim();
+
+  if (!text) {
+    throw new Error(`${fieldName} is required.`);
+  }
+
+  return text;
+}
+
+export function createSyllabusLanguageKey(language) {
+  return requireText(language, "language")
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/\s+/g, "_")
+    .replace(/[.\/\[\]*`]/g, "_");
+}
+
+export class SyllabusTopicPreAssessmentPractice {
+  constructor({
+    language,
+    practiceId
+  } = {}) {
+    this.language = requireText(language, "language");
+    this.practiceId = requireText(practiceId, "practiceId");
+  }
+}
+
+function normalizePreAssessmentPractices(preAssessmentPractices = {}) {
+  if (
+    !preAssessmentPractices
+    || typeof preAssessmentPractices !== "object"
+    || Array.isArray(preAssessmentPractices)
+  ) {
+    throw new Error("preAssessmentPractices must be an object.");
+  }
+
+  return Object.fromEntries(
+    Object.values(preAssessmentPractices).map((value) => {
+      const assignment = value instanceof SyllabusTopicPreAssessmentPractice
+        ? value
+        : new SyllabusTopicPreAssessmentPractice(value);
+
+      return [createSyllabusLanguageKey(assignment.language), assignment];
+    })
+  );
+}
+
 export class SyllabusTopic {
   constructor({
     id = null,
     topicName,
-    subtopics = {}
+    subtopics = {},
+    preAssessmentPractices = {}
   }) {
     this.id = id;
     this.topicName = topicName;
     this.subtopics = subtopics;
+    this.preAssessmentPractices = normalizePreAssessmentPractices(
+      preAssessmentPractices
+    );
   }
 
   update({
     topicName,
-    subtopics
+    subtopics,
+    preAssessmentPractices
   }) {
     if (topicName !== undefined) {
       this.topicName = topicName;
@@ -20,6 +73,47 @@ export class SyllabusTopic {
     if (subtopics !== undefined) {
       this.subtopics = subtopics;
     }
+
+    if (preAssessmentPractices !== undefined) {
+      this.preAssessmentPractices = normalizePreAssessmentPractices(
+        preAssessmentPractices
+      );
+    }
+
+    return this;
+  }
+
+  assignPreAssessmentPractice(language, practiceId) {
+    const assignment = new SyllabusTopicPreAssessmentPractice({
+      language,
+      practiceId
+    });
+    const languageKey = createSyllabusLanguageKey(assignment.language);
+
+    this.preAssessmentPractices = {
+      ...this.preAssessmentPractices,
+      [languageKey]: assignment
+    };
+
+    return assignment;
+  }
+
+  getPreAssessmentPractice(language) {
+    const languageKey = createSyllabusLanguageKey(language);
+
+    return this.preAssessmentPractices[languageKey] || null;
+  }
+
+  listPreAssessmentPractices() {
+    return Object.values(this.preAssessmentPractices);
+  }
+
+  removePreAssessmentPractice(language) {
+    const languageKey = createSyllabusLanguageKey(language);
+    const nextAssignments = { ...this.preAssessmentPractices };
+
+    delete nextAssignments[languageKey];
+    this.preAssessmentPractices = nextAssignments;
 
     return this;
   }
@@ -45,7 +139,9 @@ export class Syllabus {
     this.languages = languages;
     this.active = active;
     this.assessmentFrameworkId = assessmentFrameworkId;
-    this.topics = topics;
+    this.topics = topics.map((topic) => (
+      topic instanceof SyllabusTopic ? topic : new SyllabusTopic(topic)
+    ));
   }
 
   update({
@@ -87,7 +183,9 @@ export class Syllabus {
     }
 
     if (topics !== undefined) {
-      this.topics = topics;
+      this.topics = topics.map((topic) => (
+        topic instanceof SyllabusTopic ? topic : new SyllabusTopic(topic)
+      ));
     }
 
     return this;
@@ -121,6 +219,9 @@ export class Syllabus {
     this.languages = this.languages.filter(
       (item) => String(item).trim().toLowerCase() !== selectedLanguage.toLowerCase()
     );
+    this.topics.forEach((topic) => {
+      topic.removePreAssessmentPractice(selectedLanguage);
+    });
 
     return this;
   }

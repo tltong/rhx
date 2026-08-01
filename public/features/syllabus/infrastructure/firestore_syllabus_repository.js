@@ -1,7 +1,9 @@
 import {
+  createSyllabusLanguageKey,
   Syllabus,
-  SyllabusTopic
-} from "../domain/syllabus.js";
+  SyllabusTopic,
+  SyllabusTopicPreAssessmentPractice
+} from "../domain/syllabus.js?v=20260730-topic-pre-assessment";
 import { SyllabusRepository } from "../domain/syllabus_repository.js";
 import {
   SYLLABUSES_COLLECTION,
@@ -95,11 +97,47 @@ function normalizeSubtopics(subtopics = {}) {
   return normalizedSubtopics;
 }
 
+function normalizePreAssessmentPractices(preAssessmentPractices = {}) {
+  const source = requireObject(
+    preAssessmentPractices,
+    "preAssessmentPractices"
+  );
+  const normalizedPractices = {};
+
+  Object.values(source).forEach((value) => {
+    const record = requireObject(value, "preAssessmentPractice");
+    const assignment = new SyllabusTopicPreAssessmentPractice({
+      language: requireNonEmptyString(
+        record.language,
+        "preAssessmentPractice.language"
+      ),
+      practiceId: requireNonEmptyString(
+        record.practiceId,
+        "preAssessmentPractice.practiceId"
+      )
+    });
+    const languageKey = createSyllabusLanguageKey(assignment.language);
+
+    if (normalizedPractices[languageKey]) {
+      throw new Error(
+        `Duplicate pre-assessment practice language: ${assignment.language}.`
+      );
+    }
+
+    normalizedPractices[languageKey] = assignment;
+  });
+
+  return normalizedPractices;
+}
+
 function normalizeTopic(topic) {
   return new SyllabusTopic({
     id: optionalString(topic.id),
     topicName: requireNonEmptyString(topic.topicName, "topicName"),
-    subtopics: normalizeSubtopics(topic.subtopics || {})
+    subtopics: normalizeSubtopics(topic.subtopics || {}),
+    preAssessmentPractices: normalizePreAssessmentPractices(
+      topic.preAssessmentPractices || {}
+    )
   });
 }
 
@@ -156,9 +194,24 @@ function toSyllabusRecord(syllabus) {
 }
 
 function toSyllabusTopicRecord(topic) {
+  const preAssessmentPractices = normalizePreAssessmentPractices(
+    topic.preAssessmentPractices || {}
+  );
+
   return {
     topicName: requireNonEmptyString(topic.topicName, "topicName"),
-    subtopics: normalizeSubtopics(topic.subtopics || {})
+    subtopics: normalizeSubtopics(topic.subtopics || {}),
+    preAssessmentPractices: Object.fromEntries(
+      Object.entries(preAssessmentPractices).map(
+        ([languageKey, assignment]) => [
+          languageKey,
+          {
+            language: assignment.language,
+            practiceId: assignment.practiceId
+          }
+        ]
+      )
+    )
   };
 }
 
@@ -282,6 +335,24 @@ export class FirestoreSyllabusRepository extends SyllabusRepository {
     );
 
     syllabus.topics = normalizedTopics;
+  }
+
+  async saveTopic(syllabusId, topic) {
+    const id = requireNonEmptyString(syllabusId, "syllabusId");
+    const normalizedTopic = normalizeTopic(topic);
+
+    if (!normalizedTopic.id) {
+      throw new Error("topicId is required.");
+    }
+
+    await writeDocument(
+      getTopicsCollectionPath(id),
+      normalizedTopic.id,
+      toSyllabusTopicRecord(normalizedTopic),
+      { merge: false }
+    );
+
+    return normalizedTopic;
   }
 
   async delete(syllabusId) {

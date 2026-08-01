@@ -1,4 +1,6 @@
-import { Syllabus } from "../domain/syllabus.js";
+import {
+  Syllabus
+} from "../domain/syllabus.js?v=20260730-topic-pre-assessment";
 
 export class CreateSyllabus {
   constructor(syllabusRepository) {

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pre-Assessment Practice Generator</title>
+    <link rel="stylesheet" href="./practice_generator_admin.css?v=20260731-practice-question-preview">
+    <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script type="module" src="/init_fb.js"></script>
+  </head>
+  <body>
+    <main class="page">
+      <header class="page-header">
+        <a class="back-link" href="/">Back to Home</a>
+        <h1>Pre-Assessment Practice Generator</h1>
+        <p>Generate or replace a pre-assessment for a syllabus topic and language.</p>
+      </header>
+
+      <section class="panel">
+        <div class="selection-grid">
+          <label class="field full-width">
+            <span>Syllabus</span>
+            <select id="syllabus-select">
+              <option value="">Select syllabus</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Topic</span>
+            <select id="topic-select" disabled>
+              <option value="">Select topic</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Language</span>
+            <select id="language-select" disabled>
+              <option value="">Select language</option>
+            </select>
+          </label>
+        </div>
+
+        <dl id="syllabus-summary" class="summary-grid" hidden>
+          <div>
+            <dt>Country</dt>
+            <dd id="summary-country"></dd>
+          </div>
+          <div>
+            <dt>Level</dt>
+            <dd id="summary-level"></dd>
+          </div>
+          <div>
+            <dt>Year</dt>
+            <dd id="summary-year"></dd>
+          </div>
+          <div>
+            <dt>Subject</dt>
+            <dd id="summary-subject"></dd>
+          </div>
+        </dl>
+
+        <p id="assignment-message" class="assignment-message" hidden></p>
+
+        <div class="actions">
+          <button id="generate-practice" type="button" disabled>
+            Generate Pre-Assessment
+          </button>
+        </div>
+
+        <p id="status-message" class="status" hidden></p>
+      </section>
+
+      <section id="results-section" class="results" hidden>
+        <header class="results-header">
+          <div>
+            <h2>Generated Practice</h2>
+            <p id="results-summary"></p>
+          </div>
+          <div class="practice-id">
+            <span>Practice ID</span>
+            <strong id="practice-id"></strong>
+          </div>
+        </header>
+
+        <div id="allocation-summary">
+          <dl class="result-totals">
+            <div>
+              <dt>Total questions</dt>
+              <dd id="total-questions"></dd>
+            </div>
+            <div>
+              <dt>Without diagram</dt>
+              <dd id="without-diagram"></dd>
+            </div>
+            <div>
+              <dt>With diagram</dt>
+              <dd id="with-diagram"></dd>
+            </div>
+            <div>
+              <dt>Diagram allocation</dt>
+              <dd id="diagram-percentage"></dd>
+            </div>
+          </dl>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Difficulty</th>
+                  <th>Total</th>
+                  <th>Without diagram</th>
+                  <th>With diagram</th>
+                </tr>
+              </thead>
+              <tbody id="allocation-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <section class="generated-questions">
+          <h2>Generated Questions</h2>
+          <div id="questions-container" class="questions-list"></div>
+        </section>
+      </section>
+    </main>
+
+    <script type="module" src="./practice_generator_admin.js?v=20260801-syllabus-topic-instructions"></script>
+  </body>
+</html>

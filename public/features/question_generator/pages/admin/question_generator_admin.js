@@ -3,7 +3,7 @@ import {
   generateQuestionsWithDiagram,
   loadQuestionGeneratorOptions,
   practiceTypes
-} from "../../question_generator_module.js?v=20260727-topic-diagram-config";
+} from "../../question_generator_module.js?v=20260801-syllabus-topic-instructions";
 
 /**
  * @typedef {import("../../domain/question_generation.js").QuestionGenerationInput}

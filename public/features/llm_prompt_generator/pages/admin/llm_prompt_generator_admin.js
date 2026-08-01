@@ -3,7 +3,7 @@ import {
   generateLlmPromptWithDiagram,
   getTopicDiagramPercentage,
   loadLlmPromptGeneratorOptions
-} from "../../llm_prompt_generator_module.js?v=20260727-topic-diagram-percentage";
+} from "../../llm_prompt_generator_module.js?v=20260801-syllabus-topic-instructions";
 
 /**
  * @typedef {import("../../domain/llm_prompt_generator.js").LlmPromptGenerationInput}

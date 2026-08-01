@@ -1,26 +1,26 @@
 import {
   FirestoreAssessmentFrameworkRepository
-} from "./infrastructure/firestore_assessment_framework_repository.js?v=20260729-framework-wide-pre-assessment";
+} from "./infrastructure/firestore_assessment_framework_repository.js?v=20260730-score-bands";
 import {
   GetAssessmentFramework
-} from "./application/get_assessment_framework.js?v=20260729-framework-wide-pre-assessment";
+} from "./application/get_assessment_framework.js?v=20260730-score-bands";
 import {
   CreateAssessmentFramework
-} from "./application/create_assessment_framework.js?v=20260729-framework-wide-pre-assessment";
+} from "./application/create_assessment_framework.js?v=20260730-score-bands";
 import {
   UpdateAssessmentFramework
-} from "./application/update_assessment_framework.js?v=20260729-framework-wide-pre-assessment";
+} from "./application/update_assessment_framework.js?v=20260730-score-bands";
 import {
   DeleteAssessmentFramework
-} from "./application/delete_assessment_framework.js?v=20260729-framework-wide-pre-assessment";
+} from "./application/delete_assessment_framework.js?v=20260730-score-bands";
 import {
   SaveAssessmentFrameworkPreAssessment
-} from "./application/save_assessment_framework_pre_assessment.js?v=20260729-framework-wide-pre-assessment";
+} from "./application/save_assessment_framework_pre_assessment.js?v=20260730-score-bands";
 import {
   ASSESSMENT_FRAMEWORK_END_LEVEL_ID,
   assessmentFrameworkPreAssessmentDifficultyLevels,
-  assessmentFrameworkPreAssessmentScoreThresholds
-} from "../../config/firebase/assessment_framework_schema.js?v=20260729-framework-wide-pre-assessment";
+  assessmentFrameworkPreAssessmentScoreBands
+} from "../../config/firebase/assessment_framework_schema.js?v=20260730-score-bands";
 
 const assessmentFrameworkRepository =
   new FirestoreAssessmentFrameworkRepository();
@@ -76,5 +76,5 @@ export {
   saveAssessmentFrameworkPreAssessment,
   ASSESSMENT_FRAMEWORK_END_LEVEL_ID,
   assessmentFrameworkPreAssessmentDifficultyLevels,
-  assessmentFrameworkPreAssessmentScoreThresholds
+  assessmentFrameworkPreAssessmentScoreBands
 };

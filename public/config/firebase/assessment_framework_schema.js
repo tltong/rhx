@@ -11,8 +11,36 @@ export const assessmentFrameworkPreAssessmentDocumentIdPattern =
   ASSESSMENT_FRAMEWORK_PRE_ASSESSMENT_DOCUMENT_ID;
 export const assessmentFrameworkPreAssessmentDifficultyLevels =
   Object.freeze(["easy", "medium", "hard"]);
-export const assessmentFrameworkPreAssessmentScoreThresholds =
-  Object.freeze([10, 20, 30, 40, 50, 60, 70, 80, 90]);
+export const assessmentFrameworkPreAssessmentScoreBands = Object.freeze([
+  Object.freeze({
+    field: "under40Percent",
+    label: "Under 40%"
+  }),
+  Object.freeze({
+    field: "over40Percent",
+    label: "Over 40%"
+  }),
+  Object.freeze({
+    field: "over50Percent",
+    label: "Over 50%"
+  }),
+  Object.freeze({
+    field: "over60Percent",
+    label: "Over 60%"
+  }),
+  Object.freeze({
+    field: "over70Percent",
+    label: "Over 70%"
+  }),
+  Object.freeze({
+    field: "over80Percent",
+    label: "Over 80%"
+  }),
+  Object.freeze({
+    field: "over90Percent",
+    label: "Over 90%"
+  })
+]);
 
 export const assessmentFrameworkSchema = {
   collection: ASSESSMENT_FRAMEWORKS_COLLECTION,
@@ -67,23 +95,7 @@ export const assessmentFrameworkSchema = {
         scoreLevelSplit: {
           type: "map",
           fields: {
-            over10Percent: {
-              type: "string",
-              references: [
-                "assessmentFrameworks/{assessmentFrameworkId}/levels/{levelId}",
-                "assessmentFrameworks/{assessmentFrameworkId}.endLevelName"
-              ],
-              endLevelValue: ASSESSMENT_FRAMEWORK_END_LEVEL_ID
-            },
-            over20Percent: {
-              type: "string",
-              references: [
-                "assessmentFrameworks/{assessmentFrameworkId}/levels/{levelId}",
-                "assessmentFrameworks/{assessmentFrameworkId}.endLevelName"
-              ],
-              endLevelValue: ASSESSMENT_FRAMEWORK_END_LEVEL_ID
-            },
-            over30Percent: {
+            under40Percent: {
               type: "string",
               references: [
                 "assessmentFrameworks/{assessmentFrameworkId}/levels/{levelId}",
@@ -156,6 +168,6 @@ export default {
   assessmentFrameworkLevelDocumentIdPattern,
   assessmentFrameworkPreAssessmentDocumentIdPattern,
   assessmentFrameworkPreAssessmentDifficultyLevels,
-  assessmentFrameworkPreAssessmentScoreThresholds,
+  assessmentFrameworkPreAssessmentScoreBands,
   assessmentFrameworkSchema
 };

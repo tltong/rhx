@@ -1,14 +1,14 @@
 import {
   ASSESSMENT_FRAMEWORK_END_LEVEL_ID,
   assessmentFrameworkPreAssessmentDifficultyLevels,
-  assessmentFrameworkPreAssessmentScoreThresholds,
+  assessmentFrameworkPreAssessmentScoreBands,
   createAssessmentFrameworkRecord,
   deleteAssessmentFrameworkRecord,
   getAssessmentFrameworkById,
   listAssessmentFrameworks,
   saveAssessmentFrameworkPreAssessment,
   updateAssessmentFrameworkRecord
-} from "../../assessment_framework_module.js?v=20260729-framework-wide-pre-assessment";
+} from "../../assessment_framework_module.js?v=20260730-score-bands";
 
 const frameworkSelect = document.querySelector("#framework-select");
 const newFrameworkNameInput = document.querySelector("#new-framework-name");
@@ -229,14 +229,14 @@ function getDifficultyDefaults() {
 function renderScoreLevelMappings(levels = [], endLevelName = "") {
   scoreLevelMappings.replaceChildren();
 
-  assessmentFrameworkPreAssessmentScoreThresholds.forEach((threshold) => {
-    const label = document.createElement("label");
+  assessmentFrameworkPreAssessmentScoreBands.forEach((scoreBand) => {
+    const fieldLabel = document.createElement("label");
     const scoreLabel = document.createElement("span");
     const select = document.createElement("select");
 
-    label.className = "score-mapping";
-    scoreLabel.textContent = `>${threshold}%`;
-    select.dataset.scoreField = `over${threshold}Percent`;
+    fieldLabel.className = "score-mapping";
+    scoreLabel.textContent = scoreBand.label;
+    select.dataset.scoreField = scoreBand.field;
 
     const placeholder = document.createElement("option");
     placeholder.value = "";
@@ -256,8 +256,8 @@ function renderScoreLevelMappings(levels = [], endLevelName = "") {
       `End level: ${endLevelName || "End level"}`;
     select.append(endLevelOption);
 
-    label.append(scoreLabel, select);
-    scoreLevelMappings.append(label);
+    fieldLabel.append(scoreLabel, select);
+    scoreLevelMappings.append(fieldLabel);
   });
 }
 
@@ -482,17 +482,16 @@ function readDifficultySplit() {
 
 function readScoreLevelSplit() {
   return Object.fromEntries(
-    assessmentFrameworkPreAssessmentScoreThresholds.map((threshold) => {
-      const fieldName = `over${threshold}Percent`;
+    assessmentFrameworkPreAssessmentScoreBands.map(({ field, label }) => {
       const select = scoreLevelMappings.querySelector(
-        `[data-score-field="${fieldName}"]`
+        `[data-score-field="${field}"]`
       );
 
       if (!select?.value) {
-        throw new Error(`Select a level for scores over ${threshold}%.`);
+        throw new Error(`Select a level for ${label}.`);
       }
 
-      return [fieldName, select.value];
+      return [field, select.value];
     })
   );
 }

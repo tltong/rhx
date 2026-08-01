@@ -1,7 +1,8 @@
 import {
   getLlmPromptConfigById,
+  getSyllabusTopicPromptInstructions,
   listLlmPromptConfigs
-} from "../llm_prompt_config/llm_prompt_config_module.js?v=20260719-question-topics";
+} from "../llm_prompt_config/llm_prompt_config_module.js?v=20260801-syllabus-topic-instructions";
 import {
   getSyllabusById,
   listSyllabuses
@@ -11,13 +12,16 @@ import {
 } from "../diagram_config/diagram_config_module.js?v=20260727-topic-diagram-config";
 import {
   LlmPromptGenerator
-} from "./domain/llm_prompt_generator.js?v=20260727-topic-diagram-config";
+} from "./domain/llm_prompt_generator.js?v=20260801-syllabus-topic-instructions";
 import {
   GenerateLlmPrompt
-} from "./application/generate_llm_prompt.js?v=20260727-topic-diagram-percentage";
+} from "./application/generate_llm_prompt.js?v=20260801-syllabus-topic-instructions";
 import {
   GenerateLlmPromptWithDiagram
-} from "./application/generate_llm_prompt_with_diagram.js?v=20260727-topic-diagram-percentage";
+} from "./application/generate_llm_prompt_with_diagram.js?v=20260801-syllabus-topic-instructions";
+import {
+  GenerateLlmPromptFromPlan
+} from "./application/generate_llm_prompt_from_plan.js?v=20260801-syllabus-topic-instructions";
 import {
   LoadLlmPromptGeneratorOptions
 } from "./application/load_llm_prompt_generator_options.js?v=20260719-question-topics";
@@ -29,16 +33,24 @@ const promptGenerator = new LlmPromptGenerator();
 const generateLlmPromptUseCase = new GenerateLlmPrompt({
   getLlmPromptConfigById,
   getSyllabusById,
+  getSyllabusTopicPromptInstructions,
   promptGenerator
 });
 const generateLlmPromptWithDiagramUseCase =
   new GenerateLlmPromptWithDiagram({
     getLlmPromptConfigById,
     getSyllabusById,
+    getSyllabusTopicPromptInstructions,
     getDiagramConfigForSyllabus,
     promptGenerator,
     useDiagramConfig: true
   });
+const generateLlmPromptFromPlanUseCase = new GenerateLlmPromptFromPlan({
+  getLlmPromptConfigById,
+  getSyllabusById,
+  getSyllabusTopicPromptInstructions,
+  promptGenerator
+});
 const loadLlmPromptGeneratorOptionsUseCase =
   new LoadLlmPromptGeneratorOptions({
     listLlmPromptConfigs,
@@ -96,9 +108,28 @@ async function generateLlmPromptWithDiagram(
   );
 }
 
+/**
+ * @param {string} llmPromptConfigId
+ * @param {string} syllabusId
+ * @param {import("./domain/llm_prompt_generator.js").LlmPromptGenerationPlanInput} generationInput
+ * @returns {Promise<string>}
+ */
+async function generateLlmPromptFromPlan(
+  llmPromptConfigId,
+  syllabusId,
+  generationInput
+) {
+  return generateLlmPromptFromPlanUseCase.execute(
+    llmPromptConfigId,
+    syllabusId,
+    generationInput
+  );
+}
+
 export {
   generateLlmPrompt,
   generateLlmPromptWithDiagram,
+  generateLlmPromptFromPlan,
   loadLlmPromptGeneratorOptions,
   getTopicDiagramPercentage
 };

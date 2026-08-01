@@ -11,15 +11,24 @@ export class GenerateLlmPrompt {
   constructor({
     getLlmPromptConfigById,
     getSyllabusById,
+    getSyllabusTopicPromptInstructions,
     getDiagramConfigForSyllabus = null,
     promptGenerator,
     useDiagramConfig = false
   }) {
     this.getLlmPromptConfigById = getLlmPromptConfigById;
     this.getSyllabusById = getSyllabusById;
+    this.getSyllabusTopicPromptInstructions =
+      getSyllabusTopicPromptInstructions;
     this.getDiagramConfigForSyllabus = getDiagramConfigForSyllabus;
     this.promptGenerator = promptGenerator;
     this.useDiagramConfig = useDiagramConfig === true;
+
+    if (typeof this.getSyllabusTopicPromptInstructions !== "function") {
+      throw new Error(
+        "getSyllabusTopicPromptInstructions is required."
+      );
+    }
 
     if (
       this.useDiagramConfig
@@ -53,11 +62,8 @@ export class GenerateLlmPrompt {
    */
   async execute(llmPromptConfigId, syllabusId, generationInput = {}) {
     const {
-      numberOfQuestions,
-      difficultyLevel,
-      language,
       topicId,
-      additionalInstructions = ""
+      ...requestInput
     } = generationInput;
     const normalizedSyllabusId = String(syllabusId || "").trim();
     const normalizedConfigId = String(llmPromptConfigId || "").trim();
@@ -76,11 +82,20 @@ export class GenerateLlmPrompt {
       throw new Error("Topic is required.");
     }
 
-    const [llmPromptConfig, syllabus, diagramQuestionPercentage] =
+    const [
+      llmPromptConfig,
+      syllabus,
+      diagramQuestionPercentage,
+      syllabusTopicInstructions
+    ] =
       await Promise.all([
         this.getLlmPromptConfigById(normalizedConfigId),
         this.getSyllabusById(normalizedSyllabusId),
         this.getDiagramQuestionPercentage(
+          normalizedSyllabusId,
+          normalizedTopicId
+        ),
+        this.getSyllabusTopicPromptInstructions(
           normalizedSyllabusId,
           normalizedTopicId
         )
@@ -98,10 +113,11 @@ export class GenerateLlmPrompt {
       llmPromptConfig,
       syllabus,
       topicId: normalizedTopicId,
-      numberOfQuestions,
-      difficultyLevel,
-      language,
-      additionalInstructions,
+      ...requestInput,
+      syllabusAdditionalInstructions:
+        syllabusTopicInstructions?.syllabusAdditionalInstructions || "",
+      topicAdditionalInstructions:
+        syllabusTopicInstructions?.topicAdditionalInstructions || "",
       diagramQuestionPercentage
     });
   }

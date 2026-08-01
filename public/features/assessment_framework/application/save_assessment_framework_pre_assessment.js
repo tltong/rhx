@@ -1,6 +1,6 @@
 import {
   AssessmentFrameworkPreAssessment
-} from "../domain/assessment_framework.js?v=20260729-framework-wide-pre-assessment";
+} from "../domain/assessment_framework.js?v=20260730-score-bands";
 
 function requireNonEmptyString(value, name) {
   if (typeof value !== "string" || value.trim() === "") {

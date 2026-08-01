@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LLM Prompt Config Admin</title>
-    <link rel="stylesheet" href="./llm_prompt_config_admin.css?v=20260717-llm-prompt-config">
+    <link rel="stylesheet" href="./llm_prompt_config_admin.css?v=20260801-syllabus-instruction-admin">
     <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
     <script defer src="/__/firebase/init.js"></script>
@@ -90,8 +90,70 @@
 
         <p id="status-message" class="status" hidden></p>
       </section>
+
+      <section class="panel syllabus-instruction-panel">
+        <header class="section-header">
+          <h2>Syllabus and Topic Instructions</h2>
+          <p>Manage curriculum-specific instructions added to every matching prompt.</p>
+        </header>
+
+        <div class="instruction-selection-grid">
+          <label class="field">
+            <span>Syllabus</span>
+            <select id="instruction-syllabus-select">
+              <option value="">Select syllabus</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Topic</span>
+            <select id="instruction-topic-select" disabled>
+              <option value="">Select topic</option>
+            </select>
+          </label>
+        </div>
+
+        <section class="instruction-editor">
+          <label class="field">
+            <span>Syllabus additional instructions</span>
+            <textarea id="syllabus-additional-instructions" rows="6" disabled></textarea>
+          </label>
+          <div class="instruction-actions">
+            <button id="save-syllabus-instructions" type="button" disabled>
+              Save Syllabus Instructions
+            </button>
+          </div>
+        </section>
+
+        <section class="instruction-editor">
+          <label class="field">
+            <span>Topic additional instructions</span>
+            <textarea id="topic-additional-instructions" rows="6" disabled></textarea>
+          </label>
+          <div class="instruction-actions">
+            <button id="delete-topic-instructions" type="button" class="danger" disabled>
+              Delete Topic Instructions
+            </button>
+            <button id="save-topic-instructions" type="button" disabled>
+              Save Topic Instructions
+            </button>
+          </div>
+        </section>
+
+        <div class="delete-row instruction-delete-row">
+          <label class="confirm-delete">
+            <input id="confirm-delete-syllabus-instructions" type="checkbox" disabled>
+            <span>Confirm delete syllabus and all topic instructions</span>
+          </label>
+          <button id="delete-syllabus-instructions" type="button" class="danger" disabled>
+            Delete All Instructions
+          </button>
+        </div>
+
+        <p id="instruction-status-message" class="status" hidden></p>
+      </section>
     </main>
 
-    <script type="module" src="./llm_prompt_config_admin.js?v=20260717-llm-prompt-config"></script>
+    <script type="module" src="./llm_prompt_config_admin.js?v=20260801-syllabus-instruction-admin"></script>
   </body>
 </html>

@@ -15,6 +15,10 @@ export class SyllabusRepository {
     throw new Error("save() is not implemented.");
   }
 
+  async saveTopic(syllabusId, topic) {
+    throw new Error("saveTopic() is not implemented.");
+  }
+
   async delete(syllabusId) {
     throw new Error("delete() is not implemented.");
   }

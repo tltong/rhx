@@ -9,6 +9,25 @@
  * @property {string} [additionalInstructions]
  */
 
+/**
+ * One category in a mixed question-generation plan.
+ *
+ * @typedef {Object} LlmQuestionGenerationCategory
+ * @property {number} numberOfQuestions
+ * @property {string} difficultyLevel
+ * @property {boolean} hasDiagram
+ */
+
+/**
+ * Inputs supplied for a mixed question-generation prompt.
+ *
+ * @typedef {Object} LlmPromptGenerationPlanInput
+ * @property {LlmQuestionGenerationCategory[]} categories
+ * @property {string} language
+ * @property {string} topicId
+ * @property {string} [additionalInstructions]
+ */
+
 export const llmQuestionResponseFields = Object.freeze({
   questions: "questions",
   questionText: "questionText",
@@ -132,6 +151,50 @@ function calculateDiagramQuestionCount(questionCount, percentage) {
   );
 }
 
+function normalizeGenerationCategories(categories) {
+  if (!Array.isArray(categories) || categories.length === 0) {
+    throw new Error("At least one question category is required.");
+  }
+
+  const categoryKeys = new Set();
+
+  return categories.map((category, index) => {
+    if (!category || typeof category !== "object" || Array.isArray(category)) {
+      throw new Error(`Question category ${index + 1} must be an object.`);
+    }
+
+    const difficultyLevel = normalizeDifficulty(category.difficultyLevel);
+    const numberOfQuestions = normalizeQuestionCount(
+      category.numberOfQuestions
+    );
+
+    if (typeof category.hasDiagram !== "boolean") {
+      throw new Error(
+        `Question category ${index + 1} hasDiagram must be a boolean.`
+      );
+    }
+
+    const key = [
+      difficultyLevel.toLowerCase(),
+      category.hasDiagram
+    ].join("|");
+
+    if (categoryKeys.has(key)) {
+      throw new Error(
+        `Duplicate question category: ${difficultyLevel}, hasDiagram=${category.hasDiagram}.`
+      );
+    }
+
+    categoryKeys.add(key);
+
+    return {
+      difficultyLevel,
+      hasDiagram: category.hasDiagram,
+      numberOfQuestions
+    };
+  });
+}
+
 function getConfigInstructions(llmPromptConfig, level, year) {
   const levelContext = level === "primary"
     ? llmPromptConfig.primaryContext
@@ -198,6 +261,151 @@ export class LlmPromptGenerator {
     return this.generate(input, true);
   }
 
+  generateFromPlan({
+    llmPromptConfig,
+    syllabus,
+    topicId,
+    categories,
+    language,
+    additionalInstructions = "",
+    syllabusAdditionalInstructions = "",
+    topicAdditionalInstructions = ""
+  }) {
+    if (!llmPromptConfig) {
+      throw new Error("LLM prompt config is required.");
+    }
+
+    if (!syllabus) {
+      throw new Error("Syllabus is required.");
+    }
+
+    const country = requireText(syllabus.country, "Syllabus country");
+    const level = requireText(syllabus.level, "Syllabus level").toLowerCase();
+    const year = Number(syllabus.year);
+    const subject = requireText(syllabus.subject, "Syllabus subject");
+    const selectedLanguage = normalizeLanguage(language, syllabus);
+    const topic = selectTopic(syllabus, topicId);
+    const topicName = requireText(topic.topicName, "Topic name");
+    const callerInstructions = normalizeText(additionalInstructions);
+    const syllabusInstructions = normalizeText(
+      syllabusAdditionalInstructions
+    );
+    const topicInstructions = normalizeText(topicAdditionalInstructions);
+    const normalizedCategories = normalizeGenerationCategories(categories);
+    const questionCount = normalizedCategories.reduce(
+      (total, category) => total + category.numberOfQuestions,
+      0
+    );
+    const hasDiagramQuestions = normalizedCategories.some(
+      (category) => category.hasDiagram
+    );
+
+    if (!Number.isInteger(year) || year < 1) {
+      throw new Error("Syllabus year must be a positive integer.");
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(llmPromptConfig, level)) {
+      throw new Error("Syllabus level must be primary or secondary.");
+    }
+
+    const configInstructions = getConfigInstructions(
+      llmPromptConfig,
+      level,
+      year
+    );
+    const categoryLines = normalizedCategories.map((category) => (
+      `- ${category.numberOfQuestions} question(s): `
+      + `difficulty="${category.difficultyLevel}", `
+      + `hasDiagram=${category.hasDiagram}`
+    ));
+    const questionRequirements = [
+      "Question requirements",
+      `Total number of questions: ${questionCount}`,
+      `Language: ${selectedLanguage}`,
+      `Subject: ${subject}`,
+      `Topic: ${topicName}`,
+      "Generate exactly the following question allocation:",
+      ...categoryLines,
+      "The returned questions must match every allocation count exactly.",
+      "Every question must include difficulty exactly matching one of the requested difficulty values.",
+      "Every question must include hasDiagram as a JSON boolean.",
+      "Questions with hasDiagram set to false must omit diagram.",
+      "Each question must have exactly four options labelled a, b, c, and d.",
+      "Each question must have exactly one correct answer.",
+      "Every question must include an answerExplanation that adequately explains why the correct answer is correct.",
+      "There is no word limit for answerExplanation; use as much explanation as needed for a clear and complete understanding.",
+      `Every question must include topicName exactly equal to "${topicName}".`
+    ];
+
+    if (hasDiagramQuestions) {
+      questionRequirements.push(
+        "Every question with hasDiagram set to true must include one diagram, and that diagram must be the primary source of information needed to answer the question.",
+        "For a diagram question, the question text is only for brief context or supporting explanation and must not provide enough information to answer without interpreting the diagram.",
+        "For a diagram question, the options and correct answer must be based primarily on information shown in the diagram.",
+        "For a diagram question, answerExplanation must refer to the relevant information shown in the diagram.",
+        "Generate each required diagram from valid Mermaid source.",
+        "Choose the Mermaid diagram type and syntax best suited to each question; diagrams are not limited to flowcharts.",
+        "Use only Mermaid 11 diagram types supported by the renderer, such as flowchart, sequenceDiagram, classDiagram, stateDiagram-v2, erDiagram, mindmap, timeline, pie, or xychart-beta.",
+        "For bar or line charts, use xychart-beta syntax; never use bar as a Mermaid diagram type.",
+        "Return the Mermaid source in diagram.mermaidCode as a correctly escaped JSON string.",
+        "Encode Mermaid line breaks with JSON \\n escapes exactly once; after JSON parsing, mermaidCode must contain actual line breaks rather than literal backslash-n text.",
+        "Do not return SVG; the application will render and sanitize the Mermaid source.",
+        "Mermaid source must not contain configuration directives, click actions, links, scripts, HTML tags, icons, images, or Markdown code fences."
+      );
+    }
+
+    const sections = [
+      "Generate educational multiple-choice questions using the requirements below.",
+      [
+        "Syllabus",
+        `Country: ${country}`,
+        `Level: ${level}`,
+        `Year: ${year}`,
+        `Subject: ${subject}`,
+        `Topic: ${topicName}`
+      ].join("\n"),
+      `Selected topic and subtopics:\n${formatTopic(topic)}`,
+      questionRequirements.join("\n"),
+      `Configured instructions:\n${formatInstructionSections(configInstructions)}`
+    ];
+
+    if (syllabusInstructions) {
+      sections.push(
+        `Syllabus-specific additional instructions:\n${syllabusInstructions}`
+      );
+    }
+
+    if (topicInstructions) {
+      sections.push(
+        `Topic-specific additional instructions:\n${topicInstructions}`
+      );
+    }
+
+    if (callerInstructions) {
+      sections.push(`Request-specific additional instructions:\n${callerInstructions}`);
+    }
+
+    const sampleCategory = normalizedCategories.find(
+      (category) => category.hasDiagram
+    ) || normalizedCategories[0];
+
+    sections.push([
+      "Response format",
+      "Return only valid JSON using this structure:",
+      JSON.stringify(
+        createLlmQuestionResponseStructure({
+          includeDiagram: sampleCategory.hasDiagram,
+          difficultyLevel: sampleCategory.difficultyLevel,
+          language: selectedLanguage
+        }),
+        null,
+        2
+      )
+    ].join("\n"));
+
+    return sections.join("\n\n");
+  }
+
   generate({
     llmPromptConfig,
     syllabus,
@@ -206,7 +414,9 @@ export class LlmPromptGenerator {
     difficultyLevel,
     language,
     additionalInstructions = "",
-    diagramQuestionPercentage = 0
+    diagramQuestionPercentage = 0,
+    syllabusAdditionalInstructions = "",
+    topicAdditionalInstructions = ""
   }, includeDiagram = false) {
     if (!llmPromptConfig) {
       throw new Error("LLM prompt config is required.");
@@ -226,6 +436,10 @@ export class LlmPromptGenerator {
     const topic = selectTopic(syllabus, topicId);
     const topicName = requireText(topic.topicName, "Topic name");
     const callerInstructions = normalizeText(additionalInstructions);
+    const syllabusInstructions = normalizeText(
+      syllabusAdditionalInstructions
+    );
+    const topicInstructions = normalizeText(topicAdditionalInstructions);
     const diagramPercentage = includeDiagram
       ? normalizeDiagramPercentage(diagramQuestionPercentage)
       : 0;
@@ -306,6 +520,18 @@ export class LlmPromptGenerator {
       questionRequirements.join("\n"),
       `Configured instructions:\n${formatInstructionSections(configInstructions)}`
     ];
+
+    if (syllabusInstructions) {
+      sections.push(
+        `Syllabus-specific additional instructions:\n${syllabusInstructions}`
+      );
+    }
+
+    if (topicInstructions) {
+      sections.push(
+        `Topic-specific additional instructions:\n${topicInstructions}`
+      );
+    }
 
     if (callerInstructions) {
       sections.push(`Request-specific additional instructions:\n${callerInstructions}`);
