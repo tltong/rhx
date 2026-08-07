@@ -1,6 +1,9 @@
 import {
   FirestorePreAssessmentQuestionRepository
-} from "./infrastructure/firestore_pre_assessment_question_repository.js?v=20260730-pre-assessment-question";
+} from "./infrastructure/firestore_pre_assessment_question_repository.js?v=20260807-pre-assessment-answer-check";
+import {
+  CheckPreAssessmentQuestionAnswers
+} from "./application/check_pre_assessment_question_answers.js?v=20260807-pre-assessment-answer-check";
 import {
   GetPreAssessmentQuestion
 } from "./application/get_pre_assessment_question.js?v=20260730-pre-assessment-question";
@@ -28,6 +31,8 @@ import {
 
 const preAssessmentQuestionRepository =
   new FirestorePreAssessmentQuestionRepository();
+const checkPreAssessmentQuestionAnswersUseCase =
+  new CheckPreAssessmentQuestionAnswers(preAssessmentQuestionRepository);
 const getPreAssessmentQuestionUseCase =
   new GetPreAssessmentQuestion(preAssessmentQuestionRepository);
 const listPreAssessmentQuestionsByTopicUseCase =
@@ -40,6 +45,10 @@ const updatePreAssessmentQuestionUseCase =
   new UpdatePreAssessmentQuestion(preAssessmentQuestionRepository);
 const deletePreAssessmentQuestionUseCase =
   new DeletePreAssessmentQuestion(preAssessmentQuestionRepository);
+
+async function checkPreAssessmentQuestionAnswers(input) {
+  return checkPreAssessmentQuestionAnswersUseCase.execute(input);
+}
 
 /**
  * @returns {Promise<PreAssessmentQuestion|null>}
@@ -115,6 +124,7 @@ async function deletePreAssessmentQuestion(
 }
 
 export {
+  checkPreAssessmentQuestionAnswers,
   getPreAssessmentQuestion,
   listPreAssessmentQuestionsByTopic,
   writePreAssessmentQuestion,

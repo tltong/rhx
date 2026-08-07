@@ -134,10 +134,53 @@ export async function createDocument(collectionPath, data, documentId = null) {
   return documentResult(docRef);
 }
 
+export async function createDocumentIfAbsent(
+  collectionPath,
+  documentId,
+  data
+) {
+  requireFirestoreData(data);
+
+  const docRef = getDocumentRef(collectionPath, documentId);
+
+  await getFirestoreDb().runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(docRef);
+
+    if (snapshot.exists) {
+      const error = new Error(`Document ${docRef.path} already exists.`);
+      error.code = "already-exists";
+      throw error;
+    }
+
+    transaction.set(docRef, data);
+  });
+
+  return documentResult(docRef);
+}
+
 export async function readDocument(collectionPath, documentId, options = {}) {
   const snapshot = await getDocumentRef(collectionPath, documentId).get();
 
   return toDocumentData(snapshot, options);
+}
+
+export async function readDocuments(documents, options = {}) {
+  if (!Array.isArray(documents)) {
+    throw new Error("documents must be an array.");
+  }
+
+  const snapshots = await Promise.all(documents.map((document, index) => {
+    if (!document || typeof document !== "object" || Array.isArray(document)) {
+      throw new Error(`documents[${index}] must be an object.`);
+    }
+
+    return getDocumentRef(
+      document.collectionPath,
+      document.documentId
+    ).get();
+  }));
+
+  return snapshots.map((snapshot) => toDocumentData(snapshot, options));
 }
 
 export async function readCollection(collectionPath, buildQuery = null, options = {}) {
@@ -177,7 +220,9 @@ export async function deleteDocument(collectionPath, documentId) {
 }
 
 export const createData = createDocument;
+export const createDataIfAbsent = createDocumentIfAbsent;
 export const readData = readDocument;
+export const readDocumentsData = readDocuments;
 export const readCollectionData = readCollection;
 export const writeData = writeDocument;
 export const updateData = updateDocument;
@@ -192,13 +237,17 @@ export default {
   getCollectionRef,
   getDocumentRef,
   createDocument,
+  createDocumentIfAbsent,
   readDocument,
+  readDocuments,
   readCollection,
   writeDocument,
   updateDocument,
   deleteDocument,
   createData,
+  createDataIfAbsent,
   readData,
+  readDocumentsData,
   readCollectionData,
   writeData,
   updateData,

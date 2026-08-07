@@ -1,11 +1,14 @@
 const {
   ASSESSMENT_FRAMEWORKS_COLLECTION,
   ASSESSMENT_FRAMEWORK_LEVELS_SUBCOLLECTION,
+  ASSESSMENT_FRAMEWORK_PRE_ASSESSMENT_DOCUMENT_ID,
+  ASSESSMENT_FRAMEWORK_PRE_ASSESSMENT_SUBCOLLECTION,
 } = require("../../../schema/assessment_framework_schema");
 const firebaseOps = require("../../../utils/firebase/firebase_ops");
 const {
   AssessmentFramework,
   AssessmentFrameworkLevel,
+  AssessmentFrameworkPreAssessment,
 } = require("../domain/assessment_framework");
 const {
   AssessmentFrameworkRepository,
@@ -27,6 +30,14 @@ function getLevelsCollectionPath(assessmentFrameworkId) {
   ].join("/");
 }
 
+function getPreAssessmentCollectionPath(assessmentFrameworkId) {
+  return [
+    ASSESSMENT_FRAMEWORKS_COLLECTION,
+    assessmentFrameworkId,
+    ASSESSMENT_FRAMEWORK_PRE_ASSESSMENT_SUBCOLLECTION,
+  ].join("/");
+}
+
 function toAssessmentFrameworkLevel(data) {
   return new AssessmentFrameworkLevel({
     id: data.id,
@@ -36,12 +47,25 @@ function toAssessmentFrameworkLevel(data) {
   });
 }
 
-function toAssessmentFramework(data, levels) {
+function toAssessmentFrameworkPreAssessment(data) {
+  if (!data) {
+    return null;
+  }
+
+  return new AssessmentFrameworkPreAssessment({
+    numberOfQuestions: data.numberOfQuestions,
+    difficultySplit: data.difficultySplit,
+    scoreLevelSplit: data.scoreLevelSplit,
+  });
+}
+
+function toAssessmentFramework(data, levels, preAssessment = null) {
   return new AssessmentFramework({
     id: data.id,
     name: data.name,
     endLevelName: data.endLevelName,
     levels,
+    preAssessment,
   });
 }
 
@@ -70,12 +94,23 @@ class FirestoreAssessmentFrameworkRepository
       return null;
     }
 
-    const levelRecords = await this.readCollection(
-      getLevelsCollectionPath(id),
-    );
+    const [levelRecords, preAssessmentRecord] = await Promise.all([
+      this.readCollection(getLevelsCollectionPath(id)),
+      this.readDocument(
+        getPreAssessmentCollectionPath(id),
+        ASSESSMENT_FRAMEWORK_PRE_ASSESSMENT_DOCUMENT_ID,
+      ),
+    ]);
     const levels = levelRecords.map(toAssessmentFrameworkLevel);
+    const preAssessment = toAssessmentFrameworkPreAssessment(
+      preAssessmentRecord,
+    );
 
-    return toAssessmentFramework({ ...data, id }, levels);
+    return toAssessmentFramework(
+      { ...data, id },
+      levels,
+      preAssessment,
+    );
   }
 
   async list() {
@@ -84,22 +119,11 @@ class FirestoreAssessmentFrameworkRepository
     );
     const frameworks = await Promise.all(
       frameworkRecords.map(async (record) => {
-        const id = requireNonEmptyString(
-          record.id,
-          "assessment framework id",
-        );
-        const levelRecords = await this.readCollection(
-          getLevelsCollectionPath(id),
-        );
-
-        return toAssessmentFramework(
-          { ...record, id },
-          levelRecords.map(toAssessmentFrameworkLevel),
-        );
+        return this.getById(record.id);
       }),
     );
 
-    return frameworks.sort((first, second) =>
+    return frameworks.filter(Boolean).sort((first, second) =>
       first.name.localeCompare(second.name),
     );
   }

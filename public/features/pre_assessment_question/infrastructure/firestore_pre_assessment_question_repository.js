@@ -1,7 +1,7 @@
 import {
   normalizePreAssessmentQuestionGroup,
   PreAssessmentQuestion
-} from "../domain/pre_assessment_question.js?v=20260730-pre-assessment-question";
+} from "../domain/pre_assessment_question.js?v=20260807-pre-assessment-answer-check";
 import {
   PreAssessmentQuestionRepository
 } from "../domain/pre_assessment_question_repository.js";
@@ -15,6 +15,7 @@ import {
   deleteDocument,
   readCollection,
   readDocument,
+  readDocuments,
   writeDocument
 } from "../../../utils/firebase/firebase_ops.js";
 
@@ -157,6 +158,56 @@ export class FirestorePreAssessmentQuestionRepository
       normalizedSyllabusId,
       normalizedTopicId
     );
+  }
+
+  async getManyById(questionReferences) {
+    if (!Array.isArray(questionReferences)) {
+      throw new Error("questionReferences must be an array.");
+    }
+
+    const normalizedReferences = questionReferences.map(
+      (questionReference, index) => {
+        if (
+          !questionReference ||
+          typeof questionReference !== "object" ||
+          Array.isArray(questionReference)
+        ) {
+          throw new Error(
+            `questionReferences[${index}] must be an object.`
+          );
+        }
+
+        return {
+          syllabusId: requireIdentifier(
+            questionReference.syllabusId,
+            `questionReferences[${index}].syllabusId`
+          ),
+          topicId: requireIdentifier(
+            questionReference.topicId,
+            `questionReferences[${index}].topicId`
+          ),
+          questionId: requireIdentifier(
+            questionReference.questionId,
+            `questionReferences[${index}].questionId`
+          )
+        };
+      }
+    );
+    const questions = await readDocuments(
+      normalizedReferences.map((questionReference) => ({
+        collectionPath: getQuestionItemsCollectionPath(
+          questionReference.syllabusId,
+          questionReference.topicId
+        ),
+        documentId: questionReference.questionId
+      }))
+    );
+
+    return questions.map((question, index) => toPreAssessmentQuestion(
+      question,
+      normalizedReferences[index].syllabusId,
+      normalizedReferences[index].topicId
+    ));
   }
 
   async listByTopic(syllabusId, topicId, options = {}) {

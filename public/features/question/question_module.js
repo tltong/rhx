@@ -1,6 +1,9 @@
 import {
   FirestoreQuestionRepository
-} from "./infrastructure/firestore_question_repository.js?v=20260727-question-group";
+} from "./infrastructure/firestore_question_repository.js?v=20260807-question-answer-check";
+import {
+  CheckQuestionAnswers
+} from "./application/check_question_answers.js?v=20260807-question-answer-check";
 import {
   GetQuestion
 } from "./application/get_question.js?v=20260727-question-group";
@@ -27,6 +30,9 @@ import {
 /** @typedef {import("./domain/question.js").Question} Question */
 
 const questionRepository = new FirestoreQuestionRepository();
+const checkQuestionAnswersUseCase = new CheckQuestionAnswers(
+  questionRepository
+);
 const getQuestionUseCase = new GetQuestion(questionRepository);
 const listQuestionsByTopicUseCase = new ListQuestionsByTopic(
   questionRepository
@@ -41,6 +47,18 @@ const deleteQuestionUseCase = new DeleteQuestion(questionRepository);
  */
 async function getQuestion(syllabusId, topicId, questionId) {
   return getQuestionUseCase.execute(syllabusId, topicId, questionId);
+}
+
+/**
+ * @param {{answers: Array<{
+ *   syllabusId: string,
+ *   topicId: string,
+ *   questionId: string,
+ *   selectedOption: string
+ * }>}} input
+ */
+async function checkQuestionAnswers(input) {
+  return checkQuestionAnswersUseCase.execute(input);
 }
 
 /**
@@ -89,6 +107,7 @@ async function deleteQuestion(syllabusId, topicId, questionId) {
 }
 
 export {
+  checkQuestionAnswers,
   getQuestion,
   listQuestionsByTopic,
   writeQuestion,

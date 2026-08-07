@@ -1,3 +1,9 @@
+const {
+  ASSESSMENT_FRAMEWORK_END_LEVEL_ID,
+  assessmentFrameworkPreAssessmentDifficultyLevels,
+  assessmentFrameworkPreAssessmentScoreBands,
+} = require("../../../schema/assessment_framework_schema");
+
 function requireNonEmptyString(value, name) {
   if (typeof value !== "string" || value.trim() === "") {
     throw new Error(`${name} must be a non-empty string.`);
@@ -45,6 +51,80 @@ function normalizeCriteria(criteria) {
   });
 }
 
+function requirePositiveInteger(value, name) {
+  const numberValue = Number(value);
+
+  if (!Number.isInteger(numberValue) || numberValue < 1) {
+    throw new Error(`${name} must be a positive integer.`);
+  }
+
+  return numberValue;
+}
+
+function normalizePercentage(value, name) {
+  const percentage = requireFiniteNumber(value, name);
+
+  if (percentage < 0 || percentage > 100) {
+    throw new Error(`${name} must be between 0 and 100.`);
+  }
+
+  return percentage;
+}
+
+function normalizeDifficultySplit(difficultySplit) {
+  if (
+    !difficultySplit ||
+    typeof difficultySplit !== "object" ||
+    Array.isArray(difficultySplit)
+  ) {
+    throw new Error("difficultySplit must be an object.");
+  }
+
+  const normalizedSplit = Object.fromEntries(
+    assessmentFrameworkPreAssessmentDifficultyLevels.map((difficulty) => {
+      const field = `${difficulty}Percentage`;
+
+      return [
+        field,
+        normalizePercentage(
+          difficultySplit[field],
+          `difficultySplit.${field}`,
+        ),
+      ];
+    }),
+  );
+  const total = Object.values(normalizedSplit).reduce(
+    (sum, percentage) => sum + percentage,
+    0,
+  );
+
+  if (Math.abs(total - 100) > 0.0001) {
+    throw new Error("Difficulty percentages must total 100.");
+  }
+
+  return Object.freeze(normalizedSplit);
+}
+
+function normalizeScoreLevelSplit(scoreLevelSplit) {
+  if (
+    !scoreLevelSplit ||
+    typeof scoreLevelSplit !== "object" ||
+    Array.isArray(scoreLevelSplit)
+  ) {
+    throw new Error("scoreLevelSplit must be an object.");
+  }
+
+  return Object.freeze(Object.fromEntries(
+    assessmentFrameworkPreAssessmentScoreBands.map(({field}) => [
+      field,
+      requireNonEmptyString(
+        scoreLevelSplit[field],
+        `scoreLevelSplit.${field}`,
+      ),
+    ]),
+  ));
+}
+
 class AssessmentFrameworkLevel {
   constructor({
     id,
@@ -64,12 +144,30 @@ class AssessmentFrameworkLevel {
   }
 }
 
+class AssessmentFrameworkPreAssessment {
+  constructor({
+    numberOfQuestions,
+    difficultySplit,
+    scoreLevelSplit,
+  }) {
+    this.numberOfQuestions = requirePositiveInteger(
+      numberOfQuestions,
+      "numberOfQuestions",
+    );
+    this.difficultySplit = normalizeDifficultySplit(difficultySplit);
+    this.scoreLevelSplit = normalizeScoreLevelSplit(scoreLevelSplit);
+
+    Object.freeze(this);
+  }
+}
+
 class AssessmentFramework {
   constructor({
     id,
     name,
     endLevelName,
     levels = [],
+    preAssessment = null,
   }) {
     if (!Array.isArray(levels)) {
       throw new Error("levels must be an array.");
@@ -92,6 +190,28 @@ class AssessmentFramework {
           first.sequenceOrder - second.sequenceOrder,
         ),
     );
+    this.preAssessment = preAssessment === null
+      ? null
+      : preAssessment instanceof AssessmentFrameworkPreAssessment
+        ? preAssessment
+        : new AssessmentFrameworkPreAssessment(preAssessment);
+
+    if (this.preAssessment) {
+      const validLevelIds = new Set([
+        ...this.levels.map((level) => level.id),
+        ASSESSMENT_FRAMEWORK_END_LEVEL_ID,
+      ]);
+
+      Object.entries(this.preAssessment.scoreLevelSplit).forEach(
+        ([field, levelId]) => {
+          if (!validLevelIds.has(levelId)) {
+            throw new Error(
+              `scoreLevelSplit.${field} references an unknown level.`,
+            );
+          }
+        },
+      );
+    }
 
     Object.freeze(this);
   }
@@ -100,4 +220,5 @@ class AssessmentFramework {
 module.exports = {
   AssessmentFramework,
   AssessmentFrameworkLevel,
+  AssessmentFrameworkPreAssessment,
 };

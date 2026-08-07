@@ -50,7 +50,7 @@ export const preAssessmentQuestionSchema = {
             correctAnswer: "string",
             group: {
               type: "string",
-              enum: Object.values(practiceTypes)
+              enum: [practiceTypes.PRE_ASSESSMENT]
             },
             hasDiagram: "boolean",
             svg: "string",

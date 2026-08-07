@@ -2,6 +2,9 @@ import {
   FirestoreAssessmentFrameworkRepository
 } from "./infrastructure/firestore_assessment_framework_repository.js?v=20260730-score-bands";
 import {
+  CalculatePreAssessmentLevel
+} from "./application/calculate_pre_assessment_level.js?v=20260807-pre-assessment-level";
+import {
   GetAssessmentFramework
 } from "./application/get_assessment_framework.js?v=20260730-score-bands";
 import {
@@ -24,6 +27,8 @@ import {
 
 const assessmentFrameworkRepository =
   new FirestoreAssessmentFrameworkRepository();
+const calculatePreAssessmentLevelUseCase =
+  new CalculatePreAssessmentLevel(assessmentFrameworkRepository);
 const getAssessmentFramework =
   new GetAssessmentFramework(assessmentFrameworkRepository);
 const createAssessmentFramework =
@@ -39,6 +44,10 @@ const saveAssessmentFrameworkPreAssessmentUseCase =
 
 async function getAssessmentFrameworkById(assessmentFrameworkId) {
   return getAssessmentFramework.execute(assessmentFrameworkId);
+}
+
+async function calculatePreAssessmentLevel(input) {
+  return calculatePreAssessmentLevelUseCase.execute(input);
 }
 
 async function listAssessmentFrameworks() {
@@ -68,6 +77,7 @@ async function saveAssessmentFrameworkPreAssessment(
 }
 
 export {
+  calculatePreAssessmentLevel,
   getAssessmentFrameworkById,
   listAssessmentFrameworks,
   createAssessmentFrameworkRecord,

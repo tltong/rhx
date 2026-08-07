@@ -41,14 +41,17 @@ function normalizeOptions(options) {
   );
 }
 
-function normalizeCorrectAnswer(value) {
-  const correctAnswer = requireText(value, "correctAnswer").toLowerCase();
+export function normalizePreAssessmentQuestionOption(
+  value,
+  fieldName = "selectedOption"
+) {
+  const option = requireText(value, fieldName).toLowerCase();
 
-  if (!QUESTION_OPTION_KEYS.includes(correctAnswer)) {
-    throw new Error("correctAnswer must be a, b, c, or d.");
+  if (!QUESTION_OPTION_KEYS.includes(option)) {
+    throw new Error(`${fieldName} must be a, b, c, or d.`);
   }
 
-  return correctAnswer;
+  return option;
 }
 
 function normalizeHasDiagram(value) {
@@ -112,7 +115,10 @@ export class PreAssessmentQuestion {
     this.topicId = requireText(topicId, "topicId");
     this.questionText = requireText(questionText, "questionText");
     this.options = normalizeOptions(options);
-    this.correctAnswer = normalizeCorrectAnswer(correctAnswer);
+    this.correctAnswer = normalizePreAssessmentQuestionOption(
+      correctAnswer,
+      "correctAnswer"
+    );
     this.group = normalizePreAssessmentQuestionGroup(group);
     this.explanation = optionalText(explanation);
     this.hasDiagram = normalizeHasDiagram(hasDiagram);

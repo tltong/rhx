@@ -14,31 +14,38 @@ export const assessmentFrameworkPreAssessmentDifficultyLevels =
 export const assessmentFrameworkPreAssessmentScoreBands = Object.freeze([
   Object.freeze({
     field: "under40Percent",
-    label: "Under 40%"
+    label: "Under 40%",
+    minimumScore: 0
   }),
   Object.freeze({
     field: "over40Percent",
-    label: "Over 40%"
+    label: "Over 40%",
+    minimumScore: 40
   }),
   Object.freeze({
     field: "over50Percent",
-    label: "Over 50%"
+    label: "Over 50%",
+    minimumScore: 50
   }),
   Object.freeze({
     field: "over60Percent",
-    label: "Over 60%"
+    label: "Over 60%",
+    minimumScore: 60
   }),
   Object.freeze({
     field: "over70Percent",
-    label: "Over 70%"
+    label: "Over 70%",
+    minimumScore: 70
   }),
   Object.freeze({
     field: "over80Percent",
-    label: "Over 80%"
+    label: "Over 80%",
+    minimumScore: 80
   }),
   Object.freeze({
     field: "over90Percent",
-    label: "Over 90%"
+    label: "Over 90%",
+    minimumScore: 90
   })
 ]);
 

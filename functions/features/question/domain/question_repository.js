@@ -3,6 +3,10 @@ class QuestionRepository {
     throw new Error("getById() is not implemented.");
   }
 
+  async getManyById(questionReferences) {
+    throw new Error("getManyById() is not implemented.");
+  }
+
   async listByTopic(syllabusId, topicId, options = {}) {
     throw new Error("listByTopic() is not implemented.");
   }

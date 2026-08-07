@@ -42,14 +42,21 @@ function normalizeOptions(options) {
   );
 }
 
-function normalizeCorrectAnswer(value) {
-  const correctAnswer = requireText(value, "correctAnswer").toLowerCase();
+export function normalizeQuestionOption(
+  value,
+  fieldName = "selectedOption"
+) {
+  const option = requireText(value, fieldName).toLowerCase();
 
-  if (!QUESTION_OPTION_KEYS.includes(correctAnswer)) {
-    throw new Error("correctAnswer must be a, b, c, or d.");
+  if (!QUESTION_OPTION_KEYS.includes(option)) {
+    throw new Error(`${fieldName} must be a, b, c, or d.`);
   }
 
-  return correctAnswer;
+  return option;
+}
+
+function normalizeCorrectAnswer(value) {
+  return normalizeQuestionOption(value, "correctAnswer");
 }
 
 function normalizeHasDiagram(value) {

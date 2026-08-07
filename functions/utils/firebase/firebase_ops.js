@@ -91,10 +91,53 @@ async function createDocument(collectionPath, data, documentId = null) {
   return documentResult(documentReference);
 }
 
+async function createDocumentIfAbsent(collectionPath, documentId, data) {
+  requireFirestoreData(data);
+
+  const documentReference = getDocumentRef(collectionPath, documentId);
+
+  await getFirestoreDb().runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(documentReference);
+
+    if (snapshot.exists) {
+      const error = new Error(
+        `Document ${documentReference.path} already exists.`,
+      );
+      error.code = "already-exists";
+      throw error;
+    }
+
+    transaction.set(documentReference, data);
+  });
+
+  return documentResult(documentReference);
+}
+
 async function readDocument(collectionPath, documentId, options = {}) {
   const snapshot = await getDocumentRef(collectionPath, documentId).get();
 
   return toDocumentData(snapshot, options);
+}
+
+async function readDocuments(documents, options = {}) {
+  if (!Array.isArray(documents)) {
+    throw new Error("documents must be an array.");
+  }
+
+  if (documents.length === 0) {
+    return [];
+  }
+
+  const documentReferences = documents.map((document, index) => {
+    if (!document || typeof document !== "object" || Array.isArray(document)) {
+      throw new Error(`documents[${index}] must be an object.`);
+    }
+
+    return getDocumentRef(document.collectionPath, document.documentId);
+  });
+  const snapshots = await getFirestoreDb().getAll(...documentReferences);
+
+  return snapshots.map((snapshot) => toDocumentData(snapshot, options));
 }
 
 async function readCollection(
@@ -146,7 +189,9 @@ async function deleteDocument(collectionPath, documentId) {
 }
 
 const createData = createDocument;
+const createDataIfAbsent = createDocumentIfAbsent;
 const readData = readDocument;
+const readDocumentsData = readDocuments;
 const readCollectionData = readCollection;
 const writeData = writeDocument;
 const updateData = updateDocument;
@@ -159,13 +204,17 @@ module.exports = {
   getCollectionRef,
   getDocumentRef,
   createDocument,
+  createDocumentIfAbsent,
   readDocument,
+  readDocuments,
   readCollection,
   writeDocument,
   updateDocument,
   deleteDocument,
   createData,
+  createDataIfAbsent,
   readData,
+  readDocumentsData,
   readCollectionData,
   writeData,
   updateData,

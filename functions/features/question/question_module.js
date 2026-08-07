@@ -1,6 +1,9 @@
 const {
   practiceTypes,
 } = require("../../schema/practice_schema");
+const {
+  CheckQuestionAnswers,
+} = require("./application/check_question_answers");
 const { GetQuestion } = require("./application/get_question");
 const {
   ListQuestionsByTopic,
@@ -19,6 +22,8 @@ const {
  */
 
 const questionRepository = new FirestoreQuestionRepository();
+const checkQuestionAnswersUseCase =
+  new CheckQuestionAnswers(questionRepository);
 const getQuestionUseCase = new GetQuestion(questionRepository);
 const listQuestionsByTopicUseCase =
   new ListQuestionsByTopic(questionRepository);
@@ -29,6 +34,18 @@ const deleteQuestionUseCase = new DeleteQuestion(questionRepository);
 
 async function getQuestion(syllabusId, topicId, questionId) {
   return getQuestionUseCase.execute(syllabusId, topicId, questionId);
+}
+
+/**
+ * @param {{answers: Array<{
+ *   syllabusId: string,
+ *   topicId: string,
+ *   questionId: string,
+ *   selectedOption: string
+ * }>}} input
+ */
+async function checkQuestionAnswers(input) {
+  return checkQuestionAnswersUseCase.execute(input);
 }
 
 async function listQuestionsByTopic(
@@ -74,6 +91,7 @@ async function deleteQuestion(syllabusId, topicId, questionId) {
 }
 
 module.exports = {
+  checkQuestionAnswers,
   getQuestion,
   listQuestionsByTopic,
   writeQuestion,
