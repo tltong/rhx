@@ -1,3 +1,111 @@
+/**
+ * External API contracts
+ *
+ * generateQuestions(
+ *   llmPromptConfigId: string,
+ *   syllabusId: string,
+ *   generationInput: {
+ *     numberOfQuestions: number,
+ *     difficultyLevel: string,
+ *     language: string,
+ *     group: "assessment"|"pre assessment",
+ *     topicId: string,
+ *     additionalInstructions?: string
+ *   }
+ * )
+ *   Output: Promise<{
+ *     prompts: string[],
+ *     questions: GeneratedQuestion[]
+ *   }>. Generates questions without diagrams in batches of up to five and
+ *   stores them in the collection selected by group.
+ *
+ * generateQuestionsWithDiagram(
+ *   llmPromptConfigId: string,
+ *   syllabusId: string,
+ *   generationInput: {
+ *     numberOfQuestions: number,
+ *     difficultyLevel: string,
+ *     language: string,
+ *     group: "assessment"|"pre assessment",
+ *     topicId: string,
+ *     additionalInstructions?: string
+ *   }
+ * )
+ *   Output: Promise<{
+ *     prompts: string[],
+ *     questions: GeneratedQuestion[]
+ *   }>. Generates and renders diagram questions in batches of up to five,
+ *   then stores them in the collection selected by group.
+ *
+ * generatePlannedQuestions(
+ *   llmPromptConfigId: string,
+ *   syllabusId: string,
+ *   generationInput: {
+ *     categories: Array<{
+ *       numberOfQuestions: number,
+ *       difficultyLevel: string,
+ *       hasDiagram: boolean
+ *     }>,
+ *     language: string,
+ *     group: "assessment"|"pre assessment",
+ *     topicId: string,
+ *     additionalInstructions?: string
+ *   }
+ * )
+ *   Output: Promise<{
+ *     prompts: string[],
+ *     questions: GeneratedQuestion[],
+ *     batches: Array<{
+ *       numberOfQuestions: number,
+ *       categories: Array<{
+ *         numberOfQuestions: number,
+ *         difficultyLevel: string,
+ *         hasDiagram: boolean
+ *       }>
+ *     }>
+ *   }>. Generates a requested mix of difficulty and diagram categories,
+ *   batching the plan into groups of up to five questions.
+ *
+ * loadQuestionGeneratorOptions()
+ *   Input: none.
+ *   Output: Promise<{
+ *     promptConfigs: Array<{id: string, identifier: string}>,
+ *     syllabuses: Array<{
+ *       id: string,
+ *       country: string,
+ *       level: string,
+ *       year: number,
+ *       subject: string,
+ *       languages: string[],
+ *       topics: Array<{
+ *         id: string,
+ *         topicName: string,
+ *         subtopics: Object<string, string>
+ *       }>,
+ *       active: boolean
+ *     }>
+ *   }>.
+ *
+ * GeneratedQuestion output:
+ * {
+ *   id: string,
+ *   syllabusId: string,
+ *   topicId: string,
+ *   questionText: string,
+ *   options: {a: string, b: string, c: string, d: string},
+ *   correctAnswer: "a"|"b"|"c"|"d",
+ *   group: "assessment"|"pre assessment",
+ *   explanation: string,
+ *   hasDiagram: boolean,
+ *   svg: string,
+ *   difficulty: string,
+ *   language: string,
+ *   specialInstruction: string
+ * }
+ *
+ * Exported constant:
+ *   practiceTypes: {ASSESSMENT: "assessment", PRE_ASSESSMENT: "pre assessment"}
+ */
 import {
   generateLlmPrompt,
   generateLlmPromptFromPlan,

@@ -5,6 +5,9 @@ import {
   GetStudentSyllabusSubscription
 } from "./application/get_student_syllabus_subscription.js?v=20260726-subscription-language";
 import {
+  GetStudentSyllabusSubscriptionLanguage
+} from "./application/get_student_syllabus_subscription_language.js?v=20260815-language-lookup";
+import {
   ListStudentSyllabusSubscriptions
 } from "./application/list_student_syllabus_subscriptions.js?v=20260726-subscription-language";
 import {
@@ -30,6 +33,10 @@ const syllabusSubscriptionRepository =
   new FirestoreSyllabusSubscriptionRepository();
 const getStudentSyllabusSubscriptionUseCase =
   new GetStudentSyllabusSubscription(syllabusSubscriptionRepository);
+const getStudentSyllabusSubscriptionLanguageUseCase =
+  new GetStudentSyllabusSubscriptionLanguage(
+    syllabusSubscriptionRepository
+  );
 const listStudentSyllabusSubscriptionsUseCase =
   new ListStudentSyllabusSubscriptions(syllabusSubscriptionRepository);
 const listActiveStudentSyllabusSubscriptionsUseCase =
@@ -54,6 +61,21 @@ const deactivateSyllabusUseCase =
 
 async function getStudentSyllabusSubscription(studentId, syllabusId) {
   return getStudentSyllabusSubscriptionUseCase.execute(studentId, syllabusId);
+}
+
+/**
+ * @param {string} studentId
+ * @param {string} syllabusId
+ * @returns {Promise<string|null>}
+ */
+async function getStudentSyllabusSubscriptionLanguage(
+  studentId,
+  syllabusId
+) {
+  return getStudentSyllabusSubscriptionLanguageUseCase.execute(
+    studentId,
+    syllabusId
+  );
 }
 
 async function listStudentSyllabusSubscriptions(studentId) {
@@ -94,6 +116,7 @@ async function deactivateSyllabus(studentId, syllabusId, language) {
 
 export {
   getStudentSyllabusSubscription,
+  getStudentSyllabusSubscriptionLanguage,
   listStudentSyllabusSubscriptions,
   listActiveStudentSyllabusSubscriptions,
   subscribeSyllabus,

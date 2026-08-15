@@ -1,16 +1,35 @@
 import {
   ASSIGNED_PRACTICES_SUBCOLLECTION,
+  COMPLETED_PRACTICES_SUBCOLLECTION,
   STUDENT_PRACTICES_COLLECTION
 } from "../../../config/firebase/student_practice_schema.js";
 import {
+  deleteDocument,
+  getDocumentRef,
+  getFirestoreDb,
+  readCollection,
+  readDocument,
   writeDocument
 } from "../../../utils/firebase/firebase_ops.js";
 import {
   StudentPracticeAssignment
-} from "../domain/student_practice_assignment.js?v=20260807-student-practice";
+} from "../domain/student_practice_assignment.js?v=20260808-practice-session";
+import {
+  StudentPracticeCompletion
+} from "../domain/student_practice_completion.js?v=20260810-completed-practice";
 import {
   StudentPracticeRepository
 } from "../domain/student_practice_repository.js";
+
+function requireIdentifier(value, fieldName) {
+  const identifier = String(value ?? "").trim();
+
+  if (!identifier) {
+    throw new Error(`${fieldName} is required.`);
+  }
+
+  return identifier;
+}
 
 function assignedPracticesCollectionPath(studentId) {
   return [
@@ -18,6 +37,25 @@ function assignedPracticesCollectionPath(studentId) {
     studentId,
     ASSIGNED_PRACTICES_SUBCOLLECTION
   ].join("/");
+}
+
+function completedPracticesCollectionPath(studentId) {
+  return [
+    STUDENT_PRACTICES_COLLECTION,
+    studentId,
+    COMPLETED_PRACTICES_SUBCOLLECTION
+  ].join("/");
+}
+
+function toCompletionRecord(completion) {
+  return {
+    dateCompleted: completion.dateCompleted,
+    questionsCorrect: completion.questionsCorrect,
+    totalQuestions: completion.totalQuestions,
+    score: completion.score,
+    timeTakenSeconds: completion.timeTakenSeconds,
+    studentAnswers: completion.studentAnswers
+  };
 }
 
 export class FirestoreStudentPracticeRepository
@@ -38,6 +76,86 @@ export class FirestoreStudentPracticeRepository
       normalizedAssignment.practiceId,
       {},
       { merge: false }
+    );
+
+    return normalizedAssignment;
+  }
+
+  async complete(completion) {
+    const normalizedCompletion = completion instanceof StudentPracticeCompletion
+      ? completion
+      : new StudentPracticeCompletion(completion);
+    const assignedDocument = getDocumentRef(
+      assignedPracticesCollectionPath(normalizedCompletion.studentId),
+      normalizedCompletion.practiceId
+    );
+    const completedDocument = getDocumentRef(
+      completedPracticesCollectionPath(normalizedCompletion.studentId),
+      normalizedCompletion.practiceId
+    );
+
+    await getFirestoreDb().runTransaction(async (transaction) => {
+      const completedSnapshot = await transaction.get(completedDocument);
+
+      if (completedSnapshot.exists) {
+        transaction.delete(assignedDocument);
+        return;
+      }
+
+      const assignedSnapshot = await transaction.get(assignedDocument);
+
+      if (!assignedSnapshot.exists) {
+        throw new Error(
+          `Practice ${normalizedCompletion.practiceId} is not assigned.`
+        );
+      }
+
+      transaction.set(
+        completedDocument,
+        toCompletionRecord(normalizedCompletion)
+      );
+      transaction.delete(assignedDocument);
+    });
+
+    return normalizedCompletion;
+  }
+
+  async get(assignment) {
+    const normalizedAssignment = assignment instanceof StudentPracticeAssignment
+      ? assignment
+      : new StudentPracticeAssignment(assignment);
+    const data = await readDocument(
+      assignedPracticesCollectionPath(normalizedAssignment.studentId),
+      normalizedAssignment.practiceId
+    );
+
+    return data ? normalizedAssignment : null;
+  }
+
+  async listAssigned(studentId) {
+    const normalizedStudentId = requireIdentifier(studentId, "studentId");
+    const records = await readCollection(
+      assignedPracticesCollectionPath(normalizedStudentId)
+    );
+
+    return records
+      .map((record) => new StudentPracticeAssignment({
+        studentId: normalizedStudentId,
+        practiceId: record.id
+      }))
+      .sort((first, second) => first.practiceId.localeCompare(
+        second.practiceId
+      ));
+  }
+
+  async remove(assignment) {
+    const normalizedAssignment = assignment instanceof StudentPracticeAssignment
+      ? assignment
+      : new StudentPracticeAssignment(assignment);
+
+    await deleteDocument(
+      assignedPracticesCollectionPath(normalizedAssignment.studentId),
+      normalizedAssignment.practiceId
     );
 
     return normalizedAssignment;

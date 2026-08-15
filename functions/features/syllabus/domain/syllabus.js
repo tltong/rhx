@@ -69,13 +69,77 @@ function normalizeSubtopics(subtopics = {}) {
   return Object.freeze(normalizedSubtopics);
 }
 
+function createSyllabusLanguageKey(language) {
+  return requireNonEmptyString(language, "language")
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/\s+/g, "_")
+    .replace(/[.\/\[\]*`]/g, "_");
+}
+
+class SyllabusTopicPreAssessmentPractice {
+  constructor({language, practiceId} = {}) {
+    this.language = requireNonEmptyString(language, "language");
+    this.practiceId = requireNonEmptyString(practiceId, "practiceId");
+
+    Object.freeze(this);
+  }
+}
+
+function normalizePreAssessmentPractices(preAssessmentPractices = {}) {
+  if (
+    preAssessmentPractices === null ||
+    typeof preAssessmentPractices !== "object" ||
+    Array.isArray(preAssessmentPractices)
+  ) {
+    throw new Error("preAssessmentPractices must be an object.");
+  }
+
+  const normalizedPractices = {};
+
+  Object.values(preAssessmentPractices).forEach((practice) => {
+    const assignment = practice instanceof SyllabusTopicPreAssessmentPractice
+      ? practice
+      : new SyllabusTopicPreAssessmentPractice(practice);
+    const languageKey = createSyllabusLanguageKey(assignment.language);
+
+    if (normalizedPractices[languageKey]) {
+      throw new Error(
+        `Duplicate pre-assessment practice language: ${assignment.language}.`,
+      );
+    }
+
+    normalizedPractices[languageKey] = assignment;
+  });
+
+  return Object.freeze(normalizedPractices);
+}
+
 class SyllabusTopic {
-  constructor({ id, topicName, subtopics = {} }) {
+  constructor({
+    id,
+    topicName,
+    subtopics = {},
+    preAssessmentPractices = {},
+  }) {
     this.id = requireNonEmptyString(id, "topic id");
     this.topicName = requireNonEmptyString(topicName, "topicName");
     this.subtopics = normalizeSubtopics(subtopics);
+    this.preAssessmentPractices = normalizePreAssessmentPractices(
+      preAssessmentPractices,
+    );
 
     Object.freeze(this);
+  }
+
+  getPreAssessmentPractice(language) {
+    return this.preAssessmentPractices[
+      createSyllabusLanguageKey(language)
+    ] || null;
+  }
+
+  listPreAssessmentPractices() {
+    return Object.values(this.preAssessmentPractices);
   }
 }
 
@@ -112,6 +176,8 @@ class Syllabus {
 }
 
 module.exports = {
+  createSyllabusLanguageKey,
   Syllabus,
   SyllabusTopic,
+  SyllabusTopicPreAssessmentPractice,
 };

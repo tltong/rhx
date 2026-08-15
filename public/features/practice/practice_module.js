@@ -1,3 +1,28 @@
+/**
+ * External APIs
+ *
+ * getPracticeById(practiceId: string): Promise<Practice|null>
+ *
+ * createPractice({
+ *   type: "assessment"|"pre assessment",
+ *   questions: Array<{
+ *     syllabusId: string,
+ *     topicId: string,
+ *     questionId: string
+ *   }>,
+ *   dateGenerated?: Date|string|number
+ * }): Promise<Practice>
+ *
+ * deletePractice(practiceId: string): Promise<Object>
+ *
+ * Practice output:
+ * {
+ *   id: string,
+ *   type: "assessment"|"pre assessment",
+ *   questions: PracticeQuestionReference[],
+ *   dateGenerated: Date
+ * }
+ */
 import {
   practiceTypes
 } from "../../config/firebase/practice_schema.js";

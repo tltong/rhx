@@ -1,20 +1,171 @@
+/**
+ * External API contracts
+ *
+ * generateAssessmentPractice({
+ *   studentId: string,
+ *   syllabusId: string,
+ *   topicId: string
+ * })
+ *   Output: Promise<{
+ *     studentId: string,
+ *     syllabusId: string,
+ *     topicId: string,
+ *     levelId: string,
+ *     assessmentFrameworkId: string,
+ *     language: string,
+ *     difficultyLevel: string,
+ *     levelCriteria: Object,
+ *     allocation: {
+ *       totalQuestions: number,
+ *       diagramPercentage: number,
+ *       withDiagram: number,
+ *       withoutDiagram: number
+ *     },
+ *     questionSets: {
+ *       withoutDiagram: QuestionGenerationSet,
+ *       withDiagram: QuestionGenerationSet
+ *     },
+ *     prompts: string[],
+ *     questions: Question[]
+ *   }>. Generated questions are stored, but no Practice document is created
+ *   or assigned to the student yet.
+ *
+ * QuestionGenerationSet output:
+ * {
+ *   hasDiagram: boolean,
+ *   numberOfQuestions: number,
+ *   prompts: string[],
+ *   questions: Question[]
+ * }
+ *
+ * generatePreAssessmentPractice({
+ *   syllabusId: string,
+ *   topicId: string,
+ *   language: string
+ * })
+ *   Input: the syllabus topic and language for which to generate or replace a
+ *   pre-assessment practice.
+ *   Output: Promise<{
+ *     practice: Practice,
+ *     assignment: {language: string, practiceId: string},
+ *     replacement: {
+ *       replaced: boolean,
+ *       previousPracticeId: string|null,
+ *       deletedQuestionCount: number
+ *     },
+ *     syllabusId: string,
+ *     topicId: string,
+ *     topicName: string,
+ *     language: string,
+ *     allocation: {
+ *       totalQuestions: number,
+ *       diagramPercentage: number,
+ *       withDiagram: number,
+ *       withoutDiagram: number,
+ *       byDifficulty: Object<string, {
+ *         difficultyLevel: string,
+ *         total: number,
+ *         withDiagram: number,
+ *         withoutDiagram: number
+ *       }>
+ *     },
+ *     categoryResults: Array<{
+ *       difficultyLevel: string,
+ *       hasDiagram: boolean,
+ *       numberOfQuestions: number
+ *     }>,
+ *     batches: Object[],
+ *     prompts: string[],
+ *     questions: PreAssessmentQuestion[]
+ *   }>.
+ *
+ * loadPreAssessmentGeneratorOptions()
+ *   Input: none.
+ *   Output: Promise<{
+ *     syllabuses: Array<{
+ *       id: string,
+ *       country: string,
+ *       level: string,
+ *       year: number,
+ *       subject: string,
+ *       active: boolean,
+ *       languages: string[],
+ *       topics: Array<{
+ *         id: string,
+ *         topicName: string,
+ *         preAssessmentPractices: Object<string, {
+ *           language: string,
+ *           practiceId: string
+ *         }>
+ *       }>
+ *     }>
+ *   }>.
+ *
+ * loadPreAssessmentPractice({
+ *   syllabusId: string,
+ *   topicId: string,
+ *   language: string
+ * })
+ *   Input: the syllabus topic and language whose assigned practice should be
+ *   loaded.
+ *   Output: Promise<null|{
+ *     assignment: {language: string, practiceId: string},
+ *     practice: Practice,
+ *     questions: PreAssessmentQuestion[]
+ *   }>. Returns null when no practice is assigned.
+ *
+ * Practice output:
+ * {
+ *   id: string,
+ *   type: "pre assessment",
+ *   questions: Array<{
+ *     syllabusId: string,
+ *     topicId: string,
+ *     questionId: string
+ *   }>,
+ *   dateGenerated: Date
+ * }
+ *
+ * PreAssessmentQuestion output:
+ * {
+ *   id: string,
+ *   syllabusId: string,
+ *   topicId: string,
+ *   questionText: string,
+ *   options: {a: string, b: string, c: string, d: string},
+ *   correctAnswer: "a"|"b"|"c"|"d",
+ *   group: "pre assessment",
+ *   explanation: string,
+ *   hasDiagram: boolean,
+ *   svg: string,
+ *   difficulty: string,
+ *   language: string,
+ *   specialInstruction: string
+ * }
+ */
 import {
   assignTopicPreAssessmentPractice,
+  getSyllabusAssessmentFrameworkId,
   getSyllabusById,
   getTopicPreAssessmentPractice,
   listSyllabuses
-} from "../syllabus/syllabus_module.js?v=20260731-practice-replacement";
+} from "../syllabus/syllabus_module.js?v=20260815-assessment-practice";
 import {
+  ASSESSMENT_FRAMEWORK_END_LEVEL_ID,
+  getAssessmentLevelCriteria,
   getAssessmentFrameworkById
-} from "../assessment_framework/assessment_framework_module.js?v=20260731-practice-replacement";
+} from "../assessment_framework/assessment_framework_module.js?v=20260815-assessment-practice";
 import {
-  getDiagramConfigForSyllabus
-} from "../diagram_config/diagram_config_module.js?v=20260731-practice-replacement";
+  getDiagramConfigForSyllabus,
+  getTopicDiagramPercentage
+} from "../diagram_config/diagram_config_module.js?v=20260815-assessment-practice";
 import {
   getDefaultLlmPromptConfig
 } from "../llm_prompt_config/llm_prompt_config_module.js?v=20260731-practice-replacement";
 import {
-  generatePlannedQuestions
+  generatePlannedQuestions,
+  generateQuestions,
+  generateQuestionsWithDiagram
 } from "../question_generator/question_generator_module.js?v=20260801-syllabus-topic-instructions";
 import {
   createPractice,
@@ -44,6 +195,18 @@ import {
 import {
   allocatePreAssessmentQuestions
 } from "./domain/pre_assessment_allocation.js?v=20260731-practice-replacement";
+import {
+  getStudentSyllabusSubscriptionLanguage
+} from "../syllabus_subscription/syllabus_subscription_module.js?v=20260815-language-lookup";
+import {
+  getStudentTopicLevel
+} from "../student_assessment_progress/student_assessment_progress_module.js?v=20260815-assessment-practice";
+import {
+  GenerateAssessmentPractice
+} from "./application/generate_assessment_practice.js?v=20260815-assessment-practice";
+import {
+  allocateAssessmentQuestions
+} from "./domain/assessment_question_allocation.js?v=20260815-assessment-practice";
 
 /**
  * @typedef {Object} GeneratePreAssessmentPracticeInput
@@ -58,6 +221,19 @@ const loadPreAssessmentContextUseCase = new LoadPreAssessmentContext({
   getDiagramConfigForSyllabus,
   getDefaultLlmPromptConfig,
   getTopicPreAssessmentPractice
+});
+const generateAssessmentPracticeUseCase = new GenerateAssessmentPractice({
+  getStudentTopicLevel,
+  getSyllabusAssessmentFrameworkId,
+  getAssessmentLevelCriteria,
+  getStudentSyllabusSubscriptionLanguage,
+  getTopicDiagramPercentage,
+  getDefaultLlmPromptConfig,
+  allocateAssessmentQuestions,
+  generateQuestions,
+  generateQuestionsWithDiagram,
+  assessmentPracticeType: practiceTypes.ASSESSMENT,
+  assessmentFrameworkEndLevelId: ASSESSMENT_FRAMEWORK_END_LEVEL_ID
 });
 const generatePreAssessmentQuestionsUseCase =
   new GeneratePreAssessmentQuestions({
@@ -99,6 +275,16 @@ async function generatePreAssessmentPractice(input) {
   return generatePreAssessmentPracticeUseCase.execute(input);
 }
 
+/**
+ * Generates and stores assessment questions for a student topic. Practice
+ * creation and assignment are intentionally deferred.
+ *
+ * @param {{studentId: string, syllabusId: string, topicId: string}} input
+ */
+async function generateAssessmentPractice(input) {
+  return generateAssessmentPracticeUseCase.execute(input);
+}
+
 async function loadPreAssessmentGeneratorOptions() {
   return loadPreAssessmentGeneratorOptionsUseCase.execute();
 }
@@ -113,6 +299,7 @@ async function loadPreAssessmentPractice(input) {
 }
 
 export {
+  generateAssessmentPractice,
   generatePreAssessmentPractice,
   loadPreAssessmentGeneratorOptions,
   loadPreAssessmentPractice

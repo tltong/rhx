@@ -1,16 +1,58 @@
+/**
+ * Public API contracts
+ *
+ * submitPracticeResult({
+ *   practiceId: string,
+ *   studentId: string,
+ *   timeTakenSeconds: number,
+ *   answers: Array<{
+ *     questionId: string,
+ *     selectedOption: "a"|"b"|"c"|"d"
+ *   }>
+ * }) -> Promise<PracticeResult>
+ *
+ * getPracticeResult({practiceId: string, studentId: string})
+ *   -> Promise<PracticeResult|null>
+ *
+
+ * listPracticeResults({practiceId: string})
+ *   -> Promise<PracticeResult[]>
+ *
+ * PracticeResult output:
+ * {
+ *   practiceId: string,
+ *   studentId: string,
+ *   submittedAt: Date,
+ *   timeTakenSeconds: number,
+ *   questionsCorrect: number,
+ *   totalQuestions: number,
+ *   score: number,
+ *   answers: Object<string, {
+ *     selectedOption: "a"|"b"|"c"|"d",
+ *     correctAnswer: "a"|"b"|"c"|"d",
+ *     isCorrect: boolean
+ *   }>
+ * }
+ *
+ * submitPracticeResult validates and scores the submitted answers before
+ * storing the result. Callers do not supply submittedAt, correct answers,
+ * questionsCorrect, totalQuestions, or score.
+ */
 import {
   getPracticeById,
   practiceTypes
 } from "../practice/practice_module.js?v=20260731-practice-replacement";
 import {
   checkPreAssessmentQuestionAnswers
-} from "../pre_assessment_question/pre_assessment_question_module.js?v=20260807-pre-assessment-answer-check";
+} from "../pre_assessment_question/pre_assessment_question_module.js?v=20260808-practice-session";
 import {
   checkQuestionAnswers
-} from "../question/question_module.js?v=20260807-question-answer-check";
+} from "../question/question_module.js?v=20260808-practice-session";
+
 import {
   GetPracticeResult
 } from "./application/get_practice_result.js?v=20260807-practice-result";
+
 import {
   ListPracticeResults
 } from "./application/list_practice_results.js?v=20260807-practice-result";
@@ -29,6 +71,7 @@ const practiceResultRepository = new FirestorePracticeResultRepository();
 const getPracticeResultUseCase = new GetPracticeResult(
   practiceResultRepository
 );
+
 const listPracticeResultsUseCase = new ListPracticeResults(
   practiceResultRepository
 );
@@ -50,6 +93,7 @@ async function submitPracticeResult(input) {
 async function getPracticeResult(input) {
   return getPracticeResultUseCase.execute(input);
 }
+
 
 /** @returns {Promise<PracticeResult[]>} */
 async function listPracticeResults(input) {

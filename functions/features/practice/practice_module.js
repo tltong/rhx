@@ -1,3 +1,26 @@
+/**
+ * External APIs
+ *
+ * getPracticeById(practiceId: string): Promise<Practice|null>
+ *
+ * createPractice({
+ *   type: "assessment"|"pre assessment",
+ *   questions: Array<{
+ *     syllabusId: string,
+ *     topicId: string,
+ *     questionId: string
+ *   }>,
+ *   dateGenerated?: Date|string|number
+ * }): Promise<Practice>
+ *
+ * Practice output:
+ * {
+ *   id: string,
+ *   type: "assessment"|"pre assessment",
+ *   questions: PracticeQuestionReference[],
+ *   dateGenerated: Date
+ * }
+ */
 const {
   practiceTypes,
 } = require("../../schema/practice_schema");

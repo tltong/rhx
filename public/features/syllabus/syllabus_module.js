@@ -5,6 +5,9 @@ import {
   GetSyllabus
 } from "./application/get_syllabus.js?v=20260730-topic-pre-assessment";
 import {
+  GetSyllabusAssessmentFrameworkId
+} from "./application/get_syllabus_assessment_framework_id.js?v=20260815-assessment-framework-id";
+import {
   ListSyllabuses
 } from "./application/list_syllabuses.js?v=20260730-topic-pre-assessment";
 import {
@@ -37,6 +40,8 @@ import {
 
 const syllabusRepository = new FirestoreSyllabusRepository();
 const getSyllabus = new GetSyllabus(syllabusRepository);
+const getSyllabusAssessmentFrameworkIdUseCase =
+  new GetSyllabusAssessmentFrameworkId(syllabusRepository);
 const listSyllabusesUseCase = new ListSyllabuses(syllabusRepository);
 const createSyllabus = new CreateSyllabus(syllabusRepository);
 const updateSyllabus = new UpdateSyllabus(syllabusRepository);
@@ -58,6 +63,14 @@ const removeTopicPreAssessmentPracticeUseCase =
 
 async function getSyllabusById(syllabusId) {
   return getSyllabus.execute(syllabusId);
+}
+
+/**
+ * @param {string} syllabusId
+ * @returns {Promise<string>} The attached assessment framework ID.
+ */
+async function getSyllabusAssessmentFrameworkId(syllabusId) {
+  return getSyllabusAssessmentFrameworkIdUseCase.execute(syllabusId);
 }
 
 async function listSyllabuses() {
@@ -135,6 +148,7 @@ async function removeTopicPreAssessmentPractice(
 
 export {
   getSyllabusById,
+  getSyllabusAssessmentFrameworkId,
   listSyllabuses,
   findSyllabusesByScope,
   createSyllabusRecord,

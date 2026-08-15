@@ -6,6 +6,9 @@ import {
   GetDiagramConfig
 } from "./application/get_diagram_config.js?v=20260724-diagram-config";
 import {
+  GetTopicDiagramPercentage
+} from "./application/get_topic_diagram_percentage.js?v=20260815-topic-percentage-api";
+import {
   ListDiagramConfigSyllabuses
 } from "./application/list_diagram_config_syllabuses.js?v=20260724-diagram-config";
 import {
@@ -20,6 +23,8 @@ const getDiagramConfigUseCase = new GetDiagramConfig({
   diagramConfigRepository,
   getSyllabusById
 });
+const getTopicDiagramPercentageUseCase =
+  new GetTopicDiagramPercentage(getDiagramConfigForSyllabus);
 const listDiagramConfigSyllabusesUseCase =
   new ListDiagramConfigSyllabuses(listSyllabuses);
 const saveDiagramConfigUseCase = new SaveDiagramConfig({
@@ -35,6 +40,15 @@ async function getDiagramConfigForSyllabus(syllabusId) {
   return getDiagramConfigUseCase.execute(syllabusId);
 }
 
+/**
+ * @param {string} syllabusId
+ * @param {string} topicId
+ * @returns {Promise<number>} A percentage from 0 through 100.
+ */
+async function getTopicDiagramPercentage(syllabusId, topicId) {
+  return getTopicDiagramPercentageUseCase.execute(syllabusId, topicId);
+}
+
 async function saveDiagramConfigForSyllabus(
   syllabusId,
   topicConfigs
@@ -44,6 +58,7 @@ async function saveDiagramConfigForSyllabus(
 
 export {
   getDiagramConfigForSyllabus,
+  getTopicDiagramPercentage,
   listDiagramConfigSyllabuses,
   saveDiagramConfigForSyllabus
 };

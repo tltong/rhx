@@ -5,6 +5,9 @@ const syllabusDocumentIdPattern = "[auto_generated_id]";
 const syllabusTopicDocumentIdPattern = "[auto_generated_id]";
 const syllabusSubtopicIdPattern = "[auto_generated_subtopic_id]";
 const syllabusAssessmentFrameworkIdPattern = "[assessment_framework_id]";
+const syllabusPreAssessmentLanguageKeyPattern =
+  "[normalized_language]";
+const syllabusPreAssessmentPracticeIdPattern = "[practice_id]";
 
 const syllabusesSchema = {
   collection: SYLLABUSES_COLLECTION,
@@ -39,6 +42,22 @@ const syllabusesSchema = {
           entries: {
             [syllabusSubtopicIdPattern]: "string"
           }
+        },
+        preAssessmentPractices: {
+          type: "map",
+          entries: {
+            [syllabusPreAssessmentLanguageKeyPattern]: {
+              type: "map",
+              fields: {
+                language: "string",
+                practiceId: {
+                  type: "string",
+                  pattern: syllabusPreAssessmentPracticeIdPattern,
+                  references: "practices/{practiceId}"
+                }
+              }
+            }
+          }
         }
       }
     }
@@ -52,5 +71,7 @@ module.exports = {
   syllabusTopicDocumentIdPattern,
   syllabusSubtopicIdPattern,
   syllabusAssessmentFrameworkIdPattern,
+  syllabusPreAssessmentLanguageKeyPattern,
+  syllabusPreAssessmentPracticeIdPattern,
   syllabusesSchema
 };

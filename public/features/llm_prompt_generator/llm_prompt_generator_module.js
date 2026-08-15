@@ -8,8 +8,9 @@ import {
   listSyllabuses
 } from "../syllabus/syllabus_module.js?v=20260719-question-topics";
 import {
-  getDiagramConfigForSyllabus
-} from "../diagram_config/diagram_config_module.js?v=20260727-topic-diagram-config";
+  getDiagramConfigForSyllabus,
+  getTopicDiagramPercentage
+} from "../diagram_config/diagram_config_module.js?v=20260815-topic-percentage-api";
 import {
   LlmPromptGenerator
 } from "./domain/llm_prompt_generator.js?v=20260801-syllabus-topic-instructions";
@@ -25,9 +26,6 @@ import {
 import {
   LoadLlmPromptGeneratorOptions
 } from "./application/load_llm_prompt_generator_options.js?v=20260719-question-topics";
-import {
-  GetTopicDiagramPercentage
-} from "./application/get_topic_diagram_percentage.js?v=20260727-topic-diagram-percentage";
 
 const promptGenerator = new LlmPromptGenerator();
 const generateLlmPromptUseCase = new GenerateLlmPrompt({
@@ -56,8 +54,6 @@ const loadLlmPromptGeneratorOptionsUseCase =
     listLlmPromptConfigs,
     listSyllabuses
   });
-const getTopicDiagramPercentageUseCase =
-  new GetTopicDiagramPercentage(getDiagramConfigForSyllabus);
 
 /**
  * @typedef {import("./domain/llm_prompt_generator.js").LlmPromptGenerationInput}
@@ -84,10 +80,6 @@ async function generateLlmPrompt(
 
 async function loadLlmPromptGeneratorOptions() {
   return loadLlmPromptGeneratorOptionsUseCase.execute();
-}
-
-async function getTopicDiagramPercentage(syllabusId, topicId) {
-  return getTopicDiagramPercentageUseCase.execute(syllabusId, topicId);
 }
 
 /**

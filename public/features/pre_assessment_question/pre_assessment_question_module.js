@@ -8,6 +8,9 @@ import {
   GetPreAssessmentQuestion
 } from "./application/get_pre_assessment_question.js?v=20260730-pre-assessment-question";
 import {
+  GetPreAssessmentQuestionsForPractice
+} from "./application/get_pre_assessment_questions_for_practice.js?v=20260808-practice-session";
+import {
   ListPreAssessmentQuestionsByTopic
 } from "./application/list_pre_assessment_questions_by_topic.js?v=20260730-pre-assessment-question";
 import {
@@ -35,6 +38,10 @@ const checkPreAssessmentQuestionAnswersUseCase =
   new CheckPreAssessmentQuestionAnswers(preAssessmentQuestionRepository);
 const getPreAssessmentQuestionUseCase =
   new GetPreAssessmentQuestion(preAssessmentQuestionRepository);
+const getPreAssessmentQuestionsForPracticeUseCase =
+  new GetPreAssessmentQuestionsForPractice(
+    preAssessmentQuestionRepository
+  );
 const listPreAssessmentQuestionsByTopicUseCase =
   new ListPreAssessmentQuestionsByTopic(preAssessmentQuestionRepository);
 const writePreAssessmentQuestionUseCase =
@@ -58,6 +65,16 @@ async function getPreAssessmentQuestion(syllabusId, topicId, questionId) {
     syllabusId,
     topicId,
     questionId
+  );
+}
+
+/**
+ * Loads question content without correct answers or explanations.
+ * @returns {Promise<Object[]>}
+ */
+async function getPreAssessmentQuestionsForPractice(questionReferences) {
+  return getPreAssessmentQuestionsForPracticeUseCase.execute(
+    questionReferences
   );
 }
 
@@ -126,6 +143,7 @@ async function deletePreAssessmentQuestion(
 export {
   checkPreAssessmentQuestionAnswers,
   getPreAssessmentQuestion,
+  getPreAssessmentQuestionsForPractice,
   listPreAssessmentQuestionsByTopic,
   writePreAssessmentQuestion,
   writePreAssessmentQuestions,

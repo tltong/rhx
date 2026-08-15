@@ -1,10 +1,12 @@
-const { FieldValue } = require("firebase-admin/firestore");
 const {
   onDocumentCreated,
 } = require("firebase-functions/v2/firestore");
 const {
-  writeDocument,
-} = require("../utils/firebase/firebase_ops");
+  getSyllabusById,
+} = require("../features/syllabus/syllabus_module");
+const {
+  assignPracticeToStudent,
+} = require("../features/student_practice/student_practice_module");
 const {
   SYLLABUS_SUBSCRIPTIONS_COLLECTION,
   SYLLABUS_SUBSCRIPTION_SYLLABUSES_SUBCOLLECTION,
@@ -17,8 +19,68 @@ const SYLLABUS_SUBSCRIPTION_DOCUMENT = [
   "{syllabusId}",
 ].join("/");
 
-const TRIGGER_TEST_COLLECTION = "firestore_test";
-const TRIGGER_TEST_DOCUMENT = "syllabus_subscription_created";
+function requireNonEmptyString(value, fieldName) {
+  const text = String(value ?? "").trim();
+
+  if (!text) {
+    throw new Error(`${fieldName} is required.`);
+  }
+
+  return text;
+}
+
+async function assignSubscriptionPreAssessmentPractices({
+  studentId,
+  syllabusId,
+  language,
+} = {}, {
+  getSyllabus = getSyllabusById,
+  assignPractice = assignPracticeToStudent,
+} = {}) {
+  const normalizedStudentId = requireNonEmptyString(studentId, "studentId");
+  const normalizedSyllabusId = requireNonEmptyString(
+    syllabusId,
+    "syllabusId",
+  );
+  const normalizedLanguage = requireNonEmptyString(language, "language");
+  const syllabus = await getSyllabus(normalizedSyllabusId);
+
+  if (!syllabus) {
+    throw new Error(`Syllabus ${normalizedSyllabusId} was not found.`);
+  }
+
+  if (!Array.isArray(syllabus.topics) || syllabus.topics.length === 0) {
+    throw new Error(`Syllabus ${normalizedSyllabusId} has no topics.`);
+  }
+
+  const missingTopics = [];
+  const practiceIds = new Set();
+
+  syllabus.topics.forEach((topic) => {
+    const practice = topic.getPreAssessmentPractice(normalizedLanguage);
+
+    if (!practice) {
+      missingTopics.push(topic.topicName || topic.id);
+      return;
+    }
+
+    practiceIds.add(practice.practiceId);
+  });
+
+  if (missingTopics.length > 0) {
+    throw new Error(
+      `No ${normalizedLanguage} pre-assessment practice is configured for: `
+      + `${missingTopics.join(", ")}.`,
+    );
+  }
+
+  return Promise.all(
+    [...practiceIds].map((practiceId) => assignPractice({
+      studentId: normalizedStudentId,
+      practiceId,
+    })),
+  );
+}
 
 const onSyllabusSubscriptionCreated = onDocumentCreated(
   {
@@ -26,23 +88,17 @@ const onSyllabusSubscriptionCreated = onDocumentCreated(
     region: "us-central1",
   },
   async (event) => {
-    const { language } = event.data.data();
+    const subscription = event.data.data();
 
-    await writeDocument(
-      TRIGGER_TEST_COLLECTION,
-      TRIGGER_TEST_DOCUMENT,
-      {
-        status: "test",
-        studentId: event.params.studentId,
-        syllabusId: event.params.syllabusId,
-        language,
-        triggeredAt: FieldValue.serverTimestamp(),
-      },
-      { merge: false },
-    );
+    await assignSubscriptionPreAssessmentPractices({
+      studentId: event.params.studentId,
+      syllabusId: event.params.syllabusId,
+      language: subscription.language,
+    });
   },
 );
 
 module.exports = {
+  assignSubscriptionPreAssessmentPractices,
   onSyllabusSubscriptionCreated,
 };

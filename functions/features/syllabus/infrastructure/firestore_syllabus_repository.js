@@ -27,6 +27,7 @@ function toTopic(data) {
     id: data.id,
     topicName: data.topicName,
     subtopics: data.subtopics || {},
+    preAssessmentPractices: data.preAssessmentPractices || {},
   });
 }
 

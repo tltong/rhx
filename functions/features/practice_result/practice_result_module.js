@@ -10,9 +10,11 @@ const {
 const {
   checkQuestionAnswers,
 } = require("../question/question_module");
+
 const {
   GetPracticeResult,
 } = require("./application/get_practice_result");
+
 const {
   ListPracticeResults,
 } = require("./application/list_practice_results");
@@ -31,6 +33,7 @@ const practiceResultRepository = new FirestorePracticeResultRepository();
 const getPracticeResultUseCase = new GetPracticeResult(
   practiceResultRepository,
 );
+
 const listPracticeResultsUseCase = new ListPracticeResults(
   practiceResultRepository,
 );
@@ -52,6 +55,7 @@ async function submitPracticeResult(input) {
 async function getPracticeResult(input) {
   return getPracticeResultUseCase.execute(input);
 }
+
 
 /** @returns {Promise<PracticeResult[]>} */
 async function listPracticeResults(input) {

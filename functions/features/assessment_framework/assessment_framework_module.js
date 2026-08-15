@@ -1,3 +1,72 @@
+/**
+ * External API contracts
+ *
+ * AssessmentFramework output:
+ * {
+ *   id: string,
+ *   name: string,
+ *   endLevelName: string,
+ *   levels: Array<{
+ *     id: string,
+ *     levelName: string,
+ *     sequenceOrder: number,
+ *     criteria: {
+ *       requiredPracticeCount: number,
+ *       minimumScore: number,
+ *       questionsPerPractice: number,
+ *       difficultyLevel: string
+ *     }
+ *   }>,
+ *   preAssessment: null|{
+ *     numberOfQuestions: number,
+ *     difficultySplit: {
+ *       easyPercentage: number,
+ *       mediumPercentage: number,
+ *       hardPercentage: number
+ *     },
+ *     scoreLevelSplit: Object<string, string>
+ *   }
+ * }
+ *
+ * getAssessmentFrameworkById(assessmentFrameworkId: string)
+ *   Input: assessmentFrameworkId, the Firestore framework document ID.
+ *   Output: Promise<AssessmentFramework|null>.
+ *
+ * getAssessmentLevelCriteria({
+ *   assessmentFrameworkId: string,
+ *   levelId: string
+ * })
+ *   Output: Promise<{
+ *     assessmentFrameworkId: string,
+ *     levelId: string,
+ *     levelName: string,
+ *     sequenceOrder: number,
+ *     criteria: {
+ *       requiredPracticeCount: number,
+ *       minimumScore: number,
+ *       questionsPerPractice: number,
+ *       difficultyLevel: string
+ *     }
+ *   }>.
+ *
+ * listAssessmentFrameworks()
+ *   Input: none.
+ *   Output: Promise<AssessmentFramework[]> sorted by framework name.
+ *
+ * calculatePreAssessmentLevel({
+ *   assessmentFrameworkId: string,
+ *   score: number
+ * })
+ *   Input: framework ID and a percentage score from 0 through 100.
+ *   Output: Promise<{
+ *     assessmentFrameworkId: string,
+ *     score: number,
+ *     scoreBand: string,
+ *     levelId: string,
+ *     levelName: string,
+ *     isEndLevel: boolean
+ *   }>.
+ */
 const {
   FirestoreAssessmentFrameworkRepository,
 } = require(
@@ -6,6 +75,9 @@ const {
 const {
   CalculatePreAssessmentLevel,
 } = require("./application/calculate_pre_assessment_level");
+const {
+  GetAssessmentLevelCriteria,
+} = require("./application/get_assessment_level_criteria");
 const {
   GetAssessmentFramework,
 } = require("./application/get_assessment_framework");
@@ -17,6 +89,8 @@ const assessmentFrameworkRepository =
   new FirestoreAssessmentFrameworkRepository();
 const calculatePreAssessmentLevelUseCase =
   new CalculatePreAssessmentLevel(assessmentFrameworkRepository);
+const getAssessmentLevelCriteriaUseCase =
+  new GetAssessmentLevelCriteria(assessmentFrameworkRepository);
 const getAssessmentFramework =
   new GetAssessmentFramework(assessmentFrameworkRepository);
 const listAssessmentFrameworksUseCase =
@@ -24,6 +98,10 @@ const listAssessmentFrameworksUseCase =
 
 async function getAssessmentFrameworkById(assessmentFrameworkId) {
   return getAssessmentFramework.execute(assessmentFrameworkId);
+}
+
+async function getAssessmentLevelCriteria(input) {
+  return getAssessmentLevelCriteriaUseCase.execute(input);
 }
 
 async function listAssessmentFrameworks() {
@@ -36,6 +114,7 @@ async function calculatePreAssessmentLevel(input) {
 
 module.exports = {
   calculatePreAssessmentLevel,
+  getAssessmentLevelCriteria,
   getAssessmentFrameworkById,
   listAssessmentFrameworks,
 };
