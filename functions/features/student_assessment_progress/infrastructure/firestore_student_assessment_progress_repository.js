@@ -81,6 +81,10 @@ class FirestoreStudentAssessmentProgressRepository
   }
 
   async savePreAssessmentProgress(progress) {
+    return this.saveProgress(progress);
+  }
+
+  async saveProgress(progress) {
     const normalizedProgress = progress instanceof StudentAssessmentTopicProgress
       ? progress
       : new StudentAssessmentTopicProgress(progress);

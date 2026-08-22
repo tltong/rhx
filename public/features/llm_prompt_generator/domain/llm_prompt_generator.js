@@ -42,6 +42,14 @@ export const llmQuestionResponseFields = Object.freeze({
   language: "language"
 });
 
+const QUESTION_VARIETY_REQUIREMENTS = Object.freeze([
+  "Make the questions substantively different from one another while staying within the selected topic, difficulty, and language.",
+  "Across the question set, vary the scenario or context, values or data, reasoning approach, and representation whenever the topic permits.",
+  "Use distractors based on different plausible misconceptions and avoid reusing the same option pattern.",
+  "Vary the position of the correct answer across a, b, c, and d, distributing the positions as evenly as possible.",
+  "Do not reuse the same question template, calculation structure, data arrangement, or wording pattern.",
+  "Changing only names, objects, wording, or numeric values does not make a question sufficiently different."
+]);
 function normalizeText(value) {
   return String(value ?? "").trim();
 }
@@ -324,6 +332,7 @@ export class LlmPromptGenerator {
       `Language: ${selectedLanguage}`,
       `Subject: ${subject}`,
       `Topic: ${topicName}`,
+      ...QUESTION_VARIETY_REQUIREMENTS,
       "Generate exactly the following question allocation:",
       ...categoryLines,
       "The returned questions must match every allocation count exactly.",
@@ -334,6 +343,7 @@ export class LlmPromptGenerator {
       "Each question must have exactly one correct answer.",
       "Every question must include an answerExplanation that adequately explains why the correct answer is correct.",
       "There is no word limit for answerExplanation; use as much explanation as needed for a clear and complete understanding.",
+      "Use LaTeX for mathematical notation, with \\(...\\) for inline math and \\[...\\] for display math. Encode LaTeX backslashes correctly in JSON and do not use dollar-sign math delimiters.",
       `Every question must include topicName exactly equal to "${topicName}".`
     ];
 
@@ -347,6 +357,7 @@ export class LlmPromptGenerator {
         "Choose the Mermaid diagram type and syntax best suited to each question; diagrams are not limited to flowcharts.",
         "Use only Mermaid 11 diagram types supported by the renderer, such as flowchart, sequenceDiagram, classDiagram, stateDiagram-v2, erDiagram, mindmap, timeline, pie, or xychart-beta.",
         "For bar or line charts, use xychart-beta syntax; never use bar as a Mermaid diagram type.",
+        "For xychart-beta, double-quote every text title, axis title, and x-axis category label, especially non-ASCII labels.",
         "Return the Mermaid source in diagram.mermaidCode as a correctly escaped JSON string.",
         "Encode Mermaid line breaks with JSON \\n escapes exactly once; after JSON parsing, mermaidCode must contain actual line breaks rather than literal backslash-n text.",
         "Do not return SVG; the application will render and sanitize the Mermaid source.",
@@ -469,11 +480,13 @@ export class LlmPromptGenerator {
       `Language: ${selectedLanguage}`,
       `Subject: ${subject}`,
       `Topic: ${topicName}`,
+      ...QUESTION_VARIETY_REQUIREMENTS,
       "Each question must have exactly four options labelled a, b, c, and d.",
       "Each question must have exactly one correct answer.",
       "Every question must include hasDiagram as a JSON boolean.",
       "Every question must include an answerExplanation that adequately explains why the correct answer is correct.",
       "There is no word limit for answerExplanation; use as much explanation as needed for a clear and complete understanding.",
+      "Use LaTeX for mathematical notation, with \\(...\\) for inline math and \\[...\\] for display math. Encode LaTeX backslashes correctly in JSON and do not use dollar-sign math delimiters.",
       `Every question must include topicName exactly equal to "${topicName}".`
     ];
 
@@ -499,6 +512,7 @@ export class LlmPromptGenerator {
         "Choose the Mermaid diagram type and syntax best suited to each question; diagrams are not limited to flowcharts.",
         "Use only Mermaid 11 diagram types supported by the renderer, such as flowchart, sequenceDiagram, classDiagram, stateDiagram-v2, erDiagram, mindmap, timeline, pie, or xychart-beta.",
         "For bar or line charts, use xychart-beta syntax; never use bar as a Mermaid diagram type.",
+        "For xychart-beta, double-quote every text title, axis title, and x-axis category label, especially non-ASCII labels.",
         "Return the Mermaid source in diagram.mermaidCode as a correctly escaped JSON string.",
         "Encode Mermaid line breaks with JSON \\n escapes exactly once; after JSON parsing, mermaidCode must contain actual line breaks rather than literal backslash-n text.",
         "Do not return SVG; the application will render and sanitize the Mermaid source.",

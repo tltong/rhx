@@ -1,6 +1,7 @@
 const {
   onDocumentCreated,
 } = require("firebase-functions/v2/firestore");
+const logger = require("firebase-functions/logger");
 const {
   assessStudentPractice,
 } = require(
@@ -37,6 +38,7 @@ function requireIdentifier(value, fieldName) {
 }
 
 async function assessCompletedStudentPractice({
+  eventId = null,
   studentId,
   practiceId,
 } = {}, {
@@ -45,32 +47,87 @@ async function assessCompletedStudentPractice({
 } = {}) {
   const normalizedStudentId = requireIdentifier(studentId, "studentId");
   const normalizedPracticeId = requireIdentifier(practiceId, "practiceId");
-  const assessment = await assessPractice({
+  const context = {
+    eventId: String(eventId ?? "").trim() || null,
     studentId: normalizedStudentId,
     practiceId: normalizedPracticeId,
-  });
+  };
 
-  if (
-    !assessment
-    || assessment.assessed !== true
-    || assessment.isFrameworkCompleted === true
-  ) {
+  logger.info("Student practice completion received.", context);
+
+  try {
+    logger.info("Student practice assessment started.", context);
+    const assessment = await assessPractice({
+      studentId: normalizedStudentId,
+      practiceId: normalizedPracticeId,
+    });
+
+    logger.info("Student practice assessment completed.", {
+      ...context,
+      assessed: assessment?.assessed === true,
+      reason: assessment?.reason || null,
+      practiceType: assessment?.practiceType || null,
+      syllabusId: assessment?.syllabusId || null,
+      topicId: assessment?.topicId || null,
+      previousLevelId: assessment?.previousLevelId || null,
+      levelId: assessment?.levelId || null,
+      levelChanged: assessment?.levelChanged === true,
+      isFrameworkCompleted: assessment?.isFrameworkCompleted === true,
+    });
+
+    if (
+      !assessment
+      || assessment.assessed !== true
+      || assessment.isFrameworkCompleted === true
+    ) {
+      logger.info("Next assessment practice generation skipped.", {
+        ...context,
+        reason: assessment?.isFrameworkCompleted === true
+          ? "framework-completed"
+          : assessment?.reason || "practice-not-assessed",
+      });
+
+      return Object.freeze({
+        assessment,
+        generation: null,
+      });
+    }
+
+    const syllabusId = requireIdentifier(assessment.syllabusId, "syllabusId");
+    const topicId = requireIdentifier(assessment.topicId, "topicId");
+
+    logger.info("Next assessment practice generation started.", {
+      ...context,
+      syllabusId,
+      topicId,
+      levelId: assessment.levelId || null,
+    });
+
+    const generation = await generatePractice({
+      studentId: normalizedStudentId,
+      syllabusId,
+      topicId,
+    });
+
+    logger.info("Next assessment practice generated and assigned.", {
+      ...context,
+      syllabusId,
+      topicId,
+      generatedPracticeId: generation?.practice?.id || null,
+    });
+
     return Object.freeze({
       assessment,
-      generation: null,
+      generation,
     });
+  } catch (error) {
+    logger.error("Student practice completion processing failed.", {
+      ...context,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      errorStack: error instanceof Error ? error.stack : null,
+    });
+    throw error;
   }
-
-  const generation = await generatePractice({
-    studentId: normalizedStudentId,
-    syllabusId: requireIdentifier(assessment.syllabusId, "syllabusId"),
-    topicId: requireIdentifier(assessment.topicId, "topicId"),
-  });
-
-  return Object.freeze({
-    assessment,
-    generation,
-  });
 }
 
 const onStudentPracticeCompleted = onDocumentCreated(
@@ -82,6 +139,7 @@ const onStudentPracticeCompleted = onDocumentCreated(
     timeoutSeconds: 540,
   },
   async (event) => assessCompletedStudentPractice({
+    eventId: event.id,
     studentId: event.params.studentId,
     practiceId: event.params.practiceId,
   }),

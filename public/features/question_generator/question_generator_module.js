@@ -111,7 +111,7 @@ import {
   generateLlmPromptFromPlan,
   generateLlmPromptWithDiagram,
   loadLlmPromptGeneratorOptions
-} from "../llm_prompt_generator/llm_prompt_generator_module.js?v=20260801-syllabus-topic-instructions";
+} from "../llm_prompt_generator/llm_prompt_generator_module.js?v=20260822-question-variety";
 import {
   getSyllabusById
 } from "../syllabus/syllabus_module.js?v=20260722-question-generator";
@@ -121,16 +121,16 @@ import {
 } from "../question/question_module.js?v=20260822-assessment-reuse";
 import {
   writePreAssessmentQuestions
-} from "../pre_assessment_question/pre_assessment_question_module.js?v=20260731-question-writer-routing";
+} from "../pre_assessment_question/pre_assessment_question_module.js?v=20260822-saved-question-ids";
 import {
   renderMermaidDiagram
-} from "../diagram_generator/diagram_generator_module.js?v=20260724-thinking-disabled";
+} from "../diagram_generator/diagram_generator_module.js?v=20260822-xychart-labels";
 import {
   generateLlmText
 } from "../../utils/llm/llm_ops.js?v=20260724-thinking-disabled";
 import {
   DEEPSEEK_REQUEST_PROFILES
-} from "../../utils/llm/deepseek_util.js?v=20260724-thinking-disabled";
+} from "../../utils/llm/deepseek_util.js?v=20260822-question-temperature";
 import {
   GenerateQuestions
 } from "./application/generate_questions.js?v=20260731-question-writer-routing";

@@ -3,7 +3,10 @@ import {
   generateQuestionsWithDiagram,
   loadQuestionGeneratorOptions,
   practiceTypes
-} from "../../question_generator_module.js?v=20260801-syllabus-topic-instructions";
+} from "../../question_generator_module.js?v=20260822-question-variety";
+import {
+  setMathText
+} from "../../../../utils/math/render_math.js?v=20260822-katex-math";
 
 /**
  * @typedef {import("../../domain/question_generation.js").QuestionGenerationInput}
@@ -353,12 +356,15 @@ function renderQuestions(questions = []) {
     }
 
     questionText.className = "question-text";
-    questionText.textContent = question.questionText;
+    setMathText(questionText, question.questionText);
     optionsList.className = "options-list";
 
     QUESTION_OPTION_KEYS.forEach((optionKey) => {
       const option = document.createElement("li");
-      option.textContent = `${optionKey.toUpperCase()}. ${question.options[optionKey]}`;
+      setMathText(
+        option,
+        `${optionKey.toUpperCase()}. ${question.options[optionKey]}`
+      );
 
       if (optionKey === question.correctAnswer) {
         option.className = "correct-option";
@@ -369,7 +375,7 @@ function renderQuestions(questions = []) {
 
     explanation.className = "explanation";
     explanationSummary.textContent = "Answer explanation";
-    explanationText.textContent = question.explanation;
+    setMathText(explanationText, question.explanation);
     explanation.append(explanationSummary, explanationText);
     item.append(heading);
 

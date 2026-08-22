@@ -6,6 +6,9 @@ import {
 import {
   onStudentAuthStateChanged
 } from "../../../student/student_module.js?v=20260716-no-eager-auth";
+import {
+  setMathText
+} from "../../../../utils/math/render_math.js?v=20260822-katex-math";
 
 const SIGN_IN_URL = "/features/student/pages/sign_in/sign_in.html";
 const QUESTION_OPTION_KEYS = Object.freeze(["a", "b", "c", "d"]);
@@ -89,12 +92,14 @@ function createOptions(question) {
     const input = document.createElement("input");
     const optionText = document.createElement("span");
     const optionLabel = document.createElement("strong");
+    const optionValue = document.createElement("span");
 
     input.type = "radio";
     input.name = `question-${question.id}`;
     input.value = optionKey;
     optionLabel.textContent = `${optionKey.toUpperCase()}. `;
-    optionText.append(optionLabel, question.options[optionKey]);
+    setMathText(optionValue, question.options[optionKey]);
+    optionText.append(optionLabel, optionValue);
     label.append(input, optionText);
     item.append(label);
     options.append(item);
@@ -145,7 +150,7 @@ function renderSession(session) {
     item.className = "question-item";
     heading.textContent = `Question ${questionNumber}`;
     questionText.className = "question-text";
-    questionText.textContent = question.questionText;
+    setMathText(questionText, question.questionText);
     item.append(heading);
 
     if (diagram) {

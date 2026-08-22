@@ -4,6 +4,9 @@
  * getQuestion(questionReference: QuestionReference)
  *   -> Promise<Question|null>
  *
+ * getQuestionDifficulty(questionReference: QuestionReference)
+ *   -> Promise<string>
+ *
  * getQuestionCount({
  *   syllabusId: string,
  *   topicId: string,
@@ -140,6 +143,9 @@ import {
   GetQuestion
 } from "./application/get_question.js?v=20260816-question-routing";
 import {
+  GetQuestionDifficulty
+} from "./application/get_question_difficulty.js?v=20260822-assessment-progression";
+import {
   GetQuestionCount
 } from "./application/get_question_count.js?v=20260817-question-writes";
 import {
@@ -187,6 +193,9 @@ const checkQuestionAnswersUseCase = new CheckQuestionAnswers(
   questionRepository
 );
 const getQuestionUseCase = new GetQuestion(questionRepository);
+const getQuestionDifficultyUseCase = new GetQuestionDifficulty(
+  questionRepository
+);
 const getQuestionCountUseCase = new GetQuestionCount(questionRepository);
 const getQuestionsForPracticeUseCase = new GetQuestionsForPractice(
   questionRepository
@@ -205,6 +214,13 @@ const deleteQuestionUseCase = new DeleteQuestion(questionRepository);
  */
 async function getQuestion(questionReference) {
   return getQuestionUseCase.execute(questionReference);
+}
+
+/**
+ * @returns {Promise<string>}
+ */
+async function getQuestionDifficulty(questionReference) {
+  return getQuestionDifficultyUseCase.execute(questionReference);
 }
 
 /**
@@ -292,6 +308,7 @@ async function deleteQuestion(questionReference) {
 export {
   checkQuestionAnswers,
   getQuestion,
+  getQuestionDifficulty,
   getQuestionCount,
   getQuestionsForPractice,
   listQuestionIds,

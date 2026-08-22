@@ -4,6 +4,9 @@
  * getQuestion(questionReference: QuestionReference)
  *   -> Promise<Question|null>
  *
+ * getQuestionDifficulty(questionReference: QuestionReference)
+ *   -> Promise<string>
+ *
  * getQuestionCount({
  *   syllabusId: string,
  *   topicId: string,
@@ -138,6 +141,9 @@ const {
 } = require("./application/check_question_answers");
 const { GetQuestion } = require("./application/get_question");
 const {
+  GetQuestionDifficulty,
+} = require("./application/get_question_difficulty");
+const {
   GetQuestionCount,
 } = require("./application/get_question_count");
 const {
@@ -176,6 +182,8 @@ const questionRepository = new FirestoreQuestionRepository();
 const checkQuestionAnswersUseCase =
   new CheckQuestionAnswers(questionRepository);
 const getQuestionUseCase = new GetQuestion(questionRepository);
+const getQuestionDifficultyUseCase =
+  new GetQuestionDifficulty(questionRepository);
 const getQuestionCountUseCase = new GetQuestionCount(questionRepository);
 const getQuestionsForPracticeUseCase = new GetQuestionsForPractice(
   questionRepository,
@@ -190,6 +198,10 @@ const deleteQuestionUseCase = new DeleteQuestion(questionRepository);
 
 async function getQuestion(questionReference) {
   return getQuestionUseCase.execute(questionReference);
+}
+
+async function getQuestionDifficulty(questionReference) {
+  return getQuestionDifficultyUseCase.execute(questionReference);
 }
 
 async function getQuestionCount(input) {
@@ -249,6 +261,7 @@ async function deleteQuestion(questionReference) {
 module.exports = {
   checkQuestionAnswers,
   getQuestion,
+  getQuestionDifficulty,
   getQuestionCount,
   getQuestionsForPractice,
   listQuestionIds,

@@ -1,48 +1,7 @@
 const {
-  StudentAssessmentTopicProgress,
-} = require("../domain/student_assessment_topic_progress");
-
-function requireFunction(value, name) {
-  if (typeof value !== "function") {
-    throw new Error(`${name} must be a function.`);
-  }
-
-  return value;
-}
-
-function requireIdentifier(value, fieldName) {
-  const identifier = String(value ?? "").trim();
-
-  if (!identifier) {
-    throw new Error(`${fieldName} is required.`);
-  }
-
-  return identifier;
-}
-
-function getPracticeScope(practice) {
-  if (!Array.isArray(practice.questions) || practice.questions.length === 0) {
-    throw new Error("The completed practice has no question references.");
-  }
-
-  const syllabusIds = new Set(
-    practice.questions.map((question) => question.syllabusId),
-  );
-  const topicIds = new Set(
-    practice.questions.map((question) => question.topicId),
-  );
-
-  if (syllabusIds.size !== 1 || topicIds.size !== 1) {
-    throw new Error(
-      "A pre-assessment practice must contain questions for exactly one syllabus and topic.",
-    );
-  }
-
-  return {
-    syllabusId: requireIdentifier([...syllabusIds][0], "syllabusId"),
-    topicId: requireIdentifier([...topicIds][0], "topicId"),
-  };
-}
+  requireFunction,
+  requireIdentifier,
+} = require("./assessment_helpers");
 
 function createSkippedOutcome({
   studentId,
@@ -63,35 +22,33 @@ function createSkippedOutcome({
 
 class AssessStudentPractice {
   constructor({
-    studentAssessmentProgressRepository,
     getPracticeResult,
     getPracticeById,
-    getSyllabusById,
-    calculatePreAssessmentLevel,
+    assessPreAssessmentPractice,
+    assessNormalAssessmentPractice,
     preAssessmentPracticeType,
+    assessmentPracticeType,
   } = {}) {
-    if (!studentAssessmentProgressRepository) {
-      throw new Error("studentAssessmentProgressRepository is required.");
-    }
-
-    this.studentAssessmentProgressRepository =
-      studentAssessmentProgressRepository;
     this.getPracticeResult = requireFunction(
       getPracticeResult,
       "getPracticeResult",
     );
     this.getPracticeById = requireFunction(getPracticeById, "getPracticeById");
-    this.getSyllabusById = requireFunction(
-      getSyllabusById,
-      "getSyllabusById",
+    this.assessPreAssessmentPractice = requireFunction(
+      assessPreAssessmentPractice,
+      "assessPreAssessmentPractice",
     );
-    this.calculatePreAssessmentLevel = requireFunction(
-      calculatePreAssessmentLevel,
-      "calculatePreAssessmentLevel",
+    this.assessNormalAssessmentPractice = requireFunction(
+      assessNormalAssessmentPractice,
+      "assessNormalAssessmentPractice",
     );
     this.preAssessmentPracticeType = requireIdentifier(
       preAssessmentPracticeType,
       "preAssessmentPracticeType",
+    );
+    this.assessmentPracticeType = requireIdentifier(
+      assessmentPracticeType,
+      "assessmentPracticeType",
     );
   }
 
@@ -115,68 +72,25 @@ class AssessStudentPractice {
       throw new Error(`Practice ${normalizedPracticeId} was not found.`);
     }
 
-    if (practice.type !== this.preAssessmentPracticeType) {
-      return createSkippedOutcome({
-        studentId: normalizedStudentId,
-        reason: "assessment-not-supported",
-        practiceResult,
-        practice,
-      });
-    }
-
-    const {syllabusId, topicId} = getPracticeScope(practice);
-    const syllabus = await this.getSyllabusById(syllabusId);
-
-    if (!syllabus) {
-      throw new Error(`Syllabus ${syllabusId} was not found.`);
-    }
-
-    const topicExists = syllabus.topics.some((topic) => topic.id === topicId);
-
-    if (!topicExists) {
-      throw new Error(`Topic ${topicId} was not found in syllabus ${syllabusId}.`);
-    }
-
-    const assessmentFrameworkId = requireIdentifier(
-      syllabus.assessmentFrameworkId,
-      "syllabus.assessmentFrameworkId",
-    );
-    const levelCalculation = await this.calculatePreAssessmentLevel({
-      assessmentFrameworkId,
-      score: practiceResult.score,
-    });
-    const progress = new StudentAssessmentTopicProgress({
+    const input = {
       studentId: normalizedStudentId,
-      syllabusId,
-      topicId,
-      initialLevel: {
-        levelId: levelCalculation.levelId,
-        setAt: practiceResult.submittedAt,
-      },
-      currentLevelId: levelCalculation.levelId,
-      isFrameworkCompleted: levelCalculation.isEndLevel,
-      levelHistory: {
-        [levelCalculation.levelId]: practiceResult.submittedAt,
-      },
-    });
-    const savedProgress =
-      await this.studentAssessmentProgressRepository
-        .savePreAssessmentProgress(progress);
+      practice,
+      practiceResult,
+    };
 
-    return Object.freeze({
-      assessed: true,
-      reason: null,
+    if (practice.type === this.preAssessmentPracticeType) {
+      return this.assessPreAssessmentPractice(input);
+    }
+
+    if (practice.type === this.assessmentPracticeType) {
+      return this.assessNormalAssessmentPractice(input);
+    }
+
+    return createSkippedOutcome({
       studentId: normalizedStudentId,
-      practiceId: normalizedPracticeId,
-      practiceType: practice.type,
-      score: practiceResult.score,
-      syllabusId,
-      topicId,
-      assessmentFrameworkId,
-      levelId: levelCalculation.levelId,
-      levelName: levelCalculation.levelName,
-      isFrameworkCompleted: levelCalculation.isEndLevel,
-      progress: savedProgress,
+      reason: "unsupported-practice-type",
+      practiceResult,
+      practice,
     });
   }
 }

@@ -4,7 +4,11 @@ class StudentAssessmentProgressRepository {
   }
 
   async savePreAssessmentProgress(progress) {
-    throw new Error("savePreAssessmentProgress() is not implemented.");
+    return this.saveProgress(progress);
+  }
+
+  async saveProgress(progress) {
+    throw new Error("saveProgress() is not implemented.");
   }
 }
 

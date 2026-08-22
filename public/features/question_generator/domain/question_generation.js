@@ -1,6 +1,6 @@
 import {
   llmQuestionResponseFields
-} from "../../llm_prompt_generator/domain/llm_prompt_generator.js?v=20260722-resilient-diagrams";
+} from "../../llm_prompt_generator/domain/llm_prompt_generator.js?v=20260822-question-variety";
 import {
   practiceTypes
 } from "../../../config/firebase/practice_schema.js?v=20260727-question-group";

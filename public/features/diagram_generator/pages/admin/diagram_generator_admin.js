@@ -1,6 +1,6 @@
 import {
   generateDiagram
-} from "../../diagram_generator_module.js?v=20260724-thinking-disabled";
+} from "../../diagram_generator_module.js?v=20260822-xychart-labels";
 
 const descriptionInput = document.querySelector("#diagram-description");
 const generateButton = document.querySelector("#generate-diagram");

@@ -1,3 +1,7 @@
+import {
+  normalizeMermaidSource
+} from "../domain/normalize_mermaid_source.js?v=20260822-xychart-labels";
+
 const MERMAID_MODULE_URL =
   "https://cdn.jsdelivr.net/npm/mermaid@11.16.0/dist/mermaid.esm.min.mjs";
 const MAX_MERMAID_CODE_LENGTH = 20000;
@@ -11,12 +15,12 @@ async function loadDefaultMermaid() {
 }
 
 function requireSafeMermaidCode(value) {
-  const mermaidCode = String(value ?? "")
+  const mermaidCode = normalizeMermaidSource(String(value ?? "")
     .trim()
     .replace(/^```(?:mermaid)?\s*/i, "")
     .replace(/\s*```$/i, "")
     .replace(/\\+r\\+n|\\+n|\\+r/g, "\n")
-    .trim();
+    .trim());
 
   if (!mermaidCode) {
     throw new Error("Mermaid code is required.");

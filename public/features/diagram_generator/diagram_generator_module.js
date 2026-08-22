@@ -3,16 +3,16 @@ import {
 } from "../../utils/llm/llm_ops.js?v=20260724-thinking-disabled";
 import {
   GenerateMermaidInstruction
-} from "./application/generate_mermaid_instruction.js?v=20260723-deepseek-profiles";
+} from "./application/generate_mermaid_instruction.js?v=20260822-xychart-labels";
 import {
   GenerateDiagram
-} from "./application/generate_diagram.js?v=20260723-deepseek-profiles";
+} from "./application/generate_diagram.js?v=20260822-xychart-labels";
 import {
   RenderMermaidDiagram
-} from "./application/render_mermaid_diagram.js?v=20260723-deepseek-profiles";
+} from "./application/render_mermaid_diagram.js?v=20260822-xychart-labels";
 import {
   BrowserMermaidRenderer
-} from "./infrastructure/browser_mermaid_renderer.js?v=20260722-mermaid-chart-repair";
+} from "./infrastructure/browser_mermaid_renderer.js?v=20260822-xychart-labels";
 
 const generateMermaidInstruction = new GenerateMermaidInstruction(
   generateLlmText

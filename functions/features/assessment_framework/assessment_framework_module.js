@@ -67,6 +67,21 @@
  *     isEndLevel: boolean
  *   }>.
  *
+ * calculateAssessmentProgression({
+ *   assessmentFrameworkId: string,
+ *   currentLevelId: string|null,
+ *   scores: number[]
+ * })
+ *   Output: Promise<{
+ *     previousLevelId: string,
+ *     levelId: string,
+ *     levelName: string,
+ *     levelChanged: boolean,
+ *     isEndLevel: boolean,
+ *     qualifyingPracticeCount: number,
+ *     criteria: object|null
+ *   }>.
+ *
  * ASSESSMENT_FRAMEWORK_END_LEVEL_ID
  *   The sentinel level ID used when the framework has been completed.
  */
@@ -82,6 +97,9 @@ const {
   CalculatePreAssessmentLevel,
 } = require("./application/calculate_pre_assessment_level");
 const {
+  CalculateAssessmentProgression,
+} = require("./application/calculate_assessment_progression");
+const {
   GetAssessmentLevelCriteria,
 } = require("./application/get_assessment_level_criteria");
 const {
@@ -95,6 +113,8 @@ const assessmentFrameworkRepository =
   new FirestoreAssessmentFrameworkRepository();
 const calculatePreAssessmentLevelUseCase =
   new CalculatePreAssessmentLevel(assessmentFrameworkRepository);
+const calculateAssessmentProgressionUseCase =
+  new CalculateAssessmentProgression(assessmentFrameworkRepository);
 const getAssessmentLevelCriteriaUseCase =
   new GetAssessmentLevelCriteria(assessmentFrameworkRepository);
 const getAssessmentFramework =
@@ -118,8 +138,13 @@ async function calculatePreAssessmentLevel(input) {
   return calculatePreAssessmentLevelUseCase.execute(input);
 }
 
+async function calculateAssessmentProgression(input) {
+  return calculateAssessmentProgressionUseCase.execute(input);
+}
+
 module.exports = {
   ASSESSMENT_FRAMEWORK_END_LEVEL_ID,
+  calculateAssessmentProgression,
   calculatePreAssessmentLevel,
   getAssessmentLevelCriteria,
   getAssessmentFrameworkById,

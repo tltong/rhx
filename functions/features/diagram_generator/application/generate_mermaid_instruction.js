@@ -35,6 +35,7 @@ class GenerateMermaidInstruction {
       "Retain the intended meaning of the diagram description.",
       "Use only standard Mermaid syntax.",
       "Convert unsupported bar chart syntax to valid xychart-beta syntax.",
+      "For xychart-beta, double-quote every text title, axis title, and x-axis category label, especially non-ASCII labels.",
       "Do not include directives, actions, links, scripts, HTML, icons, images, or Markdown fences.",
       "Return only valid JSON in this exact shape:",
       '{ "mermaidCode": "corrected Mermaid source" }',

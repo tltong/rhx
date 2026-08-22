@@ -4,6 +4,9 @@
   "engines": {
     "node": "22"
   },
+  "scripts": {
+    "gcp-build": "puppeteer browsers install chrome"
+  },
   "dependencies": {
     "@mermaid-js/mermaid-cli": "^11.16.0",
     "firebase-admin": "^13.10.0",

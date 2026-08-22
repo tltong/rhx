@@ -170,7 +170,7 @@ import {
   generatePlannedQuestions,
   generateQuestions,
   generateQuestionsWithDiagram
-} from "../question_generator/question_generator_module.js?v=20260801-syllabus-topic-instructions";
+} from "../question_generator/question_generator_module.js?v=20260822-question-variety";
 import {
   createPractice,
   deletePractice,
@@ -189,7 +189,7 @@ import {
 import {
   deletePreAssessmentQuestion,
   getPreAssessmentQuestion
-} from "../pre_assessment_question/pre_assessment_question_module.js?v=20260731-existing-practice-preview";
+} from "../pre_assessment_question/pre_assessment_question_module.js?v=20260822-saved-question-ids";
 import {
   GeneratePreAssessmentPractice
 } from "./application/generate_pre_assessment_practice.js?v=20260731-planned-question-batches";
@@ -213,7 +213,7 @@ import {
 } from "../syllabus_subscription/syllabus_subscription_module.js?v=20260815-language-lookup";
 import {
   getStudentTopicLevel
-} from "../student_assessment_progress/student_assessment_progress_module.js?v=20260815-assessment-practice";
+} from "../student_assessment_progress/student_assessment_progress_module.js?v=20260822-assessment-progression";
 import {
   GenerateAssessmentPractice
 } from "./application/generate_assessment_practice.js?v=20260822-assessment-reuse";

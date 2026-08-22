@@ -1,4 +1,7 @@
 const sanitizeHtml = require("sanitize-html");
+const {
+  normalizeMermaidSource,
+} = require("../domain/normalize_mermaid_source");
 
 const MAX_MERMAID_CODE_LENGTH = 20000;
 const SAFE_SVG_TAGS = [
@@ -37,12 +40,12 @@ const PROHIBITED_SOURCES = [
 let browserPromise = null;
 
 function requireSafeMermaidCode(value) {
-  const mermaidCode = String(value ?? "")
+  const mermaidCode = normalizeMermaidSource(String(value ?? "")
     .trim()
     .replace(/^```(?:mermaid)?\s*/i, "")
     .replace(/\s*```$/i, "")
     .replace(/\\+r\\+n|\\+n|\\+r/g, "\n")
-    .trim();
+    .trim());
 
   if (!mermaidCode) {
     throw new Error("Mermaid code is required.");

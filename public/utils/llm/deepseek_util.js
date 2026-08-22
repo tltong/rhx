@@ -13,12 +13,14 @@ export const DEEPSEEK_THINKING_TYPES = Object.freeze({
 export const DEEPSEEK_REQUEST_PROFILES = Object.freeze({
   STANDARD_PRO: Object.freeze({
     model: DEEPSEEK_MODELS.PRO,
+    temperature: 0.7,
     thinking: Object.freeze({
       type: DEEPSEEK_THINKING_TYPES.DISABLED
     })
   }),
   DIAGRAM_PRO: Object.freeze({
     model: DEEPSEEK_MODELS.PRO,
+    temperature: 0.7,
     thinking: Object.freeze({
       type: DEEPSEEK_THINKING_TYPES.DISABLED
     }),

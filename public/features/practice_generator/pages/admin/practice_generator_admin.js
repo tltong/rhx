@@ -2,7 +2,10 @@ import {
   generatePreAssessmentPractice,
   loadPreAssessmentGeneratorOptions,
   loadPreAssessmentPractice
-} from "../../practice_generator_module.js?v=20260801-syllabus-topic-instructions";
+} from "../../practice_generator_module.js?v=20260822-question-variety";
+import {
+  setMathText
+} from "../../../../utils/math/render_math.js?v=20260822-katex-math";
 
 const syllabusSelect = document.querySelector("#syllabus-select");
 const topicSelect = document.querySelector("#topic-select");
@@ -291,15 +294,17 @@ function renderQuestions(questions = []) {
       createBadge(question.id)
     );
     questionText.className = "question-text";
-    questionText.textContent = question.questionText;
+    setMathText(questionText, question.questionText);
     options.className = "question-options";
 
     QUESTION_OPTION_KEYS.forEach((optionKey) => {
       const option = document.createElement("li");
       const optionLabel = document.createElement("strong");
+      const optionText = document.createElement("span");
 
       optionLabel.textContent = `${optionKey.toUpperCase()}. `;
-      option.append(optionLabel, question.options[optionKey]);
+      setMathText(optionText, question.options[optionKey]);
+      option.append(optionLabel, optionText);
 
       if (optionKey === question.correctAnswer) {
         option.className = "correct-option";
@@ -310,7 +315,7 @@ function renderQuestions(questions = []) {
     });
 
     explanationSummary.textContent = "Answer explanation";
-    explanationText.textContent = question.explanation;
+    setMathText(explanationText, question.explanation);
     explanation.append(explanationSummary, explanationText);
     item.append(heading);
 

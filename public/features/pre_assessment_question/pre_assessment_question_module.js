@@ -15,10 +15,10 @@ import {
 } from "./application/list_pre_assessment_questions_by_topic.js?v=20260730-pre-assessment-question";
 import {
   WritePreAssessmentQuestion
-} from "./application/write_pre_assessment_question.js?v=20260730-pre-assessment-question";
+} from "./application/write_pre_assessment_question.js?v=20260822-saved-question-ids";
 import {
   WritePreAssessmentQuestions
-} from "./application/write_pre_assessment_questions.js?v=20260730-pre-assessment-question";
+} from "./application/write_pre_assessment_questions.js?v=20260822-saved-question-ids";
 import {
   UpdatePreAssessmentQuestion
 } from "./application/update_pre_assessment_question.js?v=20260730-pre-assessment-question";

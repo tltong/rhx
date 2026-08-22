@@ -1,6 +1,6 @@
 import {
   PreAssessmentQuestion
-} from "../domain/pre_assessment_question.js?v=20260730-pre-assessment-question";
+} from "../domain/pre_assessment_question.js?v=20260807-pre-assessment-answer-check";
 
 export class WritePreAssessmentQuestions {
   constructor(preAssessmentQuestionRepository) {
@@ -16,8 +16,6 @@ export class WritePreAssessmentQuestions {
       (questionInput) => new PreAssessmentQuestion(questionInput)
     );
 
-    await this.preAssessmentQuestionRepository.saveMany(questions);
-
-    return questions;
+    return this.preAssessmentQuestionRepository.saveMany(questions);
   }
 }

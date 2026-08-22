@@ -105,6 +105,21 @@
  *     isEndLevel: boolean
  *   }>.
  *
+ * calculateAssessmentProgression({
+ *   assessmentFrameworkId: string,
+ *   currentLevelId: string|null,
+ *   scores: number[]
+ * })
+ *   Output: Promise<{
+ *     previousLevelId: string,
+ *     levelId: string,
+ *     levelName: string,
+ *     levelChanged: boolean,
+ *     isEndLevel: boolean,
+ *     qualifyingPracticeCount: number,
+ *     criteria: object|null
+ *   }>.
+ *
  * Exported constants:
  *   ASSESSMENT_FRAMEWORK_END_LEVEL_ID: string
  *   assessmentFrameworkPreAssessmentDifficultyLevels: readonly string[]
@@ -120,6 +135,9 @@ import {
 import {
   CalculatePreAssessmentLevel
 } from "./application/calculate_pre_assessment_level.js?v=20260807-pre-assessment-level";
+import {
+  CalculateAssessmentProgression
+} from "./application/calculate_assessment_progression.js?v=20260822-assessment-progression";
 import {
   GetAssessmentLevelCriteria
 } from "./application/get_assessment_level_criteria.js?v=20260815-level-criteria";
@@ -148,6 +166,8 @@ const assessmentFrameworkRepository =
   new FirestoreAssessmentFrameworkRepository();
 const calculatePreAssessmentLevelUseCase =
   new CalculatePreAssessmentLevel(assessmentFrameworkRepository);
+const calculateAssessmentProgressionUseCase =
+  new CalculateAssessmentProgression(assessmentFrameworkRepository);
 const getAssessmentLevelCriteriaUseCase =
   new GetAssessmentLevelCriteria(assessmentFrameworkRepository);
 const getAssessmentFramework =
@@ -173,6 +193,10 @@ async function getAssessmentLevelCriteria(input) {
 
 async function calculatePreAssessmentLevel(input) {
   return calculatePreAssessmentLevelUseCase.execute(input);
+}
+
+async function calculateAssessmentProgression(input) {
+  return calculateAssessmentProgressionUseCase.execute(input);
 }
 
 async function listAssessmentFrameworks() {
@@ -202,6 +226,7 @@ async function saveAssessmentFrameworkPreAssessment(
 }
 
 export {
+  calculateAssessmentProgression,
   calculatePreAssessmentLevel,
   getAssessmentLevelCriteria,
   getAssessmentFrameworkById,
