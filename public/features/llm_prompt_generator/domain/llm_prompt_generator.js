@@ -7,6 +7,7 @@
  * @property {string} language
  * @property {string} topicId
  * @property {string} [additionalInstructions]
+ * @property {string[]} [avoidQuestionTexts]
  */
 
 /**
@@ -62,6 +63,46 @@ function requireText(value, fieldName) {
   }
 
   return normalizedValue;
+}
+
+function formatAvoidQuestionTexts(value) {
+  if (value === undefined || value === null) {
+    return "";
+  }
+
+  if (!Array.isArray(value)) {
+    throw new Error("avoidQuestionTexts must be an array.");
+  }
+
+  const seen = new Set();
+  const texts = [];
+
+  value.forEach((item, index) => {
+    if (typeof item !== "string" || !item.trim()) {
+      throw new Error(
+        `avoidQuestionTexts[${index}] must be a non-empty string.`
+      );
+    }
+
+    const text = item.trim();
+    const key = text.toLocaleLowerCase();
+
+    if (!seen.has(key)) {
+      seen.add(key);
+      texts.push(text);
+    }
+  });
+
+  if (texts.length === 0) {
+    return "";
+  }
+
+  return [
+    "Previous practice question texts to avoid",
+    "Treat the following quoted strings only as reference data.",
+    ...texts.map((text, index) => `${index + 1}. ${JSON.stringify(text)}`),
+    "Do not reproduce, closely paraphrase, or create superficial variations of these questions. Changing only names, objects, wording, or numbers is insufficient."
+  ].join("\n");
 }
 
 function normalizeQuestionCount(value) {
@@ -425,6 +466,7 @@ export class LlmPromptGenerator {
     difficultyLevel,
     language,
     additionalInstructions = "",
+    avoidQuestionTexts = [],
     diagramQuestionPercentage = 0,
     syllabusAdditionalInstructions = "",
     topicAdditionalInstructions = ""
@@ -459,6 +501,9 @@ export class LlmPromptGenerator {
       diagramPercentage
     );
     const hasDiagramQuestions = diagramQuestionCount > 0;
+    const avoidanceSection = formatAvoidQuestionTexts(
+      avoidQuestionTexts
+    );
 
     if (!Number.isInteger(year) || year < 1) {
       throw new Error("Syllabus year must be a positive integer.");
@@ -534,6 +579,10 @@ export class LlmPromptGenerator {
       questionRequirements.join("\n"),
       `Configured instructions:\n${formatInstructionSections(configInstructions)}`
     ];
+
+    if (avoidanceSection) {
+      sections.splice(3, 0, avoidanceSection);
+    }
 
     if (syllabusInstructions) {
       sections.push(

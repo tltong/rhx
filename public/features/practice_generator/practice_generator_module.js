@@ -170,7 +170,7 @@ import {
   generatePlannedQuestions,
   generateQuestions,
   generateQuestionsWithDiagram
-} from "../question_generator/question_generator_module.js?v=20260822-question-variety";
+} from "../question_generator/question_generator_module.js?v=20260822-previous-practice-variety";
 import {
   createPractice,
   deletePractice,
@@ -216,7 +216,7 @@ import {
 } from "../student_assessment_progress/student_assessment_progress_module.js?v=20260822-assessment-progression";
 import {
   GenerateAssessmentPractice
-} from "./application/generate_assessment_practice.js?v=20260822-assessment-reuse";
+} from "./application/generate_assessment_practice.js?v=20260822-previous-practice-variety";
 import {
   allocateAssessmentQuestions
 } from "./domain/assessment_question_allocation.js?v=20260815-assessment-practice";

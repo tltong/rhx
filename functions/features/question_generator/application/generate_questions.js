@@ -14,6 +14,22 @@ const {
   requireIdentifier,
 } = require("./generation_support");
 
+function appendGeneratedQuestionTexts(avoidQuestionTexts, questions) {
+  const seen = new Set(
+    avoidQuestionTexts.map((text) => text.toLocaleLowerCase()),
+  );
+
+  questions.forEach((question) => {
+    const text = String(question?.questionText ?? "").trim();
+    const key = text.toLocaleLowerCase();
+
+    if (text && !seen.has(key)) {
+      seen.add(key);
+      avoidQuestionTexts.push(text);
+    }
+  });
+}
+
 class GenerateQuestions {
   constructor({
     generatePrompt,
@@ -50,6 +66,7 @@ class GenerateQuestions {
     const prompt = await this.generatePrompt(configId, syllabusId, {
       ...generationInput,
       numberOfQuestions: batchSize,
+      avoidQuestionTexts: [...generationInput.avoidQuestionTexts],
     });
 
     prompts.push(prompt);
@@ -71,13 +88,20 @@ class GenerateQuestions {
         questionOffset,
       });
 
-      return this.hasDiagram
-        ? renderQuestionDiagrams(
+      const renderedQuestions = this.hasDiagram
+        ? await renderQuestionDiagrams(
           questionInputs,
           this.renderMermaidDiagram,
           this.llmOptions,
         )
         : questionInputs;
+
+      appendGeneratedQuestionTexts(
+        generationInput.avoidQuestionTexts,
+        renderedQuestions,
+      );
+
+      return renderedQuestions;
     } catch (error) {
       if (retryAttempt === 0 && isRetryableGenerationError(error)) {
         return this.generateBatch({
@@ -134,6 +158,12 @@ class GenerateQuestions {
     );
     const prompts = [];
     const questionInputs = [];
+    const activeGenerationInput = {
+      ...context.generationInput,
+      avoidQuestionTexts: [
+        ...context.generationInput.avoidQuestionTexts,
+      ],
+    };
 
     try {
       for (const batchSize of createQuestionBatchSizes(
@@ -142,7 +172,7 @@ class GenerateQuestions {
         questionInputs.push(...await this.generateBatch({
           configId,
           syllabusId: selectedSyllabusId,
-          generationInput: context.generationInput,
+          generationInput: activeGenerationInput,
           topics: context.topics,
           batchSize,
           questionOffset: questionInputs.length,

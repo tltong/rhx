@@ -1,6 +1,6 @@
 import {
   llmQuestionResponseFields
-} from "../../llm_prompt_generator/domain/llm_prompt_generator.js?v=20260822-question-variety";
+} from "../../llm_prompt_generator/domain/llm_prompt_generator.js?v=20260822-previous-practice-variety";
 import {
   practiceTypes
 } from "../../../config/firebase/practice_schema.js?v=20260727-question-group";
@@ -26,6 +26,7 @@ export const QUESTION_GENERATION_BATCH_SIZE = 5;
  * @property {string} group
  * @property {string} topicId
  * @property {string} [additionalInstructions]
+ * @property {string[]} [avoidQuestionTexts]
  */
 
 /**
@@ -46,6 +47,37 @@ export const QUESTION_GENERATION_BATCH_SIZE = 5;
 
 function normalizeText(value) {
   return String(value ?? "").trim();
+}
+
+function normalizeAvoidQuestionTexts(value) {
+  if (value === undefined || value === null) {
+    return Object.freeze([]);
+  }
+
+  if (!Array.isArray(value)) {
+    throw new Error("avoidQuestionTexts must be an array.");
+  }
+
+  const seen = new Set();
+  const texts = [];
+
+  value.forEach((item, index) => {
+    if (typeof item !== "string" || !item.trim()) {
+      throw new Error(
+        `avoidQuestionTexts[${index}] must be a non-empty string.`
+      );
+    }
+
+    const text = item.trim();
+    const key = text.toLocaleLowerCase();
+
+    if (!seen.has(key)) {
+      seen.add(key);
+      texts.push(text);
+    }
+  });
+
+  return Object.freeze(texts);
 }
 
 function requireText(value, fieldName) {
@@ -289,6 +321,8 @@ export function normalizeQuestionGenerationInput(generationInput = {}) {
     throw new Error("generationInput must be an object.");
   }
 
+  const group = normalizeQuestionGroup(generationInput.group);
+
   return {
     numberOfQuestions: normalizeQuestionCount(
       generationInput.numberOfQuestions
@@ -297,12 +331,15 @@ export function normalizeQuestionGenerationInput(generationInput = {}) {
       generationInput.difficultyLevel,
       "Difficulty level"
     ),
-    group: normalizeQuestionGroup(generationInput.group),
+    group,
     language: requireText(generationInput.language, "Language"),
     topicId: requireText(generationInput.topicId, "Topic"),
     additionalInstructions: normalizeText(
       generationInput.additionalInstructions
-    )
+    ),
+    avoidQuestionTexts: group === practiceTypes.ASSESSMENT
+      ? normalizeAvoidQuestionTexts(generationInput.avoidQuestionTexts)
+      : Object.freeze([])
   };
 }
 

@@ -13,7 +13,7 @@ import {
 } from "../diagram_config/diagram_config_module.js?v=20260815-topic-percentage-api";
 import {
   LlmPromptGenerator
-} from "./domain/llm_prompt_generator.js?v=20260822-question-variety";
+} from "./domain/llm_prompt_generator.js?v=20260822-previous-practice-variety";
 import {
   GenerateLlmPrompt
 } from "./application/generate_llm_prompt.js?v=20260801-syllabus-topic-instructions";

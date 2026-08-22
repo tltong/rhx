@@ -3,7 +3,7 @@ import {
   generateQuestionsWithDiagram,
   loadQuestionGeneratorOptions,
   practiceTypes
-} from "../../question_generator_module.js?v=20260822-question-variety";
+} from "../../question_generator_module.js?v=20260822-previous-practice-variety";
 import {
   setMathText
 } from "../../../../utils/math/render_math.js?v=20260822-katex-math";

@@ -2,7 +2,7 @@ import {
   generatePreAssessmentPractice,
   loadPreAssessmentGeneratorOptions,
   loadPreAssessmentPractice
-} from "../../practice_generator_module.js?v=20260822-question-variety";
+} from "../../practice_generator_module.js?v=20260822-previous-practice-variety";
 import {
   setMathText
 } from "../../../../utils/math/render_math.js?v=20260822-katex-math";

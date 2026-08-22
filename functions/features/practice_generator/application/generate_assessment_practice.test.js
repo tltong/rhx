@@ -13,6 +13,7 @@ function question(id, hasDiagram = false) {
     language: "English",
     hasDiagram,
     difficulty: "Easy",
+    questionText: `Question ${id}`,
   };
 }
 
@@ -167,6 +168,84 @@ test("does not invoke the LLM when the question bank is sufficient", async () =>
   assert.equal(promptConfigCalls, 0);
   assert.equal(generatorCalls, 0);
   assert.equal(result.questions.length, 4);
+});
+
+test("passes only the latest matching completed practice texts to generation", async () => {
+  const generationInputs = [];
+  const practiceQuestion = (questionId, hasDiagram) => ({
+    syllabusId: "syllabus-1",
+    topicId: "topic-1",
+    language: "English",
+    hasDiagram,
+    questionId,
+  });
+  const practices = {
+    old: {
+      id: "old",
+      type: "assessment",
+      dateGenerated: new Date("2026-08-01T00:00:00Z"),
+      questions: [practiceQuestion("old-plain", false)],
+    },
+    latest: {
+      id: "latest",
+      type: "assessment",
+      dateGenerated: new Date("2026-08-20T00:00:00Z"),
+      questions: [
+        practiceQuestion("latest-plain", false),
+        practiceQuestion("latest-diagram", true),
+      ],
+    },
+  };
+  const useCase = new GenerateAssessmentPractice(createDependencies({
+    getAssessmentLevelCriteria: async () => ({
+      criteria: {
+        questionsPerPractice: 2,
+        difficultyLevel: "Easy",
+      },
+    }),
+    allocateAssessmentQuestions: () => ({
+      totalQuestions: 2,
+      diagramPercentage: 50,
+      withoutDiagram: 1,
+      withDiagram: 1,
+    }),
+    listCompletedPracticeIds: async () => ["old", "latest"],
+    getPracticeById: async (practiceId) => practices[practiceId],
+    getQuestionsForPractice: async (references) => references.map(
+      (reference) => ({
+        ...question(reference.questionId, reference.hasDiagram),
+        questionText: reference.questionId,
+      }),
+    ),
+    generateQuestions: async (_configId, _syllabusId, input) => {
+      generationInputs.push({type: "plain", input});
+      return {prompts: [], questions: [question("generated-plain")]};
+    },
+    generateQuestionsWithDiagram: async (_configId, _syllabusId, input) => {
+      generationInputs.push({type: "diagram", input});
+      return {
+        prompts: [],
+        questions: [question("generated-diagram", true)],
+      };
+    },
+  }));
+
+  await useCase.execute({
+    studentId: "student-1",
+    syllabusId: "syllabus-1",
+    topicId: "topic-1",
+  });
+
+  assert.deepEqual(
+    generationInputs.find(({type}) => type === "plain").input
+      .avoidQuestionTexts,
+    ["latest-plain"],
+  );
+  assert.deepEqual(
+    generationInputs.find(({type}) => type === "diagram").input
+      .avoidQuestionTexts,
+    ["latest-diagram"],
+  );
 });
 
 test("deletes the new practice when assignment fails", async () => {

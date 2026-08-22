@@ -13,6 +13,37 @@ function normalizeText(value) {
   return String(value ?? "").trim();
 }
 
+function normalizeAvoidQuestionTexts(value) {
+  if (value === undefined || value === null) {
+    return Object.freeze([]);
+  }
+
+  if (!Array.isArray(value)) {
+    throw new Error("avoidQuestionTexts must be an array.");
+  }
+
+  const seen = new Set();
+  const texts = [];
+
+  value.forEach((item, index) => {
+    if (typeof item !== "string" || !item.trim()) {
+      throw new Error(
+        `avoidQuestionTexts[${index}] must be a non-empty string.`,
+      );
+    }
+
+    const text = item.trim();
+    const key = text.toLocaleLowerCase();
+
+    if (!seen.has(key)) {
+      seen.add(key);
+      texts.push(text);
+    }
+  });
+
+  return Object.freeze(texts);
+}
+
 function requireText(value, fieldName) {
   const text = normalizeText(value);
 
@@ -183,13 +214,18 @@ function toQuestionInput({
 }
 
 function normalizeQuestionGenerationInput(input = {}) {
+  const group = normalizeGroup(input.group);
+
   return {
     numberOfQuestions: normalizeQuestionCount(input.numberOfQuestions),
     difficultyLevel: requireText(input.difficultyLevel, "Difficulty level"),
     language: requireText(input.language, "Language"),
-    group: normalizeGroup(input.group),
+    group,
     topicId: requireText(input.topicId, "Topic"),
     additionalInstructions: normalizeText(input.additionalInstructions),
+    avoidQuestionTexts: group === practiceTypes.ASSESSMENT
+      ? normalizeAvoidQuestionTexts(input.avoidQuestionTexts)
+      : Object.freeze([]),
   };
 }
 

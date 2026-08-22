@@ -4,6 +4,9 @@ const test = require("node:test");
 const {
   GenerateQuestions,
 } = require("./generate_questions");
+const {
+  normalizeQuestionGenerationInput,
+} = require("../domain/question_generation");
 
 function createLlmQuestion(index, hasDiagram) {
   return {
@@ -28,10 +31,12 @@ function createLlmQuestion(index, hasDiagram) {
 
 test("diagram generation renders SVG and stores batches of at most five", async () => {
   const requestedBatchSizes = [];
+  const avoidLists = [];
   const storedInputs = [];
   const useCase = new GenerateQuestions({
     generatePrompt: async (_configId, _syllabusId, input) => {
       requestedBatchSizes.push(input.numberOfQuestions);
+      avoidLists.push([...input.avoidQuestionTexts]);
       return `Generate ${input.numberOfQuestions}`;
     },
     generateLlmText: async (prompt) => {
@@ -64,12 +69,37 @@ test("diagram generation renders SVG and stores batches of at most five", async 
     language: "English",
     group: "assessment",
     topicId: "topic-1",
+    avoidQuestionTexts: ["Previous practice question"],
   });
 
   assert.deepEqual(requestedBatchSizes, [5, 2]);
+  assert.deepEqual(avoidLists, [
+    ["Previous practice question"],
+    [
+      "Previous practice question",
+      "Question 1",
+      "Question 2",
+      "Question 3",
+      "Question 4",
+      "Question 5",
+    ],
+  ]);
   assert.equal(result.prompts.length, 2);
   assert.equal(result.questions.length, 7);
   assert.equal(storedInputs.length, 7);
   assert.ok(storedInputs.every((question) => question.svg === "<svg></svg>"));
   assert.ok(storedInputs.every((question) => !("mermaidCode" in question)));
+});
+
+test("pre-assessment normal generation ignores avoidance texts", () => {
+  const input = normalizeQuestionGenerationInput({
+    numberOfQuestions: 1,
+    difficultyLevel: "Easy",
+    language: "English",
+    group: "pre assessment",
+    topicId: "topic-1",
+    avoidQuestionTexts: ["Must not enter the planned path"],
+  });
+
+  assert.deepEqual(input.avoidQuestionTexts, []);
 });

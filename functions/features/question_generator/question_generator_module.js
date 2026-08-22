@@ -9,7 +9,8 @@
  *     language: string,
  *     group: "assessment"|"pre assessment",
  *     topicId: string,
- *     additionalInstructions?: string
+ *     additionalInstructions?: string,
+ *     avoidQuestionTexts?: string[] // assessment only
  *   }
  *   Output: Promise<{prompts: string[], questions: Question[]}>.
  *

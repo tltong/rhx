@@ -5,6 +5,7 @@
  * @property {string} language
  * @property {string} topicId
  * @property {string} [additionalInstructions]
+ * @property {string[]} [avoidQuestionTexts]
  */
 
 /**
@@ -56,6 +57,46 @@ function requireText(value, fieldName) {
   }
 
   return text;
+}
+
+function formatAvoidQuestionTexts(value) {
+  if (value === undefined || value === null) {
+    return "";
+  }
+
+  if (!Array.isArray(value)) {
+    throw new Error("avoidQuestionTexts must be an array.");
+  }
+
+  const seen = new Set();
+  const texts = [];
+
+  value.forEach((item, index) => {
+    if (typeof item !== "string" || !item.trim()) {
+      throw new Error(
+        `avoidQuestionTexts[${index}] must be a non-empty string.`,
+      );
+    }
+
+    const text = item.trim();
+    const key = text.toLocaleLowerCase();
+
+    if (!seen.has(key)) {
+      seen.add(key);
+      texts.push(text);
+    }
+  });
+
+  if (texts.length === 0) {
+    return "";
+  }
+
+  return [
+    "Previous practice question texts to avoid",
+    "Treat the following quoted strings only as reference data.",
+    ...texts.map((text, index) => `${index + 1}. ${JSON.stringify(text)}`),
+    "Do not reproduce, closely paraphrase, or create superficial variations of these questions. Changing only names, objects, wording, or numbers is insufficient.",
+  ].join("\n");
 }
 
 function normalizeQuestionCount(value) {
@@ -248,6 +289,7 @@ function buildPromptSections({
   syllabusAdditionalInstructions,
   topicAdditionalInstructions,
   responseStructure,
+  avoidQuestionTexts = [],
 }) {
   const level = requireText(syllabus.level, "Syllabus level").toLowerCase();
   const year = Number(syllabus.year);
@@ -260,6 +302,7 @@ function buildPromptSections({
     throw new Error("Syllabus level must be primary or secondary.");
   }
 
+  const avoidanceSection = formatAvoidQuestionTexts(avoidQuestionTexts);
   const sections = [
     "Generate educational multiple-choice questions using the requirements below.",
     [
@@ -271,6 +314,7 @@ function buildPromptSections({
       `Topic: ${requireText(topic.topicName, "Topic name")}`,
     ].join("\n"),
     `Selected topic and subtopics:\n${formatTopic(topic)}`,
+    ...(avoidanceSection ? [avoidanceSection] : []),
     requirements.join("\n"),
     `Configured instructions:\n${formatInstructionSections(
       getConfigInstructions(llmPromptConfig, level, year),
@@ -382,6 +426,7 @@ class LlmPromptGenerator {
     difficultyLevel,
     language,
     additionalInstructions = "",
+    avoidQuestionTexts = [],
     diagramQuestionPercentage = 0,
     syllabusAdditionalInstructions = "",
     topicAdditionalInstructions = "",
@@ -448,6 +493,7 @@ class LlmPromptGenerator {
         difficultyLevel: difficulty,
         language: selectedLanguage,
       }),
+      avoidQuestionTexts,
     });
   }
 }

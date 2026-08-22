@@ -10,7 +10,8 @@
  *     language: string,
  *     group: "assessment"|"pre assessment",
  *     topicId: string,
- *     additionalInstructions?: string
+ *     additionalInstructions?: string,
+ *     avoidQuestionTexts?: string[] // assessment only
  *   }
  * )
  *   Output: Promise<{
@@ -28,7 +29,8 @@
  *     language: string,
  *     group: "assessment"|"pre assessment",
  *     topicId: string,
- *     additionalInstructions?: string
+ *     additionalInstructions?: string,
+ *     avoidQuestionTexts?: string[] // assessment only
  *   }
  * )
  *   Output: Promise<{
@@ -111,7 +113,7 @@ import {
   generateLlmPromptFromPlan,
   generateLlmPromptWithDiagram,
   loadLlmPromptGeneratorOptions
-} from "../llm_prompt_generator/llm_prompt_generator_module.js?v=20260822-question-variety";
+} from "../llm_prompt_generator/llm_prompt_generator_module.js?v=20260822-previous-practice-variety";
 import {
   getSyllabusById
 } from "../syllabus/syllabus_module.js?v=20260722-question-generator";
@@ -133,7 +135,7 @@ import {
 } from "../../utils/llm/deepseek_util.js?v=20260822-question-temperature";
 import {
   GenerateQuestions
-} from "./application/generate_questions.js?v=20260731-question-writer-routing";
+} from "./application/generate_questions.js?v=20260822-previous-practice-variety";
 import {
   GeneratePlannedQuestions
 } from "./application/generate_planned_questions.js?v=20260731-planned-question-batches";

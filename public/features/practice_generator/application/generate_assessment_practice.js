@@ -81,6 +81,19 @@ function isReferenceForTopic(
     && typeof questionReference?.hasDiagram === "boolean";
 }
 
+function getPracticeTimestamp(practice) {
+  const timestamp = new Date(practice?.dateGenerated ?? 0).getTime();
+
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function createEmptyAvoidQuestionTexts() {
+  return Object.freeze({
+    withoutDiagram: Object.freeze([]),
+    withDiagram: Object.freeze([])
+  });
+}
+
 export class GenerateAssessmentPractice {
   constructor({
     getStudentTopicLevel,
@@ -241,6 +254,93 @@ export class GenerateAssessmentPractice {
     )));
   }
 
+  async loadPreviousPracticeQuestionTexts({
+    studentId,
+    syllabusId,
+    topicId,
+    language
+  }) {
+    const completedPracticeIds = await this.listCompletedPracticeIds({
+      studentId
+    });
+
+    if (
+      !Array.isArray(completedPracticeIds)
+      || completedPracticeIds.length === 0
+    ) {
+      return createEmptyAvoidQuestionTexts();
+    }
+
+    const practices = await Promise.all(
+      completedPracticeIds.map(
+        (practiceId) => this.getPracticeById(practiceId)
+      )
+    );
+    const candidates = practices.flatMap((practice) => {
+      if (
+        !practice
+        || practice.type !== this.assessmentPracticeType
+        || !Array.isArray(practice.questions)
+      ) {
+        return [];
+      }
+
+      const references = practice.questions
+        .filter((questionReference) => isReferenceForTopic(
+          questionReference,
+          { syllabusId, topicId, language }
+        ))
+        .map((questionReference) => toQuestionReference(
+          questionReference,
+          "previous practice question"
+        ));
+
+      return references.length > 0 ? [{ practice, references }] : [];
+    });
+
+    if (candidates.length === 0) {
+      return createEmptyAvoidQuestionTexts();
+    }
+
+    candidates.sort((first, second) => (
+      getPracticeTimestamp(second.practice)
+      - getPracticeTimestamp(first.practice)
+      || String(second.practice.id ?? "").localeCompare(
+        String(first.practice.id ?? "")
+      )
+    ));
+
+    const previousQuestions = await this.getQuestionsForPractice(
+      candidates[0].references
+    );
+    const texts = {
+      withoutDiagram: [],
+      withDiagram: []
+    };
+    const seen = {
+      withoutDiagram: new Set(),
+      withDiagram: new Set()
+    };
+
+    previousQuestions.forEach((question) => {
+      const text = String(question?.questionText ?? "").trim();
+      const group = question?.hasDiagram === true
+        ? "withDiagram"
+        : "withoutDiagram";
+      const key = text.toLocaleLowerCase();
+
+      if (text && !seen[group].has(key)) {
+        seen[group].add(key);
+        texts[group].push(text);
+      }
+    });
+
+    return Object.freeze({
+      withoutDiagram: Object.freeze(texts.withoutDiagram),
+      withDiagram: Object.freeze(texts.withDiagram)
+    });
+  }
+
   async loadReusableQuestionSets({
     studentId,
     syllabusId,
@@ -297,7 +397,8 @@ export class GenerateAssessmentPractice {
     syllabusId,
     topicId,
     difficultyLevel,
-    language
+    language,
+    avoidQuestionTexts = []
   }) {
     const reusedQuestions = reusableQuestions.slice(0, numberOfQuestions);
     const numberToGenerate = numberOfQuestions - reusedQuestions.length;
@@ -325,7 +426,8 @@ export class GenerateAssessmentPractice {
           difficultyLevel,
           language,
           group: this.assessmentPracticeType,
-          topicId
+          topicId,
+          avoidQuestionTexts
         }
       ),
       "Question generation result"
@@ -445,12 +547,26 @@ export class GenerateAssessmentPractice {
     const numberToGenerate = allocation.totalQuestions
       - reusableQuestionSets.withoutDiagram.length
       - reusableQuestionSets.withDiagram.length;
-    const promptConfigId = numberToGenerate > 0
-      ? requireIdentifier(
-        (await this.getDefaultLlmPromptConfig())?.id,
+    let promptConfigId = null;
+    let avoidQuestionTexts = createEmptyAvoidQuestionTexts();
+
+    if (numberToGenerate > 0) {
+      const [promptConfig, previousQuestionTexts] = await Promise.all([
+        this.getDefaultLlmPromptConfig(),
+        this.loadPreviousPracticeQuestionTexts({
+          studentId,
+          syllabusId,
+          topicId,
+          language
+        })
+      ]);
+
+      promptConfigId = requireIdentifier(
+        promptConfig?.id,
         "Default LLM prompt configuration ID"
-      )
-      : null;
+      );
+      avoidQuestionTexts = previousQuestionTexts;
+    }
     const sharedGenerationInput = {
       promptConfigId,
       syllabusId,
@@ -462,12 +578,14 @@ export class GenerateAssessmentPractice {
       ...sharedGenerationInput,
       numberOfQuestions: allocation.withoutDiagram,
       reusableQuestions: reusableQuestionSets.withoutDiagram,
+      avoidQuestionTexts: avoidQuestionTexts.withoutDiagram,
       hasDiagram: false
     });
     const withDiagram = await this.generateQuestionSet({
       ...sharedGenerationInput,
       numberOfQuestions: allocation.withDiagram,
       reusableQuestions: reusableQuestionSets.withDiagram,
+      avoidQuestionTexts: avoidQuestionTexts.withDiagram,
       hasDiagram: true
     });
     const questions = Object.freeze([

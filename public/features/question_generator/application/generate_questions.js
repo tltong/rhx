@@ -3,7 +3,7 @@ import {
   mapLlmResponseToQuestionInputs,
   normalizeQuestionGenerationInput,
   resolveQuestionGenerationContext
-} from "../domain/question_generation.js?v=20260727-topic-diagram-config";
+} from "../domain/question_generation.js?v=20260822-previous-practice-variety";
 
 /**
  * @typedef {import("../domain/question_generation.js").QuestionGenerationInput}
@@ -83,6 +83,22 @@ function copyLlmOptions(llmOptions) {
   };
 }
 
+function appendGeneratedQuestionTexts(avoidQuestionTexts, questions) {
+  const seen = new Set(
+    avoidQuestionTexts.map((text) => text.toLocaleLowerCase())
+  );
+
+  questions.forEach((question) => {
+    const text = String(question?.questionText ?? "").trim();
+    const key = text.toLocaleLowerCase();
+
+    if (text && !seen.has(key)) {
+      seen.add(key);
+      avoidQuestionTexts.push(text);
+    }
+  });
+}
+
 export class GenerateQuestions {
   constructor({
     generatePrompt,
@@ -154,7 +170,8 @@ export class GenerateQuestions {
   }) {
     const batchInput = {
       ...generationInput,
-      numberOfQuestions: batchSize
+      numberOfQuestions: batchSize,
+      avoidQuestionTexts: [...generationInput.avoidQuestionTexts]
     };
     const prompt = await this.generatePrompt(
       llmPromptConfigId,
@@ -181,7 +198,16 @@ export class GenerateQuestions {
         questionOffset
       });
 
-      return this.renderQuestionDiagrams(questionInputs);
+      const renderedQuestions = await this.renderQuestionDiagrams(
+        questionInputs
+      );
+
+      appendGeneratedQuestionTexts(
+        generationInput.avoidQuestionTexts,
+        renderedQuestions
+      );
+
+      return renderedQuestions;
     } catch (error) {
       const shouldSplitImmediately = isMalformedGenerationError(error);
       const shouldRetrySameBatch = retryAttempt === 0
@@ -271,13 +297,19 @@ export class GenerateQuestions {
     );
     const prompts = [];
     const questionInputs = [];
+    const activeGenerationInput = {
+      ...context.generationInput,
+      avoidQuestionTexts: [
+        ...context.generationInput.avoidQuestionTexts
+      ]
+    };
 
     try {
       for (const batchSize of batchSizes) {
         const batchQuestionInputs = await this.generateBatch({
           llmPromptConfigId: normalizedConfigId,
           syllabusId: normalizedSyllabusId,
-          generationInput: context.generationInput,
+          generationInput: activeGenerationInput,
           topics: context.topics,
           batchSize,
           questionOffset: questionInputs.length,

@@ -3,7 +3,7 @@ import {
   generateLlmPromptWithDiagram,
   getTopicDiagramPercentage,
   loadLlmPromptGeneratorOptions
-} from "../../llm_prompt_generator_module.js?v=20260822-question-variety";
+} from "../../llm_prompt_generator_module.js?v=20260822-previous-practice-variety";
 
 /**
  * @typedef {import("../../domain/llm_prompt_generator.js").LlmPromptGenerationInput}
