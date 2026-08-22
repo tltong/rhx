@@ -1,12 +1,15 @@
 import {
-  PRACTICES_COLLECTION
-} from "../../../config/firebase/practice_schema.js";
+  PRACTICES_COLLECTION,
+  practiceTypes
+} from "../../../config/firebase/practice_schema.js?v=20260816-question-routing";
 import {
   createDocument,
   deleteDocument,
   readDocument
 } from "../../../utils/firebase/firebase_ops.js";
-import { Practice } from "../domain/practice.js";
+import {
+  Practice
+} from "../domain/practice.js?v=20260816-question-routing";
 import {
   PracticeRepository
 } from "../domain/practice_repository.js";
@@ -15,11 +18,20 @@ function toPracticeRecord(practice) {
   return {
     type: practice.type,
     dateGenerated: practice.dateGenerated,
-    questions: practice.questions.map((question) => ({
-      syllabusId: question.syllabusId,
-      topicId: question.topicId,
-      questionId: question.questionId
-    }))
+    questions: practice.questions.map((question) => {
+      const reference = {
+        syllabusId: question.syllabusId,
+        topicId: question.topicId,
+        questionId: question.questionId
+      };
+
+      if (practice.type === practiceTypes.ASSESSMENT) {
+        reference.language = question.language;
+        reference.hasDiagram = question.hasDiagram;
+      }
+
+      return reference;
+    })
   };
 }
 

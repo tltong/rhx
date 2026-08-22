@@ -1,6 +1,6 @@
 import {
   practiceTypes
-} from "../../../config/firebase/practice_schema.js";
+} from "../../../config/firebase/practice_schema.js?v=20260816-question-routing";
 
 const PRACTICE_TYPE_VALUES = new Set(Object.values(practiceTypes));
 
@@ -42,10 +42,20 @@ function normalizeDate(value) {
   return date;
 }
 
+function normalizeHasDiagram(value) {
+  if (typeof value !== "boolean") {
+    throw new Error("hasDiagram must be a boolean.");
+  }
+
+  return value;
+}
+
 /**
  * @typedef {Object} PracticeQuestionInput
  * @property {string} syllabusId
  * @property {string} topicId
+ * @property {string} [language] Required for assessment practices.
+ * @property {boolean} [hasDiagram] Required for assessment practices.
  * @property {string} questionId
  */
 
@@ -54,10 +64,20 @@ export class PracticeQuestionReference {
   constructor({
     syllabusId,
     topicId,
+    language,
+    hasDiagram,
     questionId
-  } = {}) {
+  } = {}, practiceType) {
+    const normalizedPracticeType = normalizePracticeType(practiceType);
+
     this.syllabusId = requireIdentifier(syllabusId, "syllabusId");
     this.topicId = requireIdentifier(topicId, "topicId");
+
+    if (normalizedPracticeType === practiceTypes.ASSESSMENT) {
+      this.language = requireIdentifier(language, "language");
+      this.hasDiagram = normalizeHasDiagram(hasDiagram);
+    }
+
     this.questionId = requireIdentifier(questionId, "questionId");
 
     Object.freeze(this);
@@ -81,19 +101,26 @@ export class Practice {
       throw new Error("At least one question is required.");
     }
 
+    const normalizedType = normalizePracticeType(type);
     const normalizedQuestions = questions.map((question) => (
-      question instanceof PracticeQuestionReference
-        ? question
-        : new PracticeQuestionReference(question)
+      new PracticeQuestionReference(question, normalizedType)
     ));
     const questionKeys = new Set();
 
     normalizedQuestions.forEach((question) => {
-      const key = [
+      const keyParts = [
         question.syllabusId,
-        question.topicId,
-        question.questionId
-      ].join("/");
+        question.topicId
+      ];
+
+      if (normalizedType === practiceTypes.ASSESSMENT) {
+        keyParts.push(
+          question.language,
+          question.hasDiagram ? "withDiagram" : "withoutDiagram"
+        );
+      }
+
+      const key = [...keyParts, question.questionId].join("/");
 
       if (questionKeys.has(key)) {
         throw new Error(`Duplicate question reference: ${key}.`);
@@ -103,7 +130,7 @@ export class Practice {
     });
 
     this.id = optionalIdentifier(id);
-    this.type = normalizePracticeType(type);
+    this.type = normalizedType;
     this.questions = Object.freeze(normalizedQuestions);
     this.dateGenerated = normalizeDate(dateGenerated);
   }

@@ -35,6 +35,7 @@ function toSyllabus(data, topics) {
   return new Syllabus({
     id: data.id,
     assessmentFrameworkId: data.assessmentFrameworkId,
+    active: data.active === true,
     country: data.country,
     languages: data.languages || [],
     level: data.level,

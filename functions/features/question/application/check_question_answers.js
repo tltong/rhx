@@ -1,16 +1,7 @@
 const {
+  normalizeQuestionReference,
   normalizeQuestionOption,
 } = require("../domain/question");
-
-function requireIdentifier(value, fieldName) {
-  const identifier = String(value ?? "").trim();
-
-  if (!identifier) {
-    throw new Error(`${fieldName} is required.`);
-  }
-
-  return identifier;
-}
 
 function normalizeAnswer(answer, index) {
   if (!answer || typeof answer !== "object" || Array.isArray(answer)) {
@@ -18,18 +9,7 @@ function normalizeAnswer(answer, index) {
   }
 
   return {
-    syllabusId: requireIdentifier(
-      answer.syllabusId,
-      `answers[${index}].syllabusId`,
-    ),
-    topicId: requireIdentifier(
-      answer.topicId,
-      `answers[${index}].topicId`,
-    ),
-    questionId: requireIdentifier(
-      answer.questionId,
-      `answers[${index}].questionId`,
-    ),
+    ...normalizeQuestionReference(answer, `answers[${index}]`),
     selectedOption: normalizeQuestionOption(
       answer.selectedOption,
       `answers[${index}].selectedOption`,
@@ -41,6 +21,8 @@ function questionKey(answer) {
   return [
     answer.syllabusId,
     answer.topicId,
+    answer.language,
+    answer.hasDiagram ? "withDiagram" : "withoutDiagram",
     answer.questionId,
   ].join("/");
 }
@@ -86,6 +68,8 @@ class CheckQuestionAnswers {
       return {
         syllabusId: answer.syllabusId,
         topicId: answer.topicId,
+        language: answer.language,
+        hasDiagram: answer.hasDiagram,
         questionId: answer.questionId,
         selectedOption: answer.selectedOption,
         correctAnswer: question.correctAnswer,

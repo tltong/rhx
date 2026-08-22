@@ -24,6 +24,63 @@ function requireObject(value, fieldName) {
   return value;
 }
 
+function normalizeLanguage(value) {
+  return requireIdentifier(value, "language").toLocaleLowerCase();
+}
+
+function requireBoolean(value, fieldName) {
+  if (typeof value !== "boolean") {
+    throw new Error(`${fieldName} must be a boolean.`);
+  }
+
+  return value;
+}
+
+function toQuestionReference(question, fieldName = "question") {
+  const source = requireObject(question, fieldName);
+
+  return Object.freeze({
+    syllabusId: requireIdentifier(
+      source.syllabusId,
+      `${fieldName}.syllabusId`
+    ),
+    topicId: requireIdentifier(source.topicId, `${fieldName}.topicId`),
+    language: requireIdentifier(source.language, `${fieldName}.language`),
+    hasDiagram: requireBoolean(
+      source.hasDiagram,
+      `${fieldName}.hasDiagram`
+    ),
+    questionId: requireIdentifier(
+      source.questionId ?? source.id,
+      `${fieldName}.questionId`
+    )
+  });
+}
+
+function getQuestionReferenceKey(question, fieldName = "question") {
+  const reference = toQuestionReference(question, fieldName);
+
+  return JSON.stringify([
+    reference.syllabusId,
+    reference.topicId,
+    normalizeLanguage(reference.language),
+    reference.hasDiagram,
+    reference.questionId
+  ]);
+}
+
+function isReferenceForTopic(
+  questionReference,
+  { syllabusId, topicId, language }
+) {
+  return questionReference?.syllabusId === syllabusId
+    && questionReference?.topicId === topicId
+    && normalizeLanguage(questionReference?.language) === normalizeLanguage(
+      language
+    )
+    && typeof questionReference?.hasDiagram === "boolean";
+}
+
 export class GenerateAssessmentPractice {
   constructor({
     getStudentTopicLevel,
@@ -33,8 +90,16 @@ export class GenerateAssessmentPractice {
     getTopicDiagramPercentage,
     getDefaultLlmPromptConfig,
     allocateAssessmentQuestions,
+    listQuestionsByTopic,
+    getQuestionsForPractice,
+    listAssignedPracticeIds,
+    listCompletedPracticeIds,
+    getPracticeById,
     generateQuestions,
     generateQuestionsWithDiagram,
+    createPractice,
+    deletePractice,
+    assignPracticeToStudent,
     assessmentPracticeType,
     assessmentFrameworkEndLevelId
   } = {}) {
@@ -66,6 +131,26 @@ export class GenerateAssessmentPractice {
       allocateAssessmentQuestions,
       "allocateAssessmentQuestions"
     );
+    this.listQuestionsByTopic = requireFunction(
+      listQuestionsByTopic,
+      "listQuestionsByTopic"
+    );
+    this.getQuestionsForPractice = requireFunction(
+      getQuestionsForPractice,
+      "getQuestionsForPractice"
+    );
+    this.listAssignedPracticeIds = requireFunction(
+      listAssignedPracticeIds,
+      "listAssignedPracticeIds"
+    );
+    this.listCompletedPracticeIds = requireFunction(
+      listCompletedPracticeIds,
+      "listCompletedPracticeIds"
+    );
+    this.getPracticeById = requireFunction(
+      getPracticeById,
+      "getPracticeById"
+    );
     this.generateQuestions = requireFunction(
       generateQuestions,
       "generateQuestions"
@@ -73,6 +158,12 @@ export class GenerateAssessmentPractice {
     this.generateQuestionsWithDiagram = requireFunction(
       generateQuestionsWithDiagram,
       "generateQuestionsWithDiagram"
+    );
+    this.createPractice = requireFunction(createPractice, "createPractice");
+    this.deletePractice = requireFunction(deletePractice, "deletePractice");
+    this.assignPracticeToStudent = requireFunction(
+      assignPracticeToStudent,
+      "assignPracticeToStudent"
     );
     this.assessmentPracticeType = requireIdentifier(
       assessmentPracticeType,
@@ -84,8 +175,123 @@ export class GenerateAssessmentPractice {
     );
   }
 
+  async loadUsedQuestionKeys({
+    studentId,
+    syllabusId,
+    topicId,
+    language
+  }) {
+    const [assignedPracticeIds, completedPracticeIds] = await Promise.all([
+      this.listAssignedPracticeIds({ studentId }),
+      this.listCompletedPracticeIds({ studentId })
+    ]);
+    const practiceIds = [...new Set([
+      ...(Array.isArray(assignedPracticeIds) ? assignedPracticeIds : []),
+      ...(Array.isArray(completedPracticeIds) ? completedPracticeIds : [])
+    ])];
+    const practices = await Promise.all(
+      practiceIds.map((practiceId) => this.getPracticeById(practiceId))
+    );
+    const questionReferences = [];
+    const referenceKeys = new Set();
+
+    practices.forEach((practice) => {
+      if (
+        !practice
+        || practice.type !== this.assessmentPracticeType
+        || !Array.isArray(practice.questions)
+      ) {
+        return;
+      }
+
+      practice.questions.forEach((questionReference) => {
+        if (!isReferenceForTopic(questionReference, {
+          syllabusId,
+          topicId,
+          language
+        })) {
+          return;
+        }
+
+        const key = getQuestionReferenceKey(
+          questionReference,
+          "practice question"
+        );
+
+        if (!referenceKeys.has(key)) {
+          referenceKeys.add(key);
+          questionReferences.push(toQuestionReference(
+            questionReference,
+            "practice question"
+          ));
+        }
+      });
+    });
+
+    if (questionReferences.length === 0) {
+      return new Set();
+    }
+
+    const usedQuestions = await this.getQuestionsForPractice(
+      questionReferences
+    );
+
+    return new Set(usedQuestions.map((question, index) => (
+      getQuestionReferenceKey(question, `used question ${index + 1}`)
+    )));
+  }
+
+  async loadReusableQuestionSets({
+    studentId,
+    syllabusId,
+    topicId,
+    language,
+    difficultyLevel,
+    allocation
+  }) {
+    const listQuestions = (hasDiagram, numberOfQuestions) => (
+      numberOfQuestions === 0
+        ? Promise.resolve([])
+        : this.listQuestionsByTopic(syllabusId, topicId, {
+          language,
+          hasDiagram,
+          difficulty: difficultyLevel,
+          group: this.assessmentPracticeType
+        })
+    );
+    const [usedQuestionKeys, withoutDiagram, withDiagram] = await Promise.all([
+      this.loadUsedQuestionKeys({
+        studentId,
+        syllabusId,
+        topicId,
+        language
+      }),
+      listQuestions(false, allocation.withoutDiagram),
+      listQuestions(true, allocation.withDiagram)
+    ]);
+    const selectUnused = (questions, numberOfQuestions) => (
+      questions
+        .filter((question, index) => !usedQuestionKeys.has(
+          getQuestionReferenceKey(question, `candidate question ${index + 1}`)
+        ))
+        .slice(0, numberOfQuestions)
+    );
+
+    return Object.freeze({
+      withoutDiagram: Object.freeze(selectUnused(
+        withoutDiagram,
+        allocation.withoutDiagram
+      )),
+      withDiagram: Object.freeze(selectUnused(
+        withDiagram,
+        allocation.withDiagram
+      ))
+    });
+  }
+
   async generateQuestionSet({
     numberOfQuestions,
+    reusableQuestions = [],
     hasDiagram,
     promptConfigId,
     syllabusId,
@@ -93,12 +299,17 @@ export class GenerateAssessmentPractice {
     difficultyLevel,
     language
   }) {
-    if (numberOfQuestions === 0) {
+    const reusedQuestions = reusableQuestions.slice(0, numberOfQuestions);
+    const numberToGenerate = numberOfQuestions - reusedQuestions.length;
+
+    if (numberToGenerate === 0) {
       return Object.freeze({
         hasDiagram,
-        numberOfQuestions: 0,
+        numberOfQuestions,
+        reusedQuestionCount: reusedQuestions.length,
+        generatedQuestionCount: 0,
         prompts: Object.freeze([]),
-        questions: Object.freeze([])
+        questions: Object.freeze([...reusedQuestions])
       });
     }
 
@@ -110,7 +321,7 @@ export class GenerateAssessmentPractice {
         promptConfigId,
         syllabusId,
         {
-          numberOfQuestions,
+          numberOfQuestions: numberToGenerate,
           difficultyLevel,
           language,
           group: this.assessmentPracticeType,
@@ -122,19 +333,52 @@ export class GenerateAssessmentPractice {
     const prompts = Array.isArray(result.prompts) ? result.prompts : [];
     const questions = Array.isArray(result.questions) ? result.questions : [];
 
-    if (questions.length !== numberOfQuestions) {
+    if (questions.length !== numberToGenerate) {
       throw new Error(
         `Question generator returned ${questions.length} questions; `
-        + `${numberOfQuestions} were requested.`
+        + `${numberToGenerate} were requested.`
       );
     }
 
     return Object.freeze({
       hasDiagram,
       numberOfQuestions,
+      reusedQuestionCount: reusedQuestions.length,
+      generatedQuestionCount: questions.length,
       prompts: Object.freeze([...prompts]),
-      questions: Object.freeze([...questions])
+      questions: Object.freeze([...reusedQuestions, ...questions])
     });
+  }
+
+  async createAndAssignPractice(studentId, questions) {
+    const practice = await this.createPractice({
+      type: this.assessmentPracticeType,
+      questions: questions.map((question, index) => (
+        toQuestionReference(question, `question ${index + 1}`)
+      ))
+    });
+
+    try {
+      const assignment = await this.assignPracticeToStudent({
+        studentId,
+        practiceId: practice.id
+      });
+
+      return Object.freeze({ practice, assignment });
+    } catch (error) {
+      try {
+        await this.deletePractice(practice.id);
+      } catch (cleanupError) {
+        const assignmentError = error instanceof Error
+          ? error
+          : new Error(String(error));
+
+        assignmentError.practiceCleanupError = cleanupError;
+        throw assignmentError;
+      }
+
+      throw error;
+    }
   }
 
   async execute(input = {}) {
@@ -145,14 +389,12 @@ export class GenerateAssessmentPractice {
       storedLevelId,
       storedAssessmentFrameworkId,
       storedLanguage,
-      diagramPercentage,
-      promptConfig
+      diagramPercentage
     ] = await Promise.all([
       this.getStudentTopicLevel({ studentId, syllabusId, topicId }),
       this.getSyllabusAssessmentFrameworkId(syllabusId),
       this.getStudentSyllabusSubscriptionLanguage(studentId, syllabusId),
-      this.getTopicDiagramPercentage(syllabusId, topicId),
-      this.getDefaultLlmPromptConfig()
+      this.getTopicDiagramPercentage(syllabusId, topicId)
     ]);
     const levelId = requireIdentifier(
       storedLevelId,
@@ -173,10 +415,6 @@ export class GenerateAssessmentPractice {
       storedLanguage,
       "Syllabus subscription language"
     );
-    const promptConfigId = requireIdentifier(
-      promptConfig?.id,
-      "Default LLM prompt configuration ID"
-    );
     const levelCriteria = requireObject(
       await this.getAssessmentLevelCriteria({
         assessmentFrameworkId,
@@ -196,6 +434,23 @@ export class GenerateAssessmentPractice {
       numberOfQuestions: criteria.questionsPerPractice,
       diagramPercentage
     });
+    const reusableQuestionSets = await this.loadReusableQuestionSets({
+      studentId,
+      syllabusId,
+      topicId,
+      language,
+      difficultyLevel,
+      allocation
+    });
+    const numberToGenerate = allocation.totalQuestions
+      - reusableQuestionSets.withoutDiagram.length
+      - reusableQuestionSets.withDiagram.length;
+    const promptConfigId = numberToGenerate > 0
+      ? requireIdentifier(
+        (await this.getDefaultLlmPromptConfig())?.id,
+        "Default LLM prompt configuration ID"
+      )
+      : null;
     const sharedGenerationInput = {
       promptConfigId,
       syllabusId,
@@ -206,13 +461,23 @@ export class GenerateAssessmentPractice {
     const withoutDiagram = await this.generateQuestionSet({
       ...sharedGenerationInput,
       numberOfQuestions: allocation.withoutDiagram,
+      reusableQuestions: reusableQuestionSets.withoutDiagram,
       hasDiagram: false
     });
     const withDiagram = await this.generateQuestionSet({
       ...sharedGenerationInput,
       numberOfQuestions: allocation.withDiagram,
+      reusableQuestions: reusableQuestionSets.withDiagram,
       hasDiagram: true
     });
+    const questions = Object.freeze([
+      ...withoutDiagram.questions,
+      ...withDiagram.questions
+    ]);
+    const {
+      practice,
+      assignment
+    } = await this.createAndAssignPractice(studentId, questions);
 
     return Object.freeze({
       studentId,
@@ -224,6 +489,8 @@ export class GenerateAssessmentPractice {
       difficultyLevel,
       levelCriteria,
       allocation,
+      practice,
+      assignment,
       questionSets: Object.freeze({
         withoutDiagram,
         withDiagram
@@ -232,10 +499,7 @@ export class GenerateAssessmentPractice {
         ...withoutDiagram.prompts,
         ...withDiagram.prompts
       ]),
-      questions: Object.freeze([
-        ...withoutDiagram.questions,
-        ...withDiagram.questions
-      ])
+      questions
     });
   }
 }

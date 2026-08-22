@@ -8,9 +8,7 @@ class WriteQuestion {
   async execute(questionInput) {
     const question = new Question(questionInput);
 
-    await this.questionRepository.save(question);
-
-    return question;
+    return this.questionRepository.save(question);
   }
 }
 

@@ -10,6 +10,12 @@ const {
 const {
   GetAssignedPractice,
 } = require("./application/get_assigned_practice");
+const {
+  ListAssignedPracticeIds,
+} = require("./application/list_assigned_practice_ids");
+const {
+  ListCompletedPracticeIds,
+} = require("./application/list_completed_practice_ids");
 
 const {
   RemoveAssignedPractice,
@@ -34,6 +40,12 @@ const completeAssignedPracticeUseCase = new CompleteAssignedPractice(
 const getAssignedPracticeUseCase = new GetAssignedPractice(
   studentPracticeRepository,
 );
+const listAssignedPracticeIdsUseCase = new ListAssignedPracticeIds(
+  studentPracticeRepository,
+);
+const listCompletedPracticeIdsUseCase = new ListCompletedPracticeIds(
+  studentPracticeRepository,
+);
 
 const removeAssignedPracticeUseCase = new RemoveAssignedPractice(
   studentPracticeRepository,
@@ -55,6 +67,21 @@ async function getAssignedPractice(input) {
   return getAssignedPracticeUseCase.execute(input);
 }
 
+/**
+ * @param {{studentId: string}} input
+ * @returns {Promise<string[]>}
+ */
+async function listAssignedPracticeIds(input) {
+  return listAssignedPracticeIdsUseCase.execute(input);
+}
+
+/**
+ * @param {{studentId: string}} input
+ * @returns {Promise<string[]>}
+ */
+async function listCompletedPracticeIds(input) {
+  return listCompletedPracticeIdsUseCase.execute(input);
+}
 
 async function removeAssignedPractice(input) {
   return removeAssignedPracticeUseCase.execute(input);
@@ -64,5 +91,7 @@ module.exports = {
   assignPracticeToStudent,
   completeAssignedPractice,
   getAssignedPractice,
+  listAssignedPracticeIds,
+  listCompletedPracticeIds,
   removeAssignedPractice,
 };

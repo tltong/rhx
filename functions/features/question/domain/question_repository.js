@@ -1,10 +1,18 @@
 class QuestionRepository {
-  async getById(syllabusId, topicId, questionId) {
+  async getById(questionReference) {
     throw new Error("getById() is not implemented.");
   }
 
   async getManyById(questionReferences) {
     throw new Error("getManyById() is not implemented.");
+  }
+
+  async countByGroup(questionGroup) {
+    throw new Error("countByGroup() is not implemented.");
+  }
+
+  async listIdsByGroup(questionGroup) {
+    throw new Error("listIdsByGroup() is not implemented.");
   }
 
   async listByTopic(syllabusId, topicId, options = {}) {
@@ -19,7 +27,7 @@ class QuestionRepository {
     throw new Error("saveMany() is not implemented.");
   }
 
-  async delete(syllabusId, topicId, questionId) {
+  async delete(questionReference) {
     throw new Error("delete() is not implemented.");
   }
 }

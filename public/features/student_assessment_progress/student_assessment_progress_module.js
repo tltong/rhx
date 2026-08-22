@@ -34,7 +34,7 @@ import {
 import {
   getPracticeById,
   practiceTypes
-} from "../practice/practice_module.js?v=20260731-practice-replacement";
+} from "../practice/practice_module.js?v=20260816-practice-question-ids";
 import {
   getPracticeResult
 } from "../practice_result/practice_result_module.js?v=20260813-exact-practice-progress";

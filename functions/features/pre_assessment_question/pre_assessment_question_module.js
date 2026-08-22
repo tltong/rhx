@@ -8,6 +8,9 @@ const {
   GetPreAssessmentQuestionsForPractice,
 } = require("./application/get_pre_assessment_questions_for_practice");
 const {
+  WritePreAssessmentQuestions,
+} = require("./application/write_pre_assessment_questions");
+const {
   FirestorePreAssessmentQuestionRepository,
 } = require(
   "./infrastructure/firestore_pre_assessment_question_repository",
@@ -23,6 +26,8 @@ const getPreAssessmentQuestionsForPracticeUseCase =
   new GetPreAssessmentQuestionsForPractice(
     preAssessmentQuestionRepository,
   );
+const writePreAssessmentQuestionsUseCase =
+  new WritePreAssessmentQuestions(preAssessmentQuestionRepository);
 
 async function checkPreAssessmentQuestionAnswers(input) {
   return checkPreAssessmentQuestionAnswersUseCase.execute(input);
@@ -42,8 +47,13 @@ async function getPreAssessmentQuestionsForPractice(questionReferences) {
   );
 }
 
+async function writePreAssessmentQuestions(questionInputs) {
+  return writePreAssessmentQuestionsUseCase.execute(questionInputs);
+}
+
 module.exports = {
   checkPreAssessmentQuestionAnswers,
   getPreAssessmentQuestion,
   getPreAssessmentQuestionsForPractice,
+  writePreAssessmentQuestions,
 };

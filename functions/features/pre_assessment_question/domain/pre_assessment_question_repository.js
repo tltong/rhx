@@ -6,6 +6,10 @@ class PreAssessmentQuestionRepository {
   async getManyById(questionReferences) {
     throw new Error("getManyById() is not implemented.");
   }
+
+  async saveMany(questions) {
+    throw new Error("saveMany() is not implemented.");
+  }
 }
 
 module.exports = {

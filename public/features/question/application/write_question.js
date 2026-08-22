@@ -1,6 +1,6 @@
 import {
   Question
-} from "../domain/question.js?v=20260727-question-group";
+} from "../domain/question.js?v=20260817-question-writes";
 
 export class WriteQuestion {
   constructor(questionRepository) {
@@ -10,8 +10,6 @@ export class WriteQuestion {
   async execute(questionInput) {
     const question = new Question(questionInput);
 
-    await this.questionRepository.save(question);
-
-    return question;
+    return this.questionRepository.save(question);
   }
 }

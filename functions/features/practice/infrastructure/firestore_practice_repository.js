@@ -1,5 +1,6 @@
 const {
   PRACTICES_COLLECTION,
+  practiceTypes,
 } = require("../../../schema/practice_schema");
 const firebaseOps = require("../../../utils/firebase/firebase_ops");
 const { Practice } = require("../domain/practice");
@@ -11,11 +12,20 @@ function toPracticeRecord(practice) {
   return {
     type: practice.type,
     dateGenerated: practice.dateGenerated,
-    questions: practice.questions.map((question) => ({
-      syllabusId: question.syllabusId,
-      topicId: question.topicId,
-      questionId: question.questionId,
-    })),
+    questions: practice.questions.map((question) => {
+      const reference = {
+        syllabusId: question.syllabusId,
+        topicId: question.topicId,
+        questionId: question.questionId,
+      };
+
+      if (practice.type === practiceTypes.ASSESSMENT) {
+        reference.language = question.language;
+        reference.hasDiagram = question.hasDiagram;
+      }
+
+      return reference;
+    }),
   };
 }
 
@@ -53,10 +63,12 @@ function toPractice(data) {
 class FirestorePracticeRepository extends PracticeRepository {
   constructor({
     createDocument = firebaseOps.createDocument,
+    deleteDocument = firebaseOps.deleteDocument,
     readDocument = firebaseOps.readDocument,
   } = {}) {
     super();
     this.createDocument = createDocument;
+    this.deleteDocument = deleteDocument;
     this.readDocument = readDocument;
   }
 
@@ -79,6 +91,12 @@ class FirestorePracticeRepository extends PracticeRepository {
     normalizedPractice.id = result.id;
 
     return normalizedPractice;
+  }
+
+  async delete(practiceId) {
+    const id = requireIdentifier(practiceId, "practiceId");
+
+    return this.deleteDocument(PRACTICES_COLLECTION, id);
   }
 }
 

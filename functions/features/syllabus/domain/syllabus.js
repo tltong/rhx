@@ -147,6 +147,7 @@ class Syllabus {
   constructor({
     id,
     assessmentFrameworkId = null,
+    active = false,
     country,
     languages = [],
     level,
@@ -160,6 +161,7 @@ class Syllabus {
 
     this.id = requireNonEmptyString(id, "syllabus id");
     this.assessmentFrameworkId = optionalString(assessmentFrameworkId);
+    this.active = active === true;
     this.country = requireNonEmptyString(country, "country");
     this.languages = normalizeLanguages(languages);
     this.level = requireNonEmptyString(level, "level");

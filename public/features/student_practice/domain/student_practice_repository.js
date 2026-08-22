@@ -15,6 +15,14 @@ export class StudentPracticeRepository {
     throw new Error("listAssigned() is not implemented.");
   }
 
+  async listAssignedIds(studentId) {
+    throw new Error("listAssignedIds() is not implemented.");
+  }
+
+  async listCompletedIds(studentId) {
+    throw new Error("listCompletedIds() is not implemented.");
+  }
+
   async remove(assignment) {
     throw new Error("remove() is not implemented.");
   }

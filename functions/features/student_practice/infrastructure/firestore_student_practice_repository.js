@@ -40,6 +40,12 @@ function completedPracticesCollectionPath(studentId) {
   ].join("/");
 }
 
+function sortPracticeIds(practiceIds) {
+  return [...practiceIds].sort((first, second) =>
+    first.localeCompare(second),
+  );
+}
+
 function toCompletionRecord(completion) {
   return {
     dateCompleted: completion.dateCompleted,
@@ -56,6 +62,7 @@ class FirestoreStudentPracticeRepository extends StudentPracticeRepository {
     deleteDocument = firebaseOps.deleteDocument,
     getDocumentRef = firebaseOps.getDocumentRef,
     getFirestoreDb = firebaseOps.getFirestoreDb,
+    readCollectionIds = firebaseOps.readCollectionIds,
     readDocument = firebaseOps.readDocument,
     writeDocument = firebaseOps.writeDocument,
   } = {}) {
@@ -63,6 +70,7 @@ class FirestoreStudentPracticeRepository extends StudentPracticeRepository {
     this.deleteDocument = deleteDocument;
     this.getDocumentRef = getDocumentRef;
     this.getFirestoreDb = getFirestoreDb;
+    this.readCollectionIds = readCollectionIds;
     this.readDocument = readDocument;
     this.writeDocument = writeDocument;
   }
@@ -137,6 +145,22 @@ class FirestoreStudentPracticeRepository extends StudentPracticeRepository {
     );
 
     return data ? normalizedAssignment : null;
+  }
+
+  async listAssignedIds(studentId) {
+    const normalizedStudentId = requireIdentifier(studentId, "studentId");
+
+    return sortPracticeIds(await this.readCollectionIds(
+      assignedPracticesCollectionPath(normalizedStudentId),
+    ));
+  }
+
+  async listCompletedIds(studentId) {
+    const normalizedStudentId = requireIdentifier(studentId, "studentId");
+
+    return sortPracticeIds(await this.readCollectionIds(
+      completedPracticesCollectionPath(normalizedStudentId),
+    ));
   }
 
   async remove(assignment) {

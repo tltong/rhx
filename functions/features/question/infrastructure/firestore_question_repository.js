@@ -1,12 +1,19 @@
 const {
   QUESTIONS_COLLECTION,
   QUESTION_TOPICS_SUBCOLLECTION,
+  QUESTION_LANGUAGES_SUBCOLLECTION,
+  QUESTION_DIAGRAM_GROUPS_SUBCOLLECTION,
+  questionDiagramGroups,
   QUESTION_ITEMS_SUBCOLLECTION,
 } = require("../../../schema/question_schema");
 const firebaseOps = require("../../../utils/firebase/firebase_ops");
 const {
   Question,
   normalizeQuestionGroup,
+  normalizeQuestionGroupRoute,
+  normalizeQuestionHasDiagram,
+  normalizeQuestionReference,
+  toQuestionLanguageDocumentId,
 } = require("../domain/question");
 const {
   QuestionRepository,
@@ -30,10 +37,37 @@ function getTopicsCollectionPath(syllabusId) {
   ].join("/");
 }
 
-function getQuestionItemsCollectionPath(syllabusId, topicId) {
+function getLanguagesCollectionPath(syllabusId, topicId) {
   return [
     getTopicsCollectionPath(syllabusId),
     topicId,
+    QUESTION_LANGUAGES_SUBCOLLECTION,
+  ].join("/");
+}
+
+function getDiagramGroupsCollectionPath(syllabusId, topicId, language) {
+  return [
+    getLanguagesCollectionPath(syllabusId, topicId),
+    toQuestionLanguageDocumentId(language),
+    QUESTION_DIAGRAM_GROUPS_SUBCOLLECTION,
+  ].join("/");
+}
+
+function getDiagramGroupDocumentId(hasDiagram) {
+  return normalizeQuestionHasDiagram(hasDiagram)
+    ? questionDiagramGroups.WITH_DIAGRAM
+    : questionDiagramGroups.WITHOUT_DIAGRAM;
+}
+
+function getQuestionItemsCollectionPath(
+  syllabusId,
+  topicId,
+  language,
+  hasDiagram,
+) {
+  return [
+    getDiagramGroupsCollectionPath(syllabusId, topicId, language),
+    getDiagramGroupDocumentId(hasDiagram),
     QUESTION_ITEMS_SUBCOLLECTION,
   ].join("/");
 }
@@ -56,19 +90,33 @@ function normalizeListOptions(options = {}) {
   const group = options.group === undefined || options.group === null
     ? null
     : normalizeQuestionGroup(options.group);
+  const difficulty = options.difficulty === undefined
+      || options.difficulty === null
+    ? null
+    : requireIdentifier(options.difficulty, "options.difficulty")
+      .toLocaleLowerCase();
 
-  return { group, limit };
+  return {
+    difficulty,
+    group,
+    limit,
+    language: requireIdentifier(options.language, "options.language"),
+    hasDiagram: normalizeQuestionHasDiagram(
+      options.hasDiagram,
+      "options.hasDiagram",
+    ),
+  };
 }
 
-function toQuestion(data, syllabusId, topicId) {
+function toQuestion(data, questionRoute) {
   if (!data) {
     return null;
   }
 
-  return new Question({
+  const question = new Question({
     id: data.id,
-    syllabusId,
-    topicId,
+    syllabusId: questionRoute.syllabusId,
+    topicId: questionRoute.topicId,
     questionText: data.questionText,
     options: data.options,
     correctAnswer: data.correctAnswer,
@@ -80,6 +128,18 @@ function toQuestion(data, syllabusId, topicId) {
     language: data.language,
     specialInstruction: data.specialInstruction || "",
   });
+
+  if (
+    toQuestionLanguageDocumentId(question.language)
+      !== toQuestionLanguageDocumentId(questionRoute.language)
+    || question.hasDiagram !== questionRoute.hasDiagram
+  ) {
+    throw new Error(
+      `Question ${question.id} does not match its language/diagram path.`,
+    );
+  }
+
+  return question;
 }
 
 function normalizeQuestion(question) {
@@ -108,61 +168,85 @@ function toQuestionRecord(question) {
 class FirestoreQuestionRepository extends QuestionRepository {
   constructor({
     createDocument = firebaseOps.createDocument,
+    countCollection = firebaseOps.countCollection,
     deleteDocument = firebaseOps.deleteDocument,
     readCollection = firebaseOps.readCollection,
+    readCollectionIds = firebaseOps.readCollectionIds,
     readDocument = firebaseOps.readDocument,
     readDocuments = firebaseOps.readDocuments,
     writeDocument = firebaseOps.writeDocument,
   } = {}) {
     super();
     this.createDocument = createDocument;
+    this.countCollection = countCollection;
     this.deleteDocument = deleteDocument;
     this.readCollection = readCollection;
+    this.readCollectionIds = readCollectionIds;
     this.readDocument = readDocument;
     this.readDocuments = readDocuments;
     this.writeDocument = writeDocument;
   }
 
-  async ensureParentDocuments(syllabusId, topicIds) {
-    await this.writeDocument(
-      QUESTIONS_COLLECTION,
-      syllabusId,
-      {},
-      { merge: true },
-    );
+  async ensureParentDocuments({
+    syllabusId,
+    topicId,
+    language,
+    hasDiagram,
+  }) {
     const topicsCollectionPath = getTopicsCollectionPath(syllabusId);
-
-    await Promise.all(
-      [...topicIds].map((topicId) =>
-        this.writeDocument(
-          topicsCollectionPath,
-          topicId,
-          {},
-          { merge: true },
-        ),
-      ),
+    const languagesCollectionPath = getLanguagesCollectionPath(
+      syllabusId,
+      topicId,
     );
+    const diagramGroupsCollectionPath = getDiagramGroupsCollectionPath(
+      syllabusId,
+      topicId,
+      language,
+    );
+
+    await Promise.all([
+      this.writeDocument(
+        QUESTIONS_COLLECTION,
+        syllabusId,
+        {},
+        { merge: true },
+      ),
+      this.writeDocument(
+        topicsCollectionPath,
+        topicId,
+        {},
+        { merge: true },
+      ),
+      this.writeDocument(
+        languagesCollectionPath,
+        toQuestionLanguageDocumentId(language),
+        { language },
+        { merge: true },
+      ),
+      this.writeDocument(
+        diagramGroupsCollectionPath,
+        getDiagramGroupDocumentId(hasDiagram),
+        { hasDiagram },
+        { merge: true },
+      ),
+    ]);
   }
 
-  async getById(syllabusId, topicId, questionId) {
-    const normalizedSyllabusId = requireIdentifier(
-      syllabusId,
-      "syllabusId",
-    );
-    const normalizedTopicId = requireIdentifier(topicId, "topicId");
-    const normalizedQuestionId = requireIdentifier(
-      questionId,
-      "questionId",
+  async getById(questionReference) {
+    const normalizedReference = normalizeQuestionReference(
+      questionReference,
     );
     const data = await this.readDocument(
       getQuestionItemsCollectionPath(
-        normalizedSyllabusId,
-        normalizedTopicId,
+        normalizedReference.syllabusId,
+        normalizedReference.topicId,
+        normalizedReference.language,
+        normalizedReference.hasDiagram,
       ),
-      normalizedQuestionId,
+      normalizedReference.questionId,
     );
 
-    return toQuestion(data, normalizedSyllabusId, normalizedTopicId);
+    return toQuestion(data, normalizedReference);
   }
 
   async getManyById(questionReferences) {
@@ -171,48 +255,50 @@ class FirestoreQuestionRepository extends QuestionRepository {
     }
 
     const normalizedReferences = questionReferences.map(
-      (questionReference, index) => {
-        if (
-          !questionReference ||
-          typeof questionReference !== "object" ||
-          Array.isArray(questionReference)
-        ) {
-          throw new Error(
-            `questionReferences[${index}] must be an object.`,
-          );
-        }
-
-        return {
-          syllabusId: requireIdentifier(
-            questionReference.syllabusId,
-            `questionReferences[${index}].syllabusId`,
-          ),
-          topicId: requireIdentifier(
-            questionReference.topicId,
-            `questionReferences[${index}].topicId`,
-          ),
-          questionId: requireIdentifier(
-            questionReference.questionId,
-            `questionReferences[${index}].questionId`,
-          ),
-        };
-      },
+      (questionReference, index) => normalizeQuestionReference(
+        questionReference,
+        `questionReferences[${index}]`,
+      ),
     );
     const questions = await this.readDocuments(
       normalizedReferences.map((questionReference) => ({
         collectionPath: getQuestionItemsCollectionPath(
           questionReference.syllabusId,
           questionReference.topicId,
+          questionReference.language,
+          questionReference.hasDiagram,
         ),
         documentId: questionReference.questionId,
       })),
     );
 
-    return questions.map((question, index) =>
-      toQuestion(
-        question,
-        normalizedReferences[index].syllabusId,
-        normalizedReferences[index].topicId,
+    return questions.map((question, index) => (
+      toQuestion(question, normalizedReferences[index])
+    ));
+  }
+
+  async countByGroup(questionGroup) {
+    const normalizedGroup = normalizeQuestionGroupRoute(questionGroup);
+
+    return this.countCollection(
+      getQuestionItemsCollectionPath(
+        normalizedGroup.syllabusId,
+        normalizedGroup.topicId,
+        normalizedGroup.language,
+        normalizedGroup.hasDiagram,
+      ),
+    );
+  }
+
+  async listIdsByGroup(questionGroup) {
+    const normalizedGroup = normalizeQuestionGroupRoute(questionGroup);
+
+    return this.readCollectionIds(
+      getQuestionItemsCollectionPath(
+        normalizedGroup.syllabusId,
+        normalizedGroup.topicId,
+        normalizedGroup.language,
+        normalizedGroup.hasDiagram,
       ),
     );
   }
@@ -223,42 +309,63 @@ class FirestoreQuestionRepository extends QuestionRepository {
       "syllabusId",
     );
     const normalizedTopicId = requireIdentifier(topicId, "topicId");
-    const { group, limit } = normalizeListOptions(options);
+    const {
+      group,
+      difficulty,
+      limit,
+      language,
+      hasDiagram,
+    } = normalizeListOptions(options);
     const questions = await this.readCollection(
       getQuestionItemsCollectionPath(
         normalizedSyllabusId,
         normalizedTopicId,
+        language,
+        hasDiagram,
       ),
       (collection) => {
         const query = group === null
           ? collection
           : collection.where("group", "==", group);
 
-        return limit === null ? query : query.limit(limit);
+        return limit === null || difficulty !== null
+          ? query
+          : query.limit(limit);
       },
     );
 
-    return questions
+    const matchingQuestions = questions
       .map((question) =>
         toQuestion(
           question,
-          normalizedSyllabusId,
-          normalizedTopicId,
+          {
+            syllabusId: normalizedSyllabusId,
+            topicId: normalizedTopicId,
+            language,
+            hasDiagram,
+          },
         ),
       )
+      .filter((question) => (
+        difficulty === null
+        || question.difficulty.toLocaleLowerCase() === difficulty
+      ))
       .sort((first, second) => first.id.localeCompare(second.id));
+
+    return limit === null
+      ? matchingQuestions
+      : matchingQuestions.slice(0, limit);
   }
 
   async save(question) {
     const normalizedQuestion = normalizeQuestion(question);
 
-    await this.ensureParentDocuments(
-      normalizedQuestion.syllabusId,
-      new Set([normalizedQuestion.topicId]),
-    );
+    await this.ensureParentDocuments(normalizedQuestion);
     const collectionPath = getQuestionItemsCollectionPath(
       normalizedQuestion.syllabusId,
       normalizedQuestion.topicId,
+      normalizedQuestion.language,
+      normalizedQuestion.hasDiagram,
     );
     const record = toQuestionRecord(normalizedQuestion);
 
@@ -283,19 +390,22 @@ class FirestoreQuestionRepository extends QuestionRepository {
     }
 
     const normalizedQuestions = questions.map(normalizeQuestion);
-    const topicsBySyllabus = new Map();
+    const uniqueBranches = new Map();
 
     normalizedQuestions.forEach((question) => {
-      if (!topicsBySyllabus.has(question.syllabusId)) {
-        topicsBySyllabus.set(question.syllabusId, new Set());
-      }
+      const key = JSON.stringify([
+        question.syllabusId,
+        question.topicId,
+        toQuestionLanguageDocumentId(question.language),
+        question.hasDiagram,
+      ]);
 
-      topicsBySyllabus.get(question.syllabusId).add(question.topicId);
+      uniqueBranches.set(key, question);
     });
 
     await Promise.all(
-      [...topicsBySyllabus.entries()].map(([syllabusId, topicIds]) =>
-        this.ensureParentDocuments(syllabusId, topicIds),
+      [...uniqueBranches.values()].map((question) =>
+        this.ensureParentDocuments(question),
       ),
     );
 
@@ -304,6 +414,8 @@ class FirestoreQuestionRepository extends QuestionRepository {
         const collectionPath = getQuestionItemsCollectionPath(
           question.syllabusId,
           question.topicId,
+          question.language,
+          question.hasDiagram,
         );
         const record = toQuestionRecord(question);
 
@@ -328,13 +440,19 @@ class FirestoreQuestionRepository extends QuestionRepository {
     return normalizedQuestions;
   }
 
-  async delete(syllabusId, topicId, questionId) {
+  async delete(questionReference) {
+    const normalizedReference = normalizeQuestionReference(
+      questionReference,
+    );
+
     return this.deleteDocument(
       getQuestionItemsCollectionPath(
-        requireIdentifier(syllabusId, "syllabusId"),
-        requireIdentifier(topicId, "topicId"),
+        normalizedReference.syllabusId,
+        normalizedReference.topicId,
+        normalizedReference.language,
+        normalizedReference.hasDiagram,
       ),
-      requireIdentifier(questionId, "questionId"),
+      normalizedReference.questionId,
     );
   }
 }

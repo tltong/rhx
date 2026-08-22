@@ -8,9 +8,10 @@ import {
   getDocumentRef,
   getFirestoreDb,
   readCollection,
+  readCollectionIds,
   readDocument,
   writeDocument
-} from "../../../utils/firebase/firebase_ops.js";
+} from "../../../utils/firebase/firebase_ops.js?v=20260816-practice-id-lists";
 import {
   StudentPracticeAssignment
 } from "../domain/student_practice_assignment.js?v=20260808-practice-session";
@@ -19,7 +20,7 @@ import {
 } from "../domain/student_practice_completion.js?v=20260810-completed-practice";
 import {
   StudentPracticeRepository
-} from "../domain/student_practice_repository.js";
+} from "../domain/student_practice_repository.js?v=20260816-practice-id-lists";
 
 function requireIdentifier(value, fieldName) {
   const identifier = String(value ?? "").trim();
@@ -45,6 +46,12 @@ function completedPracticesCollectionPath(studentId) {
     studentId,
     COMPLETED_PRACTICES_SUBCOLLECTION
   ].join("/");
+}
+
+function sortPracticeIds(practiceIds) {
+  return [...practiceIds].sort((first, second) =>
+    first.localeCompare(second)
+  );
 }
 
 function toCompletionRecord(completion) {
@@ -146,6 +153,22 @@ export class FirestoreStudentPracticeRepository
       .sort((first, second) => first.practiceId.localeCompare(
         second.practiceId
       ));
+  }
+
+  async listAssignedIds(studentId) {
+    const normalizedStudentId = requireIdentifier(studentId, "studentId");
+
+    return sortPracticeIds(await readCollectionIds(
+      assignedPracticesCollectionPath(normalizedStudentId)
+    ));
+  }
+
+  async listCompletedIds(studentId) {
+    const normalizedStudentId = requireIdentifier(studentId, "studentId");
+
+    return sortPracticeIds(await readCollectionIds(
+      completedPracticesCollectionPath(normalizedStudentId)
+    ));
   }
 
   async remove(assignment) {

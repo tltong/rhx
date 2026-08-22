@@ -14,9 +14,7 @@ class WriteQuestions {
       (questionInput) => new Question(questionInput),
     );
 
-    await this.questionRepository.saveMany(questions);
-
-    return questions;
+    return this.questionRepository.saveMany(questions);
   }
 }
 

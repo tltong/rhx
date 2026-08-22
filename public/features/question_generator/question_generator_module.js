@@ -118,7 +118,7 @@ import {
 import {
   practiceTypes,
   writeQuestions
-} from "../question/question_module.js?v=20260727-question-group";
+} from "../question/question_module.js?v=20260822-assessment-reuse";
 import {
   writePreAssessmentQuestions
 } from "../pre_assessment_question/pre_assessment_question_module.js?v=20260731-question-writer-routing";

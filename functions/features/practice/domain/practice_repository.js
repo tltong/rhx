@@ -6,6 +6,10 @@ class PracticeRepository {
   async create(practice) {
     throw new Error("create() is not implemented.");
   }
+
+  async delete(practiceId) {
+    throw new Error("delete() is not implemented.");
+  }
 }
 
 module.exports = {

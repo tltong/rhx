@@ -16,14 +16,14 @@
 import {
   getPracticeById,
   practiceTypes
-} from "../practice/practice_module.js?v=20260731-practice-replacement";
+} from "../practice/practice_module.js?v=20260816-practice-question-ids";
 import {
   getPracticeResult,
   submitPracticeResult
 } from "../practice_result/practice_result_module.js?v=20260808-practice-session";
 import {
   getQuestionsForPractice
-} from "../question/question_module.js?v=20260808-practice-session";
+} from "../question/question_module.js?v=20260822-question-routing";
 import {
   getPreAssessmentQuestionsForPractice
 } from "../pre_assessment_question/pre_assessment_question_module.js?v=20260808-practice-session";
@@ -31,7 +31,7 @@ import {
   completeAssignedPractice,
   getAssignedPractice,
   listAssignedPractices
-} from "../student_practice/student_practice_module.js?v=20260810-completed-practice";
+} from "../student_practice/student_practice_module.js?v=20260816-practice-id-lists";
 import {
   requireCurrentStudentAuthUser
 } from "../student/student_module.js?v=20260716-no-eager-auth";

@@ -1,15 +1,36 @@
-const PATH_FIELDS = Object.freeze(["id", "syllabusId", "topicId"]);
+import {
+  normalizeQuestionReference
+} from "../domain/question.js?v=20260817-question-writes";
+
+const PATH_FIELDS = Object.freeze([
+  ["id", "id"],
+  ["questionId", "id"],
+  ["syllabusId", "syllabusId"],
+  ["topicId", "topicId"],
+  ["language", "language"],
+  ["hasDiagram", "hasDiagram"]
+]);
+
+function pathValuesMatch(fieldName, requestedValue, currentValue) {
+  if (fieldName === "hasDiagram") {
+    return requestedValue === currentValue;
+  }
+
+  return String(requestedValue ?? "").trim()
+    === String(currentValue ?? "").trim();
+}
 
 export class UpdateQuestion {
   constructor(questionRepository) {
     this.questionRepository = questionRepository;
   }
 
-  async execute(syllabusId, topicId, questionId, changes) {
+  async execute(questionReference, changes) {
+    const normalizedReference = normalizeQuestionReference(
+      questionReference
+    );
     const question = await this.questionRepository.getById(
-      syllabusId,
-      topicId,
-      questionId
+      normalizedReference
     );
 
     if (!question) {
@@ -20,18 +41,20 @@ export class UpdateQuestion {
       throw new Error("changes must be an object.");
     }
 
-    PATH_FIELDS.forEach((fieldName) => {
+    PATH_FIELDS.forEach(([changeFieldName, questionFieldName]) => {
       if (
-        changes[fieldName] !== undefined
-        && String(changes[fieldName]) !== String(question[fieldName])
+        changes[changeFieldName] !== undefined
+        && !pathValuesMatch(
+          changeFieldName,
+          changes[changeFieldName],
+          question[questionFieldName]
+        )
       ) {
-        throw new Error(`${fieldName} cannot be changed.`);
+        throw new Error(`${changeFieldName} cannot be changed.`);
       }
     });
 
     question.update(changes);
-    await this.questionRepository.save(question);
-
-    return question;
+    return this.questionRepository.save(question);
   }
 }

@@ -3,11 +3,7 @@ export class GetQuestion {
     this.questionRepository = questionRepository;
   }
 
-  async execute(syllabusId, topicId, questionId) {
-    return this.questionRepository.getById(
-      syllabusId,
-      topicId,
-      questionId
-    );
+  async execute(questionReference) {
+    return this.questionRepository.getById(questionReference);
   }
 }

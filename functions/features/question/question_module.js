@@ -1,26 +1,43 @@
 /**
  * External API contracts
  *
- * getQuestion(
+ * getQuestion(questionReference: QuestionReference)
+ *   -> Promise<Question|null>
+ *
+ * getQuestionCount({
  *   syllabusId: string,
  *   topicId: string,
- *   questionId: string
- * ) -> Promise<Question|null>
+ *   language: string,
+ *   hasDiagram: boolean
+ * }) -> Promise<number>
+ *
+ * listQuestionIds({
+ *   syllabusId: string,
+ *   topicId: string,
+ *   language: string,
+ *   hasDiagram: boolean
+ * }) -> Promise<string[]>
  *
  * getQuestionsForPractice(questionReferences: Array<{
  *   syllabusId: string,
  *   topicId: string,
+ *   language: string,
+ *   hasDiagram: boolean,
  *   questionId: string
  * }>) -> Promise<PracticeQuestion[]>
  *
  * checkQuestionAnswers({answers: Array<{
  *   syllabusId: string,
  *   topicId: string,
+ *   language: string,
+ *   hasDiagram: boolean,
  *   questionId: string,
  *   selectedOption: "a"|"b"|"c"|"d"
  * }>}) -> Promise<{results: Array<{
  *   syllabusId: string,
  *   topicId: string,
+ *   language: string,
+ *   hasDiagram: boolean,
  *   questionId: string,
  *   selectedOption: "a"|"b"|"c"|"d",
  *   correctAnswer: "a"|"b"|"c"|"d",
@@ -30,7 +47,10 @@
  * listQuestionsByTopic(
  *   syllabusId: string,
  *   topicId: string,
- *   options?: {
+ *   options: {
+ *     language: string,
+ *     hasDiagram: boolean,
+ *     difficulty?: string,
  *     limit?: number,
  *     group?: "assessment"|"pre assessment"
  *   }
@@ -43,18 +63,23 @@
  *   -> Promise<Question[]> containing generated or supplied IDs.
  *
  * updateQuestion(
- *   syllabusId: string,
- *   topicId: string,
- *   questionId: string,
- *   changes: Partial<QuestionInput>
+ *   questionReference: QuestionReference,
+ *   changes: QuestionChanges
  * ) -> Promise<Question>
- *   id, syllabusId, and topicId cannot be changed.
+ *   id, questionId, syllabusId, topicId, language, and hasDiagram cannot
+ *   be changed because they identify the question's Firestore path.
  *
- * deleteQuestion(
+ * deleteQuestion(questionReference: QuestionReference)
+ *   -> Promise<{id: string, path: string}>
+ *
+ * QuestionReference:
+ * {
  *   syllabusId: string,
  *   topicId: string,
+ *   language: string,
+ *   hasDiagram: boolean,
  *   questionId: string
- * ) -> Promise<{id: string, path: string}>
+ * }
  *
  * QuestionInput:
  * {
@@ -66,10 +91,22 @@
  *   correctAnswer: "a"|"b"|"c"|"d",
  *   group: "assessment"|"pre assessment",
  *   explanation?: string,
- *   hasDiagram?: boolean,
+ *   hasDiagram: boolean,
  *   svg?: string,
  *   difficulty: string,
  *   language: string,
+ *   specialInstruction?: string
+ * }
+ *
+ * QuestionChanges:
+ * {
+ *   questionText?: string,
+ *   options?: {a: string, b: string, c: string, d: string},
+ *   correctAnswer?: "a"|"b"|"c"|"d",
+ *   group?: "assessment"|"pre assessment",
+ *   explanation?: string,
+ *   svg?: string,
+ *   difficulty?: string,
  *   specialInstruction?: string
  * }
  *
@@ -101,8 +138,14 @@ const {
 } = require("./application/check_question_answers");
 const { GetQuestion } = require("./application/get_question");
 const {
+  GetQuestionCount,
+} = require("./application/get_question_count");
+const {
   GetQuestionsForPractice,
 } = require("./application/get_questions_for_practice");
+const {
+  ListQuestionIds,
+} = require("./application/list_question_ids");
 const {
   ListQuestionsByTopic,
 } = require("./application/list_questions_by_topic");
@@ -117,15 +160,27 @@ const {
 /**
  * @typedef {import("./domain/question").QuestionInput} QuestionInput
  * @typedef {import("./domain/question").Question} Question
+ * @typedef {import("./domain/question").QuestionReference} QuestionReference
+ * @typedef {Object} QuestionChanges
+ * @property {string} [questionText]
+ * @property {{a: string, b: string, c: string, d: string}} [options]
+ * @property {string} [correctAnswer]
+ * @property {string} [group]
+ * @property {string} [explanation]
+ * @property {string} [svg]
+ * @property {string} [difficulty]
+ * @property {string} [specialInstruction]
  */
 
 const questionRepository = new FirestoreQuestionRepository();
 const checkQuestionAnswersUseCase =
   new CheckQuestionAnswers(questionRepository);
 const getQuestionUseCase = new GetQuestion(questionRepository);
+const getQuestionCountUseCase = new GetQuestionCount(questionRepository);
 const getQuestionsForPracticeUseCase = new GetQuestionsForPractice(
   questionRepository,
 );
+const listQuestionIdsUseCase = new ListQuestionIds(questionRepository);
 const listQuestionsByTopicUseCase =
   new ListQuestionsByTopic(questionRepository);
 const writeQuestionUseCase = new WriteQuestion(questionRepository);
@@ -133,8 +188,16 @@ const writeQuestionsUseCase = new WriteQuestions(questionRepository);
 const updateQuestionUseCase = new UpdateQuestion(questionRepository);
 const deleteQuestionUseCase = new DeleteQuestion(questionRepository);
 
-async function getQuestion(syllabusId, topicId, questionId) {
-  return getQuestionUseCase.execute(syllabusId, topicId, questionId);
+async function getQuestion(questionReference) {
+  return getQuestionUseCase.execute(questionReference);
+}
+
+async function getQuestionCount(input) {
+  return getQuestionCountUseCase.execute(input);
+}
+
+async function listQuestionIds(input) {
+  return listQuestionIdsUseCase.execute(input);
 }
 
 async function getQuestionsForPractice(questionReferences) {
@@ -145,6 +208,8 @@ async function getQuestionsForPractice(questionReferences) {
  * @param {{answers: Array<{
  *   syllabusId: string,
  *   topicId: string,
+ *   language: string,
+ *   hasDiagram: boolean,
  *   questionId: string,
  *   selectedOption: string
  * }>}} input
@@ -173,32 +238,20 @@ async function writeQuestions(questionInputs) {
   return writeQuestionsUseCase.execute(questionInputs);
 }
 
-async function updateQuestion(
-  syllabusId,
-  topicId,
-  questionId,
-  changes,
-) {
-  return updateQuestionUseCase.execute(
-    syllabusId,
-    topicId,
-    questionId,
-    changes,
-  );
+async function updateQuestion(questionReference, changes) {
+  return updateQuestionUseCase.execute(questionReference, changes);
 }
 
-async function deleteQuestion(syllabusId, topicId, questionId) {
-  return deleteQuestionUseCase.execute(
-    syllabusId,
-    topicId,
-    questionId,
-  );
+async function deleteQuestion(questionReference) {
+  return deleteQuestionUseCase.execute(questionReference);
 }
 
 module.exports = {
   checkQuestionAnswers,
   getQuestion,
+  getQuestionCount,
   getQuestionsForPractice,
+  listQuestionIds,
   listQuestionsByTopic,
   writeQuestion,
   writeQuestions,

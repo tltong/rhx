@@ -56,12 +56,85 @@ function normalizeCorrectAnswer(value) {
   return normalizeQuestionOption(value, "correctAnswer");
 }
 
-function normalizeHasDiagram(value) {
+function normalizeQuestionHasDiagram(value, fieldName = "hasDiagram") {
   if (typeof value !== "boolean") {
-    throw new Error("hasDiagram must be a boolean.");
+    throw new Error(`${fieldName} must be a boolean.`);
   }
 
   return value;
+}
+
+function toQuestionLanguageDocumentId(language) {
+  return encodeURIComponent(
+    requireText(language, "language").normalize("NFKC").toLowerCase(),
+  );
+}
+
+/**
+ * @typedef {Object} QuestionGroup
+ * @property {string} syllabusId
+ * @property {string} topicId
+ * @property {string} language
+ * @property {boolean} hasDiagram
+ */
+
+function normalizeQuestionGroupRoute(
+  questionGroup,
+  fieldName = "questionGroup",
+) {
+  if (
+    !questionGroup
+    || typeof questionGroup !== "object"
+    || Array.isArray(questionGroup)
+  ) {
+    throw new Error(`${fieldName} must be an object.`);
+  }
+
+  return {
+    syllabusId: requireText(
+      questionGroup.syllabusId,
+      `${fieldName}.syllabusId`,
+    ),
+    topicId: requireText(
+      questionGroup.topicId,
+      `${fieldName}.topicId`,
+    ),
+    language: requireText(
+      questionGroup.language,
+      `${fieldName}.language`,
+    ),
+    hasDiagram: normalizeQuestionHasDiagram(
+      questionGroup.hasDiagram,
+      `${fieldName}.hasDiagram`,
+    ),
+  };
+}
+
+/**
+ * @typedef {Object} QuestionReference
+ * @property {string} syllabusId
+ * @property {string} topicId
+ * @property {string} language
+ * @property {boolean} hasDiagram
+ * @property {string} questionId
+ */
+
+function normalizeQuestionReference(
+  questionReference,
+  fieldName = "questionReference",
+) {
+  const questionGroup = normalizeQuestionGroupRoute(
+    questionReference,
+    fieldName,
+  );
+
+  return {
+    ...questionGroup,
+    questionId: requireText(
+      questionReference.questionId,
+      `${fieldName}.questionId`,
+    ),
+  };
 }
 
 function normalizeQuestionGroup(value) {
@@ -86,7 +159,7 @@ function normalizeQuestionGroup(value) {
  * @property {string} correctAnswer
  * @property {string} group
  * @property {string} [explanation]
- * @property {boolean} [hasDiagram]
+ * @property {boolean} hasDiagram
  * @property {string} [svg]
  * @property {string} difficulty
  * @property {string} language
@@ -104,7 +177,7 @@ class Question {
     correctAnswer,
     group,
     explanation = "",
-    hasDiagram = false,
+    hasDiagram,
     svg = "",
     difficulty,
     language,
@@ -118,7 +191,7 @@ class Question {
     this.correctAnswer = normalizeCorrectAnswer(correctAnswer);
     this.group = normalizeQuestionGroup(group);
     this.explanation = optionalText(explanation);
-    this.hasDiagram = normalizeHasDiagram(hasDiagram);
+    this.hasDiagram = normalizeQuestionHasDiagram(hasDiagram);
     this.svg = this.hasDiagram ? requireText(svg, "svg") : "";
     this.difficulty = requireText(difficulty, "difficulty");
     this.language = requireText(language, "language");
@@ -144,6 +217,10 @@ class Question {
 
 module.exports = {
   Question,
+  normalizeQuestionHasDiagram,
+  normalizeQuestionGroupRoute,
+  normalizeQuestionReference,
   normalizeQuestionOption,
   normalizeQuestionGroup,
+  toQuestionLanguageDocumentId,
 };

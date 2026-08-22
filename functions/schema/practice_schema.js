@@ -3,6 +3,7 @@ const PRACTICES_COLLECTION = "practices";
 const practiceDocumentIdPattern = "[auto_generated_id]";
 const practiceQuestionSyllabusIdPattern = "[syllabus_id]";
 const practiceQuestionTopicIdPattern = "[topic_id]";
+const practiceQuestionLanguagePattern = "[syllabus_language]";
 const practiceQuestionIdPattern = "[question_id]";
 
 const practiceTypes = Object.freeze({
@@ -32,10 +33,24 @@ const practiceSchema = {
             type: "string",
             pattern: practiceQuestionTopicIdPattern
           },
+          language: {
+            type: "string",
+            pattern: practiceQuestionLanguagePattern,
+            requiredForPracticeTypes: [practiceTypes.ASSESSMENT],
+          },
+          hasDiagram: {
+            type: "boolean",
+            requiredForPracticeTypes: [practiceTypes.ASSESSMENT],
+          },
           questionId: {
             type: "string",
             pattern: practiceQuestionIdPattern,
-            references: "questions/{syllabusId}/topics/{topicId}/questionItems/{questionId}"
+            references: {
+              assessment:
+                "questions/{syllabusId}/topics/{topicId}/languages/{languageId}/diagramGroups/{diagramGroup}/questionItems/{questionId}",
+              preAssessment:
+                "preAssessmentQuestions/{syllabusId}/topics/{topicId}/questionItems/{questionId}",
+            },
           }
         }
       }
@@ -48,6 +63,7 @@ module.exports = {
   practiceDocumentIdPattern,
   practiceQuestionSyllabusIdPattern,
   practiceQuestionTopicIdPattern,
+  practiceQuestionLanguagePattern,
   practiceQuestionIdPattern,
   practiceTypes,
   practiceSchema

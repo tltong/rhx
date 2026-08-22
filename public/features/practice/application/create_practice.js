@@ -1,4 +1,6 @@
-import { Practice } from "../domain/practice.js";
+import {
+  Practice
+} from "../domain/practice.js?v=20260816-question-routing";
 
 export class CreatePractice {
   constructor(practiceRepository) {

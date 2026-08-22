@@ -1,6 +1,6 @@
 import {
   Question
-} from "../domain/question.js?v=20260727-question-group";
+} from "../domain/question.js?v=20260817-question-writes";
 
 export class WriteQuestions {
   constructor(questionRepository) {
@@ -16,8 +16,6 @@ export class WriteQuestions {
       (questionInput) => new Question(questionInput)
     );
 
-    await this.questionRepository.saveMany(questions);
-
-    return questions;
+    return this.questionRepository.saveMany(questions);
   }
 }

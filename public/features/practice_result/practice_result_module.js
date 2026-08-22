@@ -41,13 +41,13 @@
 import {
   getPracticeById,
   practiceTypes
-} from "../practice/practice_module.js?v=20260731-practice-replacement";
+} from "../practice/practice_module.js?v=20260816-practice-question-ids";
 import {
   checkPreAssessmentQuestionAnswers
 } from "../pre_assessment_question/pre_assessment_question_module.js?v=20260808-practice-session";
 import {
   checkQuestionAnswers
-} from "../question/question_module.js?v=20260808-practice-session";
+} from "../question/question_module.js?v=20260817-question-writes";
 
 import {
   GetPracticeResult
@@ -58,7 +58,7 @@ import {
 } from "./application/list_practice_results.js?v=20260807-practice-result";
 import {
   SubmitPracticeResult
-} from "./application/submit_practice_result.js?v=20260807-practice-question-source";
+} from "./application/submit_practice_result.js?v=20260816-question-routing";
 import {
   FirestorePracticeResultRepository
 } from "./infrastructure/firestore_practice_result_repository.js?v=20260807-practice-result";

@@ -1,13 +1,15 @@
+import {
+  normalizeQuestionReference
+} from "../domain/question.js?v=20260817-question-writes";
+
 export class DeleteQuestion {
   constructor(questionRepository) {
     this.questionRepository = questionRepository;
   }
 
-  async execute(syllabusId, topicId, questionId) {
+  async execute(questionReference) {
     return this.questionRepository.delete(
-      syllabusId,
-      topicId,
-      questionId
+      normalizeQuestionReference(questionReference)
     );
   }
 }

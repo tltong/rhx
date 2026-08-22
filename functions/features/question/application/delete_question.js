@@ -1,13 +1,15 @@
+const {
+  normalizeQuestionReference,
+} = require("../domain/question");
+
 class DeleteQuestion {
   constructor(questionRepository) {
     this.questionRepository = questionRepository;
   }
 
-  async execute(syllabusId, topicId, questionId) {
-    await this.questionRepository.delete(
-      syllabusId,
-      topicId,
-      questionId,
+  async execute(questionReference) {
+    return this.questionRepository.delete(
+      normalizeQuestionReference(questionReference),
     );
   }
 }

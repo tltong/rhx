@@ -25,15 +25,19 @@
  *       withoutDiagram: QuestionGenerationSet,
  *       withDiagram: QuestionGenerationSet
  *     },
+ *     practice: Practice,
+ *     assignment: StudentPracticeAssignment,
  *     prompts: string[],
  *     questions: Question[]
- *   }>. Generated questions are stored, but no Practice document is created
- *   or assigned to the student yet.
+ *   }>. Reuses eligible stored questions, generates and stores only the
+ *   shortage, then creates and assigns the assessment practice.
  *
  * QuestionGenerationSet output:
  * {
  *   hasDiagram: boolean,
  *   numberOfQuestions: number,
+ *   reusedQuestionCount: number,
+ *   generatedQuestionCount: number,
  *   prompts: string[],
  *   questions: Question[]
  * }
@@ -172,7 +176,16 @@ import {
   deletePractice,
   getPracticeById,
   practiceTypes
-} from "../practice/practice_module.js?v=20260731-practice-replacement";
+} from "../practice/practice_module.js?v=20260816-practice-question-ids";
+import {
+  getQuestionsForPractice,
+  listQuestionsByTopic
+} from "../question/question_module.js?v=20260822-assessment-reuse";
+import {
+  assignPracticeToStudent,
+  listAssignedPracticeIds,
+  listCompletedPracticeIds
+} from "../student_practice/student_practice_module.js?v=20260822-assessment-reuse";
 import {
   deletePreAssessmentQuestion,
   getPreAssessmentQuestion
@@ -203,7 +216,7 @@ import {
 } from "../student_assessment_progress/student_assessment_progress_module.js?v=20260815-assessment-practice";
 import {
   GenerateAssessmentPractice
-} from "./application/generate_assessment_practice.js?v=20260815-assessment-practice";
+} from "./application/generate_assessment_practice.js?v=20260822-assessment-reuse";
 import {
   allocateAssessmentQuestions
 } from "./domain/assessment_question_allocation.js?v=20260815-assessment-practice";
@@ -230,8 +243,16 @@ const generateAssessmentPracticeUseCase = new GenerateAssessmentPractice({
   getTopicDiagramPercentage,
   getDefaultLlmPromptConfig,
   allocateAssessmentQuestions,
+  listQuestionsByTopic,
+  getQuestionsForPractice,
+  listAssignedPracticeIds,
+  listCompletedPracticeIds,
+  getPracticeById,
   generateQuestions,
   generateQuestionsWithDiagram,
+  createPractice,
+  deletePractice,
+  assignPracticeToStudent,
   assessmentPracticeType: practiceTypes.ASSESSMENT,
   assessmentFrameworkEndLevelId: ASSESSMENT_FRAMEWORK_END_LEVEL_ID
 });
@@ -276,8 +297,8 @@ async function generatePreAssessmentPractice(input) {
 }
 
 /**
- * Generates and stores assessment questions for a student topic. Practice
- * creation and assignment are intentionally deferred.
+ * Reuses or generates assessment questions, creates the practice, and assigns
+ * it to the student.
  *
  * @param {{studentId: string, syllabusId: string, topicId: string}} input
  */

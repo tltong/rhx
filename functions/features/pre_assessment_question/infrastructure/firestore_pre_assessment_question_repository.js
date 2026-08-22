@@ -59,15 +59,36 @@ function toPreAssessmentQuestion(data, syllabusId, topicId) {
   });
 }
 
+function toPreAssessmentQuestionRecord(question) {
+  return {
+    questionText: question.questionText,
+    options: { ...question.options },
+    correctAnswer: question.correctAnswer,
+    group: question.group,
+    explanation: question.explanation,
+    hasDiagram: question.hasDiagram,
+    svg: question.svg,
+    difficulty: question.difficulty,
+    language: question.language,
+    specialInstruction: question.specialInstruction,
+    syllabusId: question.syllabusId,
+    topicId: question.topicId,
+  };
+}
+
 class FirestorePreAssessmentQuestionRepository
   extends PreAssessmentQuestionRepository {
   constructor({
+    createDocument = firebaseOps.createDocument,
     readDocument = firebaseOps.readDocument,
     readDocuments = firebaseOps.readDocuments,
+    writeDocument = firebaseOps.writeDocument,
   } = {}) {
     super();
+    this.createDocument = createDocument;
     this.readDocument = readDocument;
     this.readDocuments = readDocuments;
+    this.writeDocument = writeDocument;
   }
 
   async getById(syllabusId, topicId, questionId) {
@@ -145,6 +166,67 @@ class FirestorePreAssessmentQuestionRepository
         normalizedReferences[index].topicId,
       ),
     );
+  }
+
+  async saveMany(questions) {
+    if (!Array.isArray(questions) || questions.length === 0) {
+      throw new Error("At least one pre-assessment question is required.");
+    }
+
+    const normalizedQuestions = questions.map((question) => (
+      question instanceof PreAssessmentQuestion
+        ? question
+        : new PreAssessmentQuestion(question)
+    ));
+    const topicsBySyllabus = new Map();
+
+    normalizedQuestions.forEach((question) => {
+      if (!topicsBySyllabus.has(question.syllabusId)) {
+        topicsBySyllabus.set(question.syllabusId, new Set());
+      }
+
+      topicsBySyllabus.get(question.syllabusId).add(question.topicId);
+    });
+
+    await Promise.all([...topicsBySyllabus.entries()].flatMap(
+      ([syllabusId, topicIds]) => [
+        this.writeDocument(
+          PRE_ASSESSMENT_QUESTIONS_COLLECTION,
+          syllabusId,
+          {},
+          { merge: true },
+        ),
+        ...[...topicIds].map((topicId) => this.writeDocument(
+          getTopicsCollectionPath(syllabusId),
+          topicId,
+          {},
+          { merge: true },
+        )),
+      ],
+    ));
+
+    await Promise.all(normalizedQuestions.map(async (question) => {
+      const collectionPath = getQuestionItemsCollectionPath(
+        question.syllabusId,
+        question.topicId,
+      );
+      const record = toPreAssessmentQuestionRecord(question);
+
+      if (question.id) {
+        await this.writeDocument(
+          collectionPath,
+          question.id,
+          record,
+          { merge: false },
+        );
+        return;
+      }
+
+      const result = await this.createDocument(collectionPath, record);
+      question.id = result.id;
+    }));
+
+    return normalizedQuestions;
   }
 }
 

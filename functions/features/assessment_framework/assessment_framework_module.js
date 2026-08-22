@@ -66,7 +66,13 @@
  *     levelName: string,
  *     isEndLevel: boolean
  *   }>.
+ *
+ * ASSESSMENT_FRAMEWORK_END_LEVEL_ID
+ *   The sentinel level ID used when the framework has been completed.
  */
+const {
+  ASSESSMENT_FRAMEWORK_END_LEVEL_ID,
+} = require("../../schema/assessment_framework_schema");
 const {
   FirestoreAssessmentFrameworkRepository,
 } = require(
@@ -113,6 +119,7 @@ async function calculatePreAssessmentLevel(input) {
 }
 
 module.exports = {
+  ASSESSMENT_FRAMEWORK_END_LEVEL_ID,
   calculatePreAssessmentLevel,
   getAssessmentLevelCriteria,
   getAssessmentFrameworkById,

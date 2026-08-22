@@ -4,11 +4,20 @@ const {
 
 const QUESTIONS_COLLECTION = "questions";
 const QUESTION_TOPICS_SUBCOLLECTION = "topics";
+const QUESTION_LANGUAGES_SUBCOLLECTION = "languages";
+const QUESTION_DIAGRAM_GROUPS_SUBCOLLECTION = "diagramGroups";
 const QUESTION_ITEMS_SUBCOLLECTION = "questionItems";
 
 const questionSyllabusDocumentIdPattern = "[syllabus_id]";
 const questionTopicDocumentIdPattern = "[topic_id]";
+const questionLanguageDocumentIdPattern = "[language_id]";
+const questionDiagramGroupDocumentIdPattern = "[diagram_group]";
 const questionDocumentIdPattern = "[auto_generated_id]";
+
+const questionDiagramGroups = Object.freeze({
+  WITH_DIAGRAM: "withDiagram",
+  WITHOUT_DIAGRAM: "withoutDiagram",
+});
 
 const questionOptionKeys = {
   A: "a",
@@ -27,33 +36,51 @@ const questionSchema = {
       documentId: questionTopicDocumentIdPattern,
       fields: {},
       subcollections: {
-        questionItems: {
-          collection: QUESTION_ITEMS_SUBCOLLECTION,
-          documentId: questionDocumentIdPattern,
+        languages: {
+          collection: QUESTION_LANGUAGES_SUBCOLLECTION,
+          documentId: questionLanguageDocumentIdPattern,
           fields: {
-            questionText: "string",
-            options: {
-              type: "map",
-              fields: {
-                a: "string",
-                b: "string",
-                c: "string",
-                d: "string"
-              }
-            },
-            correctAnswer: "string",
-            group: {
-              type: "string",
-              enum: Object.values(practiceTypes)
-            },
-            hasDiagram: "boolean",
-            svg: "string",
-            explanation: "string",
-            difficulty: "string",
-            specialInstruction: "string",
             language: "string",
-            syllabusId: "string",
-            topicId: "string"
+          },
+          subcollections: {
+            diagramGroups: {
+              collection: QUESTION_DIAGRAM_GROUPS_SUBCOLLECTION,
+              documentId: questionDiagramGroupDocumentIdPattern,
+              fields: {
+                hasDiagram: "boolean",
+              },
+              subcollections: {
+                questionItems: {
+                  collection: QUESTION_ITEMS_SUBCOLLECTION,
+                  documentId: questionDocumentIdPattern,
+                  fields: {
+                    questionText: "string",
+                    options: {
+                      type: "map",
+                      fields: {
+                        a: "string",
+                        b: "string",
+                        c: "string",
+                        d: "string",
+                      },
+                    },
+                    correctAnswer: "string",
+                    group: {
+                      type: "string",
+                      enum: Object.values(practiceTypes),
+                    },
+                    hasDiagram: "boolean",
+                    svg: "string",
+                    explanation: "string",
+                    difficulty: "string",
+                    specialInstruction: "string",
+                    language: "string",
+                    syllabusId: "string",
+                    topicId: "string",
+                  },
+                },
+              },
+            },
           }
         }
       }
@@ -64,10 +91,15 @@ const questionSchema = {
 module.exports = {
   QUESTIONS_COLLECTION,
   QUESTION_TOPICS_SUBCOLLECTION,
+  QUESTION_LANGUAGES_SUBCOLLECTION,
+  QUESTION_DIAGRAM_GROUPS_SUBCOLLECTION,
   QUESTION_ITEMS_SUBCOLLECTION,
   questionSyllabusDocumentIdPattern,
   questionTopicDocumentIdPattern,
+  questionLanguageDocumentIdPattern,
+  questionDiagramGroupDocumentIdPattern,
   questionDocumentIdPattern,
+  questionDiagramGroups,
   questionOptionKeys,
   practiceTypes,
   questionSchema

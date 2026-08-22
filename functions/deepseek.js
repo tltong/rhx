@@ -335,6 +335,91 @@ async function repairJsonWithDeepseek({
   });
 }
 
+function createDeepseekError(message, status, payload = null) {
+  const error = new Error(message);
+
+  error.status = status;
+  error.payload = payload;
+
+  return error;
+}
+
+async function generateDeepseekJson(input, options = {}) {
+  const body = typeof input === "string"
+    ? { prompt: input }
+    : { ...(input || {}) };
+  const messages = ensureJsonInstruction(normalizeMessages(body));
+  const maxTokens = normalizeNumber(
+    options.maxTokens ?? body.maxTokens,
+    DEFAULT_MAX_TOKENS,
+    128,
+    8192,
+  );
+  const temperature = normalizeNumber(
+    options.temperature ?? body.temperature,
+    0.3,
+    0,
+    2,
+  );
+  let completion = await createDeepseekCompletion({
+    messages,
+    maxTokens,
+    temperature,
+  });
+  const initialDiagnostics = getCompletionDiagnostics(completion);
+  let content = getCompletionContent(completion);
+  let json = parseModelJson(content);
+  let retryRawText = "";
+  let repairedRawText = "";
+  let retryDiagnostics = null;
+  let repairDiagnostics = null;
+
+  if (json === null && !content.trim()) {
+    completion = await createDeepseekCompletion({
+      messages: buildPlainJsonRetryMessages(messages),
+      maxTokens,
+      temperature: Math.min(temperature, 0.2),
+      useJsonMode: false,
+    });
+    retryDiagnostics = getCompletionDiagnostics(completion);
+    retryRawText = getCompletionContent(completion);
+    content = retryRawText;
+    json = parseModelJson(content);
+  }
+
+  if (json === null && content.trim()) {
+    completion = await repairJsonWithDeepseek({ content, maxTokens });
+    repairDiagnostics = completion
+      ? getCompletionDiagnostics(completion)
+      : null;
+    repairedRawText = completion ? getCompletionContent(completion) : "";
+    content = repairedRawText;
+    json = parseModelJson(content);
+  }
+
+  if (json === null) {
+    const payload = {
+      error: "DeepSeek did not return valid JSON.",
+      rawText: content,
+      retryRawText,
+      repairedRawText,
+      diagnostics: {
+        initial: initialDiagnostics,
+        retry: retryDiagnostics,
+        repair: repairDiagnostics,
+      },
+    };
+
+    throw createDeepseekError(payload.error, 502, payload);
+  }
+
+  return {
+    json,
+    model: completion.model || DEFAULT_MODEL,
+    usage: completion.usage || null,
+  };
+}
+
 const generateDeepseekText = onRequest(
   {
     cors: [
@@ -463,5 +548,7 @@ const generateDeepseekText = onRequest(
 );
 
 module.exports = {
+  deepseekApiKey,
+  generateDeepseekJson,
   generateDeepseekText,
 };

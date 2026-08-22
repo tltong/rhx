@@ -155,6 +155,36 @@ async function readCollection(
   );
 }
 
+async function readCollectionIds(collectionPath, buildQuery = null) {
+  const collection = getCollectionRef(collectionPath);
+  const query =
+    typeof buildQuery === "function" ? buildQuery(collection) : collection;
+  const snapshot = await query.get();
+
+  return snapshot.docs.map((documentSnapshot) => documentSnapshot.id);
+}
+
+async function countCollection(collectionPath, buildQuery = null) {
+  const collection = getCollectionRef(collectionPath);
+  const query =
+    typeof buildQuery === "function" ? buildQuery(collection) : collection;
+
+  if (typeof query.count !== "function") {
+    const snapshot = await query.get();
+
+    return snapshot.size;
+  }
+
+  const snapshot = await query.count().get();
+  const count = Number(snapshot.data()?.count);
+
+  if (!Number.isInteger(count) || count < 0) {
+    throw new Error("Firestore count query returned an invalid result.");
+  }
+
+  return count;
+}
+
 async function writeDocument(
   collectionPath,
   documentId,
@@ -208,6 +238,8 @@ module.exports = {
   readDocument,
   readDocuments,
   readCollection,
+  readCollectionIds,
+  countCollection,
   writeDocument,
   updateDocument,
   deleteDocument,

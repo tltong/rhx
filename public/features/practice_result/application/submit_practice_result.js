@@ -163,6 +163,8 @@ export class SubmitPracticeResult {
     const answerCheckInput = practice.questions.map((question) => ({
       syllabusId: question.syllabusId,
       topicId: question.topicId,
+      language: question.language,
+      hasDiagram: question.hasDiagram,
       questionId: question.questionId,
       selectedOption: submittedAnswersById.get(question.questionId)
         .selectedOption
@@ -186,7 +188,14 @@ export class SubmitPracticeResult {
         if (
           answer.questionId !== practiceQuestion.questionId ||
           answer.syllabusId !== practiceQuestion.syllabusId ||
-          answer.topicId !== practiceQuestion.topicId
+          answer.topicId !== practiceQuestion.topicId ||
+          (
+            practiceQuestion.language !== undefined
+            && (
+              answer.language !== practiceQuestion.language
+              || answer.hasDiagram !== practiceQuestion.hasDiagram
+            )
+          )
         ) {
           throw new Error("Question checker returned answers out of order.");
         }
