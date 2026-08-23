@@ -1,16 +1,20 @@
-import { FirestoreStudentRepository } from "./infrastructure/firestore_student_repository.js?v=20260716-no-eager-auth";
+import { FirestoreStudentRepository } from "./infrastructure/firestore_student_repository.js?v=20260823-student-country-v1";
 import { GetStudent } from "./application/get_student.js?v=20260716-no-eager-auth";
 import { ListStudents } from "./application/list_students.js?v=20260716-no-eager-auth";
-import { CreateStudent } from "./application/create_student.js?v=20260716-no-eager-auth";
+import { CreateStudent } from "./application/create_student.js?v=20260823-student-country-v1";
 import { UpdateStudent } from "./application/update_student.js?v=20260716-no-eager-auth";
 import { DeleteStudent } from "./application/delete_student.js?v=20260716-no-eager-auth";
 import { CurrentStudentSession } from "./application/current_student_session.js?v=20260716-no-eager-auth";
 import { getStudentAuthService } from "./auth/student_auth_service.js?v=20260716-no-eager-auth";
+import { findSyllabusScopeByCountry } from "../syllabusscope/syllabusscope_module.js?v=20260823-student-country-v1";
 
 const studentRepository = new FirestoreStudentRepository();
 const getStudent = new GetStudent(studentRepository);
 const listStudentsUseCase = new ListStudents(studentRepository);
-const createStudent = new CreateStudent(studentRepository);
+const createStudent = new CreateStudent({
+  studentRepository,
+  findSyllabusScopeByCountry
+});
 const updateStudent = new UpdateStudent(studentRepository);
 const deleteStudent = new DeleteStudent(studentRepository);
 const currentStudentSession = new CurrentStudentSession(getStudent);

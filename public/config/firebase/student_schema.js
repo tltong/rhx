@@ -9,6 +9,7 @@ export const studentSchema = {
   email: "string",
   name: "string",
   username: "string",
+  country: "string",
   level: {
     type: "string",
     enum: Object.values(studentLevels)

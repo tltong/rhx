@@ -3,140 +3,81 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Student Home</title>
+    <title>Student Learning Dashboard</title>
+    <link rel="stylesheet" href="./landing.css?v=20260823-topic-practice-v1">
 
     <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
     <script defer src="/__/firebase/init.js"></script>
     <script type="module" src="/init_fb.js"></script>
-
-    <style>
-      body {
-        background: #eef3f8;
-        color: #102a43;
-        font-family: Arial, Helvetica, sans-serif;
-        margin: 0;
-      }
-
-      main {
-        box-sizing: border-box;
-        margin: 0 auto;
-        max-width: 920px;
-        padding: 40px 20px;
-      }
-
-      header {
-        align-items: center;
-        display: flex;
-        gap: 20px;
-        justify-content: space-between;
-      }
-
-      h1 {
-        font-size: 30px;
-        margin: 0 0 8px;
-      }
-
-      p {
-        color: #52606d;
-        margin: 0;
-      }
-
-      button {
-        background: #0369a1;
-        border: 0;
-        border-radius: 6px;
-        color: #ffffff;
-        cursor: pointer;
-        flex: 0 0 auto;
-        font: inherit;
-        font-weight: 700;
-        padding: 12px 16px;
-      }
-
-      button:disabled {
-        cursor: not-allowed;
-        opacity: 0.55;
-      }
-
-      button:focus-visible {
-        outline: 3px solid #7dd3fc;
-        outline-offset: 2px;
-      }
-
-      .content {
-        background: #ffffff;
-        border-radius: 8px;
-        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
-        margin-top: 28px;
-        min-height: 220px;
-        padding: 28px;
-      }
-
-      .status {
-        background: #e0f2fe;
-        border-radius: 6px;
-        color: #075985;
-        padding: 12px;
-      }
-
-      .status.is-error {
-        background: #fee2e2;
-        color: #991b1b;
-      }
-
-      .assigned-practices-link {
-        background: #0369a1;
-        border-radius: 6px;
-        color: #ffffff;
-        display: inline-block;
-        font-weight: 700;
-        margin-top: 20px;
-        padding: 12px 16px;
-        text-decoration: none;
-      }
-
-      .assigned-practices-link:focus-visible {
-        outline: 3px solid #7dd3fc;
-        outline-offset: 2px;
-      }
-
-      @media (max-width: 560px) {
-        header {
-          align-items: stretch;
-          flex-direction: column;
-        }
-
-        button {
-          width: 100%;
-        }
-      }
-    </style>
   </head>
   <body>
-    <main>
-      <header>
+    <main class="page">
+      <header class="page-header">
         <div>
-          <h1>Student Home</h1>
-          <p id="student-welcome">Loading your account...</p>
+          <h1>My Learning Dashboard</h1>
+          <p id="student-welcome">Loading your learning profile...</p>
         </div>
         <button id="student-log-off" type="button">Log Off</button>
       </header>
 
-      <section class="content" aria-label="Student dashboard">
-        <div id="student-landing-status" class="status" role="status">
-          Loading...
+      <div
+        id="student-landing-status"
+        class="status"
+        role="status"
+        aria-live="polite"
+      >
+        Loading your dashboard...
+      </div>
+
+      <section
+        id="student-summary-section"
+        class="dashboard-section"
+        aria-labelledby="student-summary-title"
+        hidden
+      >
+        <div class="section-header">
+          <div>
+            <h2 id="student-summary-title">Student Summary</h2>
+          </div>
         </div>
-        <a
-          class="assigned-practices-link"
-          href="/features/practice_session/pages/assigned_practices/assigned_practices.html"
-        >
-          Assigned Practices
-        </a>
+        <div class="student-summary">
+          <div class="summary-item">
+            <span class="summary-label">Student name</span>
+            <span id="student-name" class="summary-value"></span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">Country</span>
+            <span id="student-country" class="summary-value"></span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">Current grade</span>
+            <span id="student-grade" class="summary-value"></span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">Stream</span>
+            <span id="student-stream" class="summary-value"></span>
+          </div>
+        </div>
+      </section>
+
+      <section
+        id="syllabus-progress-section"
+        class="dashboard-section"
+        aria-labelledby="syllabus-progress-title"
+        hidden
+      >
+        <div class="section-header">
+          <div>
+            <h2 id="syllabus-progress-title">Syllabus Progress</h2>
+            <p>Topic levels and progress towards each framework's final level.</p>
+          </div>
+        </div>
+        <div id="syllabus-progress-list" class="syllabus-list"></div>
       </section>
     </main>
 
-    <script type="module" src="./landing.js?v=20260808-student-landing"></script>
+    <script type="module" src="./landing.js?v=20260823-topic-practice-v1"></script>
   </body>
 </html>

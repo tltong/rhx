@@ -1,20 +1,19 @@
 import {
   listStudents
-} from "../../../student/student_module.js?v=20260716-no-eager-auth";
+} from "../../../student/student_module.js?v=20260823-student-country-v1";
 
 import {
-  listSyllabuses
-} from "../../../syllabus/syllabus_module.js?v=20260726-subscription-language";
+  getSyllabusById
+} from "../../../syllabus/syllabus_module.js?v=20260823-student-availability-page-v1";
 
 import {
   activateSyllabus,
   deactivateSyllabus,
-  getStudentSyllabusSubscription,
-  listActiveStudentSyllabusSubscriptions,
+  listAvailableSyllabusesForStudent,
   listStudentSyllabusSubscriptions,
   subscribeSyllabus,
   unsubscribeSyllabus
-} from "../../syllabus_subscription_module.js?v=20260726-subscription-language";
+} from "../../syllabus_subscription_module.js?v=20260823-student-availability-page-v1";
 
 const studentsContainer = document.querySelector("#students-container");
 const syllabusesContainer = document.querySelector("#syllabuses-container");
@@ -31,13 +30,16 @@ const subscriptionLanguageSelect = document.querySelector(
   "#subscription-language"
 );
 const subscribeButton = document.querySelector("#subscribe-syllabus");
+const subscribeAllButton = document.querySelector(
+  "#subscribe-all-syllabuses"
+);
 const unsubscribeButton = document.querySelector("#unsubscribe-syllabus");
 const activateButton = document.querySelector("#activate-syllabus");
 const deactivateButton = document.querySelector("#deactivate-syllabus");
 const statusMessage = document.querySelector("#status-message");
 
 let students = [];
-let syllabuses = [];
+let availableSyllabuses = [];
 let selectedStudentId = "";
 let selectedSyllabusId = "";
 let selectedLanguage = "";
@@ -68,54 +70,67 @@ function getStudentLabel(studentId) {
   return student.name || student.username || student.id;
 }
 
-function getSyllabusLabel(syllabusId) {
-  const syllabus = syllabuses.find((item) => item.id === syllabusId);
-
-  if (!syllabus) {
-    return "Not selected";
-  }
-
-  return [
-    syllabus.country,
-    syllabus.level,
-    `Year ${syllabus.year}`,
-    syllabus.subject
-  ].join(" / ");
+function getAvailableSyllabus(syllabusId) {
+  return availableSyllabuses.find((item) => item.id === syllabusId) || null;
 }
 
-function getSelectedSyllabus() {
-  return syllabuses.find(
-    (syllabus) => syllabus.id === selectedSyllabusId
-  ) || null;
+function getSyllabusLabel(syllabusId) {
+  const availableSyllabus = getAvailableSyllabus(syllabusId);
+
+  if (!availableSyllabus) {
+    return syllabusId || "Not selected";
+  }
+
+  const syllabus = availableSyllabus.syllabus;
+
+  return [
+    syllabus?.subject || availableSyllabus.id,
+    availableSyllabus.language
+  ].filter(Boolean).join(" / ");
 }
 
 function getSelectedSyllabusLanguages() {
-  const syllabus = getSelectedSyllabus();
+  const availableLanguage = getAvailableSyllabus(
+    selectedSyllabusId
+  )?.language;
 
-  if (!syllabus || !Array.isArray(syllabus.languages)) {
-    return [];
+  if (availableLanguage) {
+    return [availableLanguage];
   }
 
-  const languages = [];
-  const languageKeys = new Set();
-
-  syllabus.languages.forEach((language) => {
-    const normalizedLanguage = String(language || "").trim();
-    const languageKey = normalizedLanguage.toLowerCase();
-
-    if (normalizedLanguage && !languageKeys.has(languageKey)) {
-      languageKeys.add(languageKey);
-      languages.push(normalizedLanguage);
-    }
-  });
-
-  return languages;
+  return selectedSubscription?.language
+    ? [selectedSubscription.language]
+    : [];
 }
 
 function getSubscriptionForSyllabus(syllabusId) {
   return selectedStudentSubscriptions.find(
     (subscription) => subscription.syllabusId === syllabusId
   ) || null;
+}
+
+function normalizeLanguageKey(language) {
+  return String(language || "").trim().toLowerCase();
+}
+
+function getPendingBulkSubscriptions() {
+  return availableSyllabuses.filter((availableSyllabus) => {
+    const subscription = getSubscriptionForSyllabus(availableSyllabus.id);
+
+    return !subscription
+      || subscription.state !== "active"
+      || normalizeLanguageKey(subscription.language)
+        !== normalizeLanguageKey(availableSyllabus.language);
+  });
+}
+
+function clearSelectedStudentData() {
+  availableSyllabuses = [];
+  selectedSyllabusId = "";
+  selectedLanguage = "";
+  selectedSubscription = null;
+  selectedStudentSubscriptions = [];
+  selectedStudentActiveSubscriptions = [];
 }
 
 function setBusy(isBusy) {
@@ -142,34 +157,25 @@ function setBusy(isBusy) {
 
 function renderLanguageOptions() {
   const languages = getSelectedSyllabusLanguages();
-  const storedLanguage = selectedSubscription?.language || "";
-  const matchingLanguage = languages.find(
-    (language) =>
-      language.toLowerCase() === selectedLanguage.toLowerCase()
-  );
-  const matchingStoredLanguage = languages.find(
-    (language) =>
-      language.toLowerCase() === storedLanguage.toLowerCase()
-  );
 
-  selectedLanguage = matchingLanguage || matchingStoredLanguage || "";
+  selectedLanguage = languages[0] || "";
   subscriptionLanguageSelect.replaceChildren();
 
-  const placeholder = document.createElement("option");
+  if (languages.length === 0) {
+    const placeholder = document.createElement("option");
 
-  placeholder.value = "";
-  placeholder.textContent = languages.length > 0
-    ? "Select language"
-    : "No languages configured";
-  subscriptionLanguageSelect.append(placeholder);
+    placeholder.value = "";
+    placeholder.textContent = "Select a syllabus";
+    subscriptionLanguageSelect.append(placeholder);
+  } else {
+    languages.forEach((language) => {
+      const option = document.createElement("option");
 
-  languages.forEach((language) => {
-    const option = document.createElement("option");
-
-    option.value = language;
-    option.textContent = language;
-    subscriptionLanguageSelect.append(option);
-  });
+      option.value = language;
+      option.textContent = language;
+      subscriptionLanguageSelect.append(option);
+    });
+  }
 
   subscriptionLanguageSelect.value = selectedLanguage;
 }
@@ -177,21 +183,43 @@ function renderLanguageOptions() {
 function updateSelectedOutputs() {
   selectedStudentOutput.textContent = getStudentLabel(selectedStudentId);
   selectedSyllabusOutput.textContent = getSyllabusLabel(selectedSyllabusId);
-  selectedStateOutput.textContent = selectedSubscription?.state || "Not subscribed";
+  selectedStateOutput.textContent = selectedSubscription?.state
+    || "Not subscribed";
 }
 
 function updateActionButtons() {
   const hasSelection = Boolean(selectedStudentId && selectedSyllabusId);
+  const isAvailable = Boolean(getAvailableSyllabus(selectedSyllabusId));
   const hasSubscription = Boolean(selectedSubscription);
+  const isActive = selectedSubscription?.state === "active";
+  const isInactive = selectedSubscription?.state === "inactive";
   const hasLanguage = Boolean(selectedLanguage);
-  const hasAvailableLanguages = getSelectedSyllabusLanguages().length > 0;
+  const pendingBulkSubscriptions = getPendingBulkSubscriptions();
 
-  subscriptionLanguageSelect.disabled =
-    pageBusy || !hasSelection || !hasAvailableLanguages;
-  subscribeButton.disabled = pageBusy || !hasSelection || !hasLanguage;
-  activateButton.disabled = pageBusy || !hasSelection || !hasLanguage;
-  deactivateButton.disabled = pageBusy || !hasSelection || !hasLanguage;
-  unsubscribeButton.disabled = pageBusy || !hasSelection || !hasSubscription;
+  subscriptionLanguageSelect.disabled = true;
+  subscribeAllButton.textContent = pendingBulkSubscriptions.length > 0
+    ? "Subscribe All (" + pendingBulkSubscriptions.length + ")"
+    : "Subscribe All";
+  subscribeAllButton.disabled = pageBusy
+    || !selectedStudentId
+    || pendingBulkSubscriptions.length === 0;
+  subscribeButton.disabled = pageBusy
+    || !hasSelection
+    || !isAvailable
+    || !hasLanguage
+    || hasSubscription;
+  activateButton.disabled = pageBusy
+    || !hasSelection
+    || !isAvailable
+    || !hasLanguage
+    || !isInactive;
+  deactivateButton.disabled = pageBusy
+    || !hasSelection
+    || !hasLanguage
+    || !isActive;
+  unsubscribeButton.disabled = pageBusy
+    || !hasSelection
+    || !hasSubscription;
 }
 
 function updateSyllabusSubscriptionBadges() {
@@ -199,7 +227,7 @@ function updateSyllabusSubscriptionBadges() {
     const subscription = getSubscriptionForSyllabus(item.dataset.syllabusId);
     const badge = item.querySelector(".state-pill");
 
-    badge.textContent = subscription?.state || "none";
+    badge.textContent = subscription?.state || "available";
     badge.classList.toggle("active", subscription?.state === "active");
     badge.classList.toggle("inactive", subscription?.state === "inactive");
   });
@@ -231,9 +259,8 @@ function renderActiveSubscriptions() {
   }
 
   selectedStudentActiveSubscriptions.forEach((subscription) => {
-    const syllabus = syllabuses.find(
-      (item) => item.id === subscription.syllabusId
-    );
+    const availableSyllabus = getAvailableSyllabus(subscription.syllabusId);
+    const syllabus = availableSyllabus?.syllabus;
     const button = document.createElement("button");
     const title = document.createElement("span");
     const detail = document.createElement("span");
@@ -255,7 +282,8 @@ function renderActiveSubscriptions() {
         `Year ${syllabus.year}`,
         subscription.language
       ].filter(Boolean).join(" / ")
-      : subscription.syllabusId;
+      : [subscription.syllabusId, subscription.language]
+        .filter(Boolean).join(" / ");
 
     button.append(title, detail);
     activeSubscriptionsContainer.append(button);
@@ -263,7 +291,9 @@ function renderActiveSubscriptions() {
     button.addEventListener("click", () => {
       selectedSyllabusId = subscription.syllabusId;
       selectedSubscription = subscription;
-      selectedLanguage = subscription.language || "";
+      selectedLanguage = availableSyllabus?.language
+        || subscription.language
+        || "";
       renderSyllabuses();
       renderActiveSubscriptions();
       renderLanguageOptions();
@@ -305,9 +335,10 @@ function renderStudents() {
     detail.className = "option-detail";
     detail.textContent = [
       student.username,
+      student.country,
       student.level,
       student.standardAtYearOfRegistration
-        ? `Standard ${student.standardAtYearOfRegistration}`
+        ? `Registered in Year ${student.standardAtYearOfRegistration}`
         : ""
     ].filter(Boolean).join(" / ");
 
@@ -317,16 +348,17 @@ function renderStudents() {
 
     checkbox.addEventListener("change", async () => {
       selectedStudentId = checkbox.checked ? student.id : "";
-      selectedSubscription = null;
+      clearSelectedStudentData();
+      renderStudents();
+      renderSyllabuses();
+      renderActiveSubscriptions();
+      renderLanguageOptions();
+      updateSelectedOutputs();
       setBusy(true);
       clearStatus();
 
       try {
-        await refreshSelectedStudentSubscriptions();
-        selectedSubscription = selectedSyllabusId
-          ? getSubscriptionForSyllabus(selectedSyllabusId)
-          : null;
-        selectedLanguage = selectedSubscription?.language || "";
+        await refreshSelectedStudentData();
         renderStudents();
         renderSyllabuses();
         renderActiveSubscriptions();
@@ -335,12 +367,17 @@ function renderStudents() {
         updateActionButtons();
         setStatus(
           selectedStudentId
-            ? `${selectedStudentActiveSubscriptions.length} active subscription${selectedStudentActiveSubscriptions.length === 1 ? "" : "s"} loaded.`
-            : "Select one student and one syllabus."
+            ? `${availableSyllabuses.length} syllabus option${availableSyllabuses.length === 1 ? "" : "s"} available; ${selectedStudentActiveSubscriptions.length} active subscription${selectedStudentActiveSubscriptions.length === 1 ? "" : "s"}.`
+            : "Select a student to load available syllabuses."
         );
       } catch (error) {
+        clearSelectedStudentData();
+        renderSyllabuses();
+        renderActiveSubscriptions();
+        renderLanguageOptions();
+        updateSelectedOutputs();
         setStatus(
-          error.message || "Could not load student subscriptions.",
+          error.message || "Could not load available syllabuses.",
           true
         );
       } finally {
@@ -353,22 +390,35 @@ function renderStudents() {
 function renderSyllabuses() {
   syllabusesContainer.replaceChildren();
 
-  if (syllabuses.length === 0) {
+  if (!selectedStudentId) {
     const empty = document.createElement("p");
-    empty.textContent = "No syllabuses found.";
+
+    empty.className = "empty-message";
+    empty.textContent = "Select a student to load available syllabuses.";
     syllabusesContainer.append(empty);
     return;
   }
 
-  syllabuses.forEach((syllabus) => {
+  if (availableSyllabuses.length === 0) {
+    const empty = document.createElement("p");
+
+    empty.className = "empty-message";
+    empty.textContent =
+      "No syllabuses are available for this student's stream and current year.";
+    syllabusesContainer.append(empty);
+    return;
+  }
+
+  availableSyllabuses.forEach((availableSyllabus) => {
+    const syllabus = availableSyllabus.syllabus;
     const label = document.createElement("label");
     label.className = "option-item";
-    label.dataset.syllabusId = syllabus.id;
+    label.dataset.syllabusId = availableSyllabus.id;
 
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
-    checkbox.value = syllabus.id;
-    checkbox.checked = syllabus.id === selectedSyllabusId;
+    checkbox.value = availableSyllabus.id;
+    checkbox.checked = availableSyllabus.id === selectedSyllabusId;
     checkbox.disabled = pageBusy;
 
     const main = document.createElement("span");
@@ -376,16 +426,19 @@ function renderSyllabuses() {
 
     const title = document.createElement("span");
     title.className = "option-title";
-    title.textContent = syllabus.subject;
+    title.textContent = syllabus?.subject || availableSyllabus.id;
 
     const detail = document.createElement("span");
     detail.className = "option-detail";
-    detail.textContent = [
-      syllabus.country,
-      syllabus.level,
-      `Year ${syllabus.year}`,
-      syllabus.active ? "active syllabus" : "inactive syllabus"
-    ].join(" / ");
+    detail.textContent = syllabus
+      ? [
+        syllabus.country,
+        syllabus.level,
+        `Year ${syllabus.year}`,
+        availableSyllabus.language
+      ].filter(Boolean).join(" / ")
+      : [availableSyllabus.id, availableSyllabus.language]
+        .filter(Boolean).join(" / ");
 
     const badge = document.createElement("span");
     badge.className = "state-pill";
@@ -394,56 +447,124 @@ function renderSyllabuses() {
     label.append(checkbox, main, badge);
     syllabusesContainer.append(label);
 
-    checkbox.addEventListener("change", async () => {
-      selectedSyllabusId = checkbox.checked ? syllabus.id : "";
-      selectedLanguage = "";
-      await refreshSelectedSubscription();
+    checkbox.addEventListener("change", () => {
+      selectedSyllabusId = checkbox.checked ? availableSyllabus.id : "";
+      selectedSubscription = selectedSyllabusId
+        ? getSubscriptionForSyllabus(selectedSyllabusId)
+        : null;
+      selectedLanguage = selectedSyllabusId
+        ? availableSyllabus.language
+        : "";
       renderSyllabuses();
+      renderActiveSubscriptions();
+      renderLanguageOptions();
+      updateSelectedOutputs();
+      updateActionButtons();
+      clearStatus();
     });
   });
 
   updateSyllabusSubscriptionBadges();
 }
 
-async function refreshSelectedStudentSubscriptions() {
+async function refreshSelectedStudentData() {
   if (!selectedStudentId) {
-    selectedStudentSubscriptions = [];
-    selectedStudentActiveSubscriptions = [];
+    clearSelectedStudentData();
     return;
   }
 
-  [
-    selectedStudentSubscriptions,
-    selectedStudentActiveSubscriptions
-  ] = await Promise.all([
-    listStudentSyllabusSubscriptions(selectedStudentId),
-    listActiveStudentSyllabusSubscriptions(selectedStudentId)
+  const [availability, subscriptions] = await Promise.all([
+    listAvailableSyllabusesForStudent(selectedStudentId),
+    listStudentSyllabusSubscriptions(selectedStudentId)
   ]);
+  const syllabusEntries = await Promise.all(availability.map(async ({
+    syllabusId,
+    language
+  }) => ({
+    id: syllabusId,
+    language,
+    syllabus: await getSyllabusById(syllabusId)
+  })));
+
+  availableSyllabuses = syllabusEntries;
+  selectedStudentSubscriptions = subscriptions;
+  selectedStudentActiveSubscriptions = subscriptions.filter(
+    (subscription) => subscription.state === "active"
+  );
 }
 
 async function refreshSelectedSubscription() {
-  if (!selectedStudentId || !selectedSyllabusId) {
-    selectedSubscription = null;
-    selectedLanguage = "";
-    renderLanguageOptions();
-    updateSelectedOutputs();
-    updateActionButtons();
-    updateSyllabusSubscriptionBadges();
-    renderActiveSubscriptions();
-    return;
-  }
-
-  selectedSubscription = await getStudentSyllabusSubscription(
-    selectedStudentId,
-    selectedSyllabusId
-  );
-  selectedLanguage = selectedSubscription?.language || "";
-  await refreshSelectedStudentSubscriptions();
+  await refreshSelectedStudentData();
+  selectedSubscription = selectedSyllabusId
+    ? getSubscriptionForSyllabus(selectedSyllabusId)
+    : null;
+  selectedLanguage = getAvailableSyllabus(selectedSyllabusId)?.language
+    || selectedSubscription?.language
+    || "";
   renderLanguageOptions();
   updateSelectedOutputs();
   updateActionButtons();
   updateSyllabusSubscriptionBadges();
   renderActiveSubscriptions();
+}
+
+async function subscribeAllAvailableSyllabuses() {
+  if (!selectedStudentId) {
+    setStatus("Select a student first.", true);
+    return;
+  }
+
+  const targets = getPendingBulkSubscriptions();
+
+  if (targets.length === 0) {
+    setStatus("All available syllabuses are already subscribed.");
+    return;
+  }
+
+  setBusy(true);
+  clearStatus();
+
+  try {
+    const results = await Promise.allSettled(targets.map((target) => (
+      subscribeSyllabus(
+        selectedStudentId,
+        target.id,
+        target.language
+      )
+    )));
+    const failures = results.filter((result) => result.status === "rejected");
+
+    await refreshSelectedSubscription();
+    renderSyllabuses();
+
+    if (failures.length > 0) {
+      const firstError = failures[0].reason?.message || "Unknown error.";
+      const successCount = targets.length - failures.length;
+
+      setStatus(
+        successCount
+          + " syllabus subscription"
+          + (successCount === 1 ? "" : "s")
+          + " completed; "
+          + failures.length
+          + " failed. "
+          + firstError,
+        true
+      );
+      return;
+    }
+
+    setStatus(
+      targets.length
+        + " syllabus subscription"
+        + (targets.length === 1 ? "" : "s")
+        + " completed."
+    );
+  } catch (error) {
+    setStatus(error.message || "Subscribe all failed.", true);
+  } finally {
+    setBusy(false);
+  }
 }
 
 async function runSubscriptionAction(
@@ -457,7 +578,7 @@ async function runSubscriptionAction(
   }
 
   if (requiresLanguage && !selectedLanguage) {
-    setStatus("Select a language first.", true);
+    setStatus("The selected syllabus has no stream language.", true);
     return;
   }
 
@@ -485,21 +606,23 @@ async function initPage() {
 
   try {
     students = await listStudents();
-    syllabuses = await listSyllabuses();
     renderStudents();
     renderSyllabuses();
     renderActiveSubscriptions();
     renderLanguageOptions();
     updateSelectedOutputs();
     updateActionButtons();
-    setStatus("Select one student and one syllabus.");
+    setStatus("Select a student to load available syllabuses.");
   } catch (error) {
-    setStatus(error.message || "Could not load subscription admin data.", true);
+    setStatus(error.message || "Could not load students.", true);
   } finally {
     setBusy(false);
   }
 }
 
+subscribeAllButton.addEventListener("click", () => {
+  subscribeAllAvailableSyllabuses();
+});
 subscribeButton.addEventListener("click", () => {
   runSubscriptionAction("Subscribe", subscribeSyllabus);
 });
@@ -511,12 +634,6 @@ activateButton.addEventListener("click", () => {
 });
 deactivateButton.addEventListener("click", () => {
   runSubscriptionAction("Deactivate", deactivateSyllabus);
-});
-
-subscriptionLanguageSelect.addEventListener("change", () => {
-  selectedLanguage = subscriptionLanguageSelect.value;
-  updateActionButtons();
-  clearStatus();
 });
 
 initPage();

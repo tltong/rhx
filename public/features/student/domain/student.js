@@ -4,6 +4,7 @@ export class Student {
     email,
     name,
     username,
+    country,
     level,
     yearOfBirth,
     yearOfRegistration,
@@ -14,6 +15,7 @@ export class Student {
     this.email = email;
     this.name = name;
     this.username = username;
+    this.country = country;
     this.level = level;
     this.yearOfBirth = yearOfBirth;
     this.yearOfRegistration = yearOfRegistration;
@@ -25,6 +27,7 @@ export class Student {
   update({
     name,
     username,
+    country,
     level,
     yearOfBirth,
     standardAtYearOfRegistration
@@ -35,6 +38,10 @@ export class Student {
 
     if (username !== undefined) {
       this.username = username;
+    }
+
+    if (country !== undefined) {
+      this.country = country;
     }
 
     if (level !== undefined) {

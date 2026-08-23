@@ -15,7 +15,7 @@
       <header class="page-header">
         <a class="back-link" href="/">Back to Home</a>
         <h1>Syllabus Subscription Admin</h1>
-        <p>Link students to syllabuses and manage each subscription state.</p>
+        <p>Manage syllabuses available through each student's stream and year.</p>
       </header>
 
       <section class="panel">
@@ -26,8 +26,17 @@
           </section>
 
           <section class="selection-section">
-            <h2>Syllabus</h2>
-            <div id="syllabuses-container" class="option-list"></div>
+            <div class="section-heading">
+              <h2>Available Syllabuses</h2>
+              <button id="subscribe-all-syllabuses" type="button" disabled>
+                Subscribe All
+              </button>
+            </div>
+            <div id="syllabuses-container" class="option-list">
+              <p class="empty-message">
+                Select a student to load available syllabuses.
+              </p>
+            </div>
           </section>
         </div>
 
@@ -63,7 +72,7 @@
           </dl>
 
           <div class="language-field">
-            <label for="subscription-language">Language</label>
+            <label for="subscription-language">Stream language</label>
             <select id="subscription-language" disabled>
               <option value="">Select language</option>
             </select>
@@ -81,6 +90,6 @@
       </section>
     </main>
 
-    <script type="module" src="./syllabus_subscription_admin.js?v=20260726-subscription-language"></script>
+    <script type="module" src="./syllabus_subscription_admin.js?v=20260823-subscribe-all-v1"></script>
   </body>
 </html>

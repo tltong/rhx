@@ -5,6 +5,7 @@ import { UpdateSyllabusScope } from "./application/update_syllabusscope.js?v=202
 import { DeleteSyllabusScope } from "./application/delete_syllabusscope.js?v=20260718-scope-languages";
 import { AddSyllabusScopeLanguage } from "./application/add_syllabusscope_language.js?v=20260718-scope-languages";
 import { DeleteSyllabusScopeLanguage } from "./application/delete_syllabusscope_language.js?v=20260718-scope-languages";
+import { ListSyllabusScopeCountries } from "./application/list_syllabusscope_countries.js?v=20260823-student-country-v1";
 
 const syllabusScopeRepository = new FirestoreSyllabusScopeRepository();
 const getSyllabusScope = new GetSyllabusScope(syllabusScopeRepository);
@@ -15,6 +16,9 @@ const addSyllabusScopeLanguageUseCase = new AddSyllabusScopeLanguage(
   syllabusScopeRepository
 );
 const deleteSyllabusScopeLanguageUseCase = new DeleteSyllabusScopeLanguage(
+  syllabusScopeRepository
+);
+const listSyllabusScopeCountriesUseCase = new ListSyllabusScopeCountries(
   syllabusScopeRepository
 );
 
@@ -28,6 +32,10 @@ async function findSyllabusScopeByCountry(country) {
 
 async function listSyllabusScopes() {
   return syllabusScopeRepository.list();
+}
+
+async function listSyllabusScopeCountries() {
+  return listSyllabusScopeCountriesUseCase.execute();
 }
 
 async function createSyllabusScopeRecord(data) {
@@ -54,6 +62,7 @@ export {
   getSyllabusScopeById,
   findSyllabusScopeByCountry,
   listSyllabusScopes,
+  listSyllabusScopeCountries,
   createSyllabusScopeRecord,
   updateSyllabusScopeRecord,
   deleteSyllabusScopeRecord,

@@ -26,8 +26,20 @@ import {
   DeactivateSyllabus
 } from "./application/deactivate_syllabus.js?v=20260726-subscription-language";
 import {
+  ListAvailableSyllabusesForStudent
+} from "./application/list_available_syllabuses_for_student.js?v=20260823-student-syllabus-availability-v1";
+import {
   getSyllabusById
 } from "../syllabus/syllabus_module.js?v=20260726-subscription-language";
+import {
+  getStudentById
+} from "../student/student_module.js?v=20260823-student-country-v1";
+import {
+  getStudentStreamSubscription
+} from "../stream_subscription/stream_subscription_module.js?v=20260823-student-stream-v1";
+import {
+  getStreamById
+} from "../stream/stream_module.js?v=20260823-student-standard-stream-v1";
 
 const syllabusSubscriptionRepository =
   new FirestoreSyllabusSubscriptionRepository();
@@ -58,6 +70,12 @@ const deactivateSyllabusUseCase =
     syllabusSubscriptionRepository,
     getSyllabusById
   });
+const listAvailableSyllabusesForStudentUseCase =
+  new ListAvailableSyllabusesForStudent({
+    getStudentById,
+    getStudentStreamSubscription,
+    getStreamById
+  });
 
 async function getStudentSyllabusSubscription(studentId, syllabusId) {
   return getStudentSyllabusSubscriptionUseCase.execute(studentId, syllabusId);
@@ -84,6 +102,14 @@ async function listStudentSyllabusSubscriptions(studentId) {
 
 async function listActiveStudentSyllabusSubscriptions(studentId) {
   return listActiveStudentSyllabusSubscriptionsUseCase.execute(studentId);
+}
+
+/**
+ * @param {string} studentId
+ * @returns {Promise<Array<{syllabusId: string, language: string}>>}
+ */
+async function listAvailableSyllabusesForStudent(studentId) {
+  return listAvailableSyllabusesForStudentUseCase.execute(studentId);
 }
 
 async function subscribeSyllabus(studentId, syllabusId, language) {
@@ -119,6 +145,7 @@ export {
   getStudentSyllabusSubscriptionLanguage,
   listStudentSyllabusSubscriptions,
   listActiveStudentSyllabusSubscriptions,
+  listAvailableSyllabusesForStudent,
   subscribeSyllabus,
   unsubscribeSyllabus,
   activateSyllabus,

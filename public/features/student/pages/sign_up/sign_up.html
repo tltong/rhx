@@ -132,6 +132,13 @@
           </label>
 
           <label>
+            Country
+            <select id="student-country" name="country" required disabled>
+              <option value="">Loading countries...</option>
+            </select>
+          </label>
+
+          <label>
             Level
             <select id="student-level" name="level" required>
               <option value="">Select level</option>
@@ -151,8 +158,15 @@
             </select>
           </label>
 
+          <label>
+            Stream
+            <select id="student-stream" name="streamId" required disabled>
+              <option value="">Select country, level, and standard first</option>
+            </select>
+          </label>
+
           <div class="actions">
-            <button id="student-sign-up-submit" type="submit">Sign Up</button>
+            <button id="student-sign-up-submit" type="submit" disabled>Sign Up</button>
             <a class="home-link" href="/index.html">Back To Home</a>
           </div>
         </form>
@@ -161,6 +175,6 @@
       </section>
     </main>
 
-    <script type="module" src="./sign_up.js?v=20260715-student-levels"></script>
+    <script type="module" src="./sign_up.js?v=20260823-student-stream-v3"></script>
   </body>
 </html>

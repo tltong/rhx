@@ -1,9 +1,9 @@
-import { Student } from "../domain/student.js?v=20260716-no-eager-auth";
+import { Student } from "../domain/student.js?v=20260823-student-country-v1";
 import { StudentRepository } from "../domain/student_repository.js?v=20260716-no-eager-auth";
 import {
   STUDENTS_COLLECTION,
   studentLevels
-} from "../../../config/firebase/student_schema.js?v=20260715-student-levels";
+} from "../../../config/firebase/student_schema.js?v=20260823-student-country-v1";
 import {
   deleteDocument,
   readCollection,
@@ -23,6 +23,16 @@ function normalizeStudentLevel(level) {
   return normalizedLevel;
 }
 
+function normalizeCountry(country) {
+  const normalizedCountry = String(country ?? "").trim();
+
+  if (!normalizedCountry) {
+    throw new Error("country is required.");
+  }
+
+  return normalizedCountry;
+}
+
 function toStudent(data) {
   if (!data) {
     return null;
@@ -33,6 +43,7 @@ function toStudent(data) {
     email: data.email,
     name: data.name,
     username: data.username,
+    country: data.country,
     level: data.level,
     yearOfBirth: data.yearOfBirth,
     yearOfRegistration: data.yearOfRegistration,
@@ -42,7 +53,7 @@ function toStudent(data) {
 }
 
 function toStudentRecord(student) {
-  return {
+  const record = {
     email: student.email,
     name: student.name,
     username: student.username,
@@ -52,6 +63,12 @@ function toStudentRecord(student) {
     registrationDate: student.registrationDate,
     standardAtYearOfRegistration: student.standardAtYearOfRegistration
   };
+
+  if (student.country !== undefined && student.country !== null) {
+    record.country = normalizeCountry(student.country);
+  }
+
+  return record;
 }
 
 export class FirestoreStudentRepository extends StudentRepository {

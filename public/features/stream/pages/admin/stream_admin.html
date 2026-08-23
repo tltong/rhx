@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stream Admin</title>
+    <link rel="stylesheet" href="./stream_admin.css?v=20260823-stream-admin">
+    <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script type="module" src="/init_fb.js"></script>
+  </head>
+  <body>
+    <main class="page">
+      <header class="page-header">
+        <a class="back-link" href="/">Back to Home</a>
+        <h1>Stream Admin</h1>
+        <p>Create streams and assign syllabuses to their available school years.</p>
+      </header>
+
+      <section class="panel">
+        <div class="stream-toolbar">
+          <label class="field">
+            <span>Existing stream</span>
+            <select id="stream-select">
+              <option value="">Select stream</option>
+            </select>
+          </label>
+          <button id="new-stream" type="button" class="secondary">New Stream</button>
+        </div>
+
+        <div class="stream-fields">
+          <label class="field">
+            <span>Stream name</span>
+            <input id="stream-name" type="text" autocomplete="off" placeholder="Malaysia Primary">
+          </label>
+          <label class="field">
+            <span>Country</span>
+            <select id="country-select">
+              <option value="">Select country</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Level</span>
+            <select id="level-select">
+              <option value="">Select level</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="stream-actions">
+          <button id="save-stream" type="button">Create Stream</button>
+        </div>
+
+        <div class="delete-row">
+          <label class="confirm-delete">
+            <input id="confirm-delete-stream" type="checkbox">
+            <span>Confirm delete selected stream and its year assignments</span>
+          </label>
+          <button id="delete-stream" type="button" class="danger" disabled>Delete Stream</button>
+        </div>
+
+        <section class="years-section">
+          <h2>Years</h2>
+          <div id="year-options" class="year-options"></div>
+          <div id="year-panels" class="year-panels"></div>
+        </section>
+
+        <p id="status-message" class="status" hidden></p>
+      </section>
+    </main>
+
+    <script type="module" src="./stream_admin.js?v=20260823-stream-language-v1"></script>
+  </body>
+</html>
