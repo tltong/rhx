@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Guardian Sign In</title>
+
+    <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script type="module" src="/init_fb.js"></script>
+
+    <link rel="stylesheet" href="./sign_in.css?v=20260825-guardian-sign-in-v1">
+  </head>
+  <body>
+    <main class="page-shell">
+      <a class="home-link" href="/index.html">Back to Home</a>
+
+      <section class="sign-in-panel" aria-labelledby="page-title">
+        <header>
+          <p class="eyebrow">Guardian account</p>
+          <h1 id="page-title">Welcome back</h1>
+          <p class="intro">Sign in to your guardian account.</p>
+        </header>
+
+        <button id="guardian-google-sign-in" class="google-button" type="button">
+          <span class="google-mark" aria-hidden="true">G</span>
+          Continue with Google
+        </button>
+
+        <div class="divider" aria-hidden="true"><span>or</span></div>
+
+        <form id="guardian-email-sign-in-form">
+          <label for="guardian-email">Email address</label>
+          <input
+            id="guardian-email"
+            name="email"
+            type="email"
+            autocomplete="email"
+            maxlength="254"
+            required
+          >
+
+          <label for="guardian-password">Password</label>
+          <input
+            id="guardian-password"
+            name="password"
+            type="password"
+            autocomplete="current-password"
+            required
+          >
+
+          <button id="guardian-email-sign-in" class="primary-button" type="submit" disabled>
+            Sign in with email
+          </button>
+        </form>
+
+        <p class="account-link">New guardian? <a href="../sign_up/sign_up.html">Create an account</a></p>
+        <p id="guardian-sign-in-status" class="status" role="status" aria-live="polite" hidden></p>
+      </section>
+    </main>
+
+    <script type="module" src="./sign_in.js?v=20260825-guardian-sign-in-v2"></script>
+  </body>
+</html>

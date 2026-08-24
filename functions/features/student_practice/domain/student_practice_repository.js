@@ -19,6 +19,10 @@ class StudentPracticeRepository {
     throw new Error("listCompletedIds() is not implemented.");
   }
 
+  async listCompleted(studentId) {
+    throw new Error("listCompleted() is not implemented.");
+  }
+
   async remove(assignment) {
     throw new Error("remove() is not implemented.");
   }

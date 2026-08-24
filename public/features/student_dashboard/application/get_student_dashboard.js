@@ -71,6 +71,23 @@ function compareAssignedPractices(first, second) {
     || first.practiceId.localeCompare(second.practiceId);
 }
 
+function compareCompletedPracticeHistory(first, second) {
+  return second.dateCompleted.getTime() - first.dateCompleted.getTime()
+    || first.practiceId.localeCompare(second.practiceId);
+}
+
+function createCachedPracticeLoader(getPracticeById) {
+  const practicePromises = new Map();
+
+  return (practiceId) => {
+    if (!practicePromises.has(practiceId)) {
+      practicePromises.set(practiceId, getPracticeById(practiceId));
+    }
+
+    return practicePromises.get(practiceId);
+  };
+}
+
 async function indexNextAssignedPractices({
   assignments,
   getPracticeById
@@ -100,6 +117,80 @@ async function indexNextAssignedPractices({
   return nextPracticeByTopic;
 }
 
+async function readPracticeDifficulty(practice, {
+  getQuestionDifficulty,
+  preAssessmentPracticeType
+}) {
+  if (practice.type === preAssessmentPracticeType) {
+    return null;
+  }
+
+  const firstQuestion = practice.questions?.[0];
+
+  if (!firstQuestion) {
+    return null;
+  }
+
+  try {
+    return await getQuestionDifficulty(firstQuestion);
+  } catch {
+    return null;
+  }
+}
+
+async function indexCompletedPractices({
+  completions,
+  getPracticeById,
+  getQuestionDifficulty,
+  preAssessmentPracticeType
+}) {
+  const entries = await Promise.all(completions.map(async (completion) => {
+    const practice = await getPracticeById(completion.practiceId);
+
+    if (!practice) {
+      return null;
+    }
+
+    const topicKeys = new Set((practice.questions || []).map(
+      (question) => createTopicKey(question.syllabusId, question.topicId)
+    ));
+
+    if (topicKeys.size === 0) {
+      return null;
+    }
+
+    return {
+      topicKeys,
+      history: {
+        practiceId: completion.practiceId,
+        dateCompleted: completion.dateCompleted,
+        practiceType: practice.type,
+        difficulty: await readPracticeDifficulty(practice, {
+          getQuestionDifficulty,
+          preAssessmentPracticeType
+        }),
+        score: completion.score
+      }
+    };
+  }));
+  const completedPracticesByTopic = new Map();
+
+  entries.filter(Boolean).forEach(({ topicKeys, history }) => {
+    topicKeys.forEach((topicKey) => {
+      if (!completedPracticesByTopic.has(topicKey)) {
+        completedPracticesByTopic.set(topicKey, []);
+      }
+
+      completedPracticesByTopic.get(topicKey).push(history);
+    });
+  });
+  completedPracticesByTopic.forEach((history) => {
+    history.sort(compareCompletedPracticeHistory);
+  });
+
+  return completedPracticesByTopic;
+}
+
 export class GetStudentDashboard {
   constructor({
     getStudentById,
@@ -107,9 +198,11 @@ export class GetStudentDashboard {
     getStreamById,
     listActiveStudentSyllabusSubscriptions,
     getSyllabusById,
-    listCompletedPracticeIds,
+    listCompletedPractices,
     listAssignedPractices,
     getPracticeById,
+    getQuestionDifficulty,
+    preAssessmentPracticeType,
     getStudentTopicLevel,
     getAssessmentFrameworkById,
     endLevelId,
@@ -121,9 +214,11 @@ export class GetStudentDashboard {
     this.listActiveStudentSyllabusSubscriptions =
       listActiveStudentSyllabusSubscriptions;
     this.getSyllabusById = getSyllabusById;
-    this.listCompletedPracticeIds = listCompletedPracticeIds;
+    this.listCompletedPractices = listCompletedPractices;
     this.listAssignedPractices = listAssignedPractices;
     this.getPracticeById = getPracticeById;
+    this.getQuestionDifficulty = getQuestionDifficulty;
+    this.preAssessmentPracticeType = preAssessmentPracticeType;
     this.getStudentTopicLevel = getStudentTopicLevel;
     this.getAssessmentFrameworkById = getAssessmentFrameworkById;
     this.endLevelId = endLevelId;
@@ -140,22 +235,37 @@ export class GetStudentDashboard {
     const [
       streamSubscription,
       syllabusSubscriptions,
-      completedPracticeIds,
+      completedPractices,
       assignedPractices
     ] = await Promise.all([
       this.getStudentStreamSubscription(studentId),
       this.listActiveStudentSyllabusSubscriptions(studentId),
-      this.listCompletedPracticeIds({ studentId }),
+      this.listCompletedPractices({ studentId }),
       this.listAssignedPractices({ studentId })
     ]);
-    const stream = streamSubscription
-      ? await this.getStreamById(streamSubscription.streamId)
-      : null;
-    const completedPracticeIdSet = new Set(completedPracticeIds);
-    const nextAssignedPracticeByTopic = await indexNextAssignedPractices({
-      assignments: assignedPractices,
-      getPracticeById: this.getPracticeById
-    });
+    const getPractice = createCachedPracticeLoader(this.getPracticeById);
+    const [
+      stream,
+      nextAssignedPracticeByTopic,
+      completedPracticesByTopic
+    ] = await Promise.all([
+      streamSubscription
+        ? this.getStreamById(streamSubscription.streamId)
+        : null,
+      indexNextAssignedPractices({
+        assignments: assignedPractices,
+        getPracticeById: getPractice
+      }),
+      indexCompletedPractices({
+        completions: completedPractices,
+        getPracticeById: getPractice,
+        getQuestionDifficulty: this.getQuestionDifficulty,
+        preAssessmentPracticeType: this.preAssessmentPracticeType
+      })
+    ]);
+    const completedPracticeIdSet = new Set(
+      completedPractices.map((completion) => completion.practiceId)
+    );
     const frameworkPromises = new Map();
 
     const getFramework = (assessmentFrameworkId) => {
@@ -206,14 +316,16 @@ export class GetStudentDashboard {
               framework,
               endLevelId: this.endLevelId
             });
+            const topicKey = createTopicKey(syllabus.id, topic.id);
 
             return {
               topicId: topic.id,
               topicName: topic.topicName,
               preAssessmentPracticeId: preAssessment?.practiceId || null,
-              nextAssignedPractice: nextAssignedPracticeByTopic.get(
-                createTopicKey(syllabus.id, topic.id)
-              ) || null,
+              nextAssignedPractice:
+                nextAssignedPracticeByTopic.get(topicKey) || null,
+              completedPractices:
+                completedPracticesByTopic.get(topicKey) || [],
               ...progress
             };
           }

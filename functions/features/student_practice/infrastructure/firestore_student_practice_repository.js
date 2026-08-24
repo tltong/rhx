@@ -46,6 +46,11 @@ function sortPracticeIds(practiceIds) {
   );
 }
 
+function compareCompletions(first, second) {
+  return second.dateCompleted.getTime() - first.dateCompleted.getTime()
+    || first.practiceId.localeCompare(second.practiceId);
+}
+
 function toCompletionRecord(completion) {
   return {
     dateCompleted: completion.dateCompleted,
@@ -57,11 +62,25 @@ function toCompletionRecord(completion) {
   };
 }
 
+function toCompletion(record, studentId) {
+  return new StudentPracticeCompletion({
+    studentId,
+    practiceId: record.id,
+    dateCompleted: record.dateCompleted,
+    questionsCorrect: record.questionsCorrect,
+    totalQuestions: record.totalQuestions,
+    score: record.score,
+    timeTakenSeconds: record.timeTakenSeconds,
+    studentAnswers: record.studentAnswers,
+  });
+}
+
 class FirestoreStudentPracticeRepository extends StudentPracticeRepository {
   constructor({
     deleteDocument = firebaseOps.deleteDocument,
     getDocumentRef = firebaseOps.getDocumentRef,
     getFirestoreDb = firebaseOps.getFirestoreDb,
+    readCollection = firebaseOps.readCollection,
     readCollectionIds = firebaseOps.readCollectionIds,
     readDocument = firebaseOps.readDocument,
     writeDocument = firebaseOps.writeDocument,
@@ -70,6 +89,7 @@ class FirestoreStudentPracticeRepository extends StudentPracticeRepository {
     this.deleteDocument = deleteDocument;
     this.getDocumentRef = getDocumentRef;
     this.getFirestoreDb = getFirestoreDb;
+    this.readCollection = readCollection;
     this.readCollectionIds = readCollectionIds;
     this.readDocument = readDocument;
     this.writeDocument = writeDocument;
@@ -161,6 +181,17 @@ class FirestoreStudentPracticeRepository extends StudentPracticeRepository {
     return sortPracticeIds(await this.readCollectionIds(
       completedPracticesCollectionPath(normalizedStudentId),
     ));
+  }
+
+  async listCompleted(studentId) {
+    const normalizedStudentId = requireIdentifier(studentId, "studentId");
+    const records = await this.readCollection(
+      completedPracticesCollectionPath(normalizedStudentId),
+    );
+
+    return records
+      .map((record) => toCompletion(record, normalizedStudentId))
+      .sort(compareCompletions);
   }
 
   async remove(assignment) {

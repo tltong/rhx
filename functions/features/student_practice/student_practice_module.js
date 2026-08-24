@@ -1,3 +1,12 @@
+/**
+ * Public API contracts
+ *
+ * listCompletedPractices({studentId: string})
+ *   -> Promise<StudentPracticeCompletion[]> sorted newest first.
+ *
+ * listCompletedPracticeIds({studentId: string}) -> Promise<string[]>
+ * listAssignedPracticeIds({studentId: string}) -> Promise<string[]>
+ */
 const {
   getPracticeById,
 } = require("../practice/practice_module");
@@ -16,7 +25,9 @@ const {
 const {
   ListCompletedPracticeIds,
 } = require("./application/list_completed_practice_ids");
-
+const {
+  ListCompletedPractices,
+} = require("./application/list_completed_practices");
 const {
   RemoveAssignedPractice,
 } = require("./application/remove_assigned_practice");
@@ -27,6 +38,7 @@ const {
 /**
  * @typedef {import("./domain/student_practice_assignment").StudentPracticeAssignmentInput} StudentPracticeAssignmentInput
  * @typedef {import("./domain/student_practice_assignment").StudentPracticeAssignment} StudentPracticeAssignment
+ * @typedef {import("./domain/student_practice_completion").StudentPracticeCompletion} StudentPracticeCompletion
  */
 
 const studentPracticeRepository = new FirestoreStudentPracticeRepository();
@@ -46,7 +58,9 @@ const listAssignedPracticeIdsUseCase = new ListAssignedPracticeIds(
 const listCompletedPracticeIdsUseCase = new ListCompletedPracticeIds(
   studentPracticeRepository,
 );
-
+const listCompletedPracticesUseCase = new ListCompletedPractices(
+  studentPracticeRepository,
+);
 const removeAssignedPracticeUseCase = new RemoveAssignedPractice(
   studentPracticeRepository,
 );
@@ -83,6 +97,14 @@ async function listCompletedPracticeIds(input) {
   return listCompletedPracticeIdsUseCase.execute(input);
 }
 
+/**
+ * @param {{studentId: string}} input
+ * @returns {Promise<StudentPracticeCompletion[]>}
+ */
+async function listCompletedPractices(input) {
+  return listCompletedPracticesUseCase.execute(input);
+}
+
 async function removeAssignedPractice(input) {
   return removeAssignedPracticeUseCase.execute(input);
 }
@@ -93,5 +115,6 @@ module.exports = {
   getAssignedPractice,
   listAssignedPracticeIds,
   listCompletedPracticeIds,
+  listCompletedPractices,
   removeAssignedPractice,
 };

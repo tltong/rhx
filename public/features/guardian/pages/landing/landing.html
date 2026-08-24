@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Guardian Dashboard</title>
+
+    <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script type="module" src="/init_fb.js"></script>
+
+    <link rel="stylesheet" href="./landing.css?v=20260825-guardian-student-links-v1">
+  </head>
+  <body>
+    <main class="page-shell">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">ReadyHeroX</p>
+          <h1>Guardian Dashboard</h1>
+        </div>
+        <button id="guardian-sign-out" class="secondary-button" type="button">Log out</button>
+      </header>
+
+      <section id="guardian-profile" class="panel profile-panel" aria-labelledby="welcome-heading" hidden>
+        <div class="profile-heading">
+          <div id="guardian-initials" class="initials" aria-hidden="true"></div>
+          <div>
+            <p class="section-label">Guardian account</p>
+            <h2 id="welcome-heading">Welcome</h2>
+          </div>
+        </div>
+
+        <dl class="profile-details">
+          <div><dt>Name</dt><dd id="guardian-name"></dd></div>
+          <div><dt>Email</dt><dd id="guardian-email"></dd></div>
+          <div><dt>Sign-in method</dt><dd id="guardian-auth-type"></dd></div>
+        </dl>
+      </section>
+
+      <section id="linked-students-panel" class="panel student-panel" hidden>
+        <div class="section-heading">
+          <div>
+            <p class="section-label">Family and learners</p>
+            <h2>Linked students</h2>
+          </div>
+          <button id="show-link-student" class="secondary-button" type="button" hidden>
+            Link another student
+          </button>
+        </div>
+
+        <p id="linked-students-empty" class="empty-message" hidden>
+          No students are linked to this guardian account yet.
+        </p>
+        <div id="linked-student-list" class="student-grid"></div>
+      </section>
+
+      <section id="link-student-panel" class="panel link-panel" aria-labelledby="link-student-heading" hidden>
+        <div class="section-heading">
+          <div>
+            <p class="section-label">Student lookup</p>
+            <h2 id="link-student-heading">Link a student</h2>
+          </div>
+          <button id="cancel-link-student" class="text-button" type="button" hidden>Cancel</button>
+        </div>
+
+        <form id="student-search-form" class="search-form">
+          <label>
+            Student name
+            <input name="name" autocomplete="off" maxlength="120" required>
+          </label>
+
+          <label>
+            Year of birth
+            <input name="yearOfBirth" type="number" inputmode="numeric" min="1900" required>
+          </label>
+
+          <label>
+            Level
+            <select id="student-search-level" name="level" required>
+              <option value="">Select level</option>
+            </select>
+          </label>
+
+          <label>
+            Current grade
+            <select name="grade" required>
+              <option value="">Select grade</option>
+              <option value="1">Year 1</option>
+              <option value="2">Year 2</option>
+              <option value="3">Year 3</option>
+              <option value="4">Year 4</option>
+              <option value="5">Year 5</option>
+              <option value="6">Year 6</option>
+            </select>
+          </label>
+
+          <label>
+            Relationship
+            <select id="student-link-relationship" name="relationship" required>
+              <option value="">Select relationship</option>
+            </select>
+          </label>
+
+          <button id="student-search-submit" class="primary-button search-button" type="submit" disabled>
+            Search students
+          </button>
+        </form>
+
+        <div id="student-search-results" class="search-results" aria-live="polite" hidden>
+          <h3>Search results</h3>
+          <div id="student-search-result-list" class="student-grid"></div>
+        </div>
+      </section>
+
+      <p id="guardian-landing-status" class="status" role="status" aria-live="polite">
+        Loading guardian account...
+      </p>
+    </main>
+
+    <script type="module" src="./landing.js?v=20260825-guardian-student-links-v1"></script>
+  </body>
+</html>

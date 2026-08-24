@@ -20,7 +20,7 @@ import {
 } from "../domain/student_practice_completion.js?v=20260810-completed-practice";
 import {
   StudentPracticeRepository
-} from "../domain/student_practice_repository.js?v=20260816-practice-id-lists";
+} from "../domain/student_practice_repository.js?v=20260824-completed-practices";
 
 function requireIdentifier(value, fieldName) {
   const identifier = String(value ?? "").trim();
@@ -54,6 +54,11 @@ function sortPracticeIds(practiceIds) {
   );
 }
 
+function compareCompletions(first, second) {
+  return second.dateCompleted.getTime() - first.dateCompleted.getTime()
+    || first.practiceId.localeCompare(second.practiceId);
+}
+
 function toCompletionRecord(completion) {
   return {
     dateCompleted: completion.dateCompleted,
@@ -63,6 +68,19 @@ function toCompletionRecord(completion) {
     timeTakenSeconds: completion.timeTakenSeconds,
     studentAnswers: completion.studentAnswers
   };
+}
+
+function toCompletion(record, studentId) {
+  return new StudentPracticeCompletion({
+    studentId,
+    practiceId: record.id,
+    dateCompleted: record.dateCompleted,
+    questionsCorrect: record.questionsCorrect,
+    totalQuestions: record.totalQuestions,
+    score: record.score,
+    timeTakenSeconds: record.timeTakenSeconds,
+    studentAnswers: record.studentAnswers
+  });
 }
 
 export class FirestoreStudentPracticeRepository
@@ -169,6 +187,17 @@ export class FirestoreStudentPracticeRepository
     return sortPracticeIds(await readCollectionIds(
       completedPracticesCollectionPath(normalizedStudentId)
     ));
+  }
+
+  async listCompleted(studentId) {
+    const normalizedStudentId = requireIdentifier(studentId, "studentId");
+    const records = await readCollection(
+      completedPracticesCollectionPath(normalizedStudentId)
+    );
+
+    return records
+      .map((record) => toCompletion(record, normalizedStudentId))
+      .sort(compareCompletions);
   }
 
   async remove(assignment) {

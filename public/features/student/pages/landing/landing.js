@@ -5,11 +5,18 @@ import {
 } from "../../student_module.js?v=20260823-student-country-v1";
 import {
   getStudentDashboard
-} from "../../../student_dashboard/student_dashboard_module.js?v=20260823-topic-practice-v1";
+} from "../../../student_dashboard/student_dashboard_module.js?v=20260824-completed-practices";
 
 const INDEX_URL = "/index.html";
 const COMMENCE_PRACTICE_URL =
   "/features/practice_session/pages/commence_practice/commence_practice.html";
+const PRACTICE_RESULT_URL =
+  "/features/practice_result/pages/result/practice_result.html";
+const completedDateFormatter = new Intl.DateTimeFormat(undefined, {
+  day: "numeric",
+  month: "short",
+  year: "numeric"
+});
 
 const welcomeEl = document.querySelector("#student-welcome");
 const statusEl = document.querySelector("#student-landing-status");
@@ -42,6 +49,14 @@ function titleCase(value) {
   return text
     ? text.charAt(0).toUpperCase() + text.slice(1).toLowerCase()
     : "Not specified";
+}
+
+function formatCompletedDate(value) {
+  const date = value instanceof Date ? value : new Date(value);
+
+  return Number.isNaN(date.getTime())
+    ? "Date unavailable"
+    : completedDateFormatter.format(date);
 }
 
 function getPreAssessmentPresentation(state) {
@@ -101,7 +116,86 @@ function createPracticeMetric(nextAssignedPractice) {
   return metric;
 }
 
-function createTopicRow(topic) {
+function createHistoryField(label, value) {
+  const field = document.createElement("div");
+  const labelEl = document.createElement("span");
+  const valueEl = document.createElement("span");
+
+  field.className = "history-field";
+  labelEl.className = "history-label";
+  labelEl.textContent = label;
+  valueEl.className = "history-value";
+  valueEl.textContent = value;
+  field.append(labelEl, valueEl);
+
+  return field;
+}
+
+function getPracticeHistoryType(practice) {
+  if (practice.practiceType === "pre assessment") {
+    return "Pre-assessment";
+  }
+
+  return practice.difficulty
+    ? titleCase(practice.difficulty)
+    : "Difficulty unavailable";
+}
+
+function createPracticeResultUrl(studentId, practiceId) {
+  return `${PRACTICE_RESULT_URL}?studentId=${encodeURIComponent(
+    studentId
+  )}&practiceId=${encodeURIComponent(practiceId)}`;
+}
+
+function createCompletedPracticeHistory(
+  completedPractices = [],
+  studentId
+) {
+  const details = document.createElement("details");
+  const summary = document.createElement("summary");
+  const count = completedPractices.length;
+
+  details.className = "topic-history";
+  summary.className = "history-toggle";
+  summary.textContent = `Past completed practices (${count})`;
+  details.append(summary);
+
+  if (count === 0) {
+    const empty = document.createElement("p");
+
+    empty.className = "history-empty";
+    empty.textContent = "No completed practices yet.";
+    details.append(empty);
+    return details;
+  }
+
+  const list = document.createElement("div");
+
+  list.className = "practice-history-list";
+  completedPractices.forEach((practice) => {
+    const item = document.createElement("div");
+    const action = document.createElement("a");
+
+    item.className = "practice-history-item";
+    action.className = "history-result-link";
+    action.href = createPracticeResultUrl(studentId, practice.practiceId);
+    action.textContent = "View result";
+    item.append(
+      createHistoryField("Date", formatCompletedDate(
+        practice.dateCompleted
+      )),
+      createHistoryField("Type / difficulty", getPracticeHistoryType(practice)),
+      createHistoryField("Score", `${practice.score}%`),
+      action
+    );
+    list.append(item);
+  });
+  details.append(list);
+
+  return details;
+}
+
+function createTopicRow(topic, studentId) {
   const row = document.createElement("div");
   const topicName = document.createElement("div");
   const assessmentMetric = document.createElement("div");
@@ -163,13 +257,14 @@ function createTopicRow(topic) {
     createMetric("Current level", topic.currentLevelName),
     createMetric("Next level", topic.nextLevelName),
     createPracticeMetric(topic.nextAssignedPractice),
-    progressMetric
+    progressMetric,
+    createCompletedPracticeHistory(topic.completedPractices, studentId)
   );
 
   return row;
 }
 
-function createSyllabusPanel(syllabus) {
+function createSyllabusPanel(syllabus, studentId) {
   const panel = document.createElement("article");
   const heading = document.createElement("header");
   const title = document.createElement("h3");
@@ -204,7 +299,7 @@ function createSyllabusPanel(syllabus) {
 
   topicList.className = "topic-list";
   syllabus.topics.forEach((topic) => {
-    topicList.append(createTopicRow(topic));
+    topicList.append(createTopicRow(topic, studentId));
   });
   panel.append(topicList);
 
@@ -236,7 +331,7 @@ function renderDashboard(dashboard) {
   const fragment = document.createDocumentFragment();
 
   syllabuses.forEach((syllabus) => {
-    fragment.append(createSyllabusPanel(syllabus));
+    fragment.append(createSyllabusPanel(syllabus, student.id));
   });
   syllabusProgressList.append(fragment);
 }

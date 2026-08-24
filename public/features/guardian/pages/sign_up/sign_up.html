@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Guardian Sign Up</title>
+
+    <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script type="module" src="/init_fb.js"></script>
+
+    <link rel="stylesheet" href="./sign_up.css?v=20260825-guardian-sign-up-v1">
+  </head>
+  <body>
+    <main class="page-shell">
+      <a class="home-link" href="/index.html">Back to Home</a>
+
+      <section class="sign-up-panel" aria-labelledby="page-title">
+        <header>
+          <p class="eyebrow">Guardian account</p>
+          <h1 id="page-title">Create your account</h1>
+          <p class="intro">Choose Google or sign up with your email address.</p>
+        </header>
+
+        <button id="guardian-google-sign-up" class="google-button" type="button">
+          <span class="google-mark" aria-hidden="true">G</span>
+          Continue with Google
+        </button>
+
+        <div class="divider" aria-hidden="true">
+          <span>or</span>
+        </div>
+
+        <form id="guardian-email-sign-up-form">
+          <label for="guardian-name">Full name</label>
+          <input
+            id="guardian-name"
+            name="name"
+            type="text"
+            autocomplete="name"
+            maxlength="120"
+            required
+          >
+
+          <label for="guardian-email">Email address</label>
+          <input
+            id="guardian-email"
+            name="email"
+            type="email"
+            autocomplete="email"
+            maxlength="254"
+            required
+          >
+
+          <label for="guardian-password">Password</label>
+          <input
+            id="guardian-password"
+            name="password"
+            type="password"
+            autocomplete="new-password"
+            minlength="6"
+            required
+          >
+
+          <label for="guardian-confirm-password">Confirm password</label>
+          <input
+            id="guardian-confirm-password"
+            name="confirmPassword"
+            type="password"
+            autocomplete="new-password"
+            minlength="6"
+            required
+          >
+
+          <button id="guardian-email-sign-up" class="primary-button" type="submit" disabled>
+            Sign up with email
+          </button>
+        </form>
+
+        <p id="guardian-sign-up-status" class="status" role="status" aria-live="polite" hidden></p>
+      </section>
+    </main>
+
+    <script type="module" src="./sign_up.js?v=20260825-guardian-landing-v1"></script>
+  </body>
+</html>

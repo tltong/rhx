@@ -1,3 +1,12 @@
+/**
+ * Public API contracts
+ *
+ * listCompletedPractices({studentId: string})
+ *   -> Promise<StudentPracticeCompletion[]> sorted newest first.
+ *
+ * listCompletedPracticeIds({studentId: string}) -> Promise<string[]>
+ * listAssignedPracticeIds({studentId: string}) -> Promise<string[]>
+ */
 import {
   getPracticeById
 } from "../practice/practice_module.js?v=20260816-practice-question-ids";
@@ -10,7 +19,6 @@ import {
 import {
   GetAssignedPractice
 } from "./application/get_assigned_practice.js?v=20260808-practice-session";
-
 import {
   ListAssignedPractices
 } from "./application/list_assigned_practices.js?v=20260808-assigned-practices";
@@ -21,15 +29,19 @@ import {
   ListCompletedPracticeIds
 } from "./application/list_completed_practice_ids.js?v=20260816-practice-id-lists";
 import {
+  ListCompletedPractices
+} from "./application/list_completed_practices.js?v=20260824-completed-practices";
+import {
   RemoveAssignedPractice
 } from "./application/remove_assigned_practice.js?v=20260808-practice-session";
 import {
   FirestoreStudentPracticeRepository
-} from "./infrastructure/firestore_student_practice_repository.js?v=20260816-practice-id-lists";
+} from "./infrastructure/firestore_student_practice_repository.js?v=20260824-completed-practices";
 
 /**
  * @typedef {import("./domain/student_practice_assignment.js").StudentPracticeAssignmentInput} StudentPracticeAssignmentInput
  * @typedef {import("./domain/student_practice_assignment.js").StudentPracticeAssignment} StudentPracticeAssignment
+ * @typedef {import("./domain/student_practice_completion.js").StudentPracticeCompletion} StudentPracticeCompletion
  */
 
 const studentPracticeRepository = new FirestoreStudentPracticeRepository();
@@ -43,7 +55,6 @@ const completeAssignedPracticeUseCase = new CompleteAssignedPractice(
 const getAssignedPracticeUseCase = new GetAssignedPractice(
   studentPracticeRepository
 );
-
 const listAssignedPracticesUseCase = new ListAssignedPractices(
   studentPracticeRepository
 );
@@ -51,6 +62,9 @@ const listAssignedPracticeIdsUseCase = new ListAssignedPracticeIds(
   studentPracticeRepository
 );
 const listCompletedPracticeIdsUseCase = new ListCompletedPracticeIds(
+  studentPracticeRepository
+);
+const listCompletedPracticesUseCase = new ListCompletedPractices(
   studentPracticeRepository
 );
 const removeAssignedPracticeUseCase = new RemoveAssignedPractice(
@@ -73,7 +87,6 @@ async function getAssignedPractice(input) {
   return getAssignedPracticeUseCase.execute(input);
 }
 
-
 async function listAssignedPractices(input) {
   return listAssignedPracticesUseCase.execute(input);
 }
@@ -94,6 +107,14 @@ async function listCompletedPracticeIds(input) {
   return listCompletedPracticeIdsUseCase.execute(input);
 }
 
+/**
+ * @param {{studentId: string}} input
+ * @returns {Promise<StudentPracticeCompletion[]>}
+ */
+async function listCompletedPractices(input) {
+  return listCompletedPracticesUseCase.execute(input);
+}
+
 async function removeAssignedPractice(input) {
   return removeAssignedPracticeUseCase.execute(input);
 }
@@ -105,5 +126,6 @@ export {
   listAssignedPractices,
   listAssignedPracticeIds,
   listCompletedPracticeIds,
+  listCompletedPractices,
   removeAssignedPractice
 };

@@ -1,0 +1,308 @@
+:root {
+  color-scheme: light;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: #edf4f8;
+  color: #102a43;
+  margin: 0;
+  min-height: 100vh;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+.page-shell {
+  margin: 0 auto;
+  max-width: 1040px;
+  padding: 38px 24px 56px;
+}
+
+.page-header,
+.section-heading {
+  align-items: center;
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+}
+
+.page-header {
+  margin-bottom: 26px;
+}
+
+.eyebrow,
+.section-label {
+  color: #087f5b;
+  font-size: 13px;
+  font-weight: 800;
+  margin: 0 0 7px;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+h3,
+dd {
+  margin: 0;
+}
+
+h1 {
+  font-size: 32px;
+}
+
+h2 {
+  font-size: 24px;
+}
+
+h3 {
+  font-size: 18px;
+  margin-bottom: 14px;
+}
+
+.panel {
+  background: #ffffff;
+  border: 1px solid #d5e2ea;
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(16, 42, 67, 0.08);
+  margin-top: 20px;
+  padding: 28px;
+}
+
+.profile-heading {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+}
+
+.initials {
+  align-items: center;
+  background: #087f5b;
+  border-radius: 50%;
+  color: #ffffff;
+  display: flex;
+  flex: 0 0 54px;
+  font-size: 20px;
+  font-weight: 800;
+  height: 54px;
+  justify-content: center;
+}
+
+.profile-details {
+  border-top: 1px solid #d9e2ec;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 26px 0 0;
+  padding-top: 24px;
+}
+
+.profile-details div {
+  min-width: 0;
+}
+
+dt {
+  color: #627d98;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+dd {
+  overflow-wrap: anywhere;
+}
+
+.primary-button,
+.secondary-button,
+.text-button,
+.link-button {
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 800;
+  min-height: 42px;
+  padding: 9px 16px;
+}
+
+.primary-button,
+.link-button {
+  background: #087f5b;
+  border: 1px solid #087f5b;
+  color: #ffffff;
+}
+
+.primary-button:hover:not(:disabled),
+.link-button:hover:not(:disabled) {
+  background: #066c4d;
+}
+
+.secondary-button {
+  background: #ffffff;
+  border: 1px solid #9fb3c3;
+  color: #102a43;
+}
+
+.secondary-button:hover:not(:disabled) {
+  background: #f5f9fb;
+  border-color: #627d98;
+}
+
+.text-button {
+  background: transparent;
+  border: 0;
+  color: #0369a1;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.student-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 20px;
+}
+
+.student-card {
+  border: 1px solid #d5e2ea;
+  border-radius: 8px;
+  display: grid;
+  gap: 13px;
+  padding: 18px;
+}
+
+.student-card-header {
+  align-items: start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.student-card h3 {
+  font-size: 18px;
+  margin: 0;
+}
+
+.relationship-badge {
+  background: #e6f6ef;
+  border-radius: 999px;
+  color: #075c42;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 5px 9px;
+  text-transform: capitalize;
+}
+
+.student-meta {
+  color: #52606d;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 14px;
+  gap: 8px 16px;
+  margin: 0;
+}
+
+.empty-message {
+  background: #f5f9fb;
+  border: 1px dashed #9fb3c3;
+  border-radius: 6px;
+  color: #52606d;
+  margin: 20px 0 0;
+  padding: 18px;
+}
+
+.search-form {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 22px;
+}
+
+.search-form label {
+  color: #243b53;
+  display: grid;
+  font-size: 14px;
+  font-weight: 700;
+  gap: 7px;
+}
+
+input,
+select {
+  background: #ffffff;
+  border: 1px solid #b8c9d6;
+  border-radius: 6px;
+  color: #102a43;
+  min-height: 44px;
+  padding: 9px 11px;
+  width: 100%;
+}
+
+input:focus,
+select:focus {
+  border-color: #087f5b;
+  box-shadow: 0 0 0 3px rgba(8, 127, 91, 0.14);
+  outline: 0;
+}
+
+.search-button {
+  align-self: end;
+  min-height: 44px;
+}
+
+.search-results {
+  border-top: 1px solid #d9e2ec;
+  margin-top: 24px;
+  padding-top: 22px;
+}
+
+.search-results .student-grid {
+  margin-top: 0;
+}
+
+.status {
+  background: #e6f6ef;
+  border: 1px solid #a8ddc9;
+  border-radius: 6px;
+  color: #075c42;
+  margin: 18px 0 0;
+  padding: 13px 15px;
+}
+
+.status.is-error {
+  background: #fff1f1;
+  border-color: #f4b8b8;
+  color: #a61b1b;
+}
+
+@media (max-width: 720px) {
+  .page-shell {
+    padding: 24px 16px 40px;
+  }
+
+  .page-header,
+  .section-heading {
+    align-items: flex-start;
+  }
+
+  h1 {
+    font-size: 27px;
+  }
+
+  .panel {
+    padding: 22px 18px;
+  }
+
+  .profile-details,
+  .student-grid,
+  .search-form {
+    grid-template-columns: 1fr;
+  }
+}

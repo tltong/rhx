@@ -1,16 +1,21 @@
 import { FirestoreStudentRepository } from "./infrastructure/firestore_student_repository.js?v=20260823-student-country-v1";
 import { GetStudent } from "./application/get_student.js?v=20260716-no-eager-auth";
+import { GetStudentSummary } from "./application/get_student_summary.js";
 import { ListStudents } from "./application/list_students.js?v=20260716-no-eager-auth";
+import { SearchStudents } from "./application/search_students.js";
 import { CreateStudent } from "./application/create_student.js?v=20260823-student-country-v1";
 import { UpdateStudent } from "./application/update_student.js?v=20260716-no-eager-auth";
 import { DeleteStudent } from "./application/delete_student.js?v=20260716-no-eager-auth";
 import { CurrentStudentSession } from "./application/current_student_session.js?v=20260716-no-eager-auth";
 import { getStudentAuthService } from "./auth/student_auth_service.js?v=20260716-no-eager-auth";
 import { findSyllabusScopeByCountry } from "../syllabusscope/syllabusscope_module.js?v=20260823-student-country-v1";
+import { studentLevels } from "../../config/firebase/student_schema.js";
 
 const studentRepository = new FirestoreStudentRepository();
 const getStudent = new GetStudent(studentRepository);
+const getStudentSummaryUseCase = new GetStudentSummary(studentRepository);
 const listStudentsUseCase = new ListStudents(studentRepository);
+const searchStudentsUseCase = new SearchStudents(studentRepository);
 const createStudent = new CreateStudent({
   studentRepository,
   findSyllabusScopeByCountry
@@ -23,12 +28,24 @@ async function getStudentById(studentId) {
   return getStudent.execute(studentId);
 }
 
+async function getStudentSummaryById(studentId) {
+  return getStudentSummaryUseCase.execute(studentId);
+}
+
 async function findStudentByUsername(username) {
   return studentRepository.findByUsername(username);
 }
 
 async function listStudents() {
   return listStudentsUseCase.execute();
+}
+
+/**
+ * @param {{name: string, yearOfBirth: number, level: string, grade: number}} criteria
+ * @returns {Promise<Array<{id: string, name: string, yearOfBirth: number, level: string, grade: number}>>}
+ */
+async function searchStudents(criteria) {
+  return searchStudentsUseCase.execute(criteria);
 }
 
 async function createStudentRecord(data) {
@@ -84,20 +101,23 @@ async function getStudentIdToken(forceRefresh = false) {
 }
 
 export {
-  getStudentById,
-  findStudentByUsername,
-  listStudents,
-  createStudentRecord,
-  updateStudentRecord,
-  deleteStudentRecord,
-  loadCurrentStudent,
-  getCurrentStudent,
   clearCurrentStudent,
-  signUpStudent,
+  createStudentRecord,
+  deleteStudentRecord,
+  findStudentByUsername,
+  getCurrentStudent,
+  getCurrentStudentAuthUser,
+  getStudentById,
+  getStudentIdToken,
+  getStudentSummaryById,
+  listStudents,
+  loadCurrentStudent,
+  onStudentAuthStateChanged,
+  requireCurrentStudentAuthUser,
+  searchStudents,
   signInStudent,
   signOutStudent,
-  getCurrentStudentAuthUser,
-  requireCurrentStudentAuthUser,
-  onStudentAuthStateChanged,
-  getStudentIdToken
+  signUpStudent,
+  studentLevels,
+  updateStudentRecord
 };
