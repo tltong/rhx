@@ -20,6 +20,7 @@ test("student repository reads the stream-selection fields", async () => {
         email: "student@rhx.com",
         name: "Student One",
         username: "student1",
+        pin: "123456",
         country: "Malaysia",
         level: "primary",
         yearOfRegistration: 2025,
@@ -31,6 +32,7 @@ test("student repository reads the stream-selection fields", async () => {
   const student = await repository.getById("student-1");
 
   assert.equal(student.id, "student-1");
+  assert.equal(student.pin, "123456");
   assert.equal(student.country, "Malaysia");
   assert.equal(student.level, "primary");
   assert.equal(student.yearOfRegistration, 2025);

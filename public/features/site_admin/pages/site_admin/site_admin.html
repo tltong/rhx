@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Site Admin</title>
+    <script>document.documentElement.hidden = true;</script>
+
+    <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script type="module" src="/init_fb.js"></script>
+
+    <style>
+      body {
+        background: #eef3f8;
+        color: #102a43;
+        font-family: Arial, Helvetica, sans-serif;
+        margin: 0;
+      }
+
+      main {
+        box-sizing: border-box;
+        margin: 0 auto;
+        max-width: 1040px;
+        padding: 32px 20px 48px;
+      }
+
+      .back-link {
+        color: #0369a1;
+        display: inline-block;
+        font-weight: 700;
+        margin-bottom: 14px;
+        text-decoration: none;
+      }
+
+      h1 {
+        font-size: 30px;
+        margin: 0 0 8px;
+      }
+
+      .subtitle {
+        color: #52606d;
+        margin: 0 0 26px;
+      }
+
+      .admin-groups {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .admin-section {
+        background: #ffffff;
+        border: 1px solid #cbd9e6;
+        border-radius: 8px;
+        padding: 20px;
+      }
+
+      h2 {
+        font-size: 20px;
+        margin: 0 0 14px;
+      }
+
+      nav {
+        display: grid;
+        gap: 9px;
+      }
+
+      nav a {
+        align-items: center;
+        background: #f5f9fc;
+        border: 1px solid #d5e1ec;
+        border-radius: 6px;
+        color: #075985;
+        display: flex;
+        font-weight: 700;
+        min-height: 44px;
+        padding: 0 13px;
+        text-decoration: none;
+      }
+
+      nav a:hover,
+      nav a:focus-visible {
+        background: #e0f2fe;
+        border-color: #7dd3fc;
+      }
+
+      @media (max-width: 720px) {
+        .admin-groups {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <a class="back-link" href="/index.html">Back to Home</a>
+      <h1>Site Admin</h1>
+      <p class="subtitle">Administration workspace</p>
+
+      <div class="admin-groups">
+        <section class="admin-section">
+          <h2>Syllabus Related</h2>
+          <nav aria-label="Syllabus administration">
+            <a href="/features/syllabusscope/pages/admin/syllabusscope_admin.html">Syllabus Scope Admin</a>
+            <a href="/features/syllabus/pages/admin/syllabus_admin.html">Syllabus Admin</a>
+            <a href="/features/stream/pages/admin/stream_admin.html">Stream Admin</a>
+            <a href="/features/syllabus_subscription/pages/admin/syllabus_subscription_admin.html">Syllabus Subscription Admin</a>
+          </nav>
+        </section>
+
+        <section class="admin-section">
+          <h2>Assessment Framework</h2>
+          <nav aria-label="Assessment framework administration">
+            <a href="/features/assessment_framework/pages/admin/assessment_framework_admin.html">Assessment Framework Admin</a>
+          </nav>
+        </section>
+
+        <section class="admin-section">
+          <h2>Question Related</h2>
+          <nav aria-label="Question administration">
+            <a href="/features/llm_prompt_config/pages/admin/llm_prompt_config_admin.html">LLM Prompt Config Admin</a>
+            <a href="/features/diagram_config/pages/admin/diagram_config_admin.html">Diagram Config Admin</a>
+            <a href="/features/practice_generator/pages/admin/practice_generator_admin.html">Pre-Assessment Practice Generator</a>
+          </nav>
+        </section>
+
+        <section class="admin-section">
+          <h2>Others</h2>
+          <nav aria-label="Other site administration">
+            <a href="/features/site_admin/pages/admin/site_admin_admin.html">Site Admin Management</a>
+          </nav>
+        </section>
+      </div>
+    </main>
+
+    <script
+      id="site-admin-page-loader"
+      type="module"
+      data-site-admin-page
+      src="/features/site_admin/pages/common/site_admin_page_loader.js?v=20260827-site-admin-guard-v1"
+    ></script>
+  </body>
+</html>

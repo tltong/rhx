@@ -9,6 +9,7 @@ const studentSchema = {
   email: "string",
   name: "string",
   username: "string",
+  pin: "string",
   country: "string",
   level: {
     type: "string",

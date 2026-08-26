@@ -4,9 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Assessment Framework Admin</title>
+    <script>document.documentElement.hidden = true;</script>
     <link rel="stylesheet" href="./assessment_framework_admin.css?v=20260730-score-bands">
     <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script>
     <script defer src="/__/firebase/init.js"></script>
     <script type="module" src="/init_fb.js"></script>
   </head>
@@ -193,6 +196,12 @@
       </section>
     </template>
 
-    <script type="module" src="./assessment_framework_admin.js?v=20260730-score-bands"></script>
+    <script
+      id="site-admin-page-loader"
+      type="module"
+      data-site-admin-page
+      data-page-module="./assessment_framework_admin.js?v=20260730-score-bands"
+      src="/features/site_admin/pages/common/site_admin_page_loader.js?v=20260827-site-admin-guard-v1"
+    ></script>
   </body>
 </html>

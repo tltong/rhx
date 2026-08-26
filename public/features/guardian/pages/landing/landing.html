@@ -8,10 +8,11 @@
     <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script>
     <script defer src="/__/firebase/init.js"></script>
     <script type="module" src="/init_fb.js"></script>
 
-    <link rel="stylesheet" href="./landing.css?v=20260825-guardian-student-links-v1">
+    <link rel="stylesheet" href="./landing.css?v=20260827-site-admin-nav-v1">
   </head>
   <body>
     <main class="page-shell">
@@ -117,8 +118,18 @@
       <p id="guardian-landing-status" class="status" role="status" aria-live="polite">
         Loading guardian account...
       </p>
+
+      <section id="site-admin-navigation" class="site-admin-navigation" hidden>
+        <div>
+          <p class="section-label">Administration</p>
+          <h2>Site administration</h2>
+        </div>
+        <a class="site-admin-link" href="/features/site_admin/pages/site_admin/site_admin.html">
+          Open Site Admin
+        </a>
+      </section>
     </main>
 
-    <script type="module" src="./landing.js?v=20260825-guardian-student-links-v1"></script>
+    <script type="module" src="./landing.js?v=20260827-site-admin-nav-v1"></script>
   </body>
 </html>

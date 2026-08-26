@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Site Admin Management</title>
+    <script>document.documentElement.hidden = true;</script>
+
+    <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script type="module" src="/init_fb.js"></script>
+
+    <style>
+      body {
+        background: #eef3f8;
+        color: #102a43;
+        font-family: Arial, Helvetica, sans-serif;
+        margin: 0;
+      }
+
+      main {
+        box-sizing: border-box;
+        margin: 0 auto;
+        max-width: 760px;
+        padding: 32px 20px;
+      }
+
+      .back-link {
+        color: #0369a1;
+        display: inline-block;
+        font-weight: 700;
+        margin-bottom: 14px;
+        text-decoration: none;
+      }
+
+      h1 {
+        font-size: 30px;
+        margin: 0 0 8px;
+      }
+
+      .subtitle {
+        color: #52606d;
+        margin: 0 0 24px;
+      }
+
+      .panel {
+        background: #ffffff;
+        border: 1px solid #cbd9e6;
+        border-radius: 8px;
+        padding: 22px;
+      }
+
+      .account {
+        background: #f5f8fb;
+        border-radius: 6px;
+        margin-bottom: 20px;
+        padding: 12px;
+      }
+
+      .account strong {
+        display: block;
+        font-size: 13px;
+        margin-bottom: 4px;
+      }
+
+      form {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: minmax(0, 1fr) auto;
+      }
+
+      label {
+        display: grid;
+        font-weight: 700;
+        gap: 6px;
+      }
+
+      input {
+        border: 1px solid #bcccdc;
+        border-radius: 6px;
+        box-sizing: border-box;
+        font: inherit;
+        padding: 11px 12px;
+        width: 100%;
+      }
+
+      button {
+        background: #0369a1;
+        border: 0;
+        border-radius: 6px;
+        color: #ffffff;
+        cursor: pointer;
+        font: inherit;
+        font-weight: 700;
+        padding: 11px 16px;
+      }
+
+      form button {
+        align-self: end;
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
+      }
+
+      .status {
+        background: #e0f2fe;
+        border-radius: 6px;
+        color: #075985;
+        margin: 18px 0;
+        padding: 12px;
+      }
+
+      .status.is-error {
+        background: #fee2e2;
+        color: #991b1b;
+      }
+
+      h2 {
+        font-size: 21px;
+        margin: 22px 0 12px;
+      }
+
+      .admin-list {
+        display: grid;
+        gap: 8px;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      .admin-row {
+        align-items: center;
+        border: 1px solid #d5e1ec;
+        border-radius: 6px;
+        display: flex;
+        gap: 12px;
+        justify-content: space-between;
+        overflow-wrap: anywhere;
+        padding: 10px 12px;
+      }
+
+      .remove-button {
+        background: #b42318;
+        flex: 0 0 auto;
+      }
+
+      .empty {
+        color: #52606d;
+        margin: 0;
+      }
+
+      @media (max-width: 600px) {
+        form {
+          grid-template-columns: 1fr;
+        }
+
+        form button {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <a class="back-link" href="/index.html">Back to Home</a>
+      <h1>Site Admin Management</h1>
+      <p class="subtitle">Manage the email addresses permitted to administer the site.</p>
+
+      <section class="panel">
+        <div class="account">
+          <strong>Current account</strong>
+          <span id="site-admin-account">Checking...</span>
+        </div>
+
+        <form id="site-admin-form">
+          <label>
+            Admin email
+            <input
+              id="site-admin-email"
+              name="email"
+              type="email"
+              autocomplete="email"
+              required
+              disabled
+            >
+          </label>
+          <button id="site-admin-add" type="submit" disabled>Add Admin</button>
+        </form>
+
+        <div id="site-admin-status" class="status" role="status">
+          Checking site-admin access...
+        </div>
+
+        <h2>Site administrators</h2>
+        <p id="site-admin-empty" class="empty">No site administrators configured.</p>
+        <ul id="site-admin-list" class="admin-list"></ul>
+      </section>
+    </main>
+
+    <script
+      id="site-admin-page-loader"
+      type="module"
+      data-site-admin-page
+      data-page-module="./site_admin_admin.js?v=20260826-site-admin-v1"
+      src="/features/site_admin/pages/common/site_admin_page_loader.js?v=20260827-site-admin-guard-v1"
+    ></script>
+  </body>
+</html>

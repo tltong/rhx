@@ -1,4 +1,4 @@
-import { Student } from "../domain/student.js?v=20260823-student-country-v1";
+import { Student } from "../domain/student.js?v=20260825-student-pin-v1";
 
 export class CreateStudent {
   constructor({ studentRepository, findSyllabusScopeByCountry }) {

@@ -11,6 +11,7 @@ import {
 } from "../../../../utils/math/render_math.js?v=20260822-katex-math";
 
 const SIGN_IN_URL = "/features/student/pages/sign_in/sign_in.html";
+const STUDENT_LANDING_URL = "/features/student/pages/landing/landing.html";
 const QUESTION_OPTION_KEYS = Object.freeze(["a", "b", "c", "d"]);
 
 const practiceId = new URLSearchParams(window.location.search)
@@ -204,9 +205,9 @@ async function submitPractice() {
     disableAnswerControls();
     submitButton.textContent = "Submitted";
     submitButton.disabled = true;
-    setStatus("Practice submitted successfully.");
+    setStatus("Practice submitted successfully. Returning to dashboard...");
     renderResult(result);
-    resultEl.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.location.replace(STUDENT_LANDING_URL);
   } catch (error) {
     console.error(error);
     submissionInProgress = false;

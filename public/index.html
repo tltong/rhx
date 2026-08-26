@@ -6,71 +6,126 @@
     <title>ReadyHeroX</title>
 
     <style>
+      * {
+        box-sizing: border-box;
+      }
+
       body {
-        align-items: center;
         background: #eef3f8;
         color: #102a43;
-        display: flex;
         font-family: Arial, Helvetica, sans-serif;
-        justify-content: center;
         margin: 0;
         min-height: 100vh;
-        padding: 24px;
       }
 
       main {
+        margin: 0 auto;
+        max-width: 920px;
+        padding: 56px 24px;
+      }
+
+      .page-heading {
+        margin-bottom: 28px;
         text-align: center;
       }
 
-      nav {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 12px;
-        justify-content: center;
-      }
-
       h1 {
-        font-size: 32px;
+        font-size: 34px;
         margin: 0 0 8px;
       }
 
-      p {
+      .page-heading p {
         color: #52606d;
-        margin: 0 0 20px;
+        margin: 0;
       }
 
-      a {
-        background: #0369a1;
+      .account-sections {
+        display: grid;
+        gap: 18px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .account-section {
+        background: #ffffff;
+        border: 1px solid #cbd9e6;
+        border-radius: 8px;
+        padding: 26px;
+      }
+
+      h2 {
+        font-size: 24px;
+        margin: 0 0 8px;
+      }
+
+      .account-section p {
+        color: #52606d;
+        margin: 0 0 22px;
+      }
+
+      nav {
+        display: grid;
+        gap: 10px;
+      }
+
+      nav a {
+        border: 1px solid #0369a1;
         border-radius: 6px;
-        color: #ffffff;
-        display: inline-block;
+        color: #0369a1;
+        display: block;
         font-weight: 700;
         padding: 12px 16px;
+        text-align: center;
         text-decoration: none;
+      }
+
+      nav a:first-child {
+        background: #0369a1;
+        color: #ffffff;
+      }
+
+      nav a:hover,
+      nav a:focus-visible {
+        box-shadow: 0 0 0 3px rgba(3, 105, 161, 0.14);
+        outline: 0;
+      }
+
+      @media (max-width: 680px) {
+        main {
+          padding: 34px 16px;
+        }
+
+        .account-sections {
+          grid-template-columns: 1fr;
+        }
       }
     </style>
   </head>
   <body>
     <main>
-      <h1>ReadyHeroX</h1>
-      <p>Ready for the next build step.</p>
-      <nav>
-        <a href="/features/student/pages/sign_in/sign_in.html">Student Sign In</a>
-        <a href="/features/student/pages/sign_up/sign_up.html">Student Sign Up</a>
-        <a href="/features/guardian/pages/sign_in/sign_in.html">Guardian Sign In</a>
-        <a href="/features/guardian/pages/sign_up/sign_up.html">Guardian Sign Up</a>
-        <a href="/features/syllabusscope/pages/admin/syllabusscope_admin.html">Syllabus Scope Admin</a>
-        <a href="/features/syllabus/pages/admin/syllabus_admin.html">Syllabus Admin</a>
-        <a href="/features/stream/pages/admin/stream_admin.html">Stream Admin</a>
-        <a href="/features/assessment_framework/pages/admin/assessment_framework_admin.html">Assessment Framework Admin</a>
-        <a href="/features/syllabus_subscription/pages/admin/syllabus_subscription_admin.html">Syllabus Subscription Admin</a>
-        <a href="/features/llm_prompt_config/pages/admin/llm_prompt_config_admin.html">LLM Prompt Config Admin</a>
-        <a href="/features/llm_prompt_generator/pages/admin/llm_prompt_generator_admin.html">LLM Prompt Generator</a>
-        <a href="/features/question_generator/pages/admin/question_generator_admin.html">Question Generator Admin</a>
-        <a href="/features/practice_generator/pages/admin/practice_generator_admin.html">Pre-Assessment Practice Generator</a>
-        <a href="/features/diagram_generator/pages/admin/diagram_generator_admin.html">Diagram Generator</a>
-        <a href="/features/diagram_config/pages/admin/diagram_config_admin.html">Diagram Config Admin</a>
-      </nav>
+      <header class="page-heading">
+        <h1>ReadyHeroX</h1>
+        <p>Choose how you want to continue.</p>
+      </header>
+
+      <div class="account-sections">
+        <section class="account-section">
+          <h2>Student</h2>
+          <p>Access your learning account.</p>
+          <nav aria-label="Student account">
+            <a href="/features/student/pages/sign_up/sign_up.html">Student Sign Up</a>
+            <a href="/features/student/pages/sign_in/sign_in.html">Student Sign In</a>
+          </nav>
+        </section>
+
+        <section class="account-section">
+          <h2>Guardian</h2>
+          <p>Access your guardian account.</p>
+          <nav aria-label="Guardian account">
+            <a href="/features/guardian/pages/sign_up/sign_up.html">Guardian Sign Up</a>
+            <a href="/features/guardian/pages/sign_in/sign_in.html">Guardian Sign In</a>
+          </nav>
+        </section>
+      </div>
     </main>
   </body>
 </html>

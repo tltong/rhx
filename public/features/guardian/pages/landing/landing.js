@@ -12,6 +12,9 @@ import {
   linkStudentToGuardian,
   listLinkedStudentsForGuardian
 } from "../../../guardian_student_link/guardian_student_link_module.js?v=20260825-guardian-student-links-v1";
+import {
+  isCurrentUserSiteAdmin
+} from "../../../site_admin/site_admin_module.js?v=20260827-site-admin-nav-v1";
 
 const HOME_URL = "/index.html";
 
@@ -35,6 +38,7 @@ const searchResultsEl = document.querySelector("#student-search-results");
 const searchResultListEl = document.querySelector("#student-search-result-list");
 const statusEl = document.querySelector("#guardian-landing-status");
 const signOutEl = document.querySelector("#guardian-sign-out");
+const siteAdminNavigationEl = document.querySelector("#site-admin-navigation");
 
 let currentGuardianId = null;
 let linkedStudentIds = new Set();
@@ -60,6 +64,17 @@ function setStatus(message, isError = false) {
   statusEl.textContent = message;
   statusEl.classList.toggle("is-error", isError);
   statusEl.hidden = !message;
+}
+
+async function updateSiteAdminNavigation() {
+  siteAdminNavigationEl.hidden = true;
+
+  try {
+    const status = await isCurrentUserSiteAdmin();
+    siteAdminNavigationEl.hidden = !status.isAdmin;
+  } catch (error) {
+    console.error("Could not check site-admin access.", error);
+  }
 }
 
 function renderOptions(select, values, labelFormatter = titleCase) {
@@ -264,7 +279,10 @@ onGuardianAuthStateChanged(async (authUser) => {
     }
 
     renderGuardian(guardian);
-    await loadLinkedStudents();
+    await Promise.all([
+      loadLinkedStudents(),
+      updateSiteAdminNavigation()
+    ]);
     setStatus("");
   } catch (error) {
     console.error(error);

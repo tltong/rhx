@@ -38,6 +38,7 @@ class FirestoreStudentRepository extends StudentRepository {
       email: data.email,
       name: data.name,
       username: data.username,
+      pin: data.pin,
       country: data.country,
       level: data.level,
       yearOfBirth: data.yearOfBirth,

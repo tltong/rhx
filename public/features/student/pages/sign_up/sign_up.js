@@ -2,10 +2,10 @@ import {
   createStudentRecord,
   findStudentByUsername,
   signUpStudent
-} from "../../student_module.js?v=20260823-student-country-v1";
+} from "../../student_module.js?v=20260825-student-pin-v1";
 import {
   studentLevels
-} from "../../../../config/firebase/student_schema.js?v=20260823-student-country-v1";
+} from "../../../../config/firebase/student_schema.js?v=20260825-student-pin-v1";
 import {
   listSyllabusScopeCountries
 } from "../../../syllabusscope/syllabusscope_module.js?v=20260823-student-country-v1";
@@ -13,8 +13,8 @@ import {
   listStreamsByScope
 } from "../../../stream/stream_module.js?v=20260823-student-standard-stream-v1";
 import {
-  subscribeStudentToStream
-} from "../../../stream_subscription/stream_subscription_module.js?v=20260823-student-stream-v1";
+  subscribeStudentToStreamSyllabuses
+} from "../../../stream_subscription/stream_subscription_module.js?v=20260826-student-stream-syllabuses-v1";
 
 const STUDENT_EMAIL_DOMAIN = "rhx.com";
 const PIN_PATTERN = /^\d{6}$/;
@@ -300,6 +300,7 @@ formEl.addEventListener("submit", async (event) => {
       email,
       name: input.name,
       username: input.username,
+      pin: input.pin,
       country: input.country,
       level: input.level,
       yearOfBirth: input.yearOfBirth,
@@ -307,7 +308,7 @@ formEl.addEventListener("submit", async (event) => {
       registrationDate: input.registrationDate,
       standardAtYearOfRegistration: input.standardAtYearOfRegistration
     });
-    await subscribeStudentToStream(authUser.uid, input.streamId);
+    await subscribeStudentToStreamSyllabuses(authUser.uid, input.streamId);
 
     formEl.reset();
     availableStreams = [];
