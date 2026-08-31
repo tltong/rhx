@@ -1,0 +1,286 @@
+:root {
+  color-scheme: light;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: #eef3f8;
+  color: #102a43;
+  margin: 0;
+  min-height: 100vh;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+.page-shell {
+  margin: 0 auto;
+  max-width: 1040px;
+  padding: 34px 22px 54px;
+}
+
+.back-link {
+  color: #0369a1;
+  display: inline-block;
+  font-weight: 700;
+  margin-bottom: 14px;
+  text-decoration: none;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  font-size: 30px;
+  margin-bottom: 8px;
+}
+
+header > p {
+  color: #52606d;
+  margin-bottom: 24px;
+}
+
+.configuration-panel {
+  background: #ffffff;
+  border: 1px solid #cbd9e6;
+  border-radius: 8px;
+  padding: 22px;
+}
+
+.configuration-panel h2 {
+  font-size: 20px;
+  margin-bottom: 16px;
+}
+
+.configuration-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+label {
+  display: grid;
+  font-size: 14px;
+  font-weight: 700;
+  gap: 7px;
+}
+
+#currency-form {
+  align-items: end;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+input,
+select {
+  background: #ffffff;
+  border: 1px solid #b8c9d6;
+  border-radius: 6px;
+  color: #102a43;
+  min-height: 44px;
+  padding: 9px 11px;
+  width: 100%;
+}
+
+input:focus,
+select:focus {
+  border-color: #0369a1;
+  box-shadow: 0 0 0 3px rgba(3, 105, 161, 0.14);
+  outline: 0;
+}
+
+button {
+  background: #0369a1;
+  border: 1px solid #0369a1;
+  border-radius: 6px;
+  color: #ffffff;
+  cursor: pointer;
+  font-weight: 700;
+  min-height: 42px;
+  padding: 9px 15px;
+}
+
+button:hover:not(:disabled) {
+  background: #075985;
+}
+
+button:disabled,
+input:disabled,
+select:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.status {
+  background: #e0f2fe;
+  border: 1px solid #7dd3fc;
+  border-radius: 6px;
+  color: #075985;
+  margin: 16px 0 0;
+  padding: 12px 14px;
+}
+
+.status.is-error {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #991b1b;
+}
+
+.plan-section {
+  margin-top: 30px;
+}
+
+.section-heading {
+  align-items: end;
+  border-bottom: 1px solid #cbd9e6;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+}
+
+.section-label {
+  color: #087f5b;
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+}
+
+.section-heading h2 {
+  font-size: 22px;
+  margin-bottom: 0;
+}
+
+.count-badge {
+  background: #dbeafe;
+  border-radius: 999px;
+  color: #1e40af;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 5px 10px;
+}
+
+.plan-form {
+  align-items: end;
+  background: #ffffff;
+  border: 1px solid #d5e1ec;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(180px, 2fr) minmax(100px, 1fr) minmax(120px, 1fr) auto;
+  padding: 18px;
+}
+
+.plan-list {
+  display: grid;
+  gap: 10px;
+}
+
+.plan-row {
+  background: #ffffff;
+  border: 1px solid #d5e1ec;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.plan-row-header {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.plan-row-header h3 {
+  font-size: 17px;
+  margin-bottom: 0;
+}
+
+.plan-id {
+  color: #627d98;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.plan-row-fields {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(180px, 2fr) minmax(100px, 1fr) minmax(120px, 1fr) auto;
+}
+
+.delete-controls {
+  align-items: center;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 14px;
+  padding-top: 14px;
+}
+
+.delete-controls label {
+  align-items: center;
+  display: flex;
+  font-weight: 600;
+}
+
+.delete-controls input {
+  min-height: auto;
+  width: auto;
+}
+
+.delete-button {
+  background: #ffffff;
+  border-color: #dc2626;
+  color: #b91c1c;
+}
+
+.delete-button:hover:not(:disabled) {
+  background: #fee2e2;
+}
+
+.empty-message {
+  background: #ffffff;
+  border: 1px dashed #9fb3c3;
+  border-radius: 6px;
+  color: #52606d;
+  margin: 0;
+  padding: 18px;
+}
+
+@media (max-width: 760px) {
+  .page-shell {
+    padding: 24px 16px 42px;
+  }
+
+  .configuration-grid,
+  #currency-form,
+  .plan-form,
+  .plan-row-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .delete-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .delete-button {
+    width: 100%;
+  }
+}

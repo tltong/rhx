@@ -17,6 +17,8 @@ import {
 } from "../../../site_admin/site_admin_module.js?v=20260827-site-admin-nav-v1";
 
 const HOME_URL = "/index.html";
+const STUDENT_SUBSCRIPTIONS_URL =
+  "/features/syllabus_subscription/pages/manage_student/manage_student_subscriptions.html";
 
 const profileEl = document.querySelector("#guardian-profile");
 const nameEl = document.querySelector("#guardian-name");
@@ -95,7 +97,12 @@ function renderGuardian(guardian) {
   profileEl.hidden = false;
 }
 
-function createStudentCard(student, relationship = null, linkAction = null) {
+function createStudentCard(
+  student,
+  relationship = null,
+  linkAction = null,
+  showSubscriptionLink = false
+) {
   const card = document.createElement("article");
   const header = document.createElement("div");
   const studentName = document.createElement("h3");
@@ -118,6 +125,16 @@ function createStudentCard(student, relationship = null, linkAction = null) {
   }
 
   card.append(header, meta);
+
+  if (showSubscriptionLink && student) {
+    const subscriptionLink = document.createElement("a");
+
+    subscriptionLink.className = "subscription-management-link";
+    subscriptionLink.href =
+      `${STUDENT_SUBSCRIPTIONS_URL}?studentId=${encodeURIComponent(student.id)}`;
+    subscriptionLink.textContent = "Manage syllabus subscriptions";
+    card.append(subscriptionLink);
+  }
 
   if (linkAction && student) {
     const button = document.createElement("button");
@@ -165,7 +182,7 @@ async function loadLinkedStudents() {
     .filter(Boolean));
   linkedListEl.replaceChildren();
   linkedStudents.forEach(({ link, student }) => {
-    linkedListEl.append(createStudentCard(student, link.relationship));
+    linkedListEl.append(createStudentCard(student, link.relationship, null, true));
   });
 
   const hasLinkedStudents = linkedStudents.length > 0;

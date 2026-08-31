@@ -151,3 +151,23 @@ export {
   activateSyllabus,
   deactivateSyllabus
 };
+
+export {
+  createSubscriptionPlan,
+  deleteSubscriptionPlan,
+  getSubscriptionPlan,
+  getSubscriptionPlanCatalog,
+  listSubscriptionPlans,
+  setSubscriptionPlanCurrency,
+  updateSubscriptionPlan
+} from "./subscription_plan_module.js?v=20260829-subscription-plans-v1";
+
+export {
+  createStudentSubscription,
+  getStudentSubscription,
+  getSubscriptionPayment,
+  listSubscriptionPayments,
+  recordSubscriptionPayment,
+  subscriptionTypes,
+  updateStudentSubscription
+} from "./student_subscription_module.js?v=20260829-student-subscriptions-v1";

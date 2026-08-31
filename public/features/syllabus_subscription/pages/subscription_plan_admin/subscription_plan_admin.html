@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Subscription Plan Admin</title>
+    <script>document.documentElement.hidden = true;</script>
+
+    <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script type="module" src="/init_fb.js"></script>
+
+    <link rel="stylesheet" href="./subscription_plan_admin.css?v=20260829-subscription-plan-admin-v1">
+  </head>
+  <body>
+    <main class="page-shell">
+      <a class="back-link" href="/features/site_admin/pages/site_admin/site_admin.html">
+        Back to Site Admin
+      </a>
+      <header>
+        <h1>Subscription Plan Admin</h1>
+        <p>Configure country currencies and subscription plans.</p>
+      </header>
+
+      <section class="configuration-panel" aria-labelledby="country-configuration-heading">
+        <h2 id="country-configuration-heading">Country configuration</h2>
+        <div class="configuration-grid">
+          <label>
+            Country
+            <select id="subscription-plan-country">
+              <option value="">Loading countries...</option>
+            </select>
+          </label>
+
+          <form id="currency-form">
+            <label>
+              Currency
+              <input
+                id="subscription-plan-currency"
+                name="currency"
+                type="text"
+                autocomplete="off"
+                maxlength="20"
+                placeholder="e.g. MYR"
+                required
+              >
+            </label>
+            <button id="save-currency" type="submit">Save Currency</button>
+          </form>
+        </div>
+      </section>
+
+      <p id="subscription-plan-status" class="status" role="status" aria-live="polite" hidden></p>
+
+      <section class="plan-section" aria-labelledby="new-plan-heading">
+        <div class="section-heading">
+          <div>
+            <p class="section-label">New offering</p>
+            <h2 id="new-plan-heading">Add subscription plan</h2>
+          </div>
+        </div>
+
+        <form id="new-plan-form" class="plan-form">
+          <label>
+            Plan name
+            <input name="name" type="text" maxlength="120" required>
+          </label>
+          <label>
+            Months
+            <input name="months" type="number" min="1" step="1" required>
+          </label>
+          <label>
+            Fee
+            <input name="fee" type="number" min="0" step="0.01" required>
+          </label>
+          <button id="create-plan" type="submit">Add Plan</button>
+        </form>
+      </section>
+
+      <section class="plan-section" aria-labelledby="existing-plans-heading">
+        <div class="section-heading">
+          <div>
+            <p class="section-label">Configured offerings</p>
+            <h2 id="existing-plans-heading">Subscription plans</h2>
+          </div>
+          <span id="subscription-plan-count" class="count-badge">0</span>
+        </div>
+        <div id="subscription-plan-list" class="plan-list"></div>
+      </section>
+    </main>
+
+    <script
+      id="site-admin-page-loader"
+      type="module"
+      data-site-admin-page
+      data-page-module="./subscription_plan_admin.js?v=20260829-subscription-plan-admin-v1"
+      src="/features/site_admin/pages/common/site_admin_page_loader.js?v=20260827-site-admin-guard-v1"
+    ></script>
+  </body>
+</html>

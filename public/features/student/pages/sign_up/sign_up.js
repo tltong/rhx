@@ -15,8 +15,14 @@ import {
 import {
   subscribeStudentToStreamSyllabuses
 } from "../../../stream_subscription/stream_subscription_module.js?v=20260826-student-stream-syllabuses-v1";
+import {
+  createStudentSubscription,
+  subscriptionTypes
+} from "../../../syllabus_subscription/syllabus_subscription_module.js?v=20260829-student-trial-subscription-v1";
 
 const STUDENT_EMAIL_DOMAIN = "rhx.com";
+const STUDENT_LANDING_URL =
+  "/features/student/pages/landing/landing.html";
 const PIN_PATTERN = /^\d{6}$/;
 const USERNAME_PATTERN = /^[a-z0-9._-]{3,40}$/;
 const STUDENT_LEVELS = new Set(Object.values(studentLevels));
@@ -308,12 +314,14 @@ formEl.addEventListener("submit", async (event) => {
       registrationDate: input.registrationDate,
       standardAtYearOfRegistration: input.standardAtYearOfRegistration
     });
+    await createStudentSubscription({
+      studentId: authUser.uid,
+      subscriptionType: subscriptionTypes.TRIAL
+    });
     await subscribeStudentToStreamSyllabuses(authUser.uid, input.streamId);
 
-    formEl.reset();
-    availableStreams = [];
-    resetStreamOptions();
-    setStatus("Student account created.");
+    setStatus("Student account created. Redirecting...");
+    window.location.replace(STUDENT_LANDING_URL);
   } catch (error) {
     console.error(error);
     setStatus(error.message || "Could not create student account.", true);

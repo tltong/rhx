@@ -210,6 +210,22 @@ button:disabled {
   margin: 0;
 }
 
+.subscription-management-link {
+  border: 1px solid #087f5b;
+  border-radius: 6px;
+  color: #087f5b;
+  font-weight: 800;
+  padding: 9px 12px;
+  text-align: center;
+  text-decoration: none;
+}
+
+.subscription-management-link:hover,
+.subscription-management-link:focus-visible {
+  background: #e6f6ef;
+  outline: 0;
+}
+
 .empty-message {
   background: #f5f9fb;
   border: 1px dashed #9fb3c3;

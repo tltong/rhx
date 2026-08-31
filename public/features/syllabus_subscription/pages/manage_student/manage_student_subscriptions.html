@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Manage Student Syllabus Subscriptions</title>
+
+    <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script type="module" src="/init_fb.js"></script>
+
+    <link rel="stylesheet" href="./manage_student_subscriptions.css?v=20260827-student-subscriptions-v1">
+  </head>
+  <body>
+    <main class="page-shell">
+      <a class="back-link" href="/features/guardian/pages/landing/landing.html">
+        Back to Guardian Dashboard
+      </a>
+      <header>
+        <h1>Student Syllabus Subscriptions</h1>
+        <p>Manage syllabus access for a linked student.</p>
+      </header>
+
+      <section class="lookup-panel" aria-labelledby="student-lookup-heading">
+        <h2 id="student-lookup-heading">Student lookup</h2>
+        <form id="student-lookup-form">
+          <label for="student-id">Student ID</label>
+          <div class="lookup-controls">
+            <input
+              id="student-id"
+              name="studentId"
+              type="text"
+              autocomplete="off"
+              required
+            >
+            <button id="load-subscriptions" type="submit">Load Subscriptions</button>
+          </div>
+        </form>
+      </section>
+
+      <p id="subscription-status" class="status" role="status" aria-live="polite" hidden></p>
+
+      <div id="subscription-results" hidden>
+        <section class="subscription-section" aria-labelledby="subscribed-heading">
+          <div class="section-heading">
+            <div>
+              <p class="section-label">Current access</p>
+              <h2 id="subscribed-heading">Subscribed syllabuses</h2>
+            </div>
+            <span id="subscribed-count" class="count-badge"></span>
+          </div>
+          <div id="subscribed-syllabuses" class="syllabus-list"></div>
+        </section>
+
+        <section class="subscription-section" aria-labelledby="available-heading">
+          <div class="section-heading">
+            <div>
+              <p class="section-label">Additional access</p>
+              <h2 id="available-heading">Available syllabuses</h2>
+            </div>
+            <span id="available-count" class="count-badge"></span>
+          </div>
+          <div id="available-syllabuses" class="syllabus-list"></div>
+        </section>
+      </div>
+    </main>
+
+    <script type="module" src="./manage_student_subscriptions.js?v=20260827-guardian-access-v1"></script>
+  </body>
+</html>
