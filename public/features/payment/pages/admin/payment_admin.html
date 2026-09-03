@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Payment Configuration</title>
+    <script>document.documentElement.hidden = true;</script>
+
+    <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script type="module" src="/init_fb.js"></script>
+
+    <link rel="stylesheet" href="./payment_admin.css?v=20260901-payment-config-simple-v1">
+  </head>
+  <body>
+    <main class="page-shell">
+      <a class="back-link" href="/features/site_admin/pages/site_admin/site_admin.html">
+        Back to Site Admin
+      </a>
+
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">Payments</p>
+          <h1>Payment Configuration</h1>
+          <p class="subtitle">Configure the active payment provider and runtime mode.</p>
+        </div>
+        <div class="mode-summary" aria-live="polite">
+          <span>Current mode</span>
+          <strong id="current-mode">Not configured</strong>
+        </div>
+      </header>
+
+      <p id="payment-config-status" class="status" role="status" aria-live="polite" hidden></p>
+
+      <form id="payment-config-form">
+        <section class="config-section" aria-labelledby="general-heading">
+          <div class="section-heading">
+            <div>
+              <p class="section-label">Runtime selection</p>
+              <h2 id="general-heading">General</h2>
+            </div>
+            <span id="updated-at" class="updated-at">Never saved</span>
+          </div>
+
+          <div class="field-grid general-grid">
+            <label>
+              Payment provider
+              <input
+                id="payment-provider"
+                name="provider"
+                type="text"
+                autocomplete="off"
+                maxlength="80"
+                placeholder="stripe"
+                required
+              >
+            </label>
+
+            <label>
+              Active mode
+              <select id="payment-mode" name="mode" required></select>
+            </label>
+          </div>
+        </section>
+
+        <section class="config-section" aria-labelledby="custom-data-heading">
+          <div class="section-heading">
+            <div>
+              <p class="section-label">Provider-specific</p>
+              <h2 id="custom-data-heading">Custom data</h2>
+            </div>
+            <span class="json-badge">JSON map</span>
+          </div>
+          <label class="custom-data-label">
+            Custom data
+            <textarea id="payment-custom-data" rows="8" spellcheck="false">{}</textarea>
+          </label>
+        </section>
+
+        <div class="form-actions">
+          <button id="save-payment-config" type="submit">Save Configuration</button>
+        </div>
+      </form>
+    </main>
+
+    <script
+      id="site-admin-page-loader"
+      type="module"
+      data-site-admin-page
+      data-page-module="./payment_admin.js?v=20260901-payment-config-simple-v1"
+      src="/features/site_admin/pages/common/site_admin_page_loader.js?v=20260827-site-admin-guard-v1"
+    ></script>
+  </body>
+</html>

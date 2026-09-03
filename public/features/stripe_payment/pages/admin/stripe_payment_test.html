@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Stripe Payment Test</title>
+    <script>document.documentElement.hidden = true;</script>
+
+    <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script type="module" src="/init_fb.js"></script>
+
+    <link
+      rel="stylesheet"
+      href="./stripe_payment_test.css?v=20260904-stripe-client-secret-v1"
+    >
+  </head>
+  <body>
+    <main class="page-shell">
+      <a
+        class="back-link"
+        href="/features/site_admin/pages/site_admin/site_admin.html"
+      >
+        Back to Site Admin
+      </a>
+
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">Payments</p>
+          <h1>Stripe Payment Test</h1>
+          <p>Test Stripe customer creation and deletion in the configured mode.</p>
+        </div>
+        <div
+          id="payment-mode-indicator"
+          class="mode-indicator"
+          aria-live="polite"
+        >
+          <span>Configured mode</span>
+          <strong id="payment-mode">Checking...</strong>
+        </div>
+      </header>
+
+      <div class="operation-grid">
+        <section class="operation-panel" aria-labelledby="create-heading">
+          <div class="panel-heading">
+            <span class="step-number">1</span>
+            <div>
+              <h2 id="create-heading">Create Stripe customer</h2>
+              <p>Attach your reference to a newly created Stripe customer.</p>
+            </div>
+          </div>
+
+          <form id="create-customer-form">
+            <label for="input-reference">Customer reference</label>
+            <div class="action-row">
+              <input
+                id="input-reference"
+                name="inputReference"
+                type="text"
+                maxlength="500"
+                autocomplete="off"
+                placeholder="Enter your customer reference"
+                required
+              >
+              <button id="create-customer-button" type="submit">
+                Create Customer
+              </button>
+            </div>
+          </form>
+
+          <p
+            id="create-status"
+            class="status"
+            role="status"
+            aria-live="polite"
+            hidden
+          ></p>
+
+          <div id="customer-result" class="customer-result" hidden>
+            <span>Stripe customer reference</span>
+            <output id="created-customer-reference"></output>
+          </div>
+        </section>
+
+        <section class="operation-panel" aria-labelledby="setup-heading">
+          <div class="panel-heading">
+            <span class="step-number">2</span>
+            <div>
+              <h2 id="setup-heading">Create Stripe SetupIntent</h2>
+              <p>Create a recurring-payment setup for an existing Stripe customer.</p>
+            </div>
+          </div>
+
+          <form id="setup-intent-form">
+            <label for="setup-customer-reference">
+              Stripe customer reference
+            </label>
+            <div class="action-row">
+              <input
+                id="setup-customer-reference"
+                name="customerReference"
+                type="text"
+                autocomplete="off"
+                placeholder="cus_..."
+                required
+              >
+              <button id="create-setup-intent-button" type="submit">
+                Create SetupIntent
+              </button>
+            </div>
+          </form>
+
+          <p
+            id="setup-intent-status"
+            class="status"
+            role="status"
+            aria-live="polite"
+            hidden
+          ></p>
+
+          <div id="client-secret-result" class="customer-result" hidden>
+            <span>Stripe SetupIntent client secret</span>
+            <code id="setup-intent-client-secret"></code>
+          </div>
+        </section>
+
+        <section class="operation-panel danger-panel" aria-labelledby="delete-heading">
+          <div class="panel-heading">
+            <span class="step-number danger-number">3</span>
+            <div>
+              <h2 id="delete-heading">Delete Stripe customer</h2>
+              <p>Permanently delete a customer in the configured Stripe mode.</p>
+            </div>
+          </div>
+
+          <form id="delete-customer-form">
+            <label for="stripe-customer-reference">
+              Stripe customer reference
+            </label>
+            <input
+              id="stripe-customer-reference"
+              name="customerReference"
+              type="text"
+              autocomplete="off"
+              placeholder="cus_..."
+              required
+            >
+
+            <label class="confirmation-row">
+              <input id="confirm-delete" type="checkbox">
+              <span>I understand this permanently deletes the Stripe customer.</span>
+            </label>
+
+            <div class="delete-action">
+              <button
+                id="delete-customer-button"
+                class="danger-button"
+                type="submit"
+                disabled
+              >
+                Delete Customer
+              </button>
+            </div>
+          </form>
+
+          <p
+            id="delete-status"
+            class="status"
+            role="status"
+            aria-live="polite"
+            hidden
+          ></p>
+        </section>
+      </div>
+    </main>
+
+    <script
+      id="site-admin-page-loader"
+      type="module"
+      data-site-admin-page
+      data-page-module="./stripe_payment_test.js?v=20260904-stripe-client-secret-v1"
+      src="/features/site_admin/pages/common/site_admin_page_loader.js?v=20260827-site-admin-guard-v1"
+    ></script>
+  </body>
+</html>
