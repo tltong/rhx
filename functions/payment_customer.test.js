@@ -5,13 +5,14 @@ const {
   createPaymentCustomerHandlers,
 } = require("./payment_customer");
 
-function authenticatedRequest(inputReference) {
+function authenticatedRequest(inputReference, email = "client@example.com") {
   return {
     auth: {
       uid: "caller-1",
     },
     data: {
       inputReference,
+      email,
     },
   };
 }
@@ -19,13 +20,9 @@ function authenticatedRequest(inputReference) {
 test("callable handler returns the payment-provider customer reference", async () => {
   const calls = [];
   const handlers = createPaymentCustomerHandlers({
-    async createProvider() {
-      return {
-        async createCustomer(inputReference) {
-          calls.push(inputReference);
-          return "cus_callable_123";
-        },
-      };
+    async createStripeCustomer(input) {
+      calls.push(input);
+      return "cus_callable_123";
     },
   });
 
@@ -34,7 +31,10 @@ test("callable handler returns the payment-provider customer reference", async (
   );
 
   assert.equal(result, "cus_callable_123");
-  assert.deepEqual(calls, ["client-456"]);
+  assert.deepEqual(calls, [{
+    internalReference: "client-456",
+    email: "client@example.com",
+  }]);
 });
 
 test("callable handler requires authentication", async () => {
@@ -42,7 +42,10 @@ test("callable handler requires authentication", async () => {
 
   await assert.rejects(
     () => handlers.createPaymentCustomerHandler({
-      data: {inputReference: "client-456"},
+      data: {
+        inputReference: "client-456",
+        email: "client@example.com",
+      },
     }),
     (error) => error.code === "unauthenticated",
   );
@@ -59,16 +62,23 @@ test("callable handler requires an input reference", async () => {
   );
 });
 
+test("callable handler requires a valid email", async () => {
+  const handlers = createPaymentCustomerHandlers();
+
+  await assert.rejects(
+    () => handlers.createPaymentCustomerHandler(
+      authenticatedRequest("client-456", "invalid-email"),
+    ),
+    (error) => error.code === "invalid-argument",
+  );
+});
+
 test("callable handler deletes and returns a customer reference", async () => {
   const calls = [];
   const handlers = createPaymentCustomerHandlers({
-    async createProvider() {
-      return {
-        async deleteCustomer(customerReference) {
-          calls.push(customerReference);
-          return customerReference;
-        },
-      };
+    async deleteStripeCustomer(input) {
+      calls.push(input);
+      return input.customerReference;
     },
   });
 
@@ -78,7 +88,9 @@ test("callable handler deletes and returns a customer reference", async () => {
   });
 
   assert.equal(result, "cus_delete_456");
-  assert.deepEqual(calls, ["cus_delete_456"]);
+  assert.deepEqual(calls, [{
+    customerReference: "cus_delete_456",
+  }]);
 });
 
 test("delete callable requires a customer reference", async () => {

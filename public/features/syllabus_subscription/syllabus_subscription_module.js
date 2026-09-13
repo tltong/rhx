@@ -160,7 +160,7 @@ export {
   listSubscriptionPlans,
   setSubscriptionPlanCurrency,
   updateSubscriptionPlan
-} from "./subscription_plan_module.js?v=20260829-subscription-plans-v1";
+} from "./subscription_plan_module.js?v=20260912-stripe-product-name-v1";
 
 export {
   createStudentSubscription,

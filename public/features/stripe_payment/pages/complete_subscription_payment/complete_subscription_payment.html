@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Complete Subscription Payment | ReadyHeroX</title>
+
+    <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script defer src="https://js.stripe.com/v3/"></script>
+    <script type="module" src="/init_fb.js"></script>
+
+    <link
+      rel="stylesheet"
+      href="./complete_subscription_payment.css?v=20260914-complete-payment-v1"
+    >
+  </head>
+  <body>
+    <main class="page-shell">
+      <a class="back-link" href="/index.html">Back to ReadyHeroX</a>
+
+      <section
+        id="payment-card"
+        class="payment-card"
+        aria-labelledby="payment-heading"
+        aria-busy="true"
+      >
+        <header class="payment-header">
+          <div class="brand-mark" aria-hidden="true">RHX</div>
+          <div>
+            <p class="eyebrow">Secure subscription payment</p>
+            <h1 id="payment-heading">Complete your payment</h1>
+            <p class="page-description">
+              Follow the secure Stripe prompt to finish your subscription.
+            </p>
+          </div>
+        </header>
+
+        <p
+          id="payment-status"
+          class="status"
+          role="status"
+          aria-live="polite"
+        >
+          Checking your payment...
+        </p>
+
+        <section id="sign-in-panel" class="notice-panel" hidden>
+          <h2>Sign in required</h2>
+          <p>
+            Sign in with the ReadyHeroX account that owns this subscription,
+            then reopen this payment link.
+          </p>
+          <a class="primary-link" href="/index.html">Go to sign in</a>
+        </section>
+
+        <section id="payment-summary" class="payment-summary" hidden>
+          <dl>
+            <div>
+              <dt>Subscription</dt>
+              <dd><code id="subscription-reference"></code></dd>
+            </div>
+            <div>
+              <dt>Amount due</dt>
+              <dd id="payment-amount"></dd>
+            </div>
+            <div>
+              <dt>Payment status</dt>
+              <dd id="payment-state"></dd>
+            </div>
+          </dl>
+        </section>
+
+        <section id="action-panel" class="action-panel" hidden>
+          <div id="action-icon" class="action-icon" aria-hidden="true">!</div>
+          <div>
+            <h2 id="action-heading"></h2>
+            <p id="action-description"></p>
+          </div>
+        </section>
+
+        <div id="payment-actions" class="payment-actions" hidden>
+          <button id="refresh-payment-button" class="secondary-button" type="button">
+            Check Again
+          </button>
+          <button id="confirm-payment-button" type="button" hidden>
+            Authenticate Payment
+          </button>
+        </div>
+
+        <p class="security-note">
+          Payment authentication is securely handled by Stripe. ReadyHeroX
+          does not display or store your payment authentication secret.
+        </p>
+      </section>
+    </main>
+
+    <script
+      type="module"
+      src="./complete_subscription_payment.js?v=20260914-complete-payment-v1"
+    ></script>
+  </body>
+</html>

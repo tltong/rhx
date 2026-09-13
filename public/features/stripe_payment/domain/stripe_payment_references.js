@@ -12,6 +12,24 @@ export function normalizeInputReference(value) {
   return reference;
 }
 
+export function normalizeCustomerEmail(value) {
+  const email = String(value ?? "").trim();
+
+  if (!email) {
+    throw new Error("Customer email is required.");
+  }
+
+  if (email.length > 320) {
+    throw new Error("Customer email must not exceed 320 characters.");
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new Error("Customer email must be a valid email address.");
+  }
+
+  return email;
+}
+
 export function normalizeStripeCustomerReference(value) {
   const reference = String(value ?? "").trim();
 
@@ -30,4 +48,20 @@ export function normalizeStripeClientSecret(value) {
   }
 
   return clientSecret;
+}
+
+export function normalizeStripeSetupContextReference(value) {
+  const reference = String(value ?? "").trim();
+
+  if (!reference) {
+    throw new Error("Stripe setup context reference is required.");
+  }
+
+  if (reference.length > 200) {
+    throw new Error(
+      "Stripe setup context reference must not exceed 200 characters."
+    );
+  }
+
+  return reference;
 }

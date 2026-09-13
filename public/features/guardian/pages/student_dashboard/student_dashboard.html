@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Student Progress | Guardian Dashboard</title>
+
+    <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script type="module" src="/init_fb.js"></script>
+
+    <link rel="stylesheet" href="./student_dashboard.css?v=20260908-guardian-student-dashboard-v1">
+    <link rel="stylesheet" href="/features/student_dashboard/components/syllabus_progress_pane/syllabus_progress_pane.css?v=20260908-guardian-progress-pane-v1">
+  </head>
+  <body>
+    <main class="page-shell">
+      <a class="back-link" href="/features/guardian/pages/landing/landing.html">
+        Back to Guardian Dashboard
+      </a>
+
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">Student overview</p>
+          <h1 id="page-title">Student Progress</h1>
+          <p class="page-description">
+            Review syllabus progress, topic levels, and completed practices.
+          </p>
+        </div>
+        <span class="read-only-badge">Guardian view</span>
+      </header>
+
+      <section id="student-summary" class="summary-panel" aria-labelledby="student-summary-heading" hidden>
+        <div class="summary-heading">
+          <div id="student-initials" class="student-initials" aria-hidden="true"></div>
+          <div>
+            <p class="section-label">Linked student</p>
+            <h2 id="student-summary-heading"></h2>
+          </div>
+        </div>
+
+        <dl class="summary-details">
+          <div><dt>Country</dt><dd id="student-country"></dd></div>
+          <div><dt>Current grade</dt><dd id="student-grade"></dd></div>
+          <div><dt>Stream</dt><dd id="student-stream"></dd></div>
+        </dl>
+      </section>
+
+      <p id="student-dashboard-status" class="status" role="status" aria-live="polite">
+        Checking guardian access...
+      </p>
+
+      <div id="syllabus-progress-pane" hidden></div>
+    </main>
+
+    <script type="module" src="./student_dashboard.js?v=20260908-guardian-student-dashboard-v1"></script>
+  </body>
+</html>

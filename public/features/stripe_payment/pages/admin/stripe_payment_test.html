@@ -12,10 +12,11 @@
     <script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script>
     <script defer src="/__/firebase/init.js"></script>
     <script type="module" src="/init_fb.js"></script>
+    <script src="https://js.stripe.com/v3/"></script>
 
     <link
       rel="stylesheet"
-      href="./stripe_payment_test.css?v=20260904-stripe-client-secret-v1"
+      href="./stripe_payment_test.css?v=20260907-stripe-setup-context-test-v1"
     >
   </head>
   <body>
@@ -31,7 +32,7 @@
         <div>
           <p class="eyebrow">Payments</p>
           <h1>Stripe Payment Test</h1>
-          <p>Test Stripe customer creation and deletion in the configured mode.</p>
+          <p>Test Stripe customer, payment-method, and subscription operations.</p>
         </div>
         <div
           id="payment-mode-indicator"
@@ -63,6 +64,19 @@
                 maxlength="500"
                 autocomplete="off"
                 placeholder="Enter your customer reference"
+                required
+              >
+            </div>
+
+            <label for="customer-email">Email address</label>
+            <div class="action-row">
+              <input
+                id="customer-email"
+                name="email"
+                type="email"
+                maxlength="320"
+                autocomplete="email"
+                placeholder="customer@example.com"
                 required
               >
               <button id="create-customer-button" type="submit">
@@ -127,9 +141,317 @@
           </div>
         </section>
 
+        <section class="operation-panel" aria-labelledby="mount-heading">
+          <div class="panel-heading">
+            <span class="step-number">3</span>
+            <div>
+              <h2 id="mount-heading">Mount Stripe Payment Element</h2>
+              <p>
+                Create the browser payment form and return its copyable
+                context reference.
+              </p>
+            </div>
+          </div>
+
+          <form id="mount-payment-element-form">
+            <label for="mount-client-secret">SetupIntent client secret</label>
+            <input
+              id="mount-client-secret"
+              name="clientSecret"
+              type="text"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="seti_..._secret_..."
+              required
+            >
+
+            <label for="payment-element-container-selector">
+              Container selector
+            </label>
+            <div class="action-row">
+              <input
+                id="payment-element-container-selector"
+                name="containerSelector"
+                type="text"
+                value="#stripe-setup-payment-element"
+                autocomplete="off"
+                spellcheck="false"
+                required
+              >
+              <button id="mount-payment-element-button" type="submit">
+                Mount Payment Element
+              </button>
+            </div>
+          </form>
+
+          <p
+            id="mount-payment-element-status"
+            class="status"
+            role="status"
+            aria-live="polite"
+            hidden
+          ></p>
+
+          <div
+            id="stripe-setup-payment-element"
+            class="payment-element-shell"
+            aria-label="Stripe payment details"
+          ></div>
+
+          <div id="setup-context-result" class="customer-result" hidden>
+            <span>Stripe setup context reference</span>
+            <output id="setup-context-reference"></output>
+            <span>Context mode</span>
+            <output id="setup-context-mode"></output>
+          </div>
+        </section>
+
+        <section class="operation-panel" aria-labelledby="confirm-heading">
+          <div class="panel-heading">
+            <span class="step-number">4</span>
+            <div>
+              <h2 id="confirm-heading">Confirm Stripe setup</h2>
+              <p>
+                Pass the mounted context reference to Stripe after entering
+                test payment details above.
+              </p>
+            </div>
+          </div>
+
+          <form id="confirm-setup-form">
+            <label for="confirm-context-reference">
+              Stripe setup context reference
+            </label>
+            <input
+              id="confirm-context-reference"
+              name="contextReference"
+              type="text"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="stripe_setup_context_..."
+              required
+            >
+
+            <label for="confirm-return-url">Return URL</label>
+            <input
+              id="confirm-return-url"
+              name="returnUrl"
+              type="url"
+              autocomplete="off"
+              required
+            >
+
+            <label class="confirmation-row">
+              <input id="confirm-setup-consent" type="checkbox" required>
+              <span>I authorize Stripe to save this test payment method.</span>
+            </label>
+
+            <div class="form-action">
+              <button id="confirm-setup-button" type="submit" disabled>
+                Confirm Setup
+              </button>
+            </div>
+          </form>
+
+          <p
+            id="confirm-setup-status"
+            class="status"
+            role="status"
+            aria-live="polite"
+            hidden
+          ></p>
+
+          <div id="confirmed-setup-result" class="customer-result" hidden>
+            <span>SetupIntent reference</span>
+            <output id="confirmed-setup-intent-reference"></output>
+            <span>Status</span>
+            <output id="confirmed-setup-status"></output>
+            <span>PaymentMethod reference</span>
+            <output id="confirmed-payment-method-reference"></output>
+          </div>
+        </section>
+
+        <section
+          class="operation-panel"
+          aria-labelledby="create-subscription-heading"
+        >
+          <div class="panel-heading">
+            <span class="step-number">5</span>
+            <div>
+              <h2 id="create-subscription-heading">
+                Create Stripe subscription
+              </h2>
+              <p>Create a subscription using the configured plan terms.</p>
+            </div>
+          </div>
+
+          <form id="create-subscription-form">
+            <label for="subscription-customer-reference">
+              Stripe customer reference
+            </label>
+            <input
+              id="subscription-customer-reference"
+              name="customerReference"
+              type="text"
+              autocomplete="off"
+              placeholder="cus_..."
+              required
+            >
+
+            <label for="subscription-payment-method-reference">
+              Stripe PaymentMethod reference
+            </label>
+            <input
+              id="subscription-payment-method-reference"
+              name="paymentMethodReference"
+              type="text"
+              autocomplete="off"
+              placeholder="pm_..."
+              required
+            >
+
+            <label for="subscription-country">Country</label>
+            <input
+              id="subscription-country"
+              name="country"
+              type="text"
+              value="Malaysia"
+              autocomplete="off"
+              required
+            >
+
+            <label for="subscription-plan-id">Subscription plan ID</label>
+            <input
+              id="subscription-plan-id"
+              name="planId"
+              type="text"
+              autocomplete="off"
+              placeholder="plan_..."
+              required
+            >
+
+            <label for="subscription-idempotency-reference">
+              Idempotency reference
+            </label>
+            <div class="action-row">
+              <input
+                id="subscription-idempotency-reference"
+                name="idempotencyReference"
+                type="text"
+                maxlength="500"
+                autocomplete="off"
+                spellcheck="false"
+                required
+              >
+              <button id="new-subscription-attempt-button" type="button">
+                New Attempt
+              </button>
+            </div>
+
+            <div class="form-action">
+              <button id="create-subscription-button" type="submit">
+                Create Subscription
+              </button>
+            </div>
+          </form>
+
+          <p
+            id="create-subscription-status"
+            class="status"
+            role="status"
+            aria-live="polite"
+            hidden
+          ></p>
+
+          <div id="subscription-result" class="customer-result" hidden>
+            <span>Subscription reference</span>
+            <output id="created-subscription-reference"></output>
+            <span>Status</span>
+            <output id="created-subscription-status"></output>
+            <span>Payment client secret</span>
+            <code id="subscription-payment-client-secret"></code>
+          </div>
+        </section>
+
+        <section
+          class="operation-panel"
+          aria-labelledby="confirm-subscription-payment-heading"
+        >
+          <div class="panel-heading">
+            <span class="step-number">6</span>
+            <div>
+              <h2 id="confirm-subscription-payment-heading">
+                Confirm Stripe subscription payment
+              </h2>
+              <p>Confirm the first invoice payment using its client secret.</p>
+            </div>
+          </div>
+
+          <form id="confirm-subscription-payment-form">
+            <label for="confirm-subscription-payment-client-secret">
+              Payment client secret
+            </label>
+            <input
+              id="confirm-subscription-payment-client-secret"
+              name="paymentClientSecret"
+              type="text"
+              autocomplete="off"
+              placeholder="pi_..._secret_..."
+              required
+            >
+
+            <label for="confirm-subscription-payment-return-url">
+              Return URL
+            </label>
+            <input
+              id="confirm-subscription-payment-return-url"
+              name="returnUrl"
+              type="url"
+              autocomplete="off"
+              required
+            >
+
+            <label class="confirmation-row">
+              <input
+                id="confirm-subscription-payment-consent"
+                type="checkbox"
+                required
+              >
+              <span>I authorize Stripe to confirm this subscription payment.</span>
+            </label>
+
+            <div class="form-action">
+              <button
+                id="confirm-subscription-payment-button"
+                type="submit"
+                disabled
+              >
+                Confirm Subscription Payment
+              </button>
+            </div>
+          </form>
+
+          <p
+            id="confirm-subscription-payment-status"
+            class="status"
+            role="status"
+            aria-live="polite"
+            hidden
+          ></p>
+
+          <div
+            id="confirmed-subscription-payment-result"
+            class="customer-result"
+            hidden
+          >
+            <span>Payment status</span>
+            <output id="confirmed-subscription-payment-status"></output>
+          </div>
+        </section>
+
         <section class="operation-panel danger-panel" aria-labelledby="delete-heading">
           <div class="panel-heading">
-            <span class="step-number danger-number">3</span>
+            <span class="step-number danger-number">7</span>
             <div>
               <h2 id="delete-heading">Delete Stripe customer</h2>
               <p>Permanently delete a customer in the configured Stripe mode.</p>
@@ -181,7 +503,7 @@
       id="site-admin-page-loader"
       type="module"
       data-site-admin-page
-      data-page-module="./stripe_payment_test.js?v=20260904-stripe-client-secret-v1"
+      data-page-module="./stripe_payment_test.js?v=20260913-stripe-confirm-subscription-v2"
       src="/features/site_admin/pages/common/site_admin_page_loader.js?v=20260827-site-admin-guard-v1"
     ></script>
   </body>

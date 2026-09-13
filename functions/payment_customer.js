@@ -4,9 +4,14 @@ const {
 } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 const {
-  createPaymentProvider,
   paymentProviderSecrets,
 } = require("./features/payment_factory/payment_factory_module");
+const {
+  createStripePaymentCustomer,
+  deleteStripePaymentCustomer,
+} = require(
+  "./features/stripe_payment_customer/stripe_payment_customer_module"
+);
 
 const CALLABLE_OPTIONS = Object.freeze({
   region: "us-central1",
@@ -44,6 +49,33 @@ function requireInputReference(request) {
   return inputReference;
 }
 
+function requireEmail(request) {
+  const email = String(request?.data?.email ?? "").trim();
+
+  if (!email) {
+    throw new HttpsError(
+      "invalid-argument",
+      "email is required.",
+    );
+  }
+
+  if (email.length > 320) {
+    throw new HttpsError(
+      "invalid-argument",
+      "email must not exceed 320 characters.",
+    );
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new HttpsError(
+      "invalid-argument",
+      "email must be a valid email address.",
+    );
+  }
+
+  return email;
+}
+
 function requireCustomerReference(request) {
   const customerReference = String(
     request?.data?.customerReference ?? "",
@@ -60,21 +92,18 @@ function requireCustomerReference(request) {
 }
 
 function createPaymentCustomerHandlers({
-  createProvider = createPaymentProvider,
+  createStripeCustomer = createStripePaymentCustomer,
+  deleteStripeCustomer = deleteStripePaymentCustomer,
 } = {}) {
   async function createPaymentCustomerHandler(request) {
     requireAuthenticatedCaller(request);
     const inputReference = requireInputReference(request);
-    const paymentProvider = await createProvider();
-
-    if (typeof paymentProvider?.createCustomer !== "function") {
-      throw new Error(
-        "The configured payment provider cannot create customers.",
-      );
-    }
-
+    const email = requireEmail(request);
     const customerReference = String(
-      await paymentProvider.createCustomer(inputReference),
+      await createStripeCustomer({
+        internalReference: inputReference,
+        email,
+      }),
     ).trim();
 
     if (!customerReference) {
@@ -89,23 +118,9 @@ function createPaymentCustomerHandlers({
   async function deleteCustomerHandler(request) {
     requireAuthenticatedCaller(request);
     const customerReference = requireCustomerReference(request);
-    const paymentProvider = await createProvider();
-
-    if (typeof paymentProvider?.deleteCustomer !== "function") {
-      throw new Error(
-        "The configured payment provider cannot delete customers.",
-      );
-    }
-
     const deletedReference = String(
-      await paymentProvider.deleteCustomer(customerReference),
+      await deleteStripeCustomer({customerReference}),
     ).trim();
-
-    if (!deletedReference) {
-      throw new Error(
-        "The payment provider did not confirm customer deletion.",
-      );
-    }
 
     return deletedReference;
   }

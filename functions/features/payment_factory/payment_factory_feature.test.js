@@ -5,7 +5,7 @@ const {
   CreatePaymentProvider,
 } = require("./application/create_payment_provider");
 
-test("payment factory selects Stripe using the configured mode", async () => {
+test("payment factory returns the provider and its configuration context", async () => {
   const payment = {createCustomer() {}};
   const calls = [];
   const useCase = new CreatePaymentProvider({
@@ -23,7 +23,12 @@ test("payment factory selects Stripe using the configured mode", async () => {
     },
   });
 
-  assert.equal(await useCase.execute(), payment);
+  const context = await useCase.executeWithContext();
+
+  assert.equal(context.paymentProvider, payment);
+  assert.equal(context.providerName, "stripe");
+  assert.equal(context.mode, "prod");
+  assert.equal(Object.isFrozen(context), true);
   assert.deepEqual(calls, [{mode: "prod"}]);
 });
 

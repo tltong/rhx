@@ -7,7 +7,7 @@ import {
   getSubscriptionPlanCatalog,
   setSubscriptionPlanCurrency,
   updateSubscriptionPlan
-} from "../../syllabus_subscription_module.js?v=20260829-subscription-plan-admin-v1";
+} from "../../syllabus_subscription_module.js?v=20260912-stripe-product-name-v1";
 
 const countryEl = document.querySelector("#subscription-plan-country");
 const currencyFormEl = document.querySelector("#currency-form");
@@ -107,6 +107,7 @@ function renderPlans() {
     const planId = document.createElement("span");
     const fields = document.createElement("form");
     const nameInput = document.createElement("input");
+    const stripeProductNameInput = document.createElement("input");
     const monthsInput = createNumberInput("months", plan.months, {
       min: 1,
       step: 1
@@ -135,10 +136,17 @@ function renderPlans() {
     nameInput.value = plan.name;
     nameInput.required = true;
     nameInput.addEventListener("input", updateControls);
+    stripeProductNameInput.name = "stripeProductName";
+    stripeProductNameInput.type = "text";
+    stripeProductNameInput.maxLength = 250;
+    stripeProductNameInput.value = plan.stripeProductName;
+    stripeProductNameInput.required = true;
+    stripeProductNameInput.addEventListener("input", updateControls);
     saveButton.type = "submit";
     saveButton.textContent = "Save Plan";
     fields.append(
       createField("Plan name", nameInput),
+      createField("Stripe product name", stripeProductNameInput),
       createField("Months", monthsInput),
       createField("Fee", feeInput),
       saveButton
@@ -157,6 +165,7 @@ function renderPlans() {
           country: selectedCountry,
           planId: plan.id,
           name: nameInput.value,
+          stripeProductName: stripeProductNameInput.value,
           months: Number(monthsInput.value),
           fee: Number(feeInput.value)
         }),
@@ -297,6 +306,7 @@ newPlanFormEl.addEventListener("submit", (event) => {
     () => createSubscriptionPlan({
       country: selectedCountry,
       name: data.get("name"),
+      stripeProductName: data.get("stripeProductName"),
       months: Number(data.get("months")),
       fee: Number(data.get("fee"))
     }),

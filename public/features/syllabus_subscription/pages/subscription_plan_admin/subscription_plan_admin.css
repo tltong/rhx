@@ -181,7 +181,7 @@ select:disabled {
   border-radius: 8px;
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(180px, 2fr) minmax(100px, 1fr) minmax(120px, 1fr) auto;
+  grid-template-columns: minmax(160px, 2fr) minmax(180px, 2fr) minmax(80px, 1fr) minmax(110px, 1fr) auto;
   padding: 18px;
 }
 
@@ -220,7 +220,7 @@ select:disabled {
   align-items: end;
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(180px, 2fr) minmax(100px, 1fr) minmax(120px, 1fr) auto;
+  grid-template-columns: minmax(160px, 2fr) minmax(180px, 2fr) minmax(80px, 1fr) minmax(110px, 1fr) auto;
 }
 
 .delete-controls {

@@ -13,7 +13,7 @@
     <script defer src="/__/firebase/init.js"></script>
     <script type="module" src="/init_fb.js"></script>
 
-    <link rel="stylesheet" href="./subscription_plan_admin.css?v=20260829-subscription-plan-admin-v1">
+    <link rel="stylesheet" href="./subscription_plan_admin.css?v=20260912-stripe-product-name-v1">
   </head>
   <body>
     <main class="page-shell">
@@ -69,6 +69,15 @@
             <input name="name" type="text" maxlength="120" required>
           </label>
           <label>
+            Stripe product name
+            <input
+              name="stripeProductName"
+              type="text"
+              maxlength="250"
+              required
+            >
+          </label>
+          <label>
             Months
             <input name="months" type="number" min="1" step="1" required>
           </label>
@@ -96,7 +105,7 @@
       id="site-admin-page-loader"
       type="module"
       data-site-admin-page
-      data-page-module="./subscription_plan_admin.js?v=20260829-subscription-plan-admin-v1"
+      data-page-module="./subscription_plan_admin.js?v=20260912-stripe-product-name-v1"
       src="/features/site_admin/pages/common/site_admin_page_loader.js?v=20260827-site-admin-guard-v1"
     ></script>
   </body>

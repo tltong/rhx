@@ -19,6 +19,8 @@ import {
 const HOME_URL = "/index.html";
 const STUDENT_SUBSCRIPTIONS_URL =
   "/features/syllabus_subscription/pages/manage_student/manage_student_subscriptions.html";
+const STUDENT_PROGRESS_URL =
+  "/features/guardian/pages/student_dashboard/student_dashboard.html";
 
 const profileEl = document.querySelector("#guardian-profile");
 const nameEl = document.querySelector("#guardian-name");
@@ -127,13 +129,18 @@ function createStudentCard(
   card.append(header, meta);
 
   if (showSubscriptionLink && student) {
+    const progressLink = document.createElement("a");
     const subscriptionLink = document.createElement("a");
 
+    progressLink.className = "subscription-management-link";
+    progressLink.href =
+      `${STUDENT_PROGRESS_URL}?studentId=${encodeURIComponent(student.id)}`;
+    progressLink.textContent = "View student progress";
     subscriptionLink.className = "subscription-management-link";
     subscriptionLink.href =
       `${STUDENT_SUBSCRIPTIONS_URL}?studentId=${encodeURIComponent(student.id)}`;
     subscriptionLink.textContent = "Manage syllabus subscriptions";
-    card.append(subscriptionLink);
+    card.append(progressLink, subscriptionLink);
   }
 
   if (linkAction && student) {

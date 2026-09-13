@@ -1,0 +1,271 @@
+.student-dashboard-progress-pane {
+  display: grid;
+  gap: 12px;
+  color: #14263d;
+}
+
+.student-dashboard-progress-header h2 {
+  margin: 0;
+  font-size: 21px;
+}
+
+.student-dashboard-progress-header p {
+  margin: 3px 0 0;
+  color: #667789;
+}
+
+.student-dashboard-syllabus-list {
+  display: grid;
+  gap: 16px;
+}
+
+.student-dashboard-syllabus-panel {
+  border: 1px solid #cbdce3;
+  border-radius: 8px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.student-dashboard-syllabus-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border-bottom: 1px solid #dbe6eb;
+  padding: 17px 19px;
+  background: #f8fbfc;
+}
+
+.student-dashboard-syllabus-heading h3 {
+  margin: 0;
+  font-size: 19px;
+}
+
+.student-dashboard-language-pill,
+.student-dashboard-assessment-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 27px;
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.student-dashboard-language-pill {
+  color: #18586b;
+  background: #dff1f4;
+}
+
+.student-dashboard-topic-list {
+  display: grid;
+}
+
+.student-dashboard-topic-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1.1fr) minmax(115px, 0.75fr)
+    minmax(110px, 0.7fr) minmax(110px, 0.7fr) minmax(180px, 1.2fr);
+  gap: 12px;
+  align-items: center;
+  padding: 16px 19px;
+}
+
+.student-dashboard-topic-row + .student-dashboard-topic-row {
+  border-top: 1px solid #e3ebef;
+}
+
+.student-dashboard-topic-name,
+.student-dashboard-progress-metric,
+.student-dashboard-topic-progress {
+  min-width: 0;
+}
+
+.student-dashboard-topic-name,
+.student-dashboard-progress-value {
+  overflow-wrap: anywhere;
+  font-weight: 700;
+}
+
+.student-dashboard-progress-label {
+  display: block;
+  margin-bottom: 6px;
+  color: #667789;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.student-dashboard-progress-value {
+  display: block;
+}
+
+.student-dashboard-assessment-badge {
+  color: #7d4b00;
+  background: #fff0ce;
+}
+
+.student-dashboard-assessment-badge.is-completed {
+  color: #12623c;
+  background: #dff3e7;
+}
+
+.student-dashboard-assessment-badge.is-not-configured {
+  color: #596675;
+  background: #edf1f4;
+}
+
+.student-dashboard-progress-copy {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 7px;
+  color: #4e6172;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.student-dashboard-progress-track {
+  height: 9px;
+  border-radius: 999px;
+  background: #dfe9ed;
+  overflow: hidden;
+}
+
+.student-dashboard-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: #159a8c;
+}
+
+.student-dashboard-topic-history {
+  grid-column: 1 / -1;
+  min-width: 0;
+  border-top: 1px solid #e3ebef;
+  padding-top: 12px;
+}
+
+.student-dashboard-history-toggle {
+  width: fit-content;
+  color: #174b70;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.student-dashboard-history-toggle:hover {
+  color: #0b6f78;
+}
+
+.student-dashboard-history-toggle:focus-visible,
+.student-dashboard-history-result-link:focus-visible {
+  outline: 3px solid #67c7d0;
+  outline-offset: 3px;
+}
+
+.student-dashboard-topic-history[open] .student-dashboard-history-toggle {
+  margin-bottom: 10px;
+}
+
+.student-dashboard-practice-history-list {
+  border-top: 1px solid #dbe6eb;
+}
+
+.student-dashboard-practice-history-item {
+  display: grid;
+  grid-template-columns: minmax(130px, 1.1fr) minmax(130px, 1fr)
+    minmax(80px, 0.5fr) auto;
+  gap: 16px;
+  padding: 11px 0;
+}
+
+.student-dashboard-practice-history-item +
+  .student-dashboard-practice-history-item {
+  border-top: 1px solid #e8eef1;
+}
+
+.student-dashboard-history-field {
+  min-width: 0;
+}
+
+.student-dashboard-history-label {
+  display: block;
+  margin-bottom: 3px;
+  color: #758493;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.student-dashboard-history-value {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.student-dashboard-history-result-link {
+  align-self: center;
+  border: 1px solid #9ebdca;
+  border-radius: 6px;
+  padding: 7px 10px;
+  color: #174b70;
+  background: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.student-dashboard-history-result-link:hover {
+  border-color: #0b6f78;
+  color: #0b6f78;
+}
+
+.student-dashboard-history-empty,
+.student-dashboard-progress-empty,
+.student-dashboard-panel-warning {
+  margin: 0;
+  padding: 20px;
+  color: #667789;
+}
+
+.student-dashboard-history-empty {
+  padding: 10px 0 0;
+  color: #758493;
+  font-size: 13px;
+}
+
+.student-dashboard-panel-warning {
+  color: #8a4d0f;
+  background: #fff7e8;
+}
+
+@media (max-width: 900px) {
+  .student-dashboard-topic-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .student-dashboard-topic-name,
+  .student-dashboard-topic-progress,
+  .student-dashboard-topic-history {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 620px) {
+  .student-dashboard-syllabus-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .student-dashboard-topic-row,
+  .student-dashboard-practice-history-item {
+    grid-template-columns: 1fr;
+  }
+
+  .student-dashboard-topic-name,
+  .student-dashboard-topic-progress,
+  .student-dashboard-topic-history {
+    grid-column: auto;
+  }
+}

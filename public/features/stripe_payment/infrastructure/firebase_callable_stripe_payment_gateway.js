@@ -3,7 +3,7 @@ import {
 } from "../../../utils/firebase/firebase_ops.js";
 import {
   StripePaymentGateway
-} from "../domain/stripe_payment_gateway.js?v=20260904-stripe-setup-intent-v1";
+} from "../domain/stripe_payment_gateway.js?v=20260914-complete-payment-v1";
 
 const FIREBASE_FUNCTIONS_REGION = "us-central1";
 
@@ -39,9 +39,10 @@ export class FirebaseCallableStripePaymentGateway
     return response?.data;
   }
 
-  async createCustomer(inputReference) {
+  async createCustomer(inputReference, email) {
     return this.call("createPaymentCustomer", {
-      inputReference
+      inputReference,
+      email
     });
   }
 
@@ -55,5 +56,19 @@ export class FirebaseCallableStripePaymentGateway
     return this.call("createStripeSetupIntent", {
       customerReference
     });
+  }
+
+  async createSubscription(input) {
+    return this.call("createStripeSubscription", input);
+  }
+
+  async getSubscriptionPaymentAction(subscriptionReference) {
+    return this.call("getStripeSubscriptionPaymentAction", {
+      subscriptionReference
+    });
+  }
+
+  async getClientConfig() {
+    return this.call("getStripeClientConfig", {});
   }
 }

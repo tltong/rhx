@@ -4,7 +4,7 @@ class CreatePaymentProvider {
     this.providerFactories = providerFactories;
   }
 
-  async execute() {
+  async executeWithContext() {
     const paymentConfig = await this.getPaymentConfig();
 
     if (!paymentConfig) {
@@ -19,9 +19,21 @@ class CreatePaymentProvider {
       );
     }
 
-    return providerFactory({
+    const paymentProvider = providerFactory({
       mode: paymentConfig.mode,
     });
+
+    return Object.freeze({
+      providerName: paymentConfig.provider,
+      mode: paymentConfig.mode,
+      paymentProvider,
+    });
+  }
+
+  async execute() {
+    const context = await this.executeWithContext();
+
+    return context.paymentProvider;
   }
 }
 

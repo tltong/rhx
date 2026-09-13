@@ -8,6 +8,19 @@ function requireNonEmptyString(value, name) {
   return normalizedValue;
 }
 
+function normalizeStripeProductName(value) {
+  const stripeProductName = requireNonEmptyString(
+    value,
+    "stripeProductName"
+  );
+
+  if (stripeProductName.length > 250) {
+    throw new Error("stripeProductName must not exceed 250 characters.");
+  }
+
+  return stripeProductName;
+}
+
 export function normalizeSubscriptionPlanCountry(country) {
   const normalizedCountry = requireNonEmptyString(country, "country");
 
@@ -51,19 +64,27 @@ export class SubscriptionPlan {
     id = null,
     country,
     name,
+    stripeProductName = name,
     months,
     fee
   }) {
     this.id = normalizePlanId(id);
     this.country = normalizeSubscriptionPlanCountry(country);
     this.name = requireNonEmptyString(name, "name");
+    this.stripeProductName = normalizeStripeProductName(stripeProductName);
     this.months = requirePositiveInteger(months, "months");
     this.fee = requireNonNegativeNumber(fee, "fee");
   }
 
-  update({ name, months, fee }) {
+  update({ name, stripeProductName, months, fee }) {
     if (name !== undefined) {
       this.name = requireNonEmptyString(name, "name");
+    }
+
+    if (stripeProductName !== undefined) {
+      this.stripeProductName = normalizeStripeProductName(
+        stripeProductName
+      );
     }
 
     if (months !== undefined) {

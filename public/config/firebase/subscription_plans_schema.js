@@ -16,6 +16,7 @@ export const subscriptionPlansSchema = {
       documentId: subscriptionPlanDocumentIdPattern,
       fields: {
         name: "string",
+        stripeProductName: "string",
         months: "number",
         fee: "number"
       }

@@ -4,9 +4,13 @@ const {
 } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 const {
-  createPaymentProvider,
   paymentProviderSecrets,
 } = require("./features/payment_factory/payment_factory_module");
+const {
+  createStripePaymentSetupIntent,
+} = require(
+  "./features/stripe_payment_customer/stripe_payment_customer_module"
+);
 
 const CALLABLE_OPTIONS = Object.freeze({
   region: "us-central1",
@@ -38,21 +42,14 @@ function requireCustomerReference(request) {
 }
 
 function createStripeSetupIntentHandlers({
-  createProvider = createPaymentProvider,
+  createPaymentSetupIntent = createStripePaymentSetupIntent,
 } = {}) {
   async function createStripeSetupIntentHandler(request) {
     requireAuthenticatedCaller(request);
     const customerReference = requireCustomerReference(request);
-    const paymentProvider = await createProvider();
-
-    if (typeof paymentProvider?.createSetupIntent !== "function") {
-      throw new Error(
-        "The configured payment provider cannot create Stripe SetupIntents.",
-      );
-    }
 
     const clientSecret = String(
-      await paymentProvider.createSetupIntent(customerReference),
+      await createPaymentSetupIntent({customerReference}),
     ).trim();
 
     if (!clientSecret) {

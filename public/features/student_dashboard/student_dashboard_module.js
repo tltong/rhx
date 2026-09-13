@@ -14,6 +14,25 @@
  *     }>,
  *     preAssessmentStates
  *   }|null>
+ *
+ * createSyllabusProgressPane(input: {
+ *   studentId: string,
+ *   syllabuses: Array<Object>,
+ *   title?: string,
+ *   description?: string,
+ *   practiceResultUrl?: string,
+ *   documentRef?: Document
+ * }) -> HTMLElement
+ *
+ * renderSyllabusProgressPane(input: {
+ *   container: Element,
+ *   studentId: string,
+ *   syllabuses: Array<Object>,
+ *   title?: string,
+ *   description?: string,
+ *   practiceResultUrl?: string,
+ *   documentRef?: Document
+ * }) -> HTMLElement
  */
 import {
   ASSESSMENT_FRAMEWORK_END_LEVEL_ID,
@@ -51,6 +70,10 @@ import {
 import {
   GetStudentDashboard
 } from "./application/get_student_dashboard.js?v=20260824-completed-practices";
+import {
+  createSyllabusProgressPane,
+  renderSyllabusProgressPane
+} from "./components/syllabus_progress_pane/syllabus_progress_pane.js?v=20260908-guardian-progress-pane-v1";
 
 const getStudentDashboardUseCase = new GetStudentDashboard({
   getStudentById,
@@ -72,4 +95,8 @@ async function getStudentDashboard(studentId) {
   return getStudentDashboardUseCase.execute(studentId);
 }
 
-export { getStudentDashboard };
+export {
+  createSyllabusProgressPane,
+  getStudentDashboard,
+  renderSyllabusProgressPane
+};

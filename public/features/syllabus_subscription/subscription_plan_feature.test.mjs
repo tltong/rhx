@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import {readFile} from "node:fs/promises";
 import test from "node:test";
 
 import {
@@ -17,6 +18,9 @@ import {
   SubscriptionPlan,
   SubscriptionPlanCatalog
 } from "./domain/subscription_plan.js";
+import {
+  FirestoreSubscriptionPlanRepository
+} from "./infrastructure/firestore_subscription_plan_repository.js";
 import * as subscriptionPlanModule from "./subscription_plan_module.js";
 
 class MemorySubscriptionPlanRepository {
@@ -106,6 +110,14 @@ test("subscription plan validates months and fee", () => {
     months: 1,
     fee: -1
   }), /fee must be a non-negative number/);
+
+  assert.throws(() => new SubscriptionPlan({
+    country: "Malaysia",
+    name: "Invalid Stripe product",
+    stripeProductName: " ",
+    months: 1,
+    fee: 10
+  }), /stripeProductName is required/);
 });
 
 test("plan creation requires currency and receives a generated ID", async () => {
@@ -115,6 +127,7 @@ test("plan creation requires currency and receives a generated ID", async () => 
   const input = {
     country: "Malaysia",
     name: "Quarterly",
+    stripeProductName: "RHX Quarterly Subscription",
     months: 3,
     fee: 59.9
   };
@@ -129,6 +142,7 @@ test("plan creation requires currency and receives a generated ID", async () => 
 
   assert.equal(catalog.currency, "MYR");
   assert.equal(plan.id, "plan_1");
+  assert.equal(plan.stripeProductName, "RHX Quarterly Subscription");
   assert.equal(plan.months, 3);
   assert.equal(plan.fee, 59.9);
 });
@@ -144,6 +158,7 @@ test("plan update and delete return the affected plan", async () => {
   const created = await createPlan.execute({
     country: "Singapore",
     name: "Monthly",
+    stripeProductName: "RHX Monthly Subscription",
     months: 1,
     fee: 20
   });
@@ -151,16 +166,79 @@ test("plan update and delete return the affected plan", async () => {
     country: "Singapore",
     planId: created.id,
     name: "Monthly Plus",
+    stripeProductName: "RHX Monthly Plus Subscription",
     fee: 25
   });
   const deleted = await deletePlan.execute("Singapore", created.id);
 
   assert.equal(updated.name, "Monthly Plus");
+  assert.equal(
+    updated.stripeProductName,
+    "RHX Monthly Plus Subscription"
+  );
   assert.equal(updated.months, 1);
   assert.equal(updated.fee, 25);
   assert.equal(deleted.id, created.id);
   assert.equal(
     await repository.getPlan("Singapore", created.id),
     null
+  );
+});
+
+test("Firestore plan access preserves the Stripe product name", async () => {
+  let storedData = null;
+  const repository = new FirestoreSubscriptionPlanRepository({
+    async createPlanDocument(collectionPath, data) {
+      assert.equal(collectionPath, "subscription_plans/Malaysia/plans");
+      storedData = {...data};
+      return {id: "plan_firestore"};
+    },
+    async readPlanDocument(collectionPath, documentId) {
+      assert.equal(collectionPath, "subscription_plans/Malaysia/plans");
+      assert.equal(documentId, "plan_firestore");
+      return storedData
+        ? {id: documentId, ...storedData}
+        : null;
+    }
+  });
+  const plan = new SubscriptionPlan({
+    country: "Malaysia",
+    name: "Annual",
+    stripeProductName: "RHX Annual Subscription",
+    months: 12,
+    fee: 199
+  });
+
+  await repository.createPlan(plan);
+
+  assert.deepEqual(storedData, {
+    name: "Annual",
+    stripeProductName: "RHX Annual Subscription",
+    months: 12,
+    fee: 199
+  });
+
+  const loaded = await repository.getPlan("Malaysia", "plan_firestore");
+
+  assert.equal(loaded.stripeProductName, "RHX Annual Subscription");
+});
+
+test("Subscription Plan Admin configures the Stripe product name", async () => {
+  const [page, pageScript] = await Promise.all([
+    readFile(new URL(
+      "./pages/subscription_plan_admin/subscription_plan_admin.html",
+      import.meta.url
+    ), "utf8"),
+    readFile(new URL(
+      "./pages/subscription_plan_admin/subscription_plan_admin.js",
+      import.meta.url
+    ), "utf8")
+  ]);
+
+  assert.match(page, /name="stripeProductName"/);
+  assert.match(pageScript, /plan\.stripeProductName/);
+  assert.match(
+    pageScript,
+    /stripeProductName:\s*data\.get\("stripeProductName"\)/
   );
 });

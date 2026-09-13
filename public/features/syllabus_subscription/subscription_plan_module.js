@@ -9,16 +9,17 @@
  *   -> Promise<SubscriptionPlan[]>
  * setSubscriptionPlanCurrency(country, currency)
  *   -> Promise<SubscriptionPlanCatalog>
- * createSubscriptionPlan({country, name, months, fee})
+ * createSubscriptionPlan({country, name, stripeProductName, months, fee})
  *   -> Promise<SubscriptionPlan>
- * updateSubscriptionPlan({country, planId, name?, months?, fee?})
+ * updateSubscriptionPlan({country, planId, name?, stripeProductName?,
+ *   months?, fee?})
  *   -> Promise<SubscriptionPlan>
  * deleteSubscriptionPlan(country, planId)
  *   -> Promise<SubscriptionPlan>
  */
 import {
   CreateSubscriptionPlan
-} from "./application/create_subscription_plan.js?v=20260829-subscription-plans-v1";
+} from "./application/create_subscription_plan.js?v=20260912-stripe-product-name-v1";
 import {
   DeleteSubscriptionPlan
 } from "./application/delete_subscription_plan.js?v=20260829-subscription-plans-v1";
@@ -39,7 +40,7 @@ import {
 } from "./application/update_subscription_plan.js?v=20260829-subscription-plans-v1";
 import {
   FirestoreSubscriptionPlanRepository
-} from "./infrastructure/firestore_subscription_plan_repository.js?v=20260829-subscription-plans-v1";
+} from "./infrastructure/firestore_subscription_plan_repository.js?v=20260912-stripe-product-name-v1";
 
 const subscriptionPlanRepository =
   new FirestoreSubscriptionPlanRepository();

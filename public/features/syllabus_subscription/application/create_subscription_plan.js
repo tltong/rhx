@@ -1,6 +1,6 @@
 import {
   SubscriptionPlan
-} from "../domain/subscription_plan.js?v=20260829-subscription-plans-v1";
+} from "../domain/subscription_plan.js?v=20260912-stripe-product-name-v1";
 
 export class CreateSubscriptionPlan {
   constructor(subscriptionPlanRepository) {

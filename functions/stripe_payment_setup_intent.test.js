@@ -19,13 +19,9 @@ function authenticatedRequest(customerReference) {
 test("SetupIntent callable returns a client secret", async () => {
   const calls = [];
   const handlers = createStripeSetupIntentHandlers({
-    async createProvider() {
-      return {
-        async createSetupIntent(customerReference) {
-          calls.push(customerReference);
-          return "seti_secret_callable";
-        },
-      };
+    async createPaymentSetupIntent(input) {
+      calls.push(input);
+      return "seti_secret_callable";
     },
   });
 
@@ -34,7 +30,7 @@ test("SetupIntent callable returns a client secret", async () => {
   );
 
   assert.equal(result, "seti_secret_callable");
-  assert.deepEqual(calls, ["cus_setup_123"]);
+  assert.deepEqual(calls, [{customerReference: "cus_setup_123"}]);
 });
 
 test("SetupIntent callable requires authentication", async () => {
@@ -61,12 +57,8 @@ test("SetupIntent callable requires a customer reference", async () => {
 
 test("SetupIntent callable rejects a missing client secret", async () => {
   const handlers = createStripeSetupIntentHandlers({
-    async createProvider() {
-      return {
-        async createSetupIntent() {
-          return "";
-        },
-      };
+    async createPaymentSetupIntent() {
+      return "";
     },
   });
 
