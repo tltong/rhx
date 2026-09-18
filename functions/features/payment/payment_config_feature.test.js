@@ -7,6 +7,7 @@ const {
 const {
   PaymentConfig,
   paymentModes,
+  paymentProviders,
 } = require("./domain/payment_config");
 const {
   FirestorePaymentConfigRepository,
@@ -27,6 +28,20 @@ test("Functions payment module exposes its read-only API", () => {
     TEST: "test",
     PROD: "prod",
   });
+  assert.deepEqual(paymentModule.paymentProviders, {
+    STRIPE: "stripe",
+  });
+});
+
+test("Functions payment config rejects unsupported providers", () => {
+  assert.throws(
+    () => new PaymentConfig({
+      ...record,
+      provider: "unsupported",
+    }),
+    /provider must be one of: stripe/,
+  );
+  assert.equal(paymentProviders.STRIPE, "stripe");
 });
 
 test("Functions repository reads the default payment config", async () => {

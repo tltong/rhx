@@ -7,6 +7,7 @@
  */
 const {
   getPaymentConfig,
+  paymentProviders,
 } = require("../payment/payment_module");
 const {
   createStripePayment,
@@ -19,7 +20,7 @@ const {
 const createPaymentProviderUseCase = new CreatePaymentProvider({
   getPaymentConfig,
   providerFactories: Object.freeze({
-    stripe: createStripePayment,
+    [paymentProviders.STRIPE]: createStripePayment,
   }),
 });
 

@@ -142,11 +142,13 @@ class ProcessStripeSubscriptionEvent {
   constructor({
     createStripePayment,
     getSubscriptionRecord,
+    linkStudentPaymentSubscription,
     writeSubscriptionRecord,
     now = () => new Date(),
   }) {
     this.createStripePayment = createStripePayment;
     this.getSubscriptionRecord = getSubscriptionRecord;
+    this.linkStudentPaymentSubscription = linkStudentPaymentSubscription;
     this.writeSubscriptionRecord = writeSubscriptionRecord;
     this.now = now;
   }
@@ -264,6 +266,8 @@ class ProcessStripeSubscriptionEvent {
 
     await this.writeSubscriptionRecord({
       mode,
+      studentId: existingRecord.studentId ?? null,
+      planId: existingRecord.planId ?? null,
       customerReference,
       subscriptionReference,
       paymentMethodReference: existingRecord.paymentMethodReference,
@@ -281,6 +285,33 @@ class ProcessStripeSubscriptionEvent {
       latestPaymentStatus,
       paymentActionRequiredAt,
     });
+
+    if (
+      eventType === STRIPE_SUBSCRIPTION_EVENT_TYPES.INVOICE_PAID
+      && status === "active"
+      && existingRecord.studentId
+      && existingRecord.planId
+    ) {
+      if (!subscription.currentPeriodEnd) {
+        throw new Error(
+          "An active Stripe subscription must include currentPeriodEnd.",
+        );
+      }
+
+      if (typeof this.linkStudentPaymentSubscription !== "function") {
+        throw new Error(
+          "Student payment subscription linking is not configured.",
+        );
+      }
+
+      await this.linkStudentPaymentSubscription({
+        studentId: existingRecord.studentId,
+        activeUntil: subscription.currentPeriodEnd,
+        paymentCustomerReference: customerReference,
+        paymentSubscriptionReference: subscriptionReference,
+        planId: existingRecord.planId,
+      });
+    }
 
     return Object.freeze({
       handled: true,

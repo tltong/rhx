@@ -1,10 +1,8 @@
-import {
-  subscriptionTypes
-} from "../../../config/firebase/subscription_schema.js?v=20260915-student-payment-link-v1";
-import {
+const {
   paymentModes,
-  paymentProviders
-} from "../../../config/firebase/payment_config_schema.js?v=20260915-payment-provider-enum-v1";
+  paymentProviders,
+  subscriptionTypes,
+} = require("../../../schema/subscription_schema");
 
 const SUBSCRIPTION_TYPE_VALUES = new Set(Object.values(subscriptionTypes));
 const PAYMENT_MODE_VALUES = new Set(Object.values(paymentModes));
@@ -14,7 +12,7 @@ const PAYMENT_LINK_FIELDS = Object.freeze([
   "paymentMode",
   "paymentCustomerReference",
   "paymentSubscriptionReference",
-  "planId"
+  "planId",
 ]);
 
 function requireNonEmptyString(value, name) {
@@ -30,12 +28,14 @@ function requireNonEmptyString(value, name) {
 function normalizeSubscriptionType(subscriptionType) {
   const normalizedType = requireNonEmptyString(
     subscriptionType,
-    "subscriptionType"
+    "subscriptionType",
   ).toLowerCase();
 
   if (!SUBSCRIPTION_TYPE_VALUES.has(normalizedType)) {
     throw new Error(
-      `subscriptionType must be one of: ${[...SUBSCRIPTION_TYPE_VALUES].join(", ")}.`
+      `subscriptionType must be one of: ${[
+        ...SUBSCRIPTION_TYPE_VALUES,
+      ].join(", ")}.`,
     );
   }
 
@@ -59,52 +59,14 @@ function normalizeOptionalEnum(value, name, allowedValues) {
 
   if (!allowedValues.has(normalizedValue)) {
     throw new Error(
-      `${name} must be one of: ${[...allowedValues].join(", ")}.`
+      `${name} must be one of: ${[...allowedValues].join(", ")}.`,
     );
   }
 
   return normalizedValue;
 }
 
-function validatePaymentLink(subscription) {
-  const configuredFields = PAYMENT_LINK_FIELDS.filter(
-    (fieldName) => subscription[fieldName] !== null
-  );
-
-  if (
-    subscription.subscriptionType === subscriptionTypes.TRIAL
-    && configuredFields.length > 0
-  ) {
-    throw new Error(
-      "Trial subscriptions cannot contain payment-provider linkage."
-    );
-  }
-
-  if (
-    configuredFields.length > 0
-    && configuredFields.length !== PAYMENT_LINK_FIELDS.length
-  ) {
-    throw new Error(
-      `Payment linkage must provide all of: ${PAYMENT_LINK_FIELDS.join(", ")}.`
-    );
-  }
-
-  if (subscription.paymentProvider === paymentProviders.STRIPE) {
-    if (!subscription.paymentCustomerReference.startsWith("cus_")) {
-      throw new Error(
-        "paymentCustomerReference must be a Stripe customer reference."
-      );
-    }
-
-    if (!subscription.paymentSubscriptionReference.startsWith("sub_")) {
-      throw new Error(
-        "paymentSubscriptionReference must be a Stripe subscription reference."
-      );
-    }
-  }
-}
-
-function normalizeTimestamp(value, name, { optional = false } = {}) {
+function normalizeTimestamp(value, name, {optional = false} = {}) {
   if ((value === null || value === undefined) && optional) {
     return null;
   }
@@ -116,33 +78,55 @@ function normalizeTimestamp(value, name, { optional = false } = {}) {
       : null;
 
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
-    throw new Error(`${name} must be a valid Date or Firestore Timestamp.`);
+    throw new Error(
+      `${name} must be a valid Date or Firestore Timestamp.`,
+    );
   }
 
   return value;
 }
 
-function requirePositiveInteger(value, name) {
-  const numberValue = Number(value);
+function validatePaymentLink(subscription) {
+  const configuredFields = PAYMENT_LINK_FIELDS.filter(
+    (fieldName) => subscription[fieldName] !== null,
+  );
 
-  if (!Number.isInteger(numberValue) || numberValue < 1) {
-    throw new Error(`${name} must be a positive integer.`);
+  if (
+    subscription.subscriptionType === subscriptionTypes.TRIAL
+    && configuredFields.length > 0
+  ) {
+    throw new Error(
+      "Trial subscriptions cannot contain payment-provider linkage.",
+    );
   }
 
-  return numberValue;
-}
-
-function requireNonNegativeNumber(value, name) {
-  const numberValue = Number(value);
-
-  if (!Number.isFinite(numberValue) || numberValue < 0) {
-    throw new Error(`${name} must be a non-negative number.`);
+  if (
+    configuredFields.length > 0
+    && configuredFields.length !== PAYMENT_LINK_FIELDS.length
+  ) {
+    throw new Error(
+      `Payment linkage must provide all of: ${PAYMENT_LINK_FIELDS.join(
+        ", ",
+      )}.`,
+    );
   }
 
-  return numberValue;
+  if (subscription.paymentProvider === paymentProviders.STRIPE) {
+    if (!subscription.paymentCustomerReference.startsWith("cus_")) {
+      throw new Error(
+        "paymentCustomerReference must be a Stripe customer reference.",
+      );
+    }
+
+    if (!subscription.paymentSubscriptionReference.startsWith("sub_")) {
+      throw new Error(
+        "paymentSubscriptionReference must be a Stripe subscription reference.",
+      );
+    }
+  }
 }
 
-export class StudentSubscription {
+class StudentSubscription {
   constructor({
     studentId,
     subscriptionType,
@@ -153,37 +137,37 @@ export class StudentSubscription {
     paymentSubscriptionReference = null,
     planId = null,
     createdAt = null,
-    updatedAt = null
+    updatedAt = null,
   }) {
     this.studentId = requireNonEmptyString(studentId, "studentId");
     this.subscriptionType = normalizeSubscriptionType(subscriptionType);
     this.activeUntil = normalizeTimestamp(activeUntil, "activeUntil", {
-      optional: true
+      optional: true,
     });
     this.paymentProvider = normalizeOptionalEnum(
       paymentProvider,
       "paymentProvider",
-      PAYMENT_PROVIDER_VALUES
+      PAYMENT_PROVIDER_VALUES,
     );
     this.paymentMode = normalizeOptionalEnum(
       paymentMode,
       "paymentMode",
-      PAYMENT_MODE_VALUES
+      PAYMENT_MODE_VALUES,
     );
     this.paymentCustomerReference = normalizeOptionalString(
       paymentCustomerReference,
-      "paymentCustomerReference"
+      "paymentCustomerReference",
     );
     this.paymentSubscriptionReference = normalizeOptionalString(
       paymentSubscriptionReference,
-      "paymentSubscriptionReference"
+      "paymentSubscriptionReference",
     );
     this.planId = normalizeOptionalString(planId, "planId");
     this.createdAt = normalizeTimestamp(createdAt, "createdAt", {
-      optional: true
+      optional: true,
     });
     this.updatedAt = normalizeTimestamp(updatedAt, "updatedAt", {
-      optional: true
+      optional: true,
     });
     validatePaymentLink(this);
   }
@@ -202,11 +186,11 @@ export class StudentSubscription {
       paymentMode: valueFor("paymentMode"),
       paymentCustomerReference: valueFor("paymentCustomerReference"),
       paymentSubscriptionReference: valueFor(
-        "paymentSubscriptionReference"
+        "paymentSubscriptionReference",
       ),
       planId: valueFor("planId"),
       createdAt: this.createdAt,
-      updatedAt
+      updatedAt,
     });
 
     Object.assign(this, candidate);
@@ -214,45 +198,9 @@ export class StudentSubscription {
   }
 }
 
-export class SubscriptionPayment {
-  constructor({
-    id = null,
-    studentId,
-    guardianId,
-    planId,
-    durationMonths,
-    amountPaid,
-    currency,
-    paymentDate,
-    paymentProvider,
-    paymentProviderReference,
-    createdAt = null
-  }) {
-    this.id = id === null
-      ? null
-      : requireNonEmptyString(id, "id");
-    this.studentId = requireNonEmptyString(studentId, "studentId");
-    this.guardianId = requireNonEmptyString(guardianId, "guardianId");
-    this.planId = requireNonEmptyString(planId, "planId");
-    this.durationMonths = requirePositiveInteger(
-      durationMonths,
-      "durationMonths"
-    );
-    this.amountPaid = requireNonNegativeNumber(amountPaid, "amountPaid");
-    this.currency = requireNonEmptyString(currency, "currency");
-    this.paymentDate = normalizeTimestamp(paymentDate, "paymentDate");
-    this.paymentProvider = requireNonEmptyString(
-      paymentProvider,
-      "paymentProvider"
-    );
-    this.paymentProviderReference = requireNonEmptyString(
-      paymentProviderReference,
-      "paymentProviderReference"
-    );
-    this.createdAt = normalizeTimestamp(createdAt, "createdAt", {
-      optional: true
-    });
-  }
-}
-
-export { paymentModes, paymentProviders, subscriptionTypes };
+module.exports = {
+  paymentModes,
+  paymentProviders,
+  StudentSubscription,
+  subscriptionTypes,
+};

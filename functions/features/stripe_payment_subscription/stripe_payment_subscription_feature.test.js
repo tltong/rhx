@@ -19,6 +19,8 @@ const stripePaymentSubscriptionModule = require(
 
 function subscriptionInput(overrides = {}) {
   return {
+    internalReference: "guardian-123",
+    studentId: "student-123",
     customerReference: "cus_123",
     paymentMethodReference: "pm_123",
     country: "Malaysia",
@@ -71,8 +73,16 @@ test("resolves plan terms, creates, and persists a Stripe subscription", async (
       calls.push(["get-customer", input]);
       return {
         customerReference: "cus_123",
-        internalReference: "a-different-caller",
+        internalReference: "guardian-123",
       };
+    },
+    async getGuardianStudentLink(input) {
+      calls.push(["get-guardian-student-link", input]);
+      return {isActive: true};
+    },
+    async getStudentSubscription(studentId) {
+      calls.push(["get-student-subscription", studentId]);
+      return {studentId, subscriptionType: "trial"};
     },
     writeSubscriptionRecord: async (input) => {
       calls.push(["write-subscription", input]);
@@ -95,6 +105,11 @@ test("resolves plan terms, creates, and persists a Stripe subscription", async (
       mode: "test",
       customerReference: "cus_123",
     }],
+    ["get-guardian-student-link", {
+      guardianId: "guardian-123",
+      studentId: "student-123",
+    }],
+    ["get-student-subscription", "student-123"],
     ["create-subscription", {
       customerReference: "cus_123",
       paymentMethodReference: "pm_123",
@@ -107,6 +122,8 @@ test("resolves plan terms, creates, and persists a Stripe subscription", async (
     }],
     ["write-subscription", {
       mode: "test",
+      studentId: "student-123",
+      planId: "plan-quarterly",
       customerReference: "cus_123",
       subscriptionReference: "sub_123",
       paymentMethodReference: "pm_123",
@@ -147,6 +164,75 @@ test("returns not-found when the country or plan is not configured", async () =>
     ),
   );
   assert.equal(providerCalls, 0);
+});
+
+test("rejects a Stripe customer owned by another authenticated user", async () => {
+  let stripeCalls = 0;
+  let linkReads = 0;
+  const useCase = new CreateStripePaymentSubscription({
+    async getSubscriptionPlanBillingTerms() {
+      return billingTerms();
+    },
+    createPaymentProviderContext: async () => ({
+      providerName: "stripe",
+      mode: "test",
+      paymentProvider: {
+        async createSubscription() {
+          stripeCalls += 1;
+        },
+      },
+    }),
+    async getCustomerRecordByReference() {
+      return {internalReference: "another-guardian"};
+    },
+    async getGuardianStudentLink() {
+      linkReads += 1;
+    },
+    async getStudentSubscription() {},
+    async writeSubscriptionRecord() {},
+  });
+
+  await assert.rejects(
+    () => useCase.execute(subscriptionInput()),
+    (error) => error.code === "not-found"
+      && /not registered for this caller/.test(error.message),
+  );
+  assert.equal(linkReads, 0);
+  assert.equal(stripeCalls, 0);
+});
+
+test("requires an active guardian-student link before calling Stripe", async () => {
+  let stripeCalls = 0;
+  const useCase = new CreateStripePaymentSubscription({
+    async getSubscriptionPlanBillingTerms() {
+      return billingTerms();
+    },
+    createPaymentProviderContext: async () => ({
+      providerName: "stripe",
+      mode: "test",
+      paymentProvider: {
+        async createSubscription() {
+          stripeCalls += 1;
+        },
+      },
+    }),
+    async getCustomerRecordByReference() {
+      return {internalReference: "guardian-123"};
+    },
+    async getGuardianStudentLink() {
+      return {isActive: false};
+    },
+    async getStudentSubscription() {
+      return {studentId: "student-123", subscriptionType: "trial"};
+    },
+    async writeSubscriptionRecord() {},
+  });
+
+  await assert.rejects(
+    () => useCase.execute(subscriptionInput()),
+    (error) => error.code === "permission-denied",
+  );
+  assert.equal(stripeCalls, 0);
 });
 
 test("requires the Stripe customer to be registered for persistence", async () => {
@@ -264,6 +350,8 @@ test("processes invoice.paid using current Stripe subscription state", async () 
     async getSubscriptionRecord(input) {
       calls.push(["get-subscription", input]);
       return {
+        studentId: "student-123",
+        planId: "plan-quarterly",
         paymentMethodReference: "pm_123",
         amount: 4500,
         currency: "myr",
@@ -273,6 +361,9 @@ test("processes invoice.paid using current Stripe subscription state", async () 
     },
     async writeSubscriptionRecord(input) {
       calls.push(["write-subscription", input]);
+    },
+    async linkStudentPaymentSubscription(input) {
+      calls.push(["link-student-subscription", input]);
     },
   });
 
@@ -306,6 +397,8 @@ test("processes invoice.paid using current Stripe subscription state", async () 
     }],
     ["write-subscription", {
       mode: "test",
+      studentId: "student-123",
+      planId: "plan-quarterly",
       customerReference: "cus_123",
       subscriptionReference: "sub_123",
       paymentMethodReference: "pm_123",
@@ -322,6 +415,13 @@ test("processes invoice.paid using current Stripe subscription state", async () 
       latestInvoiceStatus: "paid",
       latestPaymentStatus: "succeeded",
       paymentActionRequiredAt: null,
+    }],
+    ["link-student-subscription", {
+      studentId: "student-123",
+      activeUntil: currentPeriodEnd,
+      paymentCustomerReference: "cus_123",
+      paymentSubscriptionReference: "sub_123",
+      planId: "plan-quarterly",
     }],
   ]);
   assert.deepEqual(result, {
@@ -424,6 +524,8 @@ test("records an Invoice payment action without persisting its secret", async ()
   ]);
   assert.deepEqual(write, {
     mode: "test",
+    studentId: null,
+    planId: null,
     customerReference: "cus_123",
     subscriptionReference: "sub_123",
     paymentMethodReference: "pm_123",

@@ -1,8 +1,9 @@
 import {
   getPaymentConfig,
   paymentModes,
+  paymentProviders,
   savePaymentConfig
-} from "../../payment_module.js?v=20260901-payment-config-simple-v1";
+} from "../../payment_module.js?v=20260915-payment-provider-enum-v1";
 
 const formEl = document.querySelector("#payment-config-form");
 const providerEl = document.querySelector("#payment-provider");
@@ -18,6 +19,22 @@ let isBusy = false;
 
 function formatMode(mode) {
   return mode.charAt(0).toUpperCase() + mode.slice(1);
+}
+
+function formatProvider(provider) {
+  return provider.charAt(0).toUpperCase() + provider.slice(1);
+}
+
+function populateProviderOptions() {
+  providerEl.replaceChildren();
+
+  Object.values(paymentProviders).forEach((provider) => {
+    const option = document.createElement("option");
+
+    option.value = provider;
+    option.textContent = formatProvider(provider);
+    providerEl.append(option);
+  });
 }
 
 function populateModeOptions() {
@@ -72,7 +89,7 @@ function renderUpdatedAt(value) {
 
 
 function renderConfig(config) {
-  providerEl.value = config?.provider || "";
+  providerEl.value = config?.provider || paymentProviders.STRIPE;
   modeEl.value = config?.mode || paymentModes.TEST;
   customDataEl.value = JSON.stringify(config?.customData || {}, null, 2);
   currentModeEl.textContent = config
@@ -157,6 +174,7 @@ formEl.addEventListener("submit", async (event) => {
   }
 });
 
+populateProviderOptions();
 populateModeOptions();
 renderConfig(null);
 await loadConfig();

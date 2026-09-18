@@ -27,7 +27,8 @@
  * deletePaymentMethodRecord(input) -> Promise<void>
  *
  * writeSubscriptionRecord({mode, customerReference, subscriptionReference,
- *   paymentMethodReference, status, amount, currency, interval, intervalCount,
+ *   studentId?, planId?, paymentMethodReference, status, amount, currency,
+ *   interval, intervalCount,
  *   subscriptionStartDate, currentPeriodStart, currentPeriodEnd,
  *   cancelAtPeriodEnd}) -> Promise<StripeSubscriptionRecord>
  * getSubscriptionRecord(input) -> Promise<StripeSubscriptionRecord|null>

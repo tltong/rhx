@@ -1,9 +1,11 @@
 const {
   PAYMENT_CONFIG_DOCUMENT_ID,
   paymentModes,
+  paymentProviders,
 } = require("../../../schema/payment_config_schema");
 
 const PAYMENT_MODE_VALUES = new Set(Object.values(paymentModes));
+const PAYMENT_PROVIDER_VALUES = new Set(Object.values(paymentProviders));
 
 function requireNonEmptyString(value, name) {
   const normalizedValue = String(value ?? "").trim();
@@ -25,6 +27,21 @@ function normalizeMode(mode) {
   }
 
   return normalizedMode;
+}
+
+function normalizeProvider(provider) {
+  const normalizedProvider = requireNonEmptyString(
+    provider,
+    "provider",
+  ).toLowerCase();
+
+  if (!PAYMENT_PROVIDER_VALUES.has(normalizedProvider)) {
+    throw new Error(
+      `provider must be one of: ${[...PAYMENT_PROVIDER_VALUES].join(", ")}.`,
+    );
+  }
+
+  return normalizedProvider;
 }
 
 
@@ -67,7 +84,7 @@ class PaymentConfig {
     updatedAt = null,
   }) {
     this.id = requireNonEmptyString(id, "id");
-    this.provider = requireNonEmptyString(provider, "provider").toLowerCase();
+    this.provider = normalizeProvider(provider);
     this.mode = normalizeMode(mode);
     this.customData = normalizeCustomData(customData);
     this.updatedAt = normalizeTimestamp(updatedAt);
@@ -77,4 +94,5 @@ class PaymentConfig {
 module.exports = {
   PaymentConfig,
   paymentModes,
+  paymentProviders,
 };

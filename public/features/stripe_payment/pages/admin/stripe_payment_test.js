@@ -6,7 +6,7 @@ import {
   createStripeSubscription,
   deleteCustomer,
   mountSetupPaymentElement
-} from "../../stripe_payment_module.js?v=20260913-stripe-subscription-confirm-v1";
+} from "../../stripe_payment_module.js?v=20260917-student-link-v1";
 import {
   getPaymentConfig
 } from "../../../payment/payment_module.js?v=20260901-payment-config-simple-v1";
@@ -66,6 +66,8 @@ const confirmedPaymentMethodReference =
 
 const createSubscriptionForm =
   document.querySelector("#create-subscription-form");
+const subscriptionStudentIdEl =
+  document.querySelector("#subscription-student-id");
 const subscriptionCustomerReferenceEl =
   document.querySelector("#subscription-customer-reference");
 const subscriptionPaymentMethodReferenceEl =
@@ -171,6 +173,10 @@ function updateCreateControls() {
 
 function loadCurrentUserEmail() {
   const currentUser = getCurrentFirebaseAuthUser();
+
+  if (!inputReferenceEl.value.trim() && currentUser?.uid) {
+    inputReferenceEl.value = currentUser.uid;
+  }
 
   if (!customerEmailEl.value.trim() && currentUser?.email) {
     customerEmailEl.value = currentUser.email;
@@ -475,6 +481,7 @@ createSubscriptionForm.addEventListener("submit", async (event) => {
 
   try {
     const result = await createStripeSubscription({
+      studentId: subscriptionStudentIdEl.value,
       customerReference: subscriptionCustomerReferenceEl.value,
       paymentMethodReference: subscriptionPaymentMethodReferenceEl.value,
       country: subscriptionCountryEl.value,

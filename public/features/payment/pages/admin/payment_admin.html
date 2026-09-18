@@ -48,15 +48,7 @@
           <div class="field-grid general-grid">
             <label>
               Payment provider
-              <input
-                id="payment-provider"
-                name="provider"
-                type="text"
-                autocomplete="off"
-                maxlength="80"
-                placeholder="stripe"
-                required
-              >
+              <select id="payment-provider" name="provider" required></select>
             </label>
 
             <label>
@@ -90,7 +82,7 @@
       id="site-admin-page-loader"
       type="module"
       data-site-admin-page
-      data-page-module="./payment_admin.js?v=20260901-payment-config-simple-v1"
+      data-page-module="./payment_admin.js?v=20260915-payment-provider-enum-v1"
       src="/features/site_admin/pages/common/site_admin_page_loader.js?v=20260827-site-admin-guard-v1"
     ></script>
   </body>

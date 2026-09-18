@@ -1,3 +1,8 @@
+import {
+  paymentModes,
+  paymentProviders
+} from "./payment_config_schema.js?v=20260915-payment-provider-enum-v1";
+
 export const SUBSCRIPTIONS_COLLECTION = "subscriptions";
 export const SUBSCRIPTION_PAYMENTS_SUBCOLLECTION = "payments";
 
@@ -19,6 +24,28 @@ export const subscriptionSchema = {
     },
     activeUntil: {
       type: "timestamp",
+      nullable: true
+    },
+    paymentProvider: {
+      type: "string",
+      enum: Object.values(paymentProviders),
+      nullable: true
+    },
+    paymentMode: {
+      type: "string",
+      enum: Object.values(paymentModes),
+      nullable: true
+    },
+    paymentCustomerReference: {
+      type: "string",
+      nullable: true
+    },
+    paymentSubscriptionReference: {
+      type: "string",
+      nullable: true
+    },
+    planId: {
+      type: "string",
       nullable: true
     },
     createdAt: "timestamp",
@@ -48,6 +75,8 @@ export default {
   SUBSCRIPTION_PAYMENTS_SUBCOLLECTION,
   subscriptionDocumentIdPattern,
   subscriptionPaymentDocumentIdPattern,
+  paymentModes,
+  paymentProviders,
   subscriptionTypes,
   subscriptionSchema
 };

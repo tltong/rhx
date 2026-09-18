@@ -82,6 +82,8 @@ const stripeCustomerSchema = {
           collection: STRIPE_SUBSCRIPTIONS_SUBCOLLECTION,
           documentId: stripeSubscriptionDocumentIdPattern,
           fields: {
+            studentId: nullableString,
+            planId: nullableString,
             paymentMethodReference: "string",
             status: "string",
             amount: "number",

@@ -55,7 +55,9 @@
           </div>
 
           <form id="create-customer-form">
-            <label for="input-reference">Customer reference</label>
+            <label for="input-reference">
+              Guardian reference (authenticated user)
+            </label>
             <div class="action-row">
               <input
                 id="input-reference"
@@ -63,7 +65,8 @@
                 type="text"
                 maxlength="500"
                 autocomplete="off"
-                placeholder="Enter your customer reference"
+                placeholder="Firebase guardian UID"
+                readonly
                 required
               >
             </div>
@@ -286,6 +289,16 @@
           </div>
 
           <form id="create-subscription-form">
+            <label for="subscription-student-id">Student ID</label>
+            <input
+              id="subscription-student-id"
+              name="studentId"
+              type="text"
+              autocomplete="off"
+              placeholder="Firebase student ID"
+              required
+            >
+
             <label for="subscription-customer-reference">
               Stripe customer reference
             </label>
@@ -503,7 +516,7 @@
       id="site-admin-page-loader"
       type="module"
       data-site-admin-page
-      data-page-module="./stripe_payment_test.js?v=20260913-stripe-confirm-subscription-v2"
+      data-page-module="./stripe_payment_test.js?v=20260917-student-link-v1"
       src="/features/site_admin/pages/common/site_admin_page_loader.js?v=20260827-site-admin-guard-v1"
     ></script>
   </body>

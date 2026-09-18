@@ -1,8 +1,9 @@
 /**
  * Internal application API:
  *
- * createStripePaymentSubscription({customerReference,
- *   paymentMethodReference, country, planId, idempotencyReference})
+ * createStripePaymentSubscription({internalReference, studentId,
+ *   customerReference, paymentMethodReference, country, planId,
+ *   idempotencyReference})
  *   -> Promise<{subscriptionReference, status, paymentClientSecret}>
  * getStripeSubscriptionPaymentAction({
  *   internalReference, subscriptionReference})
@@ -15,13 +16,18 @@
  *      subscriptionStartDate?, currentPeriodStart?, currentPeriodEnd?,
  *      cancelAtPeriodEnd?}>
  *
- * This feature resolves trusted plan billing terms, creates the Stripe
- * subscription, synchronizes invoice-driven state, and supplies the
- * customer-owned payment action needed by a complete-payment page.
+ * This feature verifies guardian/customer/student ownership, resolves trusted
+ * plan billing terms, creates the Stripe subscription, synchronizes
+ * invoice-driven state, links an active paid subscription to its student, and
+ * supplies the customer-owned payment action needed by a complete-payment
+ * page.
  */
 const {
   createPaymentProviderContext,
 } = require("../payment_factory/payment_factory_module");
+const {
+  getGuardianStudentLink,
+} = require("../guardian_student_link/guardian_student_link_module");
 const {
   createStripePayment,
 } = require("../stripe_payment/stripe_payment_module");
@@ -34,6 +40,10 @@ const {
 const {
   getSubscriptionPlanBillingTerms,
 } = require("../syllabus_subscription/subscription_plan_module");
+const {
+  getStudentSubscription,
+  linkStudentPaymentSubscription,
+} = require("../syllabus_subscription/student_subscription_module");
 const {
   CreateStripePaymentSubscription,
 } = require("./application/create_stripe_payment_subscription");
@@ -48,6 +58,8 @@ const createStripePaymentSubscriptionUseCase =
   new CreateStripePaymentSubscription({
     createPaymentProviderContext,
     getCustomerRecordByReference,
+    getGuardianStudentLink,
+    getStudentSubscription,
     getSubscriptionPlanBillingTerms,
     writeSubscriptionRecord,
   });
@@ -55,6 +67,7 @@ const processStripeSubscriptionEventUseCase =
   new ProcessStripeSubscriptionEvent({
     createStripePayment,
     getSubscriptionRecord,
+    linkStudentPaymentSubscription,
     writeSubscriptionRecord,
   });
 const getStripeSubscriptionPaymentActionUseCase =

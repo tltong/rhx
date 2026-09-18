@@ -351,6 +351,8 @@ test("child record APIs write, read, list, and delete schema data", async () => 
   await records.writeSubscriptionRecord({
     ...customerInput,
     subscriptionReference: "sub_123",
+    studentId: "student-123",
+    planId: "plan-quarterly",
     paymentMethodReference: "pm_123",
     status: "active",
     amount: 1000,
@@ -383,6 +385,20 @@ test("child record APIs write, read, list, and delete schema data", async () => 
       subscriptionReference: "sub_123",
     })).currency,
     "myr",
+  );
+  assert.equal(
+    (await records.getSubscriptionRecord({
+      ...customerInput,
+      subscriptionReference: "sub_123",
+    })).studentId,
+    "student-123",
+  );
+  assert.equal(
+    (await records.getSubscriptionRecord({
+      ...customerInput,
+      subscriptionReference: "sub_123",
+    })).planId,
+    "plan-quarterly",
   );
   assert.equal(
     (await records.getSubscriptionRecord({

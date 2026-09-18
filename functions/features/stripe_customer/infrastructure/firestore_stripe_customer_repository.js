@@ -112,6 +112,8 @@ function paymentMethodRecordData(record) {
 
 function subscriptionRecordData(record) {
   return {
+    studentId: record.studentId,
+    planId: record.planId,
     paymentMethodReference: record.paymentMethodReference,
     status: record.status,
     amount: record.amount,

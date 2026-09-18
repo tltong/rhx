@@ -37,21 +37,36 @@ function planNotFound() {
   return error;
 }
 
+function codedError(code, message) {
+  const error = new Error(message);
+  error.code = code;
+  return error;
+}
+
 class CreateStripePaymentSubscription {
   constructor({
     createPaymentProviderContext,
     getCustomerRecordByReference,
+    getGuardianStudentLink,
+    getStudentSubscription,
     getSubscriptionPlanBillingTerms,
     writeSubscriptionRecord,
   }) {
     this.createPaymentProviderContext = createPaymentProviderContext;
     this.getCustomerRecordByReference = getCustomerRecordByReference;
+    this.getGuardianStudentLink = getGuardianStudentLink;
+    this.getStudentSubscription = getStudentSubscription;
     this.getSubscriptionPlanBillingTerms =
       getSubscriptionPlanBillingTerms;
     this.writeSubscriptionRecord = writeSubscriptionRecord;
   }
 
   async execute(input = {}) {
+    const internalReference = requireText(
+      input.internalReference,
+      "internalReference",
+    );
+    const studentId = requireText(input.studentId, "studentId");
     const customerReference = requireText(
       input.customerReference,
       "customerReference",
@@ -97,8 +112,38 @@ class CreateStripePaymentSubscription {
     });
 
     if (!customerRecord) {
-      throw new Error(
+      throw codedError(
+        "not-found",
         `Stripe customer ${customerReference} is not registered in ${mode} mode.`,
+      );
+    }
+
+    if (customerRecord.internalReference !== internalReference) {
+      throw codedError(
+        "not-found",
+        `Stripe customer ${customerReference} is not registered for this caller.`,
+      );
+    }
+
+    const [guardianStudentLink, studentSubscription] = await Promise.all([
+      this.getGuardianStudentLink({
+        guardianId: internalReference,
+        studentId,
+      }),
+      this.getStudentSubscription(studentId),
+    ]);
+
+    if (!guardianStudentLink?.isActive) {
+      throw codedError(
+        "permission-denied",
+        "The signed-in guardian does not have an active link to this student.",
+      );
+    }
+
+    if (!studentSubscription) {
+      throw codedError(
+        "not-found",
+        `Subscription for student ${studentId} was not found.`,
       );
     }
 
@@ -113,6 +158,8 @@ class CreateStripePaymentSubscription {
 
     await this.writeSubscriptionRecord({
       mode,
+      studentId,
+      planId,
       customerReference,
       subscriptionReference: subscription.subscriptionReference,
       paymentMethodReference,

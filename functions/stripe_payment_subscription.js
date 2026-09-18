@@ -71,8 +71,13 @@ function requireIdempotencyReference(value) {
   return reference;
 }
 
-function subscriptionInput(request) {
+function subscriptionInput(request, internalReference) {
   return Object.freeze({
+    internalReference,
+    studentId: requireDocumentReference(
+      request?.data?.studentId,
+      "studentId",
+    ),
     customerReference: requireText(
       request?.data?.customerReference,
       "customerReference",
@@ -196,14 +201,18 @@ function createStripeSubscriptionHandlers({
   getSubscriptionPaymentAction = loadStripeSubscriptionPaymentAction,
 } = {}) {
   async function createStripeSubscriptionHandler(request) {
-    requireAuthenticatedCaller(request);
-    const input = subscriptionInput(request);
+    const internalReference = requireAuthenticatedCaller(request);
+    const input = subscriptionInput(request, internalReference);
 
     try {
       return normalizeResult(await createPaymentSubscription(input));
     } catch (error) {
-      if (error?.code === "not-found") {
-        throw new HttpsError("not-found", error.message);
+      if (
+        error?.code === "not-found"
+        || error?.code === "permission-denied"
+        || error?.code === "failed-precondition"
+      ) {
+        throw new HttpsError(error.code, error.message);
       }
 
       throw error;

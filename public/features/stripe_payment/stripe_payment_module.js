@@ -7,8 +7,8 @@
  *   -> Promise<string> deleted Stripe customer reference
  * createStripeSetupIntent(customerReference)
  *   -> Promise<string> Stripe SetupIntent client secret
- * createStripeSubscription({customerReference, paymentMethodReference,
- *   country, planId, idempotencyReference})
+ * createStripeSubscription({studentId, customerReference,
+ *   paymentMethodReference, country, planId, idempotencyReference})
  *   -> Promise<{subscriptionReference, status, paymentClientSecret}>
  * getStripeSubscriptionPaymentAction(subscriptionReference)
  *   -> Promise<{action, subscriptionReference, invoiceReference,
@@ -35,7 +35,7 @@ import {
 } from "./application/create_setup_intent.js?v=20260904-stripe-setup-intent-v1";
 import {
   CreateStripeSubscription
-} from "./application/create_subscription.js?v=20260911-stripe-subscription-v1";
+} from "./application/create_subscription.js?v=20260917-student-link-v1";
 import {
   GetStripeClientConfig
 } from "./application/get_stripe_client_config.js?v=20260906-stripe-client-config-v1";

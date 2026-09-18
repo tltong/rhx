@@ -19,12 +19,16 @@ const CALLABLE_OPTIONS = Object.freeze({
 });
 
 function requireAuthenticatedCaller(request) {
-  if (!request?.auth?.uid) {
+  const callerUid = String(request?.auth?.uid ?? "").trim();
+
+  if (!callerUid) {
     throw new HttpsError(
       "unauthenticated",
       "Sign in before creating a payment customer.",
     );
   }
+
+  return callerUid;
 }
 
 function requireInputReference(request) {
@@ -96,12 +100,20 @@ function createPaymentCustomerHandlers({
   deleteStripeCustomer = deleteStripePaymentCustomer,
 } = {}) {
   async function createPaymentCustomerHandler(request) {
-    requireAuthenticatedCaller(request);
+    const callerUid = requireAuthenticatedCaller(request);
     const inputReference = requireInputReference(request);
     const email = requireEmail(request);
+
+    if (inputReference !== callerUid) {
+      throw new HttpsError(
+        "permission-denied",
+        "inputReference must match the authenticated user.",
+      );
+    }
+
     const customerReference = String(
       await createStripeCustomer({
-        internalReference: inputReference,
+        internalReference: callerUid,
         email,
       }),
     ).trim();

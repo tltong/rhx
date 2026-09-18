@@ -9,6 +9,7 @@ const {
 } = require("./application/get_payment_config");
 const {
   paymentModes,
+  paymentProviders,
 } = require("./domain/payment_config");
 const {
   FirestorePaymentConfigRepository,
@@ -26,4 +27,5 @@ async function getPaymentConfig() {
 module.exports = {
   getPaymentConfig,
   paymentModes,
+  paymentProviders,
 };

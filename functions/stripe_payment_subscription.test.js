@@ -9,6 +9,7 @@ function authenticatedRequest(overrides = {}) {
   return {
     auth: {uid: "caller-123"},
     data: {
+      studentId: "student-123",
       customerReference: "cus_123",
       paymentMethodReference: "pm_123",
       country: "Malaysia",
@@ -37,6 +38,8 @@ test("subscription callable uses the plan-based external contract", async () => 
   );
 
   assert.deepEqual(calls, [{
+    internalReference: "caller-123",
+    studentId: "student-123",
     customerReference: "cus_123",
     paymentMethodReference: "pm_123",
     country: "Malaysia",
@@ -100,6 +103,21 @@ test("subscription callable reports an unconfigured plan as not-found", async ()
     () => handlers.createStripeSubscriptionHandler(authenticatedRequest()),
     (error) => error.code === "not-found"
       && /not configured/.test(error.message),
+  );
+});
+
+test("subscription callable preserves authorization errors", async () => {
+  const handlers = createStripeSubscriptionHandlers({
+    async createPaymentSubscription() {
+      const error = new Error("Guardian is not linked to this student.");
+      error.code = "permission-denied";
+      throw error;
+    },
+  });
+
+  await assert.rejects(
+    () => handlers.createStripeSubscriptionHandler(authenticatedRequest()),
+    (error) => error.code === "permission-denied",
   );
 });
 

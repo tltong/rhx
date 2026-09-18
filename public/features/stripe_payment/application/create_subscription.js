@@ -52,6 +52,7 @@ export class CreateStripeSubscription {
     }
 
     const result = await this.stripePaymentGateway.createSubscription({
+      studentId: requireDocumentReference(input.studentId, "Student ID"),
       customerReference: requireText(
         input.customerReference,
         "Stripe customer reference"

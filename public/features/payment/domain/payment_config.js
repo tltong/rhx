@@ -1,9 +1,11 @@
 import {
   PAYMENT_CONFIG_DOCUMENT_ID,
-  paymentModes
-} from "../../../config/firebase/payment_config_schema.js?v=20260901-payment-config-simple-v1";
+  paymentModes,
+  paymentProviders
+} from "../../../config/firebase/payment_config_schema.js?v=20260915-payment-provider-enum-v1";
 
 const PAYMENT_MODE_VALUES = new Set(Object.values(paymentModes));
+const PAYMENT_PROVIDER_VALUES = new Set(Object.values(paymentProviders));
 
 function requireNonEmptyString(value, name) {
   const normalizedValue = String(value ?? "").trim();
@@ -16,7 +18,18 @@ function requireNonEmptyString(value, name) {
 }
 
 function normalizeProvider(provider) {
-  return requireNonEmptyString(provider, "provider").toLowerCase();
+  const normalizedProvider = requireNonEmptyString(
+    provider,
+    "provider"
+  ).toLowerCase();
+
+  if (!PAYMENT_PROVIDER_VALUES.has(normalizedProvider)) {
+    throw new Error(
+      `provider must be one of: ${[...PAYMENT_PROVIDER_VALUES].join(", ")}.`
+    );
+  }
+
+  return normalizedProvider;
 }
 
 function normalizeMode(mode) {
@@ -78,4 +91,4 @@ export class PaymentConfig {
   }
 }
 
-export { paymentModes };
+export { paymentModes, paymentProviders };

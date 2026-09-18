@@ -1,7 +1,7 @@
 import {
   SUBSCRIPTIONS_COLLECTION,
   SUBSCRIPTION_PAYMENTS_SUBCOLLECTION
-} from "../../../config/firebase/subscription_schema.js?v=20260829-student-subscriptions-v1";
+} from "../../../config/firebase/subscription_schema.js?v=20260915-student-payment-link-v1";
 import {
   createDocument,
   createDocumentIfAbsent,
@@ -12,7 +12,7 @@ import {
 import {
   StudentSubscription,
   SubscriptionPayment
-} from "../domain/student_subscription.js?v=20260829-student-subscriptions-v1";
+} from "../domain/student_subscription.js?v=20260915-student-payment-link-v1";
 import {
   StudentSubscriptionRepository
 } from "../domain/student_subscription_repository.js";
@@ -44,6 +44,11 @@ function toSubscription(studentId, data) {
     studentId,
     subscriptionType: data.subscriptionType,
     activeUntil: data.activeUntil,
+    paymentProvider: data.paymentProvider,
+    paymentMode: data.paymentMode,
+    paymentCustomerReference: data.paymentCustomerReference,
+    paymentSubscriptionReference: data.paymentSubscriptionReference,
+    planId: data.planId,
     createdAt: data.createdAt,
     updatedAt: data.updatedAt
   });
@@ -53,6 +58,12 @@ function toSubscriptionRecord(subscription) {
   return {
     subscriptionType: subscription.subscriptionType,
     activeUntil: subscription.activeUntil,
+    paymentProvider: subscription.paymentProvider,
+    paymentMode: subscription.paymentMode,
+    paymentCustomerReference: subscription.paymentCustomerReference,
+    paymentSubscriptionReference:
+      subscription.paymentSubscriptionReference,
+    planId: subscription.planId,
     createdAt: subscription.createdAt,
     updatedAt: subscription.updatedAt
   };

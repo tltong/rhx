@@ -27,14 +27,31 @@ test("callable handler returns the payment-provider customer reference", async (
   });
 
   const result = await handlers.createPaymentCustomerHandler(
-    authenticatedRequest("client-456"),
+    authenticatedRequest("caller-1"),
   );
 
   assert.equal(result, "cus_callable_123");
   assert.deepEqual(calls, [{
-    internalReference: "client-456",
+    internalReference: "caller-1",
     email: "client@example.com",
   }]);
+});
+
+test("callable binds the payment customer to the authenticated user", async () => {
+  let createCalls = 0;
+  const handlers = createPaymentCustomerHandlers({
+    async createStripeCustomer() {
+      createCalls += 1;
+    },
+  });
+
+  await assert.rejects(
+    () => handlers.createPaymentCustomerHandler(
+      authenticatedRequest("another-user"),
+    ),
+    (error) => error.code === "permission-denied",
+  );
+  assert.equal(createCalls, 0);
 });
 
 test("callable handler requires authentication", async () => {

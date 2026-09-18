@@ -1,8 +1,8 @@
-import {
-  StudentSubscription
-} from "../domain/student_subscription.js?v=20260915-student-payment-link-v1";
+const {
+  StudentSubscription,
+} = require("../domain/student_subscription");
 
-export class CreateStudentSubscription {
+class CreateStudentSubscription {
   constructor(studentSubscriptionRepository) {
     this.studentSubscriptionRepository = studentSubscriptionRepository;
   }
@@ -15,7 +15,7 @@ export class CreateStudentSubscription {
     paymentMode = null,
     paymentCustomerReference = null,
     paymentSubscriptionReference = null,
-    planId = null
+    planId = null,
   }) {
     const now = new Date();
     const subscription = new StudentSubscription({
@@ -28,11 +28,15 @@ export class CreateStudentSubscription {
       paymentSubscriptionReference,
       planId,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     });
 
     return this.studentSubscriptionRepository.createSubscription(
-      subscription
+      subscription,
     );
   }
 }
+
+module.exports = {
+  CreateStudentSubscription,
+};

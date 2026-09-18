@@ -167,7 +167,9 @@ export {
   getStudentSubscription,
   getSubscriptionPayment,
   listSubscriptionPayments,
+  paymentModes,
+  paymentProviders,
   recordSubscriptionPayment,
   subscriptionTypes,
   updateStudentSubscription
-} from "./student_subscription_module.js?v=20260829-student-subscriptions-v1";
+} from "./student_subscription_module.js?v=20260915-student-payment-link-v1";

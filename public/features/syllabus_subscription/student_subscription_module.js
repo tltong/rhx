@@ -3,9 +3,17 @@
  *
  * getStudentSubscription(studentId)
  *   -> Promise<StudentSubscription|null>
- * createStudentSubscription({studentId, subscriptionType, activeUntil?})
+ * createStudentSubscription({
+ *   studentId, subscriptionType, activeUntil?, paymentProvider?,
+ *   paymentMode?, paymentCustomerReference?,
+ *   paymentSubscriptionReference?, planId?
+ * })
  *   -> Promise<StudentSubscription>
- * updateStudentSubscription({studentId, subscriptionType?, activeUntil?})
+ * updateStudentSubscription({
+ *   studentId, subscriptionType?, activeUntil?, paymentProvider?,
+ *   paymentMode?, paymentCustomerReference?,
+ *   paymentSubscriptionReference?, planId?
+ * })
  *   -> Promise<StudentSubscription>
  * getSubscriptionPayment(studentId, paymentId)
  *   -> Promise<SubscriptionPayment|null>
@@ -18,7 +26,7 @@
  */
 import {
   CreateStudentSubscription
-} from "./application/create_student_subscription.js?v=20260829-student-subscriptions-v1";
+} from "./application/create_student_subscription.js?v=20260915-student-payment-link-v1";
 import {
   GetStudentSubscription
 } from "./application/get_student_subscription.js?v=20260829-student-subscriptions-v1";
@@ -33,7 +41,7 @@ import {
 } from "./application/record_subscription_payment.js?v=20260829-student-subscriptions-v1";
 import {
   UpdateStudentSubscription
-} from "./application/update_student_subscription.js?v=20260829-student-subscriptions-v1";
+} from "./application/update_student_subscription.js?v=20260915-student-payment-link-v1";
 import {
   guardianStudentLinkStates,
   getGuardianStudentLink
@@ -43,14 +51,16 @@ import {
 } from "../student/student_module.js?v=20260829-student-subscriptions-v1";
 import {
   FirestoreStudentSubscriptionRepository
-} from "./infrastructure/firestore_student_subscription_repository.js?v=20260829-student-subscriptions-v1";
+} from "./infrastructure/firestore_student_subscription_repository.js?v=20260915-student-payment-link-v1";
 import {
   getSubscriptionPlan,
   getSubscriptionPlanCatalog
 } from "./subscription_plan_module.js?v=20260829-subscription-plans-v1";
 import {
+  paymentModes,
+  paymentProviders,
   subscriptionTypes
-} from "./domain/student_subscription.js?v=20260829-student-subscriptions-v1";
+} from "./domain/student_subscription.js?v=20260915-student-payment-link-v1";
 
 const studentSubscriptionRepository =
   new FirestoreStudentSubscriptionRepository();
@@ -102,6 +112,8 @@ export {
   getStudentSubscription,
   getSubscriptionPayment,
   listSubscriptionPayments,
+  paymentModes,
+  paymentProviders,
   recordSubscriptionPayment,
   subscriptionTypes,
   updateStudentSubscription

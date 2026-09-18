@@ -128,6 +128,7 @@ test("subscription use case normalizes the callable contract", async () => {
   });
 
   const result = await useCase.execute({
+    studentId: " student-web ",
     customerReference: " cus_web ",
     paymentMethodReference: " pm_web ",
     country: " Malaysia ",
@@ -136,6 +137,7 @@ test("subscription use case normalizes the callable contract", async () => {
   });
 
   assert.deepEqual(calls, [{
+    studentId: "student-web",
     customerReference: "cus_web",
     paymentMethodReference: "pm_web",
     country: "Malaysia",

@@ -256,6 +256,8 @@ class StripeSubscriptionRecord {
     mode,
     customerReference,
     subscriptionReference,
+    studentId = null,
+    planId = null,
     paymentMethodReference,
     status,
     amount,
@@ -282,6 +284,8 @@ class StripeSubscriptionRecord {
       subscriptionReference,
       "subscriptionReference",
     );
+    this.studentId = normalizeOptionalReference(studentId, "studentId");
+    this.planId = normalizeOptionalReference(planId, "planId");
     this.paymentMethodReference = requireDocumentReference(
       paymentMethodReference,
       "paymentMethodReference",

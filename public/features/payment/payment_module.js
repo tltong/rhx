@@ -13,8 +13,9 @@ import {
   SavePaymentConfig
 } from "./application/save_payment_config.js?v=20260901-payment-config-simple-v1";
 import {
-  paymentModes
-} from "./domain/payment_config.js?v=20260901-payment-config-simple-v1";
+  paymentModes,
+  paymentProviders
+} from "./domain/payment_config.js?v=20260915-payment-provider-enum-v1";
 import {
   FirestorePaymentConfigRepository
 } from "./infrastructure/firestore_payment_config_repository.js?v=20260901-payment-config-simple-v1";
@@ -38,5 +39,6 @@ async function savePaymentConfig(input) {
 export {
   getPaymentConfig,
   paymentModes,
+  paymentProviders,
   savePaymentConfig
 };

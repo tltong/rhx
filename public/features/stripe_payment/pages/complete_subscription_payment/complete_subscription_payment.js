@@ -1,7 +1,7 @@
 import {
   confirmSubscriptionPayment,
   getStripeSubscriptionPaymentAction
-} from "../../stripe_payment_module.js?v=20260914-complete-payment-v1";
+} from "../../stripe_payment_module.js?v=20260917-student-link-v1";
 import {
   onFirebaseAuthStateChanged
 } from "../../../../utils/firebase/firebase_auth.js";
