@@ -36,6 +36,10 @@ test("Stripe test page exposes Step 6 subscription confirmation", () => {
   );
   assert.match(
     pageHtml,
+    /id="confirm-subscription-payment-force-redirect"/
+  );
+  assert.match(
+    pageHtml,
     /id="confirmed-subscription-payment-status"/
   );
   assert.match(
@@ -56,7 +60,31 @@ test("Step 6 calls the feature API and renders paymentStatus", () => {
   );
   assert.match(
     pageScript,
+    /redirectBehavior:\s*confirmSubscriptionForceRedirectEl\.checked/
+  );
+  assert.match(
+    pageScript,
     /confirmedSubscriptionPaymentStatus\.textContent\s*=\s*paymentStatus/
+  );
+});
+
+test("Step 6 recovers a full-page Stripe redirect", () => {
+  assert.match(pageScript, /getStripeSubscriptionPaymentAction/);
+  assert.match(
+    pageScript,
+    /subscriptionReference:\s*normalizeSubscriptionReference/
+  );
+  assert.match(
+    pageScript,
+    /resumeSubscriptionPaymentRedirect/
+  );
+  assert.match(
+    pageScript,
+    /payment_intent_client_secret/
+  );
+  assert.match(
+    pageScript,
+    /cleanStripeReturnParameters/
   );
 });
 

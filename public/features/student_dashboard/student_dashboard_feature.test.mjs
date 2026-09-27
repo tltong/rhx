@@ -81,26 +81,6 @@ test("student dashboard combines progress and practice history", async () => {
         questionId: "normal-question",
       }],
     },
-    "assigned-next": {
-      id: "assigned-next",
-      type: "assessment",
-      dateGenerated: new Date("2026-08-20T00:00:00.000Z"),
-      questions: [{
-        syllabusId: "syllabus-1",
-        topicId: "topic-1",
-        questionId: "assigned-next-question",
-      }],
-    },
-    "assigned-later": {
-      id: "assigned-later",
-      type: "assessment",
-      dateGenerated: new Date("2026-08-21T00:00:00.000Z"),
-      questions: [{
-        syllabusId: "syllabus-1",
-        topicId: "topic-1",
-        questionId: "assigned-later-question",
-      }],
-    },
   };
   const useCase = new GetStudentDashboard({
     getStudentById: async () => ({
@@ -150,10 +130,6 @@ test("student dashboard combines progress and practice history", async () => {
         score: 60,
       },
     ],
-    listAssignedPractices: async () => [
-      {practiceId: "assigned-later"},
-      {practiceId: "assigned-next"},
-    ],
     getPracticeById: async (practiceId) => practices[practiceId] || null,
     getQuestionDifficulty: async (questionReference) => {
       difficultyReads.push(questionReference.questionId);
@@ -176,10 +152,7 @@ test("student dashboard combines progress and practice history", async () => {
   assert.equal(dashboard.stream.name, "Primary Stream");
   assert.equal(numbers.preAssessmentState, "completed");
   assert.equal(numbers.progressPercentage, 50);
-  assert.equal(
-    numbers.nextAssignedPractice.practiceId,
-    "assigned-next",
-  );
+  assert.equal("nextAssignedPractice" in numbers, false);
   assert.deepEqual(
     numbers.completedPractices.map((practice) => ({
       id: practice.practiceId,
@@ -194,7 +167,6 @@ test("student dashboard combines progress and practice history", async () => {
   assert.deepEqual(difficultyReads, ["normal-question"]);
   assert.equal(shapes.preAssessmentState, "not-completed");
   assert.equal(shapes.currentLevelName, "Not determined");
-  assert.equal(shapes.nextAssignedPractice, null);
   assert.deepEqual(shapes.completedPractices, []);
   assert.deepEqual(levelReads, ["topic-1"]);
 });

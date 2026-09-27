@@ -5,14 +5,31 @@ import {
   createStripeSetupIntent,
   createStripeSubscription,
   deleteCustomer,
-  mountSetupPaymentElement
-} from "../../stripe_payment_module.js?v=20260917-student-link-v1";
+  getStripeSubscriptionPaymentAction,
+  mountSetupPaymentElement,
+  retrieveSetupIntent
+} from "../../stripe_payment_module.js?v=20260919-redirect-toggle-v1";
 import {
   getPaymentConfig
 } from "../../../payment/payment_module.js?v=20260901-payment-config-simple-v1";
 import {
-  getCurrentFirebaseAuthUser
+  getCurrentFirebaseAuthUser,
+  onFirebaseAuthStateChanged
 } from "../../../../utils/firebase/firebase_auth.js";
+
+const CHECKOUT_STORAGE_KEY =
+  "rhx.stripePaymentTest.checkoutState.v1";
+const STRIPE_FLOW_PARAMETER = "stripeFlow";
+const SUBSCRIPTION_REFERENCE_PARAMETER = "subscriptionReference";
+const STRIPE_SETUP_FLOW = "setup";
+const STRIPE_SUBSCRIPTION_PAYMENT_FLOW = "subscription-payment";
+const STRIPE_RETURN_PARAMETERS = [
+  "setup_intent",
+  "setup_intent_client_secret",
+  "payment_intent",
+  "payment_intent_client_secret",
+  "redirect_status"
+];
 
 const createForm = document.querySelector("#create-customer-form");
 const inputReferenceEl = document.querySelector("#input-reference");
@@ -51,6 +68,8 @@ const confirmSetupForm = document.querySelector("#confirm-setup-form");
 const confirmContextReferenceEl =
   document.querySelector("#confirm-context-reference");
 const confirmReturnUrlEl = document.querySelector("#confirm-return-url");
+const confirmSetupForceRedirectEl =
+  document.querySelector("#confirm-setup-force-redirect");
 const confirmSetupConsentEl =
   document.querySelector("#confirm-setup-consent");
 const confirmSetupButton = document.querySelector("#confirm-setup-button");
@@ -100,6 +119,9 @@ const confirmSubscriptionClientSecretEl =
   );
 const confirmSubscriptionReturnUrlEl =
   document.querySelector("#confirm-subscription-payment-return-url");
+const confirmSubscriptionForceRedirectEl = document.querySelector(
+  "#confirm-subscription-payment-force-redirect"
+);
 const confirmSubscriptionConsentEl =
   document.querySelector("#confirm-subscription-payment-consent");
 const confirmSubscriptionButton =
@@ -136,16 +158,185 @@ function setStatus(element, message, isError = false) {
   element.hidden = !message;
 }
 
-function currentPageReturnUrl() {
+function stripeReturnUrl(flow, subscriptionReference = null) {
+  const url = new URL(window.location.pathname, window.location.origin);
+
+  url.searchParams.set(STRIPE_FLOW_PARAMETER, flow);
+
+  if (subscriptionReference) {
+    url.searchParams.set(
+      SUBSCRIPTION_REFERENCE_PARAMETER,
+      subscriptionReference
+    );
+  }
+
+  return url.href;
+}
+
+function setupReturnUrl() {
+  return stripeReturnUrl(STRIPE_SETUP_FLOW);
+}
+
+function subscriptionPaymentReturnUrl(subscriptionReference = null) {
+  return stripeReturnUrl(
+    STRIPE_SUBSCRIPTION_PAYMENT_FLOW,
+    subscriptionReference
+  );
+}
+
+function normalizeSubscriptionReference(value) {
+  const reference = String(value ?? "").trim();
+
+  if (
+    !reference
+    || !reference.startsWith("sub_")
+    || reference.includes("/")
+  ) {
+    return null;
+  }
+
+  return reference;
+}
+
+function readStoredCheckoutState() {
+  try {
+    const value = window.sessionStorage.getItem(CHECKOUT_STORAGE_KEY);
+
+    if (!value) {
+      return null;
+    }
+
+    const state = JSON.parse(value);
+    return state && typeof state === "object" && !Array.isArray(state)
+      ? state
+      : null;
+  } catch (error) {
+    console.warn("Could not read Stripe test checkout state.", error);
+    return null;
+  }
+}
+
+function removeStoredCheckoutState() {
+  try {
+    window.sessionStorage.removeItem(CHECKOUT_STORAGE_KEY);
+  } catch (error) {
+    console.warn("Could not remove Stripe test checkout state.", error);
+  }
+}
+
+function saveCheckoutState(subscriptionReference = null) {
+  const state = {
+    studentId: subscriptionStudentIdEl.value.trim(),
+    customerReference:
+      subscriptionCustomerReferenceEl.value.trim()
+      || setupCustomerReferenceEl.value.trim(),
+    country: subscriptionCountryEl.value.trim(),
+    planId: subscriptionPlanIdEl.value.trim(),
+    idempotencyReference:
+      subscriptionIdempotencyReferenceEl.value.trim(),
+    subscriptionReference: normalizeSubscriptionReference(
+      subscriptionReference
+    )
+  };
+
+  try {
+    window.sessionStorage.setItem(
+      CHECKOUT_STORAGE_KEY,
+      JSON.stringify(state)
+    );
+  } catch (error) {
+    console.warn("Could not save Stripe test checkout state.", error);
+  }
+}
+
+function restoreCheckoutState() {
+  const state = readStoredCheckoutState();
+
+  if (!state) {
+    return null;
+  }
+
+  const customerReference = String(
+    state.customerReference ?? ""
+  ).trim();
+
+  if (customerReference) {
+    setupCustomerReferenceEl.value = customerReference;
+    subscriptionCustomerReferenceEl.value = customerReference;
+  }
+
+  subscriptionStudentIdEl.value = String(state.studentId ?? "").trim();
+  subscriptionCountryEl.value = String(state.country ?? "").trim();
+  subscriptionPlanIdEl.value = String(state.planId ?? "").trim();
+  subscriptionIdempotencyReferenceEl.value = String(
+    state.idempotencyReference ?? ""
+  ).trim();
+
+  return {
+    subscriptionReference: normalizeSubscriptionReference(
+      state.subscriptionReference
+    )
+  };
+}
+
+function readStripeReturnState() {
   const url = new URL(window.location.href);
 
-  url.searchParams.delete("setup_intent");
-  url.searchParams.delete("setup_intent_client_secret");
-  url.searchParams.delete("payment_intent");
-  url.searchParams.delete("payment_intent_client_secret");
-  url.searchParams.delete("redirect_status");
-  url.hash = "";
-  return url.href;
+  return {
+    flow: String(
+      url.searchParams.get(STRIPE_FLOW_PARAMETER) ?? ""
+    ).trim(),
+    setupIntentClientSecret: String(
+      url.searchParams.get("setup_intent_client_secret") ?? ""
+    ).trim() || null,
+    hasPaymentIntentReturn: Boolean(
+      url.searchParams.get("payment_intent")
+      || url.searchParams.get("payment_intent_client_secret")
+      || url.searchParams.get("redirect_status")
+    ),
+    subscriptionReference: normalizeSubscriptionReference(
+      url.searchParams.get(SUBSCRIPTION_REFERENCE_PARAMETER)
+    )
+  };
+}
+
+function cleanStripeReturnParameters() {
+  const url = new URL(window.location.href);
+  let changed = false;
+
+  [STRIPE_FLOW_PARAMETER, ...STRIPE_RETURN_PARAMETERS].forEach(
+    (parameter) => {
+      if (url.searchParams.has(parameter)) {
+        url.searchParams.delete(parameter);
+        changed = true;
+      }
+    }
+  );
+
+  if (changed) {
+    window.history.replaceState(
+      null,
+      "",
+      url.pathname + url.search + url.hash
+    );
+  }
+}
+
+function waitForFirebaseAuthInitialization() {
+  const currentUser = getCurrentFirebaseAuthUser();
+
+  if (currentUser) {
+    return Promise.resolve(currentUser);
+  }
+
+  return new Promise((resolve) => {
+    let unsubscribe = null;
+
+    unsubscribe = onFirebaseAuthStateChanged((authUser) => {
+      resolve(authUser);
+      queueMicrotask(() => unsubscribe?.());
+    });
+  });
 }
 
 async function loadPaymentMode() {
@@ -209,6 +400,7 @@ function updateMountControls() {
 function updateConfirmControls() {
   confirmContextReferenceEl.disabled = isConfirmingSetup;
   confirmReturnUrlEl.disabled = isConfirmingSetup;
+  confirmSetupForceRedirectEl.disabled = isConfirmingSetup;
   confirmSetupConsentEl.disabled = isConfirmingSetup;
   confirmSetupButton.disabled =
     isConfirmingSetup || !confirmSetupForm.checkValidity();
@@ -247,6 +439,7 @@ function updateSubscriptionPaymentConfirmationControls() {
 
   confirmSubscriptionClientSecretEl.disabled = isBusy;
   confirmSubscriptionReturnUrlEl.disabled = isBusy;
+  confirmSubscriptionForceRedirectEl.disabled = isBusy;
   confirmSubscriptionConsentEl.disabled = isBusy;
   confirmSubscriptionButton.disabled =
     isBusy || !confirmSubscriptionForm.checkValidity();
@@ -292,6 +485,172 @@ function renderConfirmedSetup(outcome) {
   updateSubscriptionControls();
 }
 
+function renderRecoveredSetupStatus(outcome) {
+  const isError = outcome.status === "requires_payment_method"
+    || outcome.status === "canceled";
+  let message = `Stripe SetupIntent status: ${outcome.status}.`;
+
+  if (outcome.status === "succeeded") {
+    message =
+      "Stripe setup recovered after redirect and PaymentMethod returned.";
+  } else if (outcome.status === "requires_payment_method") {
+    message =
+      "Stripe setup failed. Create a new SetupIntent and enter another " +
+      "payment method.";
+  } else if (outcome.status === "processing") {
+    message = "Stripe is still processing the payment method setup.";
+  }
+
+  setStatus(confirmSetupStatus, message, isError);
+}
+
+async function resumeSetupRedirect(clientSecret) {
+  setStatus(
+    confirmSetupStatus,
+    "Recovering Stripe setup after redirect..."
+  );
+  confirmedSetupResult.hidden = true;
+
+  try {
+    const outcome = await retrieveSetupIntent({clientSecret});
+
+    renderConfirmedSetup(outcome);
+    renderRecoveredSetupStatus(outcome);
+    activeContextReference = null;
+  } catch (error) {
+    console.error("Could not recover Stripe setup after redirect.", error);
+    setStatus(
+      confirmSetupStatus,
+      error.message || "Could not recover the Stripe setup.",
+      true
+    );
+  } finally {
+    updateStripeSetupControls();
+  }
+}
+
+function renderRecoveredSubscriptionPayment(action) {
+  const paymentStatus = action.paymentStatus || action.action;
+  const subscriptionReference = action.subscriptionReference;
+  let message = `Stripe PaymentIntent status: ${paymentStatus}.`;
+  let isError = false;
+
+  createdSubscriptionReference.textContent = subscriptionReference;
+  subscriptionResult.hidden = false;
+  confirmedSubscriptionPaymentStatus.textContent = paymentStatus;
+  confirmedSubscriptionResult.hidden = false;
+  confirmSubscriptionClientSecretEl.value =
+    action.paymentClientSecret || "";
+  confirmSubscriptionReturnUrlEl.value =
+    subscriptionPaymentReturnUrl(subscriptionReference);
+
+  switch (action.action) {
+    case "complete":
+      message =
+        "Stripe subscription payment completed. The invoice.paid " +
+        "webhook will update the RHX subscription.";
+      removeStoredCheckoutState();
+      break;
+
+    case "confirm_payment":
+      message =
+        "Stripe still requires payment authentication. The payment " +
+        "client secret has been restored for another attempt.";
+      break;
+
+    case "wait":
+      message = "Stripe is still processing the subscription payment.";
+      break;
+
+    case "replace_payment_method":
+      message =
+        "Stripe requires another payment method. Return to the card " +
+        "setup steps and enter another card.";
+      isError = true;
+      break;
+
+    default:
+      message =
+        "The Stripe subscription payment cannot currently be completed.";
+      isError = true;
+  }
+
+  setStatus(confirmSubscriptionStatus, message, isError);
+  updateStripeSetupControls();
+}
+
+async function resumeSubscriptionPaymentRedirect(subscriptionReference) {
+  setStatus(
+    confirmSubscriptionStatus,
+    "Checking Stripe subscription payment after redirect..."
+  );
+  confirmedSubscriptionResult.hidden = true;
+
+  try {
+    const authUser = await waitForFirebaseAuthInitialization();
+
+    if (!authUser) {
+      throw new Error(
+        "Sign in as the subscription owner to recover this payment."
+      );
+    }
+
+    const action = await getStripeSubscriptionPaymentAction(
+      subscriptionReference
+    );
+
+    renderRecoveredSubscriptionPayment(action);
+  } catch (error) {
+    console.error(
+      "Could not recover Stripe subscription payment after redirect.",
+      error
+    );
+    setStatus(
+      confirmSubscriptionStatus,
+      error.message
+        || "Could not recover the Stripe subscription payment.",
+      true
+    );
+  } finally {
+    updateStripeSetupControls();
+  }
+}
+
+async function resumeStripeRedirect(returnState, storedCheckoutState) {
+  const isSetupReturn = Boolean(returnState.setupIntentClientSecret);
+  const isSubscriptionPaymentReturn =
+    returnState.hasPaymentIntentReturn
+    || returnState.flow === STRIPE_SUBSCRIPTION_PAYMENT_FLOW;
+
+  if (!isSetupReturn && !isSubscriptionPaymentReturn) {
+    return;
+  }
+
+  cleanStripeReturnParameters();
+
+  if (isSetupReturn) {
+    await resumeSetupRedirect(returnState.setupIntentClientSecret);
+    return;
+  }
+
+  const subscriptionReference =
+    returnState.subscriptionReference
+    || storedCheckoutState?.subscriptionReference
+    || null;
+
+  if (!subscriptionReference) {
+    setStatus(
+      confirmSubscriptionStatus,
+      "Stripe returned from payment authentication without a " +
+        "subscription reference.",
+      true
+    );
+    return;
+  }
+
+  await resumeSubscriptionPaymentRedirect(subscriptionReference);
+}
+
 createForm.addEventListener("input", updateCreateControls);
 
 createForm.addEventListener("submit", async (event) => {
@@ -309,6 +668,7 @@ createForm.addEventListener("submit", async (event) => {
 
     createdCustomerReference.value = customerReference;
     customerResult.hidden = false;
+    removeStoredCheckoutState();
     setupCustomerReferenceEl.value = customerReference;
     subscriptionCustomerReferenceEl.value = customerReference;
     subscriptionPaymentMethodReferenceEl.value = "";
@@ -358,6 +718,7 @@ setupIntentForm.addEventListener("submit", async (event) => {
     subscriptionResult.hidden = true;
     resetSubscriptionPaymentConfirmation();
     clientSecretResult.hidden = false;
+    saveCheckoutState();
     setStatus(setupIntentStatus, "Stripe SetupIntent created.");
   } catch (error) {
     console.error(error);
@@ -421,9 +782,14 @@ confirmSetupForm.addEventListener("submit", async (event) => {
   confirmedSetupResult.hidden = true;
 
   try {
+    saveCheckoutState();
+
     const outcome = await confirmSetup({
       contextReference: confirmContextReferenceEl.value,
-      returnUrl: confirmReturnUrlEl.value
+      returnUrl: confirmReturnUrlEl.value,
+      redirectBehavior: confirmSetupForceRedirectEl.checked
+        ? "always"
+        : "if_required"
     });
 
     renderConfirmedSetup(outcome);
@@ -462,9 +828,11 @@ createSubscriptionForm.addEventListener(
 
 newSubscriptionAttemptButton.addEventListener("click", () => {
   subscriptionIdempotencyReferenceEl.value = createIdempotencyReference();
+  confirmSubscriptionReturnUrlEl.value = subscriptionPaymentReturnUrl();
   subscriptionResult.hidden = true;
   setStatus(createSubscriptionStatus, "");
   resetSubscriptionPaymentConfirmation();
+  saveCheckoutState();
   updateSubscriptionControls();
 });
 
@@ -497,7 +865,10 @@ createSubscriptionForm.addEventListener("submit", async (event) => {
     subscriptionResult.hidden = false;
     confirmSubscriptionClientSecretEl.value =
       result.paymentClientSecret || "";
+    confirmSubscriptionReturnUrlEl.value =
+      subscriptionPaymentReturnUrl(result.subscriptionReference);
     confirmSubscriptionConsentEl.checked = false;
+    saveCheckoutState(result.subscriptionReference);
     updateSubscriptionPaymentConfirmationControls();
     setStatus(
       createSubscriptionStatus,
@@ -536,9 +907,18 @@ confirmSubscriptionForm.addEventListener("submit", async (event) => {
   confirmedSubscriptionResult.hidden = true;
 
   try {
+    const subscriptionReference = normalizeSubscriptionReference(
+      createdSubscriptionReference.textContent
+    ) || readStoredCheckoutState()?.subscriptionReference || null;
+
+    saveCheckoutState(subscriptionReference);
+
     const {paymentStatus} = await confirmSubscriptionPayment({
       paymentClientSecret: confirmSubscriptionClientSecretEl.value,
-      returnUrl: confirmSubscriptionReturnUrlEl.value
+      returnUrl: confirmSubscriptionReturnUrlEl.value,
+      redirectBehavior: confirmSubscriptionForceRedirectEl.checked
+        ? "always"
+        : "if_required"
     });
 
     confirmedSubscriptionPaymentStatus.textContent = paymentStatus;
@@ -554,6 +934,10 @@ confirmSubscriptionForm.addEventListener("submit", async (event) => {
         : `Stripe PaymentIntent status: ${paymentStatus}.`;
 
     setStatus(confirmSubscriptionStatus, message, isIncomplete);
+
+    if (paymentStatus === "succeeded") {
+      removeStoredCheckoutState();
+    }
   } catch (error) {
     console.error(error);
     setStatus(
@@ -596,6 +980,7 @@ deleteForm.addEventListener("submit", async (event) => {
     if (createdCustomerReference.value === deletedReference) {
       customerResult.hidden = true;
       createdCustomerReference.value = "";
+      removeStoredCheckoutState();
     }
 
     if (
@@ -621,10 +1006,25 @@ deleteForm.addEventListener("submit", async (event) => {
   }
 });
 
-confirmReturnUrlEl.value = currentPageReturnUrl();
-confirmSubscriptionReturnUrlEl.value = currentPageReturnUrl();
-subscriptionIdempotencyReferenceEl.value = createIdempotencyReference();
+const stripeReturnState = readStripeReturnState();
+const storedCheckoutState = restoreCheckoutState();
+const returnedSubscriptionReference =
+  stripeReturnState.subscriptionReference
+  || storedCheckoutState?.subscriptionReference
+  || null;
+
+confirmReturnUrlEl.value = setupReturnUrl();
+confirmSubscriptionReturnUrlEl.value = subscriptionPaymentReturnUrl(
+  returnedSubscriptionReference
+);
+
+if (!subscriptionIdempotencyReferenceEl.value.trim()) {
+  subscriptionIdempotencyReferenceEl.value =
+    createIdempotencyReference();
+}
+
 loadCurrentUserEmail();
 updateStripeSetupControls();
 updateDeleteControls();
 await loadPaymentMode();
+await resumeStripeRedirect(stripeReturnState, storedCheckoutState);

@@ -17,9 +17,11 @@
  *   -> Promise<{provider: "stripe", mode: "test"|"prod", publishableKey}>
  * mountSetupPaymentElement({clientSecret, containerSelector})
  *   -> Promise<{contextReference: string, mode: "test"|"prod"}>
- * confirmSetup({contextReference, returnUrl})
+ * confirmSetup({contextReference, returnUrl, redirectBehavior?})
  *   -> Promise<{setupIntentReference, status, paymentMethodReference}>
- * confirmSubscriptionPayment({paymentClientSecret, returnUrl})
+ * confirmSubscriptionPayment({
+ *   paymentClientSecret, returnUrl, redirectBehavior?
+ * })
  *   -> Promise<{paymentStatus}>
  * retrieveSetupIntent({clientSecret})
  *   -> Promise<{setupIntentReference, status, paymentMethodReference}>
@@ -47,19 +49,19 @@ import {
 } from "./application/mount_setup_payment_element.js?v=20260907-stripe-setup-context-v1";
 import {
   ConfirmStripeSetup
-} from "./application/confirm_setup.js?v=20260907-stripe-setup-context-v1";
+} from "./application/confirm_setup.js?v=20260919-redirect-toggle-v1";
 import {
   ConfirmStripeSubscriptionPayment
-} from "./application/confirm_subscription_payment.js?v=20260912-stripe-subscription-confirm-v1";
+} from "./application/confirm_subscription_payment.js?v=20260919-redirect-toggle-v1";
 import {
   RetrieveStripeSetupIntent
 } from "./application/retrieve_setup_intent.js?v=20260906-confirm-setup-redirect-v1";
 import {
   BrowserStripeSetupGateway
-} from "./infrastructure/browser_stripe_setup_gateway.js?v=20260907-stripe-setup-context-v1";
+} from "./infrastructure/browser_stripe_setup_gateway.js?v=20260919-redirect-toggle-v1";
 import {
   BrowserStripePaymentConfirmationGateway
-} from "./infrastructure/browser_stripe_payment_confirmation_gateway.js?v=20260912-stripe-subscription-confirm-v1";
+} from "./infrastructure/browser_stripe_payment_confirmation_gateway.js?v=20260919-redirect-toggle-v1";
 import {
   FirebaseCallableStripePaymentGateway
 } from "./infrastructure/firebase_callable_stripe_payment_gateway.js?v=20260914-complete-payment-v1";

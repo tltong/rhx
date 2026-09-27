@@ -31,6 +31,14 @@ const {
 const {
   onStudentPracticeCompleted,
 } = require("./triggers/student_practice_completion_trigger");
+const {
+  acceptAdditionalDailyMission,
+  acceptCoreDailyMission,
+  checkPausedTopicValidity,
+  getNextCoreDailyMission,
+  listAdditionalMissionPracticeIds,
+  pauseCoreDailyMission,
+} = require("./daily_mission");
 
 exports.generateDeepseekText = generateDeepseekText;
 exports.createPaymentCustomer = createPaymentCustomer;
@@ -48,3 +56,11 @@ exports.listSiteAdminEmails = listSiteAdminEmails;
 exports.removeSiteAdminEmail = removeSiteAdminEmail;
 exports.onSyllabusSubscriptionCreated = onSyllabusSubscriptionCreated;
 exports.onStudentPracticeCompleted = onStudentPracticeCompleted;
+exports.acceptAdditionalDailyMission =
+  acceptAdditionalDailyMission;
+exports.getNextCoreDailyMission = getNextCoreDailyMission;
+exports.acceptCoreDailyMission = acceptCoreDailyMission;
+exports.checkPausedTopicValidity = checkPausedTopicValidity;
+exports.listAdditionalMissionPracticeIds =
+  listAdditionalMissionPracticeIds;
+exports.pauseCoreDailyMission = pauseCoreDailyMission;

@@ -1,6 +1,9 @@
 import {
   normalizeStripeClientSecret
 } from "../domain/stripe_payment_references.js?v=20260912-stripe-subscription-confirm-v1";
+import {
+  normalizeStripeRedirectBehavior
+} from "../domain/stripe_redirect_behavior.js?v=20260919-redirect-toggle-v1";
 
 function requireReturnUrl(value) {
   const returnUrl = String(value ?? "").trim();
@@ -45,16 +48,23 @@ export class ConfirmStripeSubscriptionPayment {
       stripePaymentConfirmationGateway;
   }
 
-  async execute({paymentClientSecret, returnUrl} = {}) {
+  async execute({
+    paymentClientSecret,
+    returnUrl,
+    redirectBehavior = "if_required"
+  } = {}) {
     const clientSecret = normalizeStripeClientSecret(paymentClientSecret);
     const normalizedReturnUrl = requireReturnUrl(returnUrl);
+    const normalizedRedirectBehavior =
+      normalizeStripeRedirectBehavior(redirectBehavior);
     const config = await this.getStripeClientConfig();
 
     return normalizePaymentIntent(
       await this.stripePaymentConfirmationGateway.confirmPayment({
         publishableKey: config.publishableKey,
         clientSecret,
-        returnUrl: normalizedReturnUrl
+        returnUrl: normalizedReturnUrl,
+        redirectBehavior: normalizedRedirectBehavior
       })
     );
   }

@@ -25,7 +25,12 @@ export class BrowserStripePaymentConfirmationGateway {
     return stripeFactory;
   }
 
-  async confirmPayment({publishableKey, clientSecret, returnUrl}) {
+  async confirmPayment({
+    publishableKey,
+    clientSecret,
+    returnUrl,
+    redirectBehavior = "if_required"
+  }) {
     const stripe = this.getStripeFactory()(publishableKey);
 
     if (!stripe || typeof stripe.confirmPayment !== "function") {
@@ -37,7 +42,7 @@ export class BrowserStripePaymentConfirmationGateway {
       confirmParams: {
         return_url: returnUrl
       },
-      redirect: "if_required"
+      redirect: redirectBehavior
     });
 
     if (result?.error) {

@@ -144,6 +144,166 @@ summary:focus-visible {
   font-weight: 700;
 }
 
+.daily-mission-launch {
+  width: 100%;
+  min-height: 104px;
+  border-radius: 10px;
+  font-size: 26px;
+  letter-spacing: 0.01em;
+}
+
+.daily-mission-workspace {
+  border: 1px solid #b9d4dc;
+  border-radius: 10px;
+  padding: 22px;
+  background: #ffffff;
+}
+
+.daily-mission-workspace[hidden] {
+  display: none;
+}
+
+.daily-mission-header {
+  margin-bottom: 17px;
+}
+
+.daily-mission-header h2 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.daily-mission-header p {
+  margin: 5px 0 0;
+  color: #667789;
+}
+
+.daily-mission-subjects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.daily-mission-subject {
+  color: #0b6f78;
+  background: #ffffff;
+}
+
+.daily-mission-subject:hover:not(:disabled),
+.daily-mission-subject[aria-pressed="true"] {
+  color: #ffffff;
+  background: #0b6f78;
+}
+
+.daily-mission-status {
+  margin: 16px 0 0;
+  border-radius: 6px;
+  padding: 11px 13px;
+  color: #0d5962;
+  background: #dff5f5;
+}
+
+.daily-mission-status[hidden] {
+  display: none;
+}
+
+.daily-mission-status.is-error {
+  color: #9f1d24;
+  background: #fde7e8;
+}
+
+.daily-mission-result {
+  margin-top: 16px;
+}
+
+.daily-mission-result:empty {
+  display: none;
+}
+
+.daily-mission-card {
+  border: 1px solid #d3e2e7;
+  border-radius: 8px;
+  padding: 20px;
+  background: #f8fbfc;
+}
+
+.daily-mission-card h3 {
+  margin: 4px 0 7px;
+  font-size: 21px;
+}
+
+.daily-mission-card.is-empty p {
+  margin-bottom: 0;
+}
+
+.daily-mission-eyebrow {
+  margin: 0;
+  color: #0b6f78;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.daily-mission-topic {
+  margin: 0;
+  color: #455c6d;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.daily-mission-pause-explanation {
+  margin: 16px 0 0;
+  color: #667789;
+  font-size: 13px;
+}
+
+.daily-mission-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 13px;
+}
+
+.daily-mission-pause {
+  border-color: #9ebdca;
+  color: #174b70;
+  background: #ffffff;
+}
+
+.daily-mission-pause:hover:not(:disabled) {
+  border-color: #0b6f78;
+  color: #0b6f78;
+  background: #edf7f8;
+}
+
+.daily-mission-start {
+  display: inline-flex;
+  align-items: center;
+  min-height: 42px;
+  margin-top: 16px;
+  border: 1px solid #0b6f78;
+  border-radius: 6px;
+  padding: 8px 17px;
+  color: #ffffff;
+  background: #0b6f78;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.daily-mission-start:hover {
+  background: #085b63;
+}
+
+.daily-mission-complete {
+  margin: 16px 0 0;
+  color: #12623c;
+  font-weight: 700;
+}
+
+.daily-mission-empty {
+  margin: 0;
+  color: #667789;
+}
+
 .syllabus-list {
   display: grid;
   gap: 16px;
@@ -187,7 +347,7 @@ summary:focus-visible {
 .topic-row {
   display: grid;
   grid-template-columns: minmax(140px, 1.1fr) minmax(115px, 0.75fr)
-    minmax(110px, 0.7fr) minmax(110px, 0.7fr) minmax(135px, 0.85fr)
+    minmax(110px, 0.7fr) minmax(110px, 0.7fr)
     minmax(180px, 1.2fr);
   gap: 12px;
   align-items: center;
@@ -212,29 +372,6 @@ summary:focus-visible {
   display: block;
   overflow-wrap: anywhere;
   font-weight: 700;
-}
-
-.metric-empty {
-  color: #758493;
-  font-size: 13px;
-}
-
-.topic-practice-link {
-  display: inline-flex;
-  align-items: center;
-  min-height: 34px;
-  border: 1px solid #0b6f78;
-  border-radius: 6px;
-  padding: 5px 10px;
-  color: #ffffff;
-  background: #0b6f78;
-  font-size: 13px;
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.topic-practice-link:hover {
-  background: #085b63;
 }
 
 .assessment-badge {
@@ -419,6 +556,11 @@ summary:focus-visible {
 
   .page-header button {
     justify-content: center;
+    width: 100%;
+  }
+
+  .daily-mission-actions button,
+  .daily-mission-start {
     width: 100%;
   }
 

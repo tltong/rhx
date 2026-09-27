@@ -1,6 +1,9 @@
 import {
   normalizeStripeSetupContextReference
 } from "../domain/stripe_payment_references.js?v=20260907-stripe-setup-context-v1";
+import {
+  normalizeStripeRedirectBehavior
+} from "../domain/stripe_redirect_behavior.js?v=20260919-redirect-toggle-v1";
 
 function requireReturnUrl(value) {
   const returnUrl = String(value ?? "").trim();
@@ -58,13 +61,20 @@ export class ConfirmStripeSetup {
     this.stripeSetupGateway = stripeSetupGateway;
   }
 
-  async execute({contextReference, returnUrl} = {}) {
+  async execute({
+    contextReference,
+    returnUrl,
+    redirectBehavior = "if_required"
+  } = {}) {
     return normalizeSetupIntent(
       await this.stripeSetupGateway.confirmSetup({
         contextReference: normalizeStripeSetupContextReference(
           contextReference
         ),
-        returnUrl: requireReturnUrl(returnUrl)
+        returnUrl: requireReturnUrl(returnUrl),
+        redirectBehavior: normalizeStripeRedirectBehavior(
+          redirectBehavior
+        )
       })
     );
   }

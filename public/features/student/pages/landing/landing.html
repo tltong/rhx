@@ -9,6 +9,7 @@
     <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script>
     <script defer src="/__/firebase/init.js"></script>
     <script type="module" src="/init_fb.js"></script>
   </head>
@@ -63,6 +64,15 @@
       </section>
 
       <section
+        id="student-daily-mission-section"
+        class="dashboard-section"
+        aria-label="Daily Mission"
+        hidden
+      >
+        <div id="student-daily-mission-root"></div>
+      </section>
+
+      <section
         id="syllabus-progress-section"
         class="dashboard-section"
         aria-labelledby="syllabus-progress-title"
@@ -78,6 +88,6 @@
       </section>
     </main>
 
-    <script type="module" src="./landing.js?v=20260824-practice-review"></script>
+    <script type="module" src="./landing.js?v=20260927-daily-mission-v1"></script>
   </body>
 </html>

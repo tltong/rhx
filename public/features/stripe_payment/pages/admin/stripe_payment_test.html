@@ -245,6 +245,17 @@
             >
 
             <label class="confirmation-row">
+              <input
+                id="confirm-setup-force-redirect"
+                type="checkbox"
+              >
+              <span>
+                Force a full-page redirect to test case 2. Leave unchecked
+                to test the in-page flow.
+              </span>
+            </label>
+
+            <label class="confirmation-row">
               <input id="confirm-setup-consent" type="checkbox" required>
               <span>I authorize Stripe to save this test payment method.</span>
             </label>
@@ -426,6 +437,17 @@
 
             <label class="confirmation-row">
               <input
+                id="confirm-subscription-payment-force-redirect"
+                type="checkbox"
+              >
+              <span>
+                Force a full-page redirect to test case 2. Leave unchecked
+                to test the in-page flow.
+              </span>
+            </label>
+
+            <label class="confirmation-row">
+              <input
                 id="confirm-subscription-payment-consent"
                 type="checkbox"
                 required
@@ -516,7 +538,7 @@
       id="site-admin-page-loader"
       type="module"
       data-site-admin-page
-      data-page-module="./stripe_payment_test.js?v=20260917-student-link-v1"
+      data-page-module="./stripe_payment_test.js?v=20260919-redirect-toggle-v1"
       src="/features/site_admin/pages/common/site_admin_page_loader.js?v=20260827-site-admin-guard-v1"
     ></script>
   </body>

@@ -149,7 +149,11 @@ export class BrowserStripeSetupGateway {
     return result?.setupIntent || null;
   }
 
-  async confirmSetup({contextReference, returnUrl}) {
+  async confirmSetup({
+    contextReference,
+    returnUrl,
+    redirectBehavior = "if_required"
+  }) {
     const context = this.requireContext(contextReference);
     const {
       stripe,
@@ -178,7 +182,7 @@ export class BrowserStripeSetupGateway {
       confirmParams: {
         return_url: returnUrl
       },
-      redirect: "if_required"
+      redirect: redirectBehavior
     });
 
     if (result?.error) {

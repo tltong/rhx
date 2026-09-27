@@ -60,9 +60,6 @@ const syllabuses = [{
     finalLevelName: "Ready",
     totalLevelCount: 4,
     progressPercentage: 50,
-    nextAssignedPractice: {
-      practiceId: "assigned-practice"
-    },
     completedPractices: [{
       practiceId: "completed-practice",
       dateCompleted: new Date("2026-09-01T00:00:00.000Z"),

@@ -63,14 +63,6 @@ function createTopicKey(syllabusId, topicId) {
   return `${syllabusId}/${topicId}`;
 }
 
-function compareAssignedPractices(first, second) {
-  const firstTime = first.practice?.dateGenerated?.getTime?.() || 0;
-  const secondTime = second.practice?.dateGenerated?.getTime?.() || 0;
-
-  return firstTime - secondTime
-    || first.practiceId.localeCompare(second.practiceId);
-}
-
 function compareCompletedPracticeHistory(first, second) {
   return second.dateCompleted.getTime() - first.dateCompleted.getTime()
     || first.practiceId.localeCompare(second.practiceId);
@@ -86,35 +78,6 @@ function createCachedPracticeLoader(getPracticeById) {
 
     return practicePromises.get(practiceId);
   };
-}
-
-async function indexNextAssignedPractices({
-  assignments,
-  getPracticeById
-}) {
-  const entries = await Promise.all(assignments.map(async (assignment) => ({
-    practiceId: assignment.practiceId,
-    practice: await getPracticeById(assignment.practiceId)
-  })));
-  const nextPracticeByTopic = new Map();
-
-  entries.sort(compareAssignedPractices).forEach((entry) => {
-    const topicKeys = new Set((entry.practice?.questions || []).map(
-      (question) => createTopicKey(question.syllabusId, question.topicId)
-    ));
-
-    topicKeys.forEach((topicKey) => {
-      if (!nextPracticeByTopic.has(topicKey)) {
-        nextPracticeByTopic.set(topicKey, {
-          practiceId: entry.practiceId,
-          type: entry.practice.type,
-          dateGenerated: entry.practice.dateGenerated
-        });
-      }
-    });
-  });
-
-  return nextPracticeByTopic;
 }
 
 async function readPracticeDifficulty(practice, {
@@ -199,7 +162,6 @@ export class GetStudentDashboard {
     listActiveStudentSyllabusSubscriptions,
     getSyllabusById,
     listCompletedPractices,
-    listAssignedPractices,
     getPracticeById,
     getQuestionDifficulty,
     preAssessmentPracticeType,
@@ -215,7 +177,6 @@ export class GetStudentDashboard {
       listActiveStudentSyllabusSubscriptions;
     this.getSyllabusById = getSyllabusById;
     this.listCompletedPractices = listCompletedPractices;
-    this.listAssignedPractices = listAssignedPractices;
     this.getPracticeById = getPracticeById;
     this.getQuestionDifficulty = getQuestionDifficulty;
     this.preAssessmentPracticeType = preAssessmentPracticeType;
@@ -235,27 +196,20 @@ export class GetStudentDashboard {
     const [
       streamSubscription,
       syllabusSubscriptions,
-      completedPractices,
-      assignedPractices
+      completedPractices
     ] = await Promise.all([
       this.getStudentStreamSubscription(studentId),
       this.listActiveStudentSyllabusSubscriptions(studentId),
-      this.listCompletedPractices({ studentId }),
-      this.listAssignedPractices({ studentId })
+      this.listCompletedPractices({ studentId })
     ]);
     const getPractice = createCachedPracticeLoader(this.getPracticeById);
     const [
       stream,
-      nextAssignedPracticeByTopic,
       completedPracticesByTopic
     ] = await Promise.all([
       streamSubscription
         ? this.getStreamById(streamSubscription.streamId)
         : null,
-      indexNextAssignedPractices({
-        assignments: assignedPractices,
-        getPracticeById: getPractice
-      }),
       indexCompletedPractices({
         completions: completedPractices,
         getPracticeById: getPractice,
@@ -322,8 +276,6 @@ export class GetStudentDashboard {
               topicId: topic.id,
               topicName: topic.topicName,
               preAssessmentPracticeId: preAssessment?.practiceId || null,
-              nextAssignedPractice:
-                nextAssignedPracticeByTopic.get(topicKey) || null,
               completedPractices:
                 completedPracticesByTopic.get(topicKey) || [],
               ...progress

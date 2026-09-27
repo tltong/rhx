@@ -236,8 +236,39 @@ test("confirm SetupIntent use case returns a normalized outcome", async () => {
   });
   assert.deepEqual(calls, [{
     contextReference: "stripe_setup_context_confirmed",
-    returnUrl: "https://readyherox.web.app/payment-complete"
+    returnUrl: "https://readyherox.web.app/payment-complete",
+    redirectBehavior: "if_required"
   }]);
+});
+
+test("confirm SetupIntent validates a forced redirect", async () => {
+  const calls = [];
+  const useCase = new ConfirmStripeSetup({
+    async confirmSetup(input) {
+      calls.push(input);
+      return {
+        id: "seti_redirect",
+        status: "succeeded",
+        payment_method: "pm_redirect"
+      };
+    }
+  });
+
+  await useCase.execute({
+    contextReference: "stripe_setup_context_redirect",
+    returnUrl: "https://readyherox.web.app/payment-complete",
+    redirectBehavior: " always "
+  });
+
+  assert.equal(calls[0].redirectBehavior, "always");
+  await assert.rejects(
+    () => useCase.execute({
+      contextReference: "stripe_setup_context_redirect",
+      returnUrl: "https://readyherox.web.app/payment-complete",
+      redirectBehavior: "sometimes"
+    }),
+    /redirect behavior must be if_required or always/
+  );
 });
 
 test("retrieve SetupIntent use case returns a normalized outcome", async () => {
@@ -330,7 +361,8 @@ test("browser Stripe gateway mounts, validates, and confirms", async () => {
   });
   const setupIntent = await gateway.confirmSetup({
     contextReference,
-    returnUrl: "https://readyherox.web.app/return"
+    returnUrl: "https://readyherox.web.app/return",
+    redirectBehavior: "always"
   });
 
   assert.equal(setupIntent.id, "seti_browser");
@@ -347,7 +379,7 @@ test("browser Stripe gateway mounts, validates, and confirms", async () => {
   assert.deepEqual(calls[5][1].confirmParams, {
     return_url: "https://readyherox.web.app/return"
   });
-  assert.equal(calls[5][1].redirect, "if_required");
+  assert.equal(calls[5][1].redirect, "always");
   assert.deepEqual(calls[6], ["unmount"]);
   assert.equal(gateway.setupContexts.size, 0);
 });
@@ -601,6 +633,7 @@ test("Stripe test page is protected and linked from Site Admin", () => {
   assert.match(pageHtml, /id="setup-context-reference"/);
   assert.match(pageHtml, /id="confirm-setup-form"/);
   assert.match(pageHtml, /id="confirm-context-reference"/);
+  assert.match(pageHtml, /id="confirm-setup-force-redirect"/);
   assert.match(pageHtml, /id="confirmed-payment-method-reference"/);
   assert.match(pageHtml, /id="create-subscription-form"/);
   assert.match(pageHtml, /id="subscription-customer-reference"/);
@@ -610,6 +643,10 @@ test("Stripe test page is protected and linked from Site Admin", () => {
   assert.match(pageHtml, /id="subscription-idempotency-reference"/);
   assert.match(pageHtml, /id="created-subscription-reference"/);
   assert.match(pageHtml, /id="subscription-payment-client-secret"/);
+  assert.match(
+    pageHtml,
+    /id="confirm-subscription-payment-force-redirect"/
+  );
   assert.match(pageHtml, /id="delete-customer-form"/);
   assert.match(pageHtml, /id="payment-mode"/);
   assert.match(pageScript, /getPaymentConfig/);
@@ -627,7 +664,15 @@ test("Stripe test page is protected and linked from Site Admin", () => {
     /createdSubscriptionReference\.textContent\s*=\s*result\.subscriptionReference/
   );
   assert.match(pageScript, /crypto\?\.randomUUID/);
-  assert.doesNotMatch(pageScript, /retrieveSetupIntent/);
+  assert.match(pageScript, /retrieveSetupIntent/);
+  assert.match(pageScript, /getStripeSubscriptionPaymentAction/);
+  assert.match(
+    pageScript,
+    /setup_intent_client_secret/
+  );
+  assert.match(pageScript, /window\.sessionStorage/);
+  assert.match(pageScript, /window\.history\.replaceState/);
+  assert.match(pageScript, /resumeStripeRedirect/);
   assert.match(pageScript, /clientSecret: mountClientSecretEl\.value/);
   assert.match(pageScript, /containerSelector: containerSelectorEl\.value/);
   assert.match(
@@ -635,6 +680,10 @@ test("Stripe test page is protected and linked from Site Admin", () => {
     /contextReference: confirmContextReferenceEl\.value/
   );
   assert.match(pageScript, /returnUrl: confirmReturnUrlEl\.value/);
+  assert.match(
+    pageScript,
+    /redirectBehavior:\s*confirmSetupForceRedirectEl\.checked/
+  );
   assert.match(
     pageScript,
     /setupIntentClientSecret\.textContent = clientSecret/

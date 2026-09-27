@@ -6,10 +6,16 @@ import {
 import {
   getStudentDashboard
 } from "../../../student_dashboard/student_dashboard_module.js?v=20260824-completed-practices";
+import {
+  acceptCoreDailyMission,
+  getNextCoreDailyMission,
+  pauseCoreDailyMission
+} from "../../../daily_mission/daily_mission_module.js?v=20260927-daily-mission-v1";
+import {
+  DailyMissionSection
+} from "../../../daily_mission/components/daily_mission_section/daily_mission_section.js?v=20260927-daily-mission-v1";
 
 const INDEX_URL = "/index.html";
-const COMMENCE_PRACTICE_URL =
-  "/features/practice_session/pages/commence_practice/commence_practice.html";
 const PRACTICE_RESULT_URL =
   "/features/practice_result/pages/result/practice_result.html";
 const completedDateFormatter = new Intl.DateTimeFormat(undefined, {
@@ -24,6 +30,12 @@ const logOffButton = document.querySelector("#student-log-off");
 const studentSummarySection = document.querySelector(
   "#student-summary-section"
 );
+const dailyMissionSectionEl = document.querySelector(
+  "#student-daily-mission-section"
+);
+const dailyMissionRoot = document.querySelector(
+  "#student-daily-mission-root"
+);
 const syllabusProgressSection = document.querySelector(
   "#syllabus-progress-section"
 );
@@ -36,6 +48,7 @@ const syllabusProgressList = document.querySelector(
 );
 
 let authenticatedStudentId = null;
+let dailyMissionController = null;
 
 function setStatus(message, isError = false, hidden = false) {
   statusEl.textContent = message;
@@ -82,36 +95,6 @@ function createMetric(label, value) {
   valueEl.className = "metric-value";
   valueEl.textContent = value;
   metric.append(labelEl, valueEl);
-
-  return metric;
-}
-
-function createPracticeMetric(nextAssignedPractice) {
-  const metric = document.createElement("div");
-  const label = document.createElement("span");
-
-  metric.className = "topic-metric";
-  label.className = "metric-label";
-  label.textContent = "Next practice";
-  metric.append(label);
-
-  if (!nextAssignedPractice) {
-    const empty = document.createElement("span");
-
-    empty.className = "metric-empty";
-    empty.textContent = "None assigned";
-    metric.append(empty);
-    return metric;
-  }
-
-  const link = document.createElement("a");
-
-  link.className = "topic-practice-link";
-  link.href = `${COMMENCE_PRACTICE_URL}?practiceId=${encodeURIComponent(
-    nextAssignedPractice.practiceId
-  )}`;
-  link.textContent = "Start practice";
-  metric.append(link);
 
   return metric;
 }
@@ -256,7 +239,6 @@ function createTopicRow(topic, studentId) {
     assessmentMetric,
     createMetric("Current level", topic.currentLevelName),
     createMetric("Next level", topic.nextLevelName),
-    createPracticeMetric(topic.nextAssignedPractice),
     progressMetric,
     createCompletedPracticeHistory(topic.completedPractices, studentId)
   );
@@ -316,6 +298,15 @@ function renderDashboard(dashboard) {
     `${titleCase(student.level)} / Year ${student.currentGrade}`;
   studentStreamEl.textContent = stream?.name || "Not assigned";
   studentSummarySection.hidden = false;
+  dailyMissionController = new DailyMissionSection({
+    studentId: student.id,
+    syllabuses,
+    getNextCoreDailyMission,
+    acceptCoreDailyMission,
+    pauseCoreDailyMission
+  });
+  dailyMissionController.mount(dailyMissionRoot);
+  dailyMissionSectionEl.hidden = false;
   syllabusProgressSection.hidden = false;
   syllabusProgressList.replaceChildren();
 

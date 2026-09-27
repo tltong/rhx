@@ -6,7 +6,6 @@
  *     syllabuses: Array<{
  *       syllabusId, subject, language, frameworkName,
  *       topics: Array<{
- *         nextAssignedPractice: Object|null,
  *         completedPractices: Array<{
  *           practiceId, dateCompleted, practiceType, difficulty, score
  *         }>
@@ -52,7 +51,6 @@ import {
   getStudentTopicLevel
 } from "../student_assessment_progress/student_assessment_progress_module.js?v=20260823-student-dashboard-v1";
 import {
-  listAssignedPractices,
   listCompletedPractices
 } from "../student_practice/student_practice_module.js?v=20260824-completed-practices";
 import {
@@ -82,7 +80,6 @@ const getStudentDashboardUseCase = new GetStudentDashboard({
   listActiveStudentSyllabusSubscriptions,
   getSyllabusById,
   listCompletedPractices,
-  listAssignedPractices,
   getPracticeById,
   getQuestionDifficulty,
   preAssessmentPracticeType: practiceTypes.PRE_ASSESSMENT,

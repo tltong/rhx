@@ -49,9 +49,41 @@ test("confirm subscription payment returns only paymentStatus", async () => {
     ["confirm", {
       publishableKey: "pk_test_payment",
       clientSecret: "pi_secret_confirmed",
-      returnUrl: "https://readyherox.web.app/payment-complete"
+      returnUrl: "https://readyherox.web.app/payment-complete",
+      redirectBehavior: "if_required"
     }]
   ]);
+});
+
+test("confirm subscription payment validates a forced redirect", async () => {
+  const calls = [];
+  const useCase = new ConfirmStripeSubscriptionPayment({
+    async getStripeClientConfig() {
+      return {publishableKey: "pk_test_payment"};
+    },
+    stripePaymentConfirmationGateway: {
+      async confirmPayment(input) {
+        calls.push(input);
+        return {id: "pi_redirect", status: "succeeded"};
+      }
+    }
+  });
+
+  await useCase.execute({
+    paymentClientSecret: "pi_secret_redirect",
+    returnUrl: "https://readyherox.web.app/payment-complete",
+    redirectBehavior: "always"
+  });
+
+  assert.equal(calls[0].redirectBehavior, "always");
+  await assert.rejects(
+    () => useCase.execute({
+      paymentClientSecret: "pi_secret_redirect",
+      returnUrl: "https://readyherox.web.app/payment-complete",
+      redirectBehavior: "sometimes"
+    }),
+    /redirect behavior must be if_required or always/
+  );
 });
 
 test("confirm subscription payment rejects an invalid Stripe result", async () => {
@@ -111,6 +143,34 @@ test("browser Stripe gateway confirms a subscription payment", async () => {
       redirect: "if_required"
     }]
   ]);
+});
+
+test("browser Stripe gateway can force a full-page redirect", async () => {
+  const calls = [];
+  const gateway = new BrowserStripePaymentConfirmationGateway({
+    stripeFactory() {
+      return {
+        async confirmPayment(options) {
+          calls.push(options);
+          return {
+            paymentIntent: {
+              id: "pi_redirect",
+              status: "succeeded"
+            }
+          };
+        }
+      };
+    }
+  });
+
+  await gateway.confirmPayment({
+    publishableKey: "pk_test_browser",
+    clientSecret: "pi_secret_redirect",
+    returnUrl: "https://readyherox.web.app/payment-complete",
+    redirectBehavior: "always"
+  });
+
+  assert.equal(calls[0].redirect, "always");
 });
 
 test("browser Stripe gateway preserves safe Stripe error details", async () => {
