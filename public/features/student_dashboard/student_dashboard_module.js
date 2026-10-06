@@ -6,6 +6,7 @@
  *     syllabuses: Array<{
  *       syllabusId, subject, language, frameworkName,
  *       topics: Array<{
+ *         readinessScore: number|null, readinessUnavailable: boolean,
  *         completedPractices: Array<{
  *           practiceId, dateCompleted, practiceType, difficulty, score
  *         }>
@@ -51,6 +52,9 @@ import {
   getStudentTopicLevel
 } from "../student_assessment_progress/student_assessment_progress_module.js?v=20260823-student-dashboard-v1";
 import {
+  getReadinessScore
+} from "../readiness/readiness_module.js?v=20261007-readiness-completion-v1";
+import {
   listCompletedPractices
 } from "../student_practice/student_practice_module.js?v=20260824-completed-practices";
 import {
@@ -67,7 +71,7 @@ import {
 } from "../syllabus_subscription/syllabus_subscription_module.js?v=20260823-student-dashboard-v1";
 import {
   GetStudentDashboard
-} from "./application/get_student_dashboard.js?v=20260824-completed-practices";
+} from "./application/get_student_dashboard.js?v=20261007-topic-readiness-v1";
 import {
   createSyllabusProgressPane,
   renderSyllabusProgressPane
@@ -84,6 +88,7 @@ const getStudentDashboardUseCase = new GetStudentDashboard({
   getQuestionDifficulty,
   preAssessmentPracticeType: practiceTypes.PRE_ASSESSMENT,
   getStudentTopicLevel,
+  getReadinessScore,
   getAssessmentFrameworkById,
   endLevelId: ASSESSMENT_FRAMEWORK_END_LEVEL_ID
 });

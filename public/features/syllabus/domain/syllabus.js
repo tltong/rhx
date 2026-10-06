@@ -46,15 +46,25 @@ function normalizePreAssessmentPractices(preAssessmentPractices = {}) {
   );
 }
 
+function requireBoolean(value, fieldName) {
+  if (typeof value !== "boolean") {
+    throw new Error(`${fieldName} must be a boolean.`);
+  }
+
+  return value;
+}
+
 export class SyllabusTopic {
   constructor({
     id = null,
     topicName,
+    pausable = true,
     subtopics = {},
     preAssessmentPractices = {}
   }) {
     this.id = id;
     this.topicName = topicName;
+    this.pausable = requireBoolean(pausable, "pausable");
     this.subtopics = subtopics;
     this.preAssessmentPractices = normalizePreAssessmentPractices(
       preAssessmentPractices
@@ -63,9 +73,14 @@ export class SyllabusTopic {
 
   update({
     topicName,
+    pausable,
     subtopics,
     preAssessmentPractices
   }) {
+    if (pausable !== undefined) {
+      this.pausable = requireBoolean(pausable, "pausable");
+    }
+
     if (topicName !== undefined) {
       this.topicName = topicName;
     }

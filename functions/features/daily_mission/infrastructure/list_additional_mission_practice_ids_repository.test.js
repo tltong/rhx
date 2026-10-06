@@ -66,3 +66,26 @@ test("does not access Firestore when there are no additional candidates", async 
   );
   assert.equal(reads, 0);
 });
+
+test("lists accepted additional topics for the requested day", async () => {
+  const reads = [];
+  const repository = new FirestoreDailyMissionRepository({
+    async readCollectionIds(collectionPath) {
+      reads.push(collectionPath);
+      return ["topic-2", "topic-1"];
+    },
+  });
+
+  assert.deepEqual(
+    await repository.listAcceptedAdditionalTopicIds({
+      studentId: "student-1",
+      syllabusId: "syllabus-1",
+      date: "2026-09-27",
+    }),
+    ["topic-1", "topic-2"],
+  );
+  assert.deepEqual(reads, [
+    "studentDailyMissions/student-1/days/2026-09-27/"
+      + "syllabuses/syllabus-1/additionalTopics",
+  ]);
+});

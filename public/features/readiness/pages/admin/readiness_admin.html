@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Readiness Admin</title>
+    <script>document.documentElement.hidden = true;</script>
+
+    <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script type="module" src="/init_fb.js"></script>
+
+    <link rel="stylesheet" href="./readiness_admin.css?v=20261006-readiness-feature-api-v1">
+  </head>
+  <body>
+    <main class="page-shell">
+      <a class="back-link" href="/features/site_admin/pages/site_admin/site_admin.html">Back to Site Admin</a>
+      <header>
+        <h1>Readiness Admin</h1>
+        <p class="subtitle">Set the practice history and weights used for topic readiness scores.</p>
+      </header>
+
+      <p id="readiness-status" class="status" role="status" aria-live="polite" hidden></p>
+
+      <form id="readiness-form" novalidate>
+        <section class="panel" aria-labelledby="history-heading">
+          <h2 id="history-heading">Practice history</h2>
+          <p class="help-text">Use the most recent practices for each topic to determine its readiness score.</p>
+          <div class="weight-row">
+            <label for="number-of-practices">Number of recent practices</label>
+            <div>
+              <input id="number-of-practices" name="numberOfPractices" type="number" min="1" step="1" required disabled aria-describedby="number-of-practices-error">
+              <span id="number-of-practices-error" class="field-error" hidden></span>
+            </div>
+          </div>
+        </section>
+        <section class="panel" aria-labelledby="weights-heading">
+          <div class="panel-heading">
+            <h2 id="weights-heading">Weight adjustment</h2>
+            <span id="updated-at">Never saved</span>
+          </div>
+          <p class="help-text">These weights apply to all topics. Each weight must be greater than zero.</p>
+          <div id="weight-fields" class="weight-fields"></div>
+        </section>
+        <div class="form-actions">
+          <button id="save-weights" type="submit" disabled>Save Configuration</button>
+          <button id="reset-weights" class="secondary" type="button" disabled>Reset to Defaults</button>
+          <button id="retry-load" class="secondary" type="button" hidden>Retry Loading</button>
+        </div>
+      </form>
+    </main>
+    <script
+      id="site-admin-page-loader"
+      type="module"
+      data-site-admin-page
+      data-page-module="./readiness_admin.js?v=20261007-readiness-completion-v1"
+      src="/features/site_admin/pages/common/site_admin_page_loader.js?v=20260827-site-admin-guard-v1"
+    ></script>
+  </body>
+</html>

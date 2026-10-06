@@ -4,6 +4,13 @@ const test = require("node:test");
 const {
   PauseCoreDailyMission,
 } = require("./application/pause_core_daily_mission");
+const {
+  pauseCoreDailyMission,
+} = require("./daily_mission_module");
+
+test("backend Daily Mission exposes internal core mission pausing", () => {
+  assert.equal(typeof pauseCoreDailyMission, "function");
+});
 
 function practice() {
   return {
@@ -19,6 +26,7 @@ function practice() {
 test("pauses the practice topic without selecting another mission", async () => {
   const calls = [];
   const useCase = new PauseCoreDailyMission({
+    isTopicPausable: async () => true,
     dailyMissionRepository: {
       async pauseTopic(input) {
         calls.push(["pause", input]);
@@ -64,6 +72,7 @@ test("pauses the practice topic without selecting another mission", async () => 
 
 test("returns the original date when the topic was already paused", async () => {
   const useCase = new PauseCoreDailyMission({
+    isTopicPausable: async () => true,
     dailyMissionRepository: {
       async pauseTopic() {
         return {
@@ -92,6 +101,7 @@ test("returns the original date when the topic was already paused", async () => 
 test("rejects an unknown practice without pausing a topic", async () => {
   let pauseCalls = 0;
   const useCase = new PauseCoreDailyMission({
+    isTopicPausable: async () => true,
     dailyMissionRepository: {
       async pauseTopic() {
         pauseCalls += 1;
@@ -109,5 +119,61 @@ test("rejects an unknown practice without pausing a topic", async () => {
     }),
     (error) => error.code === "not-found",
   );
+  assert.equal(pauseCalls, 0);
+});
+
+test("rejects non-pausable practice topics before writing a pause", async () => {
+  let pauseCalls = 0;
+  const checks = [];
+  const useCase = new PauseCoreDailyMission({
+    dailyMissionRepository: {
+      async pauseTopic() {
+        pauseCalls += 1;
+        return {pausedDate: "2026-10-04", created: true};
+      }
+    },
+    async getPracticeById() {
+      return practice();
+    },
+    async isTopicPausable(syllabusId, topicId) {
+      checks.push({syllabusId, topicId});
+      return false;
+    },
+    async getCurrentDate() {
+      throw new Error("No pause date should be needed for a forbidden pause.");
+    }
+  });
+
+  await assert.rejects(() => useCase.execute({
+    studentId: "student-1",
+    practiceId: "practice-1"
+  }), {
+    code: "failed-precondition",
+    message: "This topic cannot be paused."
+  });
+  assert.deepEqual(checks, [{syllabusId: "syllabus-1", topicId: "topic-1"}]);
+  assert.equal(pauseCalls, 0);
+});
+
+test("does not pause when the syllabus eligibility check fails", async () => {
+  let pauseCalls = 0;
+  const useCase = new PauseCoreDailyMission({
+    dailyMissionRepository: {
+      async pauseTopic() {
+        pauseCalls += 1;
+      }
+    },
+    async getPracticeById() {
+      return practice();
+    },
+    async isTopicPausable() {
+      throw new Error("Syllabus topic could not be found.");
+    }
+  });
+
+  await assert.rejects(() => useCase.execute({
+    studentId: "student-1",
+    practiceId: "practice-1"
+  }), /Syllabus topic could not be found/);
   assert.equal(pauseCalls, 0);
 });

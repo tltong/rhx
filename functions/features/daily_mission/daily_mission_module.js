@@ -1,5 +1,5 @@
 /**
- * External API
+ * Feature API
  *
  * getNextCoreDailyMission({studentId: string, syllabusId: string})
  *   -> Promise<{
@@ -13,6 +13,7 @@
  *
  * The operation is read-only. A false isAccepted value represents a
  * suggestion; a true value means today's accepted core mission already exists.
+ * Each subject has at most one accepted Daily Mission per day.
  *
  * acceptCoreDailyMission({studentId: string, practiceId: string})
  *   -> Promise<{
@@ -26,6 +27,7 @@
  *   }>
  *
  * pauseCoreDailyMission({studentId: string, practiceId: string})
+ * Rejects topics whose syllabus pausable flag is false.
  *   -> Promise<{
  *     studentId: string,
  *     syllabusId: string,
@@ -38,6 +40,10 @@
  *
  * listAdditionalMissionPracticeIds({studentId: string, syllabusId: string})
  *   -> Promise<string[]>
+ * Available only after today's Daily Mission for the subject is completed.
+ * Returns one practice per eligible topic that has no Additional Mission today.
+ * Returned practices use the same topic priority as core Daily Missions:
+ * never accepted first, then the least recently accepted topic.
  *
  * acceptAdditionalDailyMission({studentId: string, practiceId: string})
  *   -> Promise<{
@@ -60,6 +66,18 @@
  *     isPaused: boolean,
  *     unpaused: boolean
  *   }>
+ *
+ * isTopicPaused({studentId: string, syllabusId: string, topicId: string})
+ *   -> Promise<boolean>
+ *   This operation is read-only and does not remove expired pause records.
+ *
+ * unpauseTopic({studentId: string, syllabusId: string, topicId: string})
+ *   -> Promise<{
+ *     studentId: string,
+ *     syllabusId: string,
+ *     topicId: string,
+ *     isPaused: false
+ *   }>
  */
 const {
   getPracticeById,
@@ -67,6 +85,7 @@ const {
 const {
   listAssignedPracticeIds,
 } = require("../student_practice/student_practice_module");
+const {isTopicPausable} = require("../syllabus/syllabus_module");
 const {
   AcceptCoreDailyMission,
 } = require("./application/accept_core_daily_mission");
@@ -80,11 +99,17 @@ const {
   GetNextCoreDailyMission,
 } = require("./application/get_next_core_daily_mission");
 const {
+  IsTopicPaused,
+} = require("./application/is_topic_paused");
+const {
   ListAdditionalMissionPracticeIds,
 } = require("./application/list_additional_mission_practice_ids");
 const {
   PauseCoreDailyMission,
 } = require("./application/pause_core_daily_mission");
+const {
+  UnpauseTopic,
+} = require("./application/unpause_topic");
 const {
   FirestoreDailyMissionRepository,
 } = require("./infrastructure/firestore_daily_mission_repository");
@@ -96,6 +121,9 @@ const checkPausedTopicValidityUseCase = new CheckPausedTopicValidity({
 const runPausedTopicValidityCheck = (input) => (
   checkPausedTopicValidityUseCase.execute(input)
 );
+const isTopicPausedUseCase = new IsTopicPaused({
+  dailyMissionRepository,
+});
 const getNextCoreDailyMissionUseCase = new GetNextCoreDailyMission({
   dailyMissionRepository,
   listAssignedPracticeIds,
@@ -113,6 +141,7 @@ const acceptCoreDailyMissionUseCase = new AcceptCoreDailyMission({
 const pauseCoreDailyMissionUseCase = new PauseCoreDailyMission({
   dailyMissionRepository,
   getPracticeById,
+  isTopicPausable,
 });
 const listAdditionalMissionPracticeIdsUseCase =
   new ListAdditionalMissionPracticeIds({
@@ -126,6 +155,9 @@ const acceptAdditionalDailyMissionUseCase =
     dailyMissionRepository,
     getPracticeById,
   });
+const unpauseTopicUseCase = new UnpauseTopic({
+  dailyMissionRepository,
+});
 
 async function getNextCoreDailyMission(input) {
   return getNextCoreDailyMissionUseCase.execute(input);
@@ -151,11 +183,21 @@ async function checkPausedTopicValidity(input) {
   return checkPausedTopicValidityUseCase.execute(input);
 }
 
+async function isTopicPaused(input) {
+  return isTopicPausedUseCase.execute(input);
+}
+
+async function unpauseTopic(input) {
+  return unpauseTopicUseCase.execute(input);
+}
+
 module.exports = {
   acceptAdditionalDailyMission,
   acceptCoreDailyMission,
   checkPausedTopicValidity,
   getNextCoreDailyMission,
+  isTopicPaused,
   listAdditionalMissionPracticeIds,
   pauseCoreDailyMission,
+  unpauseTopic,
 };

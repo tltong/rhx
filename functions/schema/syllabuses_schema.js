@@ -37,6 +37,10 @@ const syllabusesSchema = {
       documentId: syllabusTopicDocumentIdPattern,
       fields: {
         topicName: "string",
+        pausable: {
+          type: "boolean",
+          default: true
+        },
         subtopics: {
           type: "map",
           entries: {

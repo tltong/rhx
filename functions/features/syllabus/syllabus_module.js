@@ -6,8 +6,10 @@ const {
   GetSyllabusAssessmentFrameworkId,
 } = require("./application/get_syllabus_assessment_framework_id");
 const { ListSyllabuses } = require("./application/list_syllabuses");
+const { IsTopicPausable } = require("./application/is_topic_pausable");
 
 const syllabusRepository = new FirestoreSyllabusRepository();
+const isTopicPausableUseCase = new IsTopicPausable(syllabusRepository);
 const getSyllabus = new GetSyllabus(syllabusRepository);
 const getSyllabusAssessmentFrameworkIdUseCase =
   new GetSyllabusAssessmentFrameworkId(syllabusRepository);
@@ -25,6 +27,15 @@ async function getSyllabusAssessmentFrameworkId(syllabusId) {
   return getSyllabusAssessmentFrameworkIdUseCase.execute(syllabusId);
 }
 
+/**
+ * @param {string} syllabusId
+ * @param {string} topicId
+ * @returns {Promise<boolean>} Missing pausable fields default to true.
+ */
+async function isTopicPausable(syllabusId, topicId) {
+  return isTopicPausableUseCase.execute(syllabusId, topicId);
+}
+
 async function listSyllabuses() {
   return listSyllabusesUseCase.execute();
 }
@@ -32,5 +43,6 @@ async function listSyllabuses() {
 module.exports = {
   getSyllabusAssessmentFrameworkId,
   getSyllabusById,
+  isTopicPausable,
   listSyllabuses,
 };

@@ -5,20 +5,32 @@ import {
   AcceptAdditionalDailyMission
 } from "./application/accept_additional_daily_mission.js";
 
-test("web additional acceptance validates the accepted mission", async () => {
+function practice() {
+  return {
+    questions: [{
+      syllabusId: "syllabus-1",
+      topicId: "topic-1",
+      questionId: "question-1"
+    }]
+  };
+}
+
+test("web accepts an additional mission without selection checks", async () => {
   const calls = [];
   const useCase = new AcceptAdditionalDailyMission({
-    async acceptAdditionalDailyMission(input) {
-      calls.push(input);
-      return {
-        studentId: "student-1",
-        syllabusId: "syllabus-1",
-        topicId: "topic-1",
-        practiceId: "practice-1",
-        date: "2026-09-27",
-        isAccepted: true,
-        created: true
-      };
+    dailyMissionRepository: {
+      async acceptAdditionalMission(input) {
+        calls.push(["accept", input]);
+        return {created: true};
+      }
+    },
+    async getPracticeById(practiceId) {
+      calls.push(["practice", practiceId]);
+      return practice();
+    },
+    async getCurrentDate() {
+      calls.push(["date"]);
+      return "2026-09-27";
     }
   });
 
@@ -34,24 +46,52 @@ test("web additional acceptance validates the accepted mission", async () => {
     isAccepted: true,
     created: true
   });
-  assert.deepEqual(calls, [{
-    studentId: "student-1",
-    practiceId: "practice-1"
-  }]);
+  assert.deepEqual(calls, [
+    ["practice", "practice-1"],
+    ["date"],
+    ["accept", {
+      studentId: "student-1",
+      syllabusId: "syllabus-1",
+      topicId: "topic-1",
+      practiceId: "practice-1",
+      date: "2026-09-27"
+    }]
+  ]);
 });
 
-test("web additional acceptance requires an accepted response", async () => {
+test("web preserves an idempotent additional acceptance result", async () => {
   const useCase = new AcceptAdditionalDailyMission({
-    async acceptAdditionalDailyMission() {
-      return {
-        studentId: "student-1",
-        syllabusId: "syllabus-1",
-        topicId: "topic-1",
-        practiceId: "practice-1",
-        date: "2026-09-27",
-        isAccepted: false,
-        created: false
-      };
+    dailyMissionRepository: {
+      async acceptAdditionalMission() {
+        return {created: false};
+      }
+    },
+    async getPracticeById() {
+      return practice();
+    },
+    async getCurrentDate() {
+      return "2026-09-27";
+    }
+  });
+  const result = await useCase.execute({
+    studentId: "student-1",
+    practiceId: "practice-1"
+  });
+
+  assert.equal(result.created, false);
+  assert.equal(result.isAccepted, true);
+});
+
+test("web rejects an unknown practice without writing a mission", async () => {
+  let acceptanceCalls = 0;
+  const useCase = new AcceptAdditionalDailyMission({
+    dailyMissionRepository: {
+      async acceptAdditionalMission() {
+        acceptanceCalls += 1;
+      }
+    },
+    async getPracticeById() {
+      return null;
     }
   });
 
@@ -60,6 +100,7 @@ test("web additional acceptance requires an accepted response", async () => {
       studentId: "student-1",
       practiceId: "practice-1"
     }),
-    /was not accepted/
+    (error) => error.code === "not-found"
   );
+  assert.equal(acceptanceCalls, 0);
 });

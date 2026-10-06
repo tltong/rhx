@@ -1,9 +1,12 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
-test("Functions index exports acceptCoreDailyMission", () => {
+test("Functions index does not publish acceptCoreDailyMission", () => {
   assert.equal(
-    typeof require("./index").acceptCoreDailyMission,
-    "function",
+    Object.prototype.hasOwnProperty.call(
+      require("./index"),
+      "acceptCoreDailyMission",
+    ),
+    false,
   );
 });

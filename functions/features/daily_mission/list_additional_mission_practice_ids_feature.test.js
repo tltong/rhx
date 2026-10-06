@@ -11,13 +11,15 @@ function practice(syllabusId, topicId) {
   };
 }
 
-test("lists eligible additional practices without invoking core selection", async () => {
-  const acceptedCandidateCalls = [];
+test("lists one additional mission per eligible topic after subject completion", async () => {
+  const acceptedTopicCalls = [];
   const practices = new Map([
     ["additional-2", practice("syllabus-1", "topic-2")],
     ["core-1", practice("syllabus-1", "topic-1")],
+    ["core-topic-other", practice("syllabus-1", "topic-1")],
     ["paused-1", practice("syllabus-1", "topic-paused")],
     ["accepted-1", practice("syllabus-1", "topic-3")],
+    ["accepted-same-topic-2", practice("syllabus-1", "topic-3")],
     ["additional-1", practice("syllabus-1", "topic-2")],
     ["other-syllabus", practice("syllabus-2", "topic-4")],
   ]);
@@ -31,6 +33,10 @@ test("lists eligible additional practices without invoking core selection", asyn
         });
         return {topicId: "topic-1", practiceId: "core-1"};
       },
+      async isPracticeCompleted(input) {
+        assert.deepEqual(input, {studentId: "student-1", practiceId: "core-1"});
+        return true;
+      },
       async listPausedTopicIds(input) {
         assert.deepEqual(input, {
           studentId: "student-1",
@@ -38,17 +44,26 @@ test("lists eligible additional practices without invoking core selection", asyn
         });
         return ["topic-paused"];
       },
-      async listAcceptedAdditionalPracticeIds(input) {
-        acceptedCandidateCalls.push(input);
-        return ["accepted-1"];
+      async listTopicStats(input) {
+        assert.deepEqual(input, {
+          studentId: "student-1",
+          syllabusId: "syllabus-1",
+        });
+        return [{topicId: "topic-1", lastAcceptedDate: "2026-09-26"}];
+      },
+      async listAcceptedAdditionalTopicIds(input) {
+        acceptedTopicCalls.push(input);
+        return ["topic-3"];
       },
     },
     async listAssignedPracticeIds() {
       return [
         "additional-2",
         "core-1",
+        "core-topic-other",
         "paused-1",
         "accepted-1",
+        "accepted-same-topic-2",
         "additional-1",
         "other-syllabus",
         "additional-1",
@@ -74,16 +89,11 @@ test("lists eligible additional practices without invoking core selection", asyn
   assert.deepEqual(await useCase.execute({
     studentId: "student-1",
     syllabusId: "syllabus-1",
-  }), ["additional-1", "additional-2"]);
-  assert.deepEqual(acceptedCandidateCalls, [{
+  }), ["additional-1", "core-topic-other"]);
+  assert.deepEqual(acceptedTopicCalls, [{
     studentId: "student-1",
     syllabusId: "syllabus-1",
     date: "2026-09-27",
-    candidates: [
-      {topicId: "topic-2", practiceId: "additional-2"},
-      {topicId: "topic-3", practiceId: "accepted-1"},
-      {topicId: "topic-2", practiceId: "additional-1"},
-    ],
   }]);
 });
 
@@ -96,12 +106,18 @@ test("unpauses expired topics before building the additional selection pool", as
   const useCase = new ListAdditionalMissionPracticeIds({
     dailyMissionRepository: {
       async getCoreMission() {
-        return null;
+        return {topicId: "topic-core", practiceId: "core-1"};
       },
       async listPausedTopicIds() {
         return ["topic-expired", "topic-active"];
       },
-      async listAcceptedAdditionalPracticeIds() {
+      async isPracticeCompleted() {
+        return true;
+      },
+      async listTopicStats() {
+        return [];
+      },
+      async listAcceptedAdditionalTopicIds() {
         return [];
       },
     },
@@ -152,10 +168,16 @@ test("returns an empty list without reading accepted records when none qualify",
       async getCoreMission() {
         return {topicId: "topic-1", practiceId: "practice-1"};
       },
+      async isPracticeCompleted() {
+        return true;
+      },
       async listPausedTopicIds() {
         return [];
       },
-      async listAcceptedAdditionalPracticeIds() {
+      async listTopicStats() {
+        return [];
+      },
+      async listAcceptedAdditionalTopicIds() {
         acceptedReads += 1;
         return [];
       },
@@ -184,4 +206,51 @@ test("returns an empty list without reading accepted records when none qualify",
     syllabusId: "syllabus-1",
   }), []);
   assert.equal(acceptedReads, 0);
+});
+
+test("uses core mission topic priority for additional missions", async () => {
+  const practices = new Map([
+    ["a-recent", practice("syllabus-1", "topic-recent")],
+    ["m-oldest", practice("syllabus-1", "topic-oldest")],
+    ["z-never", practice("syllabus-1", "topic-never")],
+  ]);
+  const useCase = new ListAdditionalMissionPracticeIds({
+    dailyMissionRepository: {
+      async getCoreMission() {
+        return {topicId: "topic-core", practiceId: "core-1"};
+      },
+      async listPausedTopicIds() {
+        return [];
+      },
+      async isPracticeCompleted() {
+        return true;
+      },
+      async listTopicStats() {
+        return [
+          {topicId: "topic-recent", lastAcceptedDate: "2026-09-26"},
+          {topicId: "topic-oldest", lastAcceptedDate: "2026-08-01"},
+        ];
+      },
+      async listAcceptedAdditionalTopicIds() {
+        return [];
+      },
+    },
+    async listAssignedPracticeIds() {
+      return [...practices.keys()];
+    },
+    async getPracticeById(practiceId) {
+      return practices.get(practiceId);
+    },
+    async checkPausedTopicValidity() {
+      throw new Error("must not be called");
+    },
+    async getCurrentDate() {
+      return "2026-09-27";
+    },
+  });
+
+  assert.deepEqual(await useCase.execute({
+    studentId: "student-1",
+    syllabusId: "syllabus-1",
+  }), ["z-never", "m-oldest", "a-recent"]);
 });

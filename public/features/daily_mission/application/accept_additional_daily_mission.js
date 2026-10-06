@@ -1,3 +1,15 @@
+import {
+  practiceMissionRoute
+} from "./accept_core_daily_mission.js";
+
+function requireFunction(value, name) {
+  if (typeof value !== "function") {
+    throw new Error(`${name} must be a function.`);
+  }
+
+  return value;
+}
+
 function requireDocumentId(value, fieldName) {
   const id = String(value ?? "").trim();
 
@@ -12,80 +24,100 @@ function requireDocumentId(value, fieldName) {
   return id;
 }
 
-function requireDateKey(value) {
+function normalizeDateKey(value) {
   const date = String(value ?? "").trim();
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    throw new Error("Daily mission date must use YYYY-MM-DD format.");
+    throw new Error("date must use YYYY-MM-DD format.");
+  }
+
+  const [year, month, day] = date.split("-").map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+
+  if (
+    parsed.getUTCFullYear() !== year
+    || parsed.getUTCMonth() !== month - 1
+    || parsed.getUTCDate() !== day
+  ) {
+    throw new Error("date must be a valid calendar date.");
   }
 
   return date;
 }
 
-function normalizeAcceptance(value, expected) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(
-      "The additional daily mission acceptance response is invalid."
-    );
-  }
+function currentUtcDate() {
+  return new Date().toISOString().slice(0, 10);
+}
 
-  const studentId = requireDocumentId(value.studentId, "studentId");
-  const practiceId = requireDocumentId(value.practiceId, "practiceId");
+function createCodedError(code, message) {
+  const error = new Error(message);
 
-  if (studentId !== expected.studentId) {
-    throw new Error(
-      "The additional mission acceptance has an unexpected studentId."
-    );
-  }
-
-  if (practiceId !== expected.practiceId) {
-    throw new Error(
-      "The additional mission acceptance has an unexpected practiceId."
-    );
-  }
-
-  if (value.isAccepted !== true) {
-    throw new Error("The additional daily mission was not accepted.");
-  }
-
-  if (typeof value.created !== "boolean") {
-    throw new Error(
-      "The additional mission acceptance has an invalid created value."
-    );
-  }
-
-  return Object.freeze({
-    studentId,
-    syllabusId: requireDocumentId(value.syllabusId, "syllabusId"),
-    topicId: requireDocumentId(value.topicId, "topicId"),
-    practiceId,
-    date: requireDateKey(value.date),
-    isAccepted: true,
-    created: value.created
-  });
+  error.code = code;
+  return error;
 }
 
 export class AcceptAdditionalDailyMission {
-  constructor(dailyMissionGateway) {
+  constructor({
+    dailyMissionRepository,
+    getPracticeById,
+    getCurrentDate = currentUtcDate
+  } = {}) {
     if (
-      !dailyMissionGateway
-      || typeof dailyMissionGateway.acceptAdditionalDailyMission
-        !== "function"
+      !dailyMissionRepository
+      || typeof dailyMissionRepository.acceptAdditionalMission !== "function"
     ) {
-      throw new Error("dailyMissionGateway is required.");
+      throw new Error("dailyMissionRepository is required.");
     }
 
-    this.dailyMissionGateway = dailyMissionGateway;
+    this.dailyMissionRepository = dailyMissionRepository;
+    this.getPracticeById = requireFunction(
+      getPracticeById,
+      "getPracticeById"
+    );
+    this.getCurrentDate = requireFunction(getCurrentDate, "getCurrentDate");
   }
 
-  async execute({ studentId, practiceId } = {}) {
-    const input = {
-      studentId: requireDocumentId(studentId, "studentId"),
-      practiceId: requireDocumentId(practiceId, "practiceId")
-    };
-    const result =
-      await this.dailyMissionGateway.acceptAdditionalDailyMission(input);
+  async execute({studentId, practiceId} = {}) {
+    const normalizedStudentId = requireDocumentId(studentId, "studentId");
+    const normalizedPracticeId = requireDocumentId(practiceId, "practiceId");
+    const practice = await this.getPracticeById(normalizedPracticeId);
 
-    return normalizeAcceptance(result, input);
+    if (!practice) {
+      throw createCodedError(
+        "not-found",
+        `Practice ${normalizedPracticeId} could not be found.`
+      );
+    }
+
+    const {syllabusId, topicId} = practiceMissionRoute(practice);
+    const date = normalizeDateKey(await this.getCurrentDate());
+    const acceptance =
+      await this.dailyMissionRepository.acceptAdditionalMission({
+        studentId: normalizedStudentId,
+        syllabusId,
+        topicId,
+        practiceId: normalizedPracticeId,
+        date
+      });
+
+    if (typeof acceptance?.created !== "boolean") {
+      throw new Error(
+        "The additional daily mission acceptance result is invalid."
+      );
+    }
+
+    return Object.freeze({
+      studentId: normalizedStudentId,
+      syllabusId,
+      topicId,
+      practiceId: normalizedPracticeId,
+      date,
+      isAccepted: true,
+      created: acceptance.created
+    });
   }
 }
+
+export {
+  currentUtcDate
+};

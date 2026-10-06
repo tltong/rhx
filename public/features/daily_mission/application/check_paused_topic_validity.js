@@ -1,3 +1,11 @@
+function requireFunction(value, name) {
+  if (typeof value !== "function") {
+    throw new Error(`${name} must be a function.`);
+  }
+
+  return value;
+}
+
 function requireDocumentId(value, fieldName) {
   const id = String(value ?? "").trim();
 
@@ -12,87 +20,107 @@ function requireDocumentId(value, fieldName) {
   return id;
 }
 
-function normalizePausedDate(value) {
-  if (value === null) {
-    return null;
-  }
-
-  const date = String(value ?? "").trim();
-
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    throw new Error("pausedDate must use YYYY-MM-DD format.");
-  }
-
-  return date;
+function currentUtcDate() {
+  return new Date().toISOString().slice(0, 10);
 }
 
-function normalizeResult(value, expected) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("The paused topic validity response is invalid.");
-  }
-
-  const studentId = requireDocumentId(value.studentId, "studentId");
-  const syllabusId = requireDocumentId(value.syllabusId, "syllabusId");
-  const topicId = requireDocumentId(value.topicId, "topicId");
-  const pausedDate = normalizePausedDate(value.pausedDate);
-
-  if (
-    studentId !== expected.studentId
-    || syllabusId !== expected.syllabusId
-    || topicId !== expected.topicId
-  ) {
-    throw new Error(
-      "The paused topic validity response has an unexpected route."
-    );
-  }
-
-  if (
-    typeof value.isPaused !== "boolean"
-    || typeof value.unpaused !== "boolean"
-    || (value.isPaused && value.unpaused)
-  ) {
-    throw new Error(
-      "The paused topic validity response has an invalid status."
-    );
-  }
-
-  if ((value.isPaused || value.unpaused) && pausedDate === null) {
-    throw new Error(
-      "The paused topic validity response requires pausedDate."
-    );
-  }
-
-  return Object.freeze({
-    studentId,
+async function refreshPausedTopicIds({
+  studentId,
+  syllabusId,
+  pausedTopicIds,
+  checkPausedTopicValidity
+} = {}) {
+  const normalizedStudentId = requireDocumentId(studentId, "studentId");
+  const normalizedSyllabusId = requireDocumentId(
     syllabusId,
-    topicId,
-    pausedDate,
-    isPaused: value.isPaused,
-    unpaused: value.unpaused
-  });
+    "syllabusId"
+  );
+  const checkValidity = requireFunction(
+    checkPausedTopicValidity,
+    "checkPausedTopicValidity"
+  );
+  const uniqueTopicIds = [...new Set(
+    (Array.isArray(pausedTopicIds) ? pausedTopicIds : [])
+      .map((topicId) => requireDocumentId(topicId, "topicId"))
+  )];
+  const validityResults = await Promise.all(uniqueTopicIds.map(
+    async (topicId) => {
+      const result = await checkValidity({
+        studentId: normalizedStudentId,
+        syllabusId: normalizedSyllabusId,
+        topicId
+      });
+
+      if (
+        !result
+        || result.studentId !== normalizedStudentId
+        || result.syllabusId !== normalizedSyllabusId
+        || result.topicId !== topicId
+        || typeof result.isPaused !== "boolean"
+      ) {
+        throw new Error("The paused topic validity result is invalid.");
+      }
+
+      return {
+        topicId,
+        isPaused: result.isPaused
+      };
+    }
+  ));
+
+  return validityResults
+    .filter(({isPaused}) => isPaused)
+    .map(({topicId}) => topicId);
 }
 
-export class CheckPausedTopicValidity {
-  constructor(dailyMissionGateway) {
+class CheckPausedTopicValidity {
+  constructor({
+    dailyMissionRepository,
+    getCurrentDate = currentUtcDate
+  } = {}) {
     if (
-      !dailyMissionGateway
-      || typeof dailyMissionGateway.checkPausedTopicValidity !== "function"
+      !dailyMissionRepository
+      || typeof dailyMissionRepository.checkPausedTopicValidity
+        !== "function"
     ) {
-      throw new Error("dailyMissionGateway is required.");
+      throw new Error("dailyMissionRepository is required.");
     }
 
-    this.dailyMissionGateway = dailyMissionGateway;
+    this.dailyMissionRepository = dailyMissionRepository;
+    this.getCurrentDate = requireFunction(getCurrentDate, "getCurrentDate");
   }
 
-  async execute({ studentId, syllabusId, topicId } = {}) {
+  async execute({studentId, syllabusId, topicId} = {}) {
     const input = {
       studentId: requireDocumentId(studentId, "studentId"),
       syllabusId: requireDocumentId(syllabusId, "syllabusId"),
       topicId: requireDocumentId(topicId, "topicId")
     };
     const result =
-      await this.dailyMissionGateway.checkPausedTopicValidity(input);
+      await this.dailyMissionRepository.checkPausedTopicValidity({
+        ...input,
+        currentDate: await this.getCurrentDate()
+      });
 
-    return normalizeResult(result, input);
+    if (
+      !result
+      || typeof result.isPaused !== "boolean"
+      || typeof result.unpaused !== "boolean"
+    ) {
+      throw new Error("The paused topic validity result is invalid.");
+    }
+
+    return Object.freeze({
+      ...input,
+      pausedDate: result.pausedDate ?? null,
+      isPaused: result.isPaused,
+      unpaused: result.unpaused
+    });
   }
 }
+
+export {
+  CheckPausedTopicValidity,
+  currentUtcDate,
+  refreshPausedTopicIds
+};

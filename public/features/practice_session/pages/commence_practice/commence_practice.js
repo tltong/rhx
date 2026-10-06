@@ -189,6 +189,12 @@ function disableAnswerControls() {
   });
 }
 
+function createStudentLandingUrl(completedPracticeId) {
+  return `${STUDENT_LANDING_URL}?completedPracticeId=${encodeURIComponent(
+    completedPracticeId
+  )}`;
+}
+
 async function submitPractice() {
   if (!activeSession || submissionInProgress) {
     return;
@@ -207,7 +213,7 @@ async function submitPractice() {
     submitButton.disabled = true;
     setStatus("Practice submitted successfully. Returning to dashboard...");
     renderResult(result);
-    window.location.replace(STUDENT_LANDING_URL);
+    window.location.replace(createStudentLandingUrl(result.practiceId));
   } catch (error) {
     console.error(error);
     submissionInProgress = false;

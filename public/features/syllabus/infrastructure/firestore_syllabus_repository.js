@@ -3,7 +3,7 @@ import {
   Syllabus,
   SyllabusTopic,
   SyllabusTopicPreAssessmentPractice
-} from "../domain/syllabus.js?v=20260730-topic-pre-assessment";
+} from "../domain/syllabus.js?v=20261004-topic-pausable-v1";
 import { SyllabusRepository } from "../domain/syllabus_repository.js";
 import {
   SYLLABUSES_COLLECTION,
@@ -134,6 +134,7 @@ function normalizeTopic(topic) {
   return new SyllabusTopic({
     id: optionalString(topic.id),
     topicName: requireNonEmptyString(topic.topicName, "topicName"),
+    pausable: topic.pausable,
     subtopics: normalizeSubtopics(topic.subtopics || {}),
     preAssessmentPractices: normalizePreAssessmentPractices(
       topic.preAssessmentPractices || {}
@@ -200,6 +201,7 @@ function toSyllabusTopicRecord(topic) {
 
   return {
     topicName: requireNonEmptyString(topic.topicName, "topicName"),
+    pausable: topic.pausable,
     subtopics: normalizeSubtopics(topic.subtopics || {}),
     preAssessmentPractices: Object.fromEntries(
       Object.entries(preAssessmentPractices).map(

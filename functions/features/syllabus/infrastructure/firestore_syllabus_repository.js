@@ -26,6 +26,7 @@ function toTopic(data) {
   return new SyllabusTopic({
     id: data.id,
     topicName: data.topicName,
+    pausable: data.pausable,
     subtopics: data.subtopics || {},
     preAssessmentPractices: data.preAssessmentPractices || {},
   });

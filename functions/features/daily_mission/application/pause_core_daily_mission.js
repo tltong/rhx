@@ -60,6 +60,7 @@ class PauseCoreDailyMission {
   constructor({
     dailyMissionRepository,
     getPracticeById,
+    isTopicPausable,
     getCurrentDate = currentUtcDate,
   } = {}) {
     if (
@@ -75,6 +76,7 @@ class PauseCoreDailyMission {
       "getPracticeById",
     );
     this.getCurrentDate = requireFunction(getCurrentDate, "getCurrentDate");
+    this.isTopicPausable = requireFunction(isTopicPausable, "isTopicPausable");
   }
 
   async execute({studentId, practiceId} = {}) {
@@ -90,6 +92,15 @@ class PauseCoreDailyMission {
     }
 
     const {syllabusId, topicId} = practiceMissionRoute(practice);
+    const pausable = await this.isTopicPausable(syllabusId, topicId);
+
+    if (pausable !== true) {
+      throw createCodedError(
+        "failed-precondition",
+        "This topic cannot be paused.",
+      );
+    }
+
     const requestedPausedDate = normalizeDateKey(
       await this.getCurrentDate(),
     );

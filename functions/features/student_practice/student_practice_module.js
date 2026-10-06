@@ -6,6 +6,10 @@
  *
  * listCompletedPracticeIds({studentId: string}) -> Promise<string[]>
  * listAssignedPracticeIds({studentId: string}) -> Promise<string[]>
+ * startPracticeCompletionProcessing(input) -> Promise<object>
+ * markPracticeCompletionGenerating(input) -> Promise<object>
+ * completePracticeCompletionProcessing(input) -> Promise<object>
+ * failPracticeCompletionProcessing(input) -> Promise<object>
  */
 const {
   getPracticeById,
@@ -32,6 +36,14 @@ const {
   RemoveAssignedPractice,
 } = require("./application/remove_assigned_practice");
 const {
+  UpdatePracticeCompletionProcessing,
+} = require("./application/update_practice_completion_processing");
+const {
+  FirestorePracticeCompletionProcessingRepository,
+} = require(
+  "./infrastructure/firestore_practice_completion_processing_repository",
+);
+const {
   FirestoreStudentPracticeRepository,
 } = require("./infrastructure/firestore_student_practice_repository");
 
@@ -42,6 +54,8 @@ const {
  */
 
 const studentPracticeRepository = new FirestoreStudentPracticeRepository();
+const completionProcessingRepository =
+  new FirestorePracticeCompletionProcessingRepository();
 const assignPracticeToStudentUseCase = new AssignPracticeToStudent({
   studentPracticeRepository,
   getPracticeById,
@@ -64,6 +78,10 @@ const listCompletedPracticesUseCase = new ListCompletedPractices(
 const removeAssignedPracticeUseCase = new RemoveAssignedPractice(
   studentPracticeRepository,
 );
+const updatePracticeCompletionProcessingUseCase =
+  new UpdatePracticeCompletionProcessing({
+    processingRepository: completionProcessingRepository,
+  });
 
 /**
  * @param {StudentPracticeAssignmentInput} input
@@ -109,12 +127,32 @@ async function removeAssignedPractice(input) {
   return removeAssignedPracticeUseCase.execute(input);
 }
 
+async function startPracticeCompletionProcessing(input) {
+  return updatePracticeCompletionProcessingUseCase.markProcessing(input);
+}
+
+async function markPracticeCompletionGenerating(input) {
+  return updatePracticeCompletionProcessingUseCase.markGenerating(input);
+}
+
+async function completePracticeCompletionProcessing(input) {
+  return updatePracticeCompletionProcessingUseCase.markCompleted(input);
+}
+
+async function failPracticeCompletionProcessing(input) {
+  return updatePracticeCompletionProcessingUseCase.markFailed(input);
+}
+
 module.exports = {
   assignPracticeToStudent,
+  completePracticeCompletionProcessing,
   completeAssignedPractice,
+  failPracticeCompletionProcessing,
   getAssignedPractice,
   listAssignedPracticeIds,
   listCompletedPracticeIds,
   listCompletedPractices,
+  markPracticeCompletionGenerating,
   removeAssignedPractice,
+  startPracticeCompletionProcessing,
 };

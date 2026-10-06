@@ -1,0 +1,111 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import {
+  FirestoreDailyMissionRepository
+} from "./infrastructure/firestore_daily_mission_repository.js";
+
+const INPUT = Object.freeze({
+  studentId: "student-1",
+  syllabusId: "syllabus-1",
+  topicId: "topic-1",
+  practiceId: "practice-1",
+  date: "2026-09-27"
+});
+
+const PATHS = Object.freeze({
+  student: "studentDailyMissions/student-1",
+  day: "studentDailyMissions/student-1/days/2026-09-27",
+  syllabus: "studentDailyMissions/student-1/days/2026-09-27/"
+    + "syllabuses/syllabus-1",
+  topic: "studentDailyMissions/student-1/days/2026-09-27/"
+    + "syllabuses/syllabus-1/additionalTopics/topic-1",
+  practice: "studentDailyMissions/student-1/days/2026-09-27/"
+    + "syllabuses/syllabus-1/additionalTopics/topic-1/"
+    + "practices/practice-1",
+  completedCore: "studentPractices/student-1/completedPractices/core-1"
+});
+
+function createRepository({practiceExists = false, topicExists = false} = {}) {
+  const reads = [];
+  const writes = [];
+  const transaction = {
+    async get(reference) {
+      reads.push(reference.path);
+      if (reference.path === PATHS.syllabus) {
+        return {
+          exists: true,
+          data: () => ({coreMission: {topicId: "topic-core", practiceId: "core-1"}})
+        };
+      }
+      if (reference.path === PATHS.completedCore) {
+        return {exists: true};
+      }
+      return {
+        exists: reference.path === PATHS.practice
+          ? practiceExists
+          : topicExists
+      };
+    },
+    set(reference, data, options) {
+      writes.push({path: reference.path, data, options});
+    }
+  };
+  const repository = new FirestoreDailyMissionRepository({
+    getDocumentRefOperation(collectionPath, documentId) {
+      return {path: `${collectionPath}/${documentId}`};
+    },
+    getFirestoreDbOperation() {
+      return {
+        async runTransaction(operation) {
+          return operation(transaction);
+        }
+      };
+    }
+  });
+
+  return {reads, repository, writes};
+}
+
+test("web acceptAdditionalMission writes the additional hierarchy", async () => {
+  const {reads, repository, writes} = createRepository();
+
+  assert.deepEqual(await repository.acceptAdditionalMission(INPUT), {
+    created: true
+  });
+  assert.deepEqual(reads, [PATHS.practice, PATHS.topic, PATHS.syllabus, PATHS.completedCore]);
+  assert.deepEqual(writes, [
+    {path: PATHS.student, data: {}, options: {merge: true}},
+    {path: PATHS.day, data: {}, options: {merge: true}},
+    {path: PATHS.syllabus, data: {}, options: {merge: true}},
+    {path: PATHS.topic, data: {}, options: {merge: true}},
+    {path: PATHS.practice, data: {}, options: undefined}
+  ]);
+});
+
+test("web acceptAdditionalMission is idempotent for the same day", async () => {
+  const {reads, repository, writes} = createRepository({
+    practiceExists: true,
+    topicExists: true
+  });
+
+  assert.deepEqual(await repository.acceptAdditionalMission(INPUT), {
+    created: false
+  });
+  assert.deepEqual(reads, [PATHS.practice]);
+  assert.deepEqual(writes, []);
+});
+
+test("web acceptAdditionalMission rejects another practice for the topic", async () => {
+  const {reads, repository, writes} = createRepository({topicExists: true});
+
+  await assert.rejects(
+    () => repository.acceptAdditionalMission(INPUT),
+    (error) => (
+      error.code === "failed-precondition"
+      && /topic topic-1/.test(error.message)
+    )
+  );
+  assert.deepEqual(reads, [PATHS.practice, PATHS.topic]);
+  assert.deepEqual(writes, []);
+});

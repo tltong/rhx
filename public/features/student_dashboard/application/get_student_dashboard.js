@@ -166,6 +166,7 @@ export class GetStudentDashboard {
     getQuestionDifficulty,
     preAssessmentPracticeType,
     getStudentTopicLevel,
+    getReadinessScore,
     getAssessmentFrameworkById,
     endLevelId,
     now = () => new Date()
@@ -181,9 +182,23 @@ export class GetStudentDashboard {
     this.getQuestionDifficulty = getQuestionDifficulty;
     this.preAssessmentPracticeType = preAssessmentPracticeType;
     this.getStudentTopicLevel = getStudentTopicLevel;
+    this.getReadinessScore = getReadinessScore;
     this.getAssessmentFrameworkById = getAssessmentFrameworkById;
     this.endLevelId = endLevelId;
     this.now = now;
+  }
+
+  async getTopicReadiness(scope) {
+    try {
+      const readiness = await this.getReadinessScore(scope);
+      return {
+        readinessScore: readiness?.score ?? null,
+        readinessUnavailable: false
+      };
+    } catch {
+      // A readiness read failure must not hide the student's other progress.
+      return {readinessScore: null, readinessUnavailable: true};
+    }
   }
 
   async execute(studentId) {
@@ -256,13 +271,11 @@ export class GetStudentDashboard {
               preAssessment?.practiceId
               && completedPracticeIdSet.has(preAssessment.practiceId)
             );
-            const currentLevelId = preAssessmentCompleted
-              ? await this.getStudentTopicLevel({
-                studentId,
-                syllabusId: syllabus.id,
-                topicId: topic.id
-              })
-              : null;
+            const scope = {studentId, syllabusId: syllabus.id, topicId: topic.id};
+            const [currentLevelId, readiness] = await Promise.all([
+              preAssessmentCompleted ? this.getStudentTopicLevel(scope) : null,
+              this.getTopicReadiness(scope)
+            ]);
             const progress = summarizeTopicProgress({
               hasPreAssessment: Boolean(preAssessment?.practiceId),
               preAssessmentCompleted,
@@ -278,6 +291,7 @@ export class GetStudentDashboard {
               preAssessmentPracticeId: preAssessment?.practiceId || null,
               completedPractices:
                 completedPracticesByTopic.get(topicKey) || [],
+              ...readiness,
               ...progress
             };
           }

@@ -6,6 +6,12 @@
  *
  * listCompletedPracticeIds({studentId: string}) -> Promise<string[]>
  * listAssignedPracticeIds({studentId: string}) -> Promise<string[]>
+ * watchPracticeCompletionProcessing({
+ *   studentId: string,
+ *   practiceId: string,
+ *   onChange: function,
+ *   onError: function
+ * }) -> unsubscribe function
  */
 import {
   getPracticeById
@@ -35,6 +41,16 @@ import {
   RemoveAssignedPractice
 } from "./application/remove_assigned_practice.js?v=20260808-practice-session";
 import {
+  WatchPracticeCompletionProcessing
+} from "./application/watch_practice_completion_processing.js?v=20261003-completion-processing-v1";
+import {
+  completionProcessingStages,
+  completionProcessingStatuses
+} from "./domain/practice_completion_processing.js?v=20261003-completion-processing-v1";
+import {
+  FirestorePracticeCompletionProcessingRepository
+} from "./infrastructure/firestore_practice_completion_processing_repository.js?v=20261003-completion-processing-v1";
+import {
   FirestoreStudentPracticeRepository
 } from "./infrastructure/firestore_student_practice_repository.js?v=20260824-completed-practices";
 
@@ -45,6 +61,8 @@ import {
  */
 
 const studentPracticeRepository = new FirestoreStudentPracticeRepository();
+const completionProcessingRepository =
+  new FirestorePracticeCompletionProcessingRepository();
 const assignPracticeToStudentUseCase = new AssignPracticeToStudent({
   studentPracticeRepository,
   getPracticeById
@@ -70,6 +88,10 @@ const listCompletedPracticesUseCase = new ListCompletedPractices(
 const removeAssignedPracticeUseCase = new RemoveAssignedPractice(
   studentPracticeRepository
 );
+const watchPracticeCompletionProcessingUseCase =
+  new WatchPracticeCompletionProcessing({
+    processingRepository: completionProcessingRepository
+  });
 
 /**
  * @param {StudentPracticeAssignmentInput} input
@@ -119,6 +141,10 @@ async function removeAssignedPractice(input) {
   return removeAssignedPracticeUseCase.execute(input);
 }
 
+function watchPracticeCompletionProcessing(input) {
+  return watchPracticeCompletionProcessingUseCase.execute(input);
+}
+
 export {
   assignPracticeToStudent,
   completeAssignedPractice,
@@ -127,5 +153,8 @@ export {
   listAssignedPracticeIds,
   listCompletedPracticeIds,
   listCompletedPractices,
-  removeAssignedPractice
+  removeAssignedPractice,
+  watchPracticeCompletionProcessing,
+  completionProcessingStages,
+  completionProcessingStatuses
 };

@@ -57,6 +57,7 @@ test("an unfinished pre-assessment has no determined level", () => {
 
 test("student dashboard combines progress and practice history", async () => {
   const levelReads = [];
+  const readinessReads = [];
   const difficultyReads = [];
   const practices = {
     "practice-1": {
@@ -140,6 +141,10 @@ test("student dashboard combines progress and practice history", async () => {
       levelReads.push(topicId);
       return "level-2";
     },
+    getReadinessScore: async (scope) => {
+      readinessReads.push(scope);
+      return scope.topicId === "topic-1" ? {score: 105.625} : null;
+    },
     getAssessmentFrameworkById: async () => framework,
     endLevelId: "endLevel",
     now: () => new Date("2026-08-24T00:00:00.000Z"),
@@ -169,4 +174,82 @@ test("student dashboard combines progress and practice history", async () => {
   assert.equal(shapes.currentLevelName, "Not determined");
   assert.deepEqual(shapes.completedPractices, []);
   assert.deepEqual(levelReads, ["topic-1"]);
+  assert.equal(numbers.readinessScore, 105.625);
+  assert.equal(numbers.readinessUnavailable, false);
+  assert.equal(shapes.readinessScore, null);
+  assert.equal(shapes.readinessUnavailable, false);
+  assert.deepEqual(readinessReads, [
+    {studentId: "student-1", syllabusId: "syllabus-1", topicId: "topic-1"},
+    {studentId: "student-1", syllabusId: "syllabus-1", topicId: "topic-2"}
+  ]);
+});
+
+function dashboardFixture(getReadinessScore) {
+  return new GetStudentDashboard({
+    getStudentById: async (id) => ({
+      id, name: "Student", country: "Malaysia", level: "primary",
+      yearOfRegistration: 2026, standardAtYearOfRegistration: "4"
+    }),
+    getStudentStreamSubscription: async () => null,
+    getStreamById: async () => null,
+    listActiveStudentSyllabusSubscriptions: async () => [
+      {syllabusId: "math", language: "English"},
+      {syllabusId: "science", language: "English"}
+    ],
+    getSyllabusById: async (id) => ({
+      id, subject: id, assessmentFrameworkId: "framework-1",
+      topics: [
+        {id: "shared-topic", topicName: "Topic One", preAssessmentPractices: {}},
+        {id: "second-topic", topicName: "Topic Two", preAssessmentPractices: {}}
+      ]
+    }),
+    listCompletedPractices: async () => [],
+    getPracticeById: async () => null,
+    getQuestionDifficulty: async () => "Medium",
+    preAssessmentPracticeType: "pre assessment",
+    getStudentTopicLevel: async () => null,
+    getReadinessScore,
+    getAssessmentFrameworkById: async () => framework,
+    endLevelId: "endLevel",
+    now: () => new Date("2026-10-07")
+  });
+}
+
+test("dashboard readiness reads are scoped to the requested student and syllabus even before first assessment", async () => {
+  const reads = [];
+  const dashboard = await dashboardFixture(async (scope) => {
+    reads.push(scope);
+    return {score: scope.syllabusId === "math" ? 0 : 175};
+  }).execute("student-2");
+  assert.equal(reads.length, 4);
+  assert.ok(reads.every(({studentId}) => studentId === "student-2"));
+  assert.deepEqual(dashboard.syllabuses.map(({topics}) => topics.map(({readinessScore}) => readinessScore)), [
+    [0, 0], [175, 175]
+  ]);
+});
+
+test("dashboard refresh reads newly saved readiness instead of keeping the initial value", async () => {
+  let score = 40;
+  const useCase = dashboardFixture(async () => ({score}));
+  const initial = await useCase.execute("student-1");
+  score = 85.25;
+  const refreshed = await useCase.execute("student-1");
+  assert.equal(initial.syllabuses[0].topics[0].readinessScore, 40);
+  assert.equal(refreshed.syllabuses[0].topics[0].readinessScore, 85.25);
+});
+
+test("a failed readiness read affects only that topic and is distinct from no stored score", async () => {
+  const dashboard = await dashboardFixture(async ({syllabusId, topicId}) => {
+    if (syllabusId === "math" && topicId === "shared-topic") throw new Error("read failed");
+    if (topicId === "second-topic") return null;
+    return {score: 65};
+  }).execute("student-1");
+  const [math, science] = dashboard.syllabuses;
+  assert.equal(math.topics[0].readinessUnavailable, true);
+  assert.equal(math.topics[0].readinessScore, null);
+  assert.equal(math.topics[0].currentLevelName, "Not determined");
+  assert.equal(math.topics[1].readinessUnavailable, false);
+  assert.equal(math.topics[1].readinessScore, null);
+  assert.equal(science.topics[0].readinessScore, 65);
+  assert.equal(science.topics[0].readinessUnavailable, false);
 });

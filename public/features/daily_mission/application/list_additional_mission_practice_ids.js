@@ -1,3 +1,19 @@
+import {
+  refreshPausedTopicIds
+} from "./check_paused_topic_validity.js";
+import {
+  stableHash,
+  topicIdForPractice
+} from "./get_next_core_daily_mission.js?v=20261001-direct-core-v1";
+
+function requireFunction(value, name) {
+  if (typeof value !== "function") {
+    throw new Error(`${name} must be a function.`);
+  }
+
+  return value;
+}
+
 function requireDocumentId(value, fieldName) {
   const id = String(value ?? "").trim();
 
@@ -12,43 +28,241 @@ function requireDocumentId(value, fieldName) {
   return id;
 }
 
-function normalizePracticeIds(value) {
-  if (!Array.isArray(value)) {
-    throw new Error(
-      "The additional daily mission practice response is invalid."
-    );
+function normalizeDateKey(value, fieldName = "date") {
+  const date = String(value ?? "").trim();
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw new Error(`${fieldName} must use YYYY-MM-DD format.`);
   }
 
-  return Object.freeze(
-    [...new Set(value.map((practiceId) => (
-      requireDocumentId(practiceId, "practiceId")
-    )))].sort((first, second) => first.localeCompare(second))
-  );
+  const [year, month, day] = date.split("-").map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+
+  if (
+    parsed.getUTCFullYear() !== year
+    || parsed.getUTCMonth() !== month - 1
+    || parsed.getUTCDate() !== day
+  ) {
+    throw new Error(`${fieldName} must be a valid calendar date.`);
+  }
+
+  return date;
 }
 
-export class ListAdditionalMissionPracticeIds {
-  constructor(dailyMissionGateway) {
+function compareStable(firstId, secondId, seed) {
+  const firstHash = stableHash(`${seed}|${firstId}`);
+  const secondHash = stableHash(`${seed}|${secondId}`);
+
+  return firstHash - secondHash || firstId.localeCompare(secondId);
+}
+
+function toTopicStatsMap(records) {
+  const stats = new Map();
+
+  if (!Array.isArray(records)) {
+    return stats;
+  }
+
+  records.forEach((record) => {
+    const topicId = String(record?.topicId ?? "").trim();
+
+    if (topicId) {
+      stats.set(topicId, record?.lastAcceptedDate);
+    }
+  });
+
+  return stats;
+}
+
+function compareTopicCandidates(first, second, stats, seed) {
+  const firstRawDate = stats.get(first.topicId);
+  const secondRawDate = stats.get(second.topicId);
+  const firstDate = firstRawDate === undefined || firstRawDate === null
+    ? null
+    : normalizeDateKey(firstRawDate, "lastAcceptedDate");
+  const secondDate = secondRawDate === undefined || secondRawDate === null
+    ? null
+    : normalizeDateKey(secondRawDate, "lastAcceptedDate");
+
+  if (firstDate === null && secondDate !== null) {
+    return -1;
+  }
+
+  if (firstDate !== null && secondDate === null) {
+    return 1;
+  }
+
+  if (firstDate !== secondDate) {
+    return firstDate.localeCompare(secondDate);
+  }
+
+  return compareStable(first.topicId, second.topicId, `${seed}|topic`);
+}
+
+function currentUtcDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+class ListAdditionalMissionPracticeIds {
+  constructor({
+    dailyMissionRepository,
+    listAssignedPracticeIds,
+    getPracticeById,
+    checkPausedTopicValidity,
+    getCurrentDate = currentUtcDate
+  } = {}) {
     if (
-      !dailyMissionGateway
-      || typeof dailyMissionGateway.listAdditionalMissionPracticeIds
+      !dailyMissionRepository
+      || typeof dailyMissionRepository.getCoreMission !== "function"
+      || typeof dailyMissionRepository.isPracticeCompleted !== "function"
+      || typeof dailyMissionRepository.listPausedTopicIds !== "function"
+      || typeof dailyMissionRepository.listAcceptedAdditionalTopicIds
         !== "function"
+      || typeof dailyMissionRepository.listTopicStats !== "function"
     ) {
-      throw new Error("dailyMissionGateway is required.");
+      throw new Error("dailyMissionRepository is required.");
     }
 
-    this.dailyMissionGateway = dailyMissionGateway;
+    this.dailyMissionRepository = dailyMissionRepository;
+    this.listAssignedPracticeIds = requireFunction(
+      listAssignedPracticeIds,
+      "listAssignedPracticeIds"
+    );
+    this.getPracticeById = requireFunction(
+      getPracticeById,
+      "getPracticeById"
+    );
+    this.checkPausedTopicValidity = requireFunction(
+      checkPausedTopicValidity,
+      "checkPausedTopicValidity"
+    );
+    this.getCurrentDate = requireFunction(getCurrentDate, "getCurrentDate");
   }
 
-  async execute({ studentId, syllabusId } = {}) {
+  async execute({studentId, syllabusId} = {}) {
+    const normalizedStudentId = requireDocumentId(studentId, "studentId");
+    const normalizedSyllabusId = requireDocumentId(
+      syllabusId,
+      "syllabusId"
+    );
+    const date = normalizeDateKey(await this.getCurrentDate());
     const input = {
-      studentId: requireDocumentId(studentId, "studentId"),
-      syllabusId: requireDocumentId(syllabusId, "syllabusId")
+      studentId: normalizedStudentId,
+      syllabusId: normalizedSyllabusId
     };
-    const result =
-      await this.dailyMissionGateway.listAdditionalMissionPracticeIds(
-        input
+    const coreMission = await this.dailyMissionRepository.getCoreMission({
+      ...input,
+      date
+    });
+
+    if (!coreMission || !await this.dailyMissionRepository.isPracticeCompleted({
+      studentId: normalizedStudentId,
+      practiceId: coreMission.practiceId
+    })) {
+      return Object.freeze([]);
+    }
+
+    const [assignedPracticeIds, pausedTopicIds, topicStats] =
+      await Promise.all([
+        this.listAssignedPracticeIds({studentId: normalizedStudentId}),
+        this.dailyMissionRepository.listPausedTopicIds(input),
+        this.dailyMissionRepository.listTopicStats(input)
+      ]);
+    const uniquePracticeIds = [...new Set(
+      (Array.isArray(assignedPracticeIds) ? assignedPracticeIds : [])
+        .map((practiceId) => String(practiceId ?? "").trim())
+        .filter(Boolean)
+    )];
+    const [practices, activePausedTopicIds] = await Promise.all([
+      Promise.all(uniquePracticeIds.map(
+        async (practiceId) => ({
+          practiceId,
+          practice: await this.getPracticeById(practiceId)
+        })
+      )),
+      refreshPausedTopicIds({
+        ...input,
+        pausedTopicIds,
+        checkPausedTopicValidity: this.checkPausedTopicValidity
+      })
+    ]);
+    const pausedTopics = new Set(activePausedTopicIds);
+    const corePracticeId = String(coreMission?.practiceId ?? "").trim();
+    const candidates = practices.flatMap(({practiceId, practice}) => {
+      const topicId = topicIdForPractice(
+        practice,
+        normalizedSyllabusId
       );
 
-    return normalizePracticeIds(result);
+      if (
+        !topicId
+        || pausedTopics.has(topicId)
+        || practiceId === corePracticeId
+      ) {
+        return [];
+      }
+
+      return [{topicId, practiceId}];
+    });
+
+    if (candidates.length === 0) {
+      return Object.freeze([]);
+    }
+
+    const acceptedTopicIds =
+      await this.dailyMissionRepository
+        .listAcceptedAdditionalTopicIds({
+          ...input,
+          date
+        });
+    const acceptedTopics = new Set(
+      (Array.isArray(acceptedTopicIds) ? acceptedTopicIds : [])
+        .map((topicId) => String(topicId ?? "").trim())
+        .filter(Boolean)
+    );
+    const practicesByTopic = new Map();
+
+    candidates.forEach(({topicId, practiceId}) => {
+      if (acceptedTopics.has(topicId)) {
+        return;
+      }
+
+      if (!practicesByTopic.has(topicId)) {
+        practicesByTopic.set(topicId, []);
+      }
+
+      practicesByTopic.get(topicId).push(practiceId);
+    });
+
+    if (practicesByTopic.size === 0) {
+      return Object.freeze([]);
+    }
+
+    const seed = [normalizedStudentId, normalizedSyllabusId, date].join("|");
+    const stats = toTopicStatsMap(topicStats);
+    const topics = [...practicesByTopic].map(([topicId, practiceIds]) => ({
+      topicId,
+      practiceIds
+    }));
+
+    topics.sort((first, second) => compareTopicCandidates(
+      first,
+      second,
+      stats,
+      seed
+    ));
+
+    return Object.freeze(topics.map(({topicId, practiceIds}) => (
+      [...practiceIds].sort((first, second) => compareStable(
+        first,
+        second,
+        `${seed}|${topicId}|practice`
+      ))[0]
+    )));
   }
 }
+
+export {
+  ListAdditionalMissionPracticeIds,
+  currentUtcDate
+};

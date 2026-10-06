@@ -1,57 +1,26 @@
 import assert from "node:assert/strict";
+import {readFile} from "node:fs/promises";
 import test from "node:test";
 
 import {
   acceptCoreDailyMission
 } from "./daily_mission_module.js";
-import {
-  FirebaseCallableDailyMissionGateway
-} from "./infrastructure/firebase_callable_daily_mission_gateway.js";
+const gatewayUrl = new URL(
+  "./infrastructure/firebase_callable_daily_mission_gateway.js",
+  import.meta.url
+);
+const repositoryUrl = new URL(
+  "./infrastructure/firestore_daily_mission_repository.js",
+  import.meta.url
+);
 
-test("daily mission module exposes core mission acceptance", () => {
+test("web Daily Mission accepts core missions without a callable", async () => {
+  const [gatewaySource, repositorySource] = await Promise.all([
+    readFile(gatewayUrl, "utf8"),
+    readFile(repositoryUrl, "utf8")
+  ]);
+
   assert.equal(typeof acceptCoreDailyMission, "function");
-});
-
-test("Firebase gateway calls acceptCoreDailyMission", async () => {
-  const calls = [];
-  const expected = {
-    studentId: "student-1",
-    syllabusId: "syllabus-1",
-    topicId: "topic-1",
-    practiceId: "practice-1",
-    date: "2026-09-27",
-    isAccepted: true,
-    created: true
-  };
-  const gateway = new FirebaseCallableDailyMissionGateway({
-    getApp() {
-      return {
-        functions(region) {
-          assert.equal(region, "us-central1");
-
-          return {
-            httpsCallable(functionName) {
-              return async (data) => {
-                calls.push({functionName, data});
-                return {data: expected};
-              };
-            }
-          };
-        }
-      };
-    }
-  });
-  const input = {
-    studentId: "student-1",
-    practiceId: "practice-1"
-  };
-
-  assert.deepEqual(
-    await gateway.acceptCoreDailyMission(input),
-    expected
-  );
-  assert.deepEqual(calls, [{
-    functionName: "acceptCoreDailyMission",
-    data: input
-  }]);
+  assert.doesNotMatch(gatewaySource, /["']acceptCoreDailyMission["']/);
+  assert.match(repositorySource, /async acceptCoreMission/);
 });

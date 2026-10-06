@@ -5,23 +5,48 @@ import {
 } from "../../student_module.js?v=20260823-student-country-v1";
 import {
   getStudentDashboard
-} from "../../../student_dashboard/student_dashboard_module.js?v=20260824-completed-practices";
+} from "../../../student_dashboard/student_dashboard_module.js?v=20261007-topic-readiness-v1";
 import {
+  completionProcessingStages,
+  completionProcessingStatuses,
+  watchPracticeCompletionProcessing
+} from "../../../student_practice/student_practice_module.js?v=20261003-completion-processing-v1";
+import {
+  acceptAdditionalDailyMission,
   acceptCoreDailyMission,
   getNextCoreDailyMission,
-  pauseCoreDailyMission
-} from "../../../daily_mission/daily_mission_module.js?v=20260927-daily-mission-v1";
+  isTopicPaused,
+  listAdditionalMissionPracticeIds,
+  pauseCoreDailyMission,
+  unpauseTopic
+} from "../../../daily_mission/daily_mission_module.js?v=20261004-pausable-missions-v1";
+import {
+  isTopicPausable
+} from "../../../syllabus/syllabus_module.js?v=20261004-topic-pausable-v1";
+import {
+  getPracticeById
+} from "../../../practice/practice_module.js?v=20260824-completed-practices";
 import {
   DailyMissionSection
-} from "../../../daily_mission/components/daily_mission_section/daily_mission_section.js?v=20260927-daily-mission-v1";
+} from "../../../daily_mission/components/daily_mission_section/daily_mission_section.js?v=20261004-pausable-missions-v1";
+import {
+  AdditionalMissionSection
+} from "../../../daily_mission/components/additional_mission_section/additional_mission_section.js?v=20261004-pausable-missions-v1";
+import {
+  CompletionProcessingRefreshController
+} from "./completion_processing_refresh_controller.js?v=20261007-topic-readiness-v1";
 
 const INDEX_URL = "/index.html";
+const COMPLETED_PRACTICE_QUERY_PARAMETER = "completedPracticeId";
 const PRACTICE_RESULT_URL =
   "/features/practice_result/pages/result/practice_result.html";
 const completedDateFormatter = new Intl.DateTimeFormat(undefined, {
   day: "numeric",
   month: "short",
   year: "numeric"
+});
+const readinessScoreFormatter = new Intl.NumberFormat(undefined, {
+  maximumFractionDigits: 2
 });
 
 const welcomeEl = document.querySelector("#student-welcome");
@@ -36,6 +61,12 @@ const dailyMissionSectionEl = document.querySelector(
 const dailyMissionRoot = document.querySelector(
   "#student-daily-mission-root"
 );
+const additionalMissionSectionEl = document.querySelector(
+  "#student-additional-mission-section"
+);
+const additionalMissionRoot = document.querySelector(
+  "#student-additional-mission-root"
+);
 const syllabusProgressSection = document.querySelector(
   "#syllabus-progress-section"
 );
@@ -49,11 +80,77 @@ const syllabusProgressList = document.querySelector(
 
 let authenticatedStudentId = null;
 let dailyMissionController = null;
+let additionalMissionController = null;
+const topicPauseControls = new Map();
+const topicProcessingIndicators = new Map();
+let activeProcessingTopicKey = "";
 
 function setStatus(message, isError = false, hidden = false) {
   statusEl.textContent = message;
   statusEl.classList.toggle("is-error", isError);
   statusEl.hidden = hidden;
+}
+
+function setProcessingStatus(
+  message,
+  {isError = false, hidden = false} = {}
+) {
+  setStatus(message, isError, hidden);
+}
+
+function topicKey(syllabusId, topicId) {
+  return JSON.stringify([syllabusId, topicId]);
+}
+
+function setTopicProcessingActive(
+  active,
+  context = null
+) {
+  if (active !== true) {
+    const activeIndicator = topicProcessingIndicators.get(
+      activeProcessingTopicKey
+    );
+
+    if (activeIndicator) {
+      activeIndicator.hidden = true;
+    }
+
+    activeProcessingTopicKey = "";
+    return;
+  }
+
+  const {syllabusId = "", topicId = ""} = context ?? {};
+  const nextTopicKey = topicKey(syllabusId, topicId);
+  const previousIndicator = topicProcessingIndicators.get(
+    activeProcessingTopicKey
+  );
+
+  if (previousIndicator) {
+    previousIndicator.hidden = true;
+  }
+
+  activeProcessingTopicKey = nextTopicKey;
+  const nextIndicator = topicProcessingIndicators.get(nextTopicKey);
+
+  if (nextIndicator) {
+    nextIndicator.hidden = false;
+  }
+}
+
+function completedPracticeIdFromUrl() {
+  return new URLSearchParams(window.location.search)
+    .get(COMPLETED_PRACTICE_QUERY_PARAMETER)?.trim() || "";
+}
+
+function clearCompletedPracticeContext() {
+  const url = new URL(window.location.href);
+
+  url.searchParams.delete(COMPLETED_PRACTICE_QUERY_PARAMETER);
+  window.history.replaceState(
+    window.history.state,
+    "",
+    `${url.pathname}${url.search}${url.hash}`
+  );
 }
 
 function titleCase(value) {
@@ -84,6 +181,12 @@ function getPreAssessmentPresentation(state) {
   return { label: "Not completed", className: "" };
 }
 
+function formatReadinessScore(value) {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0
+    ? readinessScoreFormatter.format(value)
+    : "No score yet";
+}
+
 function createMetric(label, value) {
   const metric = document.createElement("div");
   const labelEl = document.createElement("span");
@@ -97,6 +200,27 @@ function createMetric(label, value) {
   metric.append(labelEl, valueEl);
 
   return metric;
+}
+
+function createTopicProcessingIndicator(topicName) {
+  const indicator = document.createElement("div");
+  const message = document.createElement("span");
+  const track = document.createElement("div");
+  const bar = document.createElement("span");
+
+  indicator.className = "topic-processing";
+  indicator.setAttribute("role", "status");
+  indicator.setAttribute("aria-live", "polite");
+  indicator.hidden = true;
+  message.textContent = "Updating progress and preparing the next practice...";
+  track.className = "topic-processing-track";
+  track.setAttribute("role", "progressbar");
+  track.setAttribute("aria-label", `Updating ${topicName} progress`);
+  bar.className = "topic-processing-bar";
+  track.append(bar);
+  indicator.append(message, track);
+
+  return indicator;
 }
 
 function createHistoryField(label, value) {
@@ -116,7 +240,7 @@ function createHistoryField(label, value) {
 
 function getPracticeHistoryType(practice) {
   if (practice.practiceType === "pre assessment") {
-    return "Pre-assessment";
+    return "First assessment";
   }
 
   return practice.difficulty
@@ -178,9 +302,93 @@ function createCompletedPracticeHistory(
   return details;
 }
 
-function createTopicRow(topic, studentId) {
+async function handleTopicUnpause({
+  studentId,
+  syllabusId,
+  topicId,
+  row,
+  pauseBadge,
+  unpauseButton
+}) {
+  unpauseButton.disabled = true;
+  unpauseButton.textContent = "Unpausing...";
+
+  try {
+    await unpauseTopic({studentId, syllabusId, topicId});
+    row.classList.remove("is-paused");
+    pauseBadge.hidden = true;
+    unpauseButton.hidden = true;
+    unpauseButton.textContent = "Unpause";
+    await Promise.all([
+      dailyMissionController?.refreshAvailability(),
+      additionalMissionController?.refreshAvailability()
+    ]);
+  } catch (error) {
+    console.error(`Could not unpause topic ${topicId}.`, error);
+    unpauseButton.disabled = false;
+    unpauseButton.textContent = "Retry unpause";
+  }
+}
+
+function topicPauseControlKey(studentId, syllabusId, topicId) {
+  return JSON.stringify([studentId, syllabusId, topicId]);
+}
+
+async function refreshTopicPauseStatus({
+  studentId,
+  syllabusId,
+  topicId
+}) {
+  const controls = topicPauseControls.get(
+    topicPauseControlKey(studentId, syllabusId, topicId)
+  );
+
+  if (!controls) {
+    return;
+  }
+
+  await updateTopicPauseStatus({
+    studentId,
+    syllabusId,
+    topicId,
+    ...controls
+  });
+}
+
+async function updateTopicPauseStatus({
+  studentId,
+  syllabusId,
+  topicId,
+  row,
+  pauseBadge,
+  unpauseButton
+}) {
+  try {
+    const paused = await isTopicPaused({
+      studentId,
+      syllabusId,
+      topicId
+    });
+
+    row.classList.toggle("is-paused", paused);
+    pauseBadge.hidden = !paused;
+    unpauseButton.hidden = !paused;
+    unpauseButton.disabled = false;
+    unpauseButton.textContent = "Unpause";
+  } catch (error) {
+    console.error(
+      `Could not load paused status for topic ${topicId}.`,
+      error
+    );
+  }
+}
+
+function createTopicRow(topic, studentId, syllabusId) {
   const row = document.createElement("div");
   const topicName = document.createElement("div");
+  const topicNameText = document.createElement("span");
+  const pauseBadge = document.createElement("span");
+  const unpauseButton = document.createElement("button");
   const assessmentMetric = document.createElement("div");
   const assessmentLabel = document.createElement("span");
   const assessmentBadge = document.createElement("span");
@@ -194,14 +402,36 @@ function createTopicRow(topic, studentId) {
   const progressDestination = document.createElement("span");
   const progressTrack = document.createElement("div");
   const progressFill = document.createElement("div");
+  const processingIndicator = createTopicProcessingIndicator(
+    topic.topicName
+  );
 
   row.className = "topic-row";
   topicName.className = "topic-name";
-  topicName.textContent = topic.topicName;
+  topicNameText.textContent = topic.topicName;
+  pauseBadge.className = "topic-pause-badge";
+  pauseBadge.textContent = "Paused";
+  pauseBadge.hidden = true;
+  unpauseButton.type = "button";
+  unpauseButton.className = "topic-unpause-button";
+  unpauseButton.textContent = "Unpause";
+  unpauseButton.hidden = true;
+  unpauseButton.setAttribute("aria-label", `Unpause ${topic.topicName}`);
+  unpauseButton.addEventListener("click", () => {
+    void handleTopicUnpause({
+      studentId,
+      syllabusId,
+      topicId: topic.topicId,
+      row,
+      pauseBadge,
+      unpauseButton
+    });
+  });
+  topicName.append(topicNameText, pauseBadge, unpauseButton);
 
   assessmentMetric.className = "topic-metric";
   assessmentLabel.className = "metric-label";
-  assessmentLabel.textContent = "Pre-assessment";
+  assessmentLabel.textContent = "First assessment";
   assessmentBadge.className = [
     "assessment-badge",
     assessmentPresentation.className
@@ -239,9 +469,36 @@ function createTopicRow(topic, studentId) {
     assessmentMetric,
     createMetric("Current level", topic.currentLevelName),
     createMetric("Next level", topic.nextLevelName),
+    createMetric(
+      "Readiness score",
+      topic.readinessUnavailable ? "Unavailable" : formatReadinessScore(topic.readinessScore)
+    ),
     progressMetric,
-    createCompletedPracticeHistory(topic.completedPractices, studentId)
+    createCompletedPracticeHistory(topic.completedPractices, studentId),
+    processingIndicator
   );
+
+  const processingTopicKey = topicKey(syllabusId, topic.topicId);
+
+  processingIndicator.hidden = processingTopicKey !== activeProcessingTopicKey;
+  topicProcessingIndicators.set(processingTopicKey, processingIndicator);
+
+  topicPauseControls.set(
+    topicPauseControlKey(studentId, syllabusId, topic.topicId),
+    {
+      row,
+      pauseBadge,
+      unpauseButton
+    }
+  );
+  void updateTopicPauseStatus({
+    studentId,
+    syllabusId,
+    topicId: topic.topicId,
+    row,
+    pauseBadge,
+    unpauseButton
+  });
 
   return row;
 }
@@ -281,7 +538,11 @@ function createSyllabusPanel(syllabus, studentId) {
 
   topicList.className = "topic-list";
   syllabus.topics.forEach((topic) => {
-    topicList.append(createTopicRow(topic, studentId));
+    topicList.append(createTopicRow(
+      topic,
+      studentId,
+      syllabus.syllabusId
+    ));
   });
   panel.append(topicList);
 
@@ -289,6 +550,9 @@ function createSyllabusPanel(syllabus, studentId) {
 }
 
 function renderDashboard(dashboard) {
+  topicPauseControls.clear();
+  topicProcessingIndicators.clear();
+
   const { student, stream, syllabuses } = dashboard;
 
   welcomeEl.textContent = `Welcome back, ${student.name}.`;
@@ -303,10 +567,25 @@ function renderDashboard(dashboard) {
     syllabuses,
     getNextCoreDailyMission,
     acceptCoreDailyMission,
-    pauseCoreDailyMission
+    pauseCoreDailyMission,
+    isTopicPausable,
+    onTopicPaused: refreshTopicPauseStatus
   });
   dailyMissionController.mount(dailyMissionRoot);
   dailyMissionSectionEl.hidden = false;
+  additionalMissionController = new AdditionalMissionSection({
+    studentId: student.id,
+    syllabuses,
+    getNextCoreDailyMission,
+    listAdditionalMissionPracticeIds,
+    acceptAdditionalDailyMission,
+    pauseCoreDailyMission,
+    isTopicPausable,
+    getPracticeById,
+    onTopicPaused: refreshTopicPauseStatus
+  });
+  additionalMissionController.mount(additionalMissionRoot);
+  additionalMissionSectionEl.hidden = false;
   syllabusProgressSection.hidden = false;
   syllabusProgressList.replaceChildren();
 
@@ -327,8 +606,39 @@ function renderDashboard(dashboard) {
   syllabusProgressList.append(fragment);
 }
 
+async function loadAndRenderDashboard(studentId) {
+  const dashboard = await getStudentDashboard(studentId);
+
+  if (!dashboard) {
+    await signOutStudent();
+    clearCurrentStudent();
+    return false;
+  }
+
+  renderDashboard(dashboard);
+  return true;
+}
+
+const completionProcessingRefreshController =
+  new CompletionProcessingRefreshController({
+    watchPracticeCompletionProcessing,
+    refreshDashboard: async ({studentId}) => {
+      const refreshed = await loadAndRenderDashboard(studentId);
+
+      if (!refreshed) {
+        throw new Error("The student dashboard is no longer available.");
+      }
+    },
+    clearCompletionContext: clearCompletedPracticeContext,
+    setStatus: setProcessingStatus,
+    setProcessingActive: setTopicProcessingActive,
+    statuses: completionProcessingStatuses,
+    stages: completionProcessingStages
+  });
+
 async function handleAuthState(authUser) {
   if (!authUser) {
+    completionProcessingRefreshController.stop();
     window.location.replace(INDEX_URL);
     return;
   }
@@ -337,20 +647,35 @@ async function handleAuthState(authUser) {
     return;
   }
 
+  completionProcessingRefreshController.stop();
   authenticatedStudentId = authUser.uid;
   setStatus("Loading your dashboard...");
 
   try {
-    const dashboard = await getStudentDashboard(authUser.uid);
-
-    if (!dashboard) {
-      await signOutStudent();
-      clearCurrentStudent();
+    if (!await loadAndRenderDashboard(authUser.uid)) {
       return;
     }
 
-    renderDashboard(dashboard);
     setStatus("Dashboard loaded.", false, true);
+    const completedPracticeId = completedPracticeIdFromUrl();
+
+    if (completedPracticeId) {
+      const completedPractice = await getPracticeById(completedPracticeId);
+      const completedTopic = completedPractice?.questions?.[0];
+
+      if (!completedTopic?.syllabusId || !completedTopic?.topicId) {
+        throw new Error(
+          "Could not determine which topic is being updated."
+        );
+      }
+
+      completionProcessingRefreshController.start({
+        studentId: authUser.uid,
+        practiceId: completedPracticeId,
+        syllabusId: completedTopic.syllabusId,
+        topicId: completedTopic.topicId
+      });
+    }
   } catch (error) {
     console.error(error);
     welcomeEl.textContent = "Welcome.";
@@ -367,6 +692,7 @@ logOffButton.addEventListener("click", async () => {
   setStatus("Signing out...");
 
   try {
+    completionProcessingRefreshController.stop();
     await signOutStudent();
     clearCurrentStudent();
     window.location.replace(INDEX_URL);
@@ -375,4 +701,8 @@ logOffButton.addEventListener("click", async () => {
     setStatus(error.message || "Could not sign out.", true);
     logOffButton.disabled = false;
   }
+});
+
+window.addEventListener("beforeunload", () => {
+  completionProcessingRefreshController.stop();
 });

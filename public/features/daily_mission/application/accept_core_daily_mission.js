@@ -12,78 +12,145 @@ function requireDocumentId(value, fieldName) {
   return id;
 }
 
-function requireDateKey(value) {
-  const date = String(value ?? "").trim();
-
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    throw new Error("Daily mission date must use YYYY-MM-DD format.");
+function requireFunction(value, name) {
+  if (typeof value !== "function") {
+    throw new Error(`${name} must be a function.`);
   }
 
-  return date;
+  return value;
 }
 
-function normalizeAcceptance(value, expected) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("The daily mission acceptance response is invalid.");
-  }
+function createCodedError(code, message) {
+  const error = new Error(message);
 
-  const studentId = requireDocumentId(value.studentId, "studentId");
-  const practiceId = requireDocumentId(value.practiceId, "practiceId");
+  error.code = code;
+  return error;
+}
 
-  if (studentId !== expected.studentId) {
-    throw new Error(
-      "The daily mission acceptance has an unexpected studentId."
+function practiceMissionRoute(practice) {
+  if (!practice || !Array.isArray(practice.questions)) {
+    throw createCodedError(
+      "failed-precondition",
+      "The practice does not have a valid daily mission route."
     );
   }
 
-  if (practiceId !== expected.practiceId) {
-    throw new Error(
-      "The daily mission acceptance has an unexpected practiceId."
-    );
-  }
+  const syllabusIds = new Set();
+  const topicIds = new Set();
 
-  if (value.isAccepted !== true) {
-    throw new Error("The daily mission was not accepted.");
-  }
+  practice.questions.forEach((question) => {
+    const syllabusId = String(question?.syllabusId ?? "").trim();
+    const topicId = String(question?.topicId ?? "").trim();
 
-  if (typeof value.created !== "boolean") {
-    throw new Error(
-      "The daily mission acceptance has an invalid created value."
+    if (syllabusId) {
+      syllabusIds.add(syllabusId);
+    }
+
+    if (topicId) {
+      topicIds.add(topicId);
+    }
+  });
+
+  if (
+    practice.questions.length === 0
+    || syllabusIds.size !== 1
+    || topicIds.size !== 1
+  ) {
+    throw createCodedError(
+      "failed-precondition",
+      "A daily mission practice must belong to one syllabus and one topic."
     );
   }
 
   return Object.freeze({
-    studentId,
-    syllabusId: requireDocumentId(value.syllabusId, "syllabusId"),
-    topicId: requireDocumentId(value.topicId, "topicId"),
-    practiceId,
-    date: requireDateKey(value.date),
-    isAccepted: true,
-    created: value.created
+    syllabusId: [...syllabusIds][0],
+    topicId: [...topicIds][0]
   });
 }
 
 export class AcceptCoreDailyMission {
-  constructor(dailyMissionGateway) {
+  constructor({
+    dailyMissionRepository,
+    getNextCoreDailyMission,
+    getPracticeById
+  } = {}) {
     if (
-      !dailyMissionGateway
-      || typeof dailyMissionGateway.acceptCoreDailyMission !== "function"
+      !dailyMissionRepository
+      || typeof dailyMissionRepository.acceptCoreMission !== "function"
     ) {
-      throw new Error("dailyMissionGateway is required.");
+      throw new Error("dailyMissionRepository is required.");
     }
 
-    this.dailyMissionGateway = dailyMissionGateway;
+    this.dailyMissionRepository = dailyMissionRepository;
+    this.getNextCoreDailyMission = requireFunction(
+      getNextCoreDailyMission,
+      "getNextCoreDailyMission"
+    );
+    this.getPracticeById = requireFunction(
+      getPracticeById,
+      "getPracticeById"
+    );
   }
 
-  async execute({ studentId, practiceId } = {}) {
-    const input = {
-      studentId: requireDocumentId(studentId, "studentId"),
-      practiceId: requireDocumentId(practiceId, "practiceId")
-    };
-    const result = await this.dailyMissionGateway.acceptCoreDailyMission(
-      input
-    );
+  async execute({studentId, practiceId} = {}) {
+    const normalizedStudentId = requireDocumentId(studentId, "studentId");
+    const normalizedPracticeId = requireDocumentId(practiceId, "practiceId");
+    const practice = await this.getPracticeById(normalizedPracticeId);
 
-    return normalizeAcceptance(result, input);
+    if (!practice) {
+      throw createCodedError(
+        "not-found",
+        `Practice ${normalizedPracticeId} could not be found.`
+      );
+    }
+
+    const {syllabusId, topicId} = practiceMissionRoute(practice);
+    const mission = await this.getNextCoreDailyMission({
+      studentId: normalizedStudentId,
+      syllabusId
+    });
+
+    if (!mission) {
+      throw createCodedError(
+        "failed-precondition",
+        "No core daily mission is currently available for this syllabus."
+      );
+    }
+
+    if (
+      mission.practiceId !== normalizedPracticeId
+      || mission.topicId !== topicId
+    ) {
+      throw createCodedError(
+        "failed-precondition",
+        "The practice is not the student's current core daily mission."
+      );
+    }
+
+    const acceptance = await this.dailyMissionRepository.acceptCoreMission({
+      studentId: normalizedStudentId,
+      syllabusId,
+      topicId,
+      practiceId: normalizedPracticeId,
+      date: mission.date
+    });
+
+    if (typeof acceptance?.created !== "boolean") {
+      throw new Error("The daily mission acceptance result is invalid.");
+    }
+
+    return Object.freeze({
+      studentId: normalizedStudentId,
+      syllabusId,
+      topicId,
+      practiceId: normalizedPracticeId,
+      date: mission.date,
+      isAccepted: true,
+      created: acceptance.created
+    });
   }
 }
+
+export {
+  practiceMissionRoute
+};

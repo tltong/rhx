@@ -11,6 +11,7 @@ const {
 } = require("../../../schema/student_daily_mission_schema");
 const {
   ASSIGNED_PRACTICES_SUBCOLLECTION,
+  COMPLETED_PRACTICES_SUBCOLLECTION,
   STUDENT_PRACTICES_COLLECTION,
 } = require("../../../schema/student_practice_schema");
 const firebaseOps = require("../../../utils/firebase/firebase_ops");
@@ -126,6 +127,7 @@ function missionStatsTopicsCollectionPath(studentId, syllabusId) {
 
 class FirestoreDailyMissionRepository extends DailyMissionRepository {
   constructor({
+    deleteDocument = firebaseOps.deleteDocument,
     getDocumentRef = firebaseOps.getDocumentRef,
     getFirestoreDb = firebaseOps.getFirestoreDb,
     readCollection = firebaseOps.readCollection,
@@ -134,6 +136,7 @@ class FirestoreDailyMissionRepository extends DailyMissionRepository {
     readDocument = firebaseOps.readDocument,
   } = {}) {
     super();
+    this.deleteDocument = deleteDocument;
     this.getDocumentRef = getDocumentRef;
     this.getFirestoreDb = getFirestoreDb;
     this.readCollection = readCollection;
@@ -180,6 +183,21 @@ class FirestoreDailyMissionRepository extends DailyMissionRepository {
         "coreMission.practiceId",
       ),
     });
+  }
+
+  async isPracticeCompleted({studentId, practiceId} = {}) {
+    const normalizedStudentId = requireDocumentId(studentId, "studentId");
+    const normalizedPracticeId = requireDocumentId(practiceId, "practiceId");
+    const completedPractice = await this.readDocument(
+      [
+        STUDENT_PRACTICES_COLLECTION,
+        normalizedStudentId,
+        COMPLETED_PRACTICES_SUBCOLLECTION,
+      ].join("/"),
+      normalizedPracticeId,
+    );
+
+    return completedPractice !== null && completedPractice !== undefined;
   }
 
   async acceptAdditionalMission({
@@ -240,6 +258,57 @@ class FirestoreDailyMissionRepository extends DailyMissionRepository {
 
       if (practiceSnapshot.exists) {
         return Object.freeze({created: false});
+      }
+
+      const topicSnapshot = await transaction.get(
+        additionalTopicDocument,
+      );
+
+      if (topicSnapshot.exists) {
+        throw createCodedError(
+          "failed-precondition",
+          "An additional daily mission has already been accepted "
+            + `for topic ${normalizedTopicId}.`,
+        );
+      }
+
+      const syllabusSnapshot = await transaction.get(syllabusDocument);
+      const coreMission = syllabusSnapshot.exists
+        ? syllabusSnapshot.data()?.coreMission
+        : null;
+
+      if (!coreMission) {
+        throw createCodedError(
+          "failed-precondition",
+          "Complete today's Daily Mission for this subject first.",
+        );
+      }
+
+      const corePracticeId = requireDocumentId(
+        coreMission.practiceId,
+        "coreMission.practiceId",
+      );
+      const completedCorePractice = await transaction.get(this.getDocumentRef(
+        [
+          STUDENT_PRACTICES_COLLECTION,
+          normalizedStudentId,
+          COMPLETED_PRACTICES_SUBCOLLECTION,
+        ].join("/"),
+        corePracticeId,
+      ));
+
+      if (!completedCorePractice.exists) {
+        throw createCodedError(
+          "failed-precondition",
+          "Complete today's Daily Mission for this subject first.",
+        );
+      }
+
+      if (normalizedPracticeId === corePracticeId) {
+        throw createCodedError(
+          "failed-precondition",
+          "The Daily Mission practice cannot also be an Additional Mission.",
+        );
       }
 
       transaction.set(studentDocument, {}, {merge: true});
@@ -461,6 +530,53 @@ class FirestoreDailyMissionRepository extends DailyMissionRepository {
     });
   }
 
+  async isTopicPaused({
+    studentId,
+    syllabusId,
+    topicId,
+    currentDate,
+  } = {}) {
+    const normalizedStudentId = requireDocumentId(studentId, "studentId");
+    const normalizedSyllabusId = requireDocumentId(
+      syllabusId,
+      "syllabusId",
+    );
+    const normalizedTopicId = requireDocumentId(topicId, "topicId");
+    const normalizedCurrentDate = requireDateKey(currentDate);
+    const pausedTopic = await this.readDocument(
+      pausedTopicsCollectionPath(
+        normalizedStudentId,
+        normalizedSyllabusId,
+      ),
+      normalizedTopicId,
+    );
+
+    if (!pausedTopic) {
+      return false;
+    }
+
+    const pausedDate = requireDateKey(pausedTopic.pausedDate);
+
+    return !isPausedTopicExpired(pausedDate, normalizedCurrentDate);
+  }
+
+  async unpauseTopic({studentId, syllabusId, topicId} = {}) {
+    const normalizedStudentId = requireDocumentId(studentId, "studentId");
+    const normalizedSyllabusId = requireDocumentId(
+      syllabusId,
+      "syllabusId",
+    );
+    const normalizedTopicId = requireDocumentId(topicId, "topicId");
+
+    await this.deleteDocument(
+      pausedTopicsCollectionPath(
+        normalizedStudentId,
+        normalizedSyllabusId,
+      ),
+      normalizedTopicId,
+    );
+  }
+
   async checkPausedTopicValidity({
     studentId,
     syllabusId,
@@ -587,6 +703,24 @@ class FirestoreDailyMissionRepository extends DailyMissionRepository {
       .filter((candidate, index) => records[index] !== null)
       .map(({practiceId}) => practiceId)
       .sort((first, second) => first.localeCompare(second));
+  }
+
+  async listAcceptedAdditionalTopicIds({studentId, syllabusId, date} = {}) {
+    const normalizedStudentId = requireDocumentId(studentId, "studentId");
+    const normalizedSyllabusId = requireDocumentId(
+      syllabusId,
+      "syllabusId",
+    );
+    const normalizedDate = requireDateKey(date);
+    const topicIds = await this.readCollectionIds(
+      additionalTopicsCollectionPath(
+        normalizedStudentId,
+        normalizedDate,
+        normalizedSyllabusId,
+      ),
+    );
+
+    return [...topicIds].sort((first, second) => first.localeCompare(second));
   }
 
   async listPausedTopicIds({studentId, syllabusId} = {}) {

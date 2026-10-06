@@ -4,6 +4,13 @@ const test = require("node:test");
 const {
   CheckPausedTopicValidity,
 } = require("./application/check_paused_topic_validity");
+const {
+  checkPausedTopicValidity,
+} = require("./daily_mission_module");
+
+test("backend Daily Mission exposes internal pause validity", () => {
+  assert.equal(typeof checkPausedTopicValidity, "function");
+});
 
 test("checks the requested topic using the current date", async () => {
   const calls = [];

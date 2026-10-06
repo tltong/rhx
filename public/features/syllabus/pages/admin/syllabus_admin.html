@@ -123,6 +123,10 @@
             <span>Topic name</span>
             <input data-field="topicName" type="text" autocomplete="off">
           </label>
+          <label class="toggle-field">
+            <input data-field="pausable" type="checkbox" checked>
+            <span>Pausable</span>
+          </label>
           <button data-action="remove-topic" type="button" class="danger">Remove Topic</button>
         </div>
         <div data-role="subtopics" class="subtopics"></div>
@@ -144,7 +148,7 @@
       id="site-admin-page-loader"
       type="module"
       data-site-admin-page
-      data-page-module="./syllabus_admin.js?v=20260730-topic-pre-assessment"
+      data-page-module="./syllabus_admin.js?v=20261004-topic-pausable-v1"
       src="/features/site_admin/pages/common/site_admin_page_loader.js?v=20260827-site-admin-guard-v1"
     ></script>
   </body>

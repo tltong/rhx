@@ -13,6 +13,23 @@ const {
   "../features/practice_generator/practice_generator_module",
 );
 const {
+  calculateReadinessScore,
+  saveReadinessScore,
+} = require("../features/readiness/readiness_module");
+const {
+  completionProcessingOutcomes,
+} = require(
+  "../features/student_practice/domain/practice_completion_processing",
+);
+const {
+  completePracticeCompletionProcessing,
+  failPracticeCompletionProcessing,
+  markPracticeCompletionGenerating,
+  startPracticeCompletionProcessing,
+} = require(
+  "../features/student_practice/student_practice_module",
+);
+const {
   deepseekApiKey,
 } = require("../deepseek");
 const {
@@ -26,6 +43,13 @@ const COMPLETED_STUDENT_PRACTICE_DOCUMENT = [
   COMPLETED_PRACTICES_SUBCOLLECTION,
   "{practiceId}",
 ].join("/");
+const COMPLETION_PROCESSING_ERROR_CODE = "COMPLETION_PROCESSING_FAILED";
+const completionProcessingOperations = Object.freeze({
+  markProcessing: startPracticeCompletionProcessing,
+  markGenerating: markPracticeCompletionGenerating,
+  markCompleted: completePracticeCompletionProcessing,
+  markFailed: failPracticeCompletionProcessing,
+});
 
 function requireIdentifier(value, fieldName) {
   const identifier = String(value ?? "").trim();
@@ -44,6 +68,9 @@ async function assessCompletedStudentPractice({
 } = {}, {
   assessPractice = assessStudentPractice,
   generatePractice = generateAssessmentPractice,
+  calculateReadiness = calculateReadinessScore,
+  saveReadiness = saveReadinessScore,
+  processingRepository = completionProcessingOperations,
 } = {}) {
   const normalizedStudentId = requireIdentifier(studentId, "studentId");
   const normalizedPracticeId = requireIdentifier(practiceId, "practiceId");
@@ -56,6 +83,20 @@ async function assessCompletedStudentPractice({
   logger.info("Student practice completion received.", context);
 
   try {
+    const processing = await processingRepository.markProcessing(context);
+
+    if (processing?.shouldProcess === false) {
+      logger.info("Student practice completion was already processed.", {
+        ...context,
+      });
+
+      return Object.freeze({
+        assessment: null,
+        generation: null,
+        alreadyProcessed: true,
+      });
+    }
+
     logger.info("Student practice assessment started.", context);
     const assessment = await assessPractice({
       studentId: normalizedStudentId,
@@ -75,11 +116,48 @@ async function assessCompletedStudentPractice({
       isFrameworkCompleted: assessment?.isFrameworkCompleted === true,
     });
 
+    // Completion is already stored. Update readiness even when level progression
+    // is skipped or the framework is complete and no next practice is generated.
+    if (assessment?.syllabusId && assessment?.topicId) {
+      const readinessScope = {
+        studentId: normalizedStudentId,
+        syllabusId: requireIdentifier(assessment.syllabusId, "syllabusId"),
+        topicId: requireIdentifier(assessment.topicId, "topicId"),
+      };
+      logger.info("Student topic readiness calculation started.", {
+        ...context,
+        ...readinessScope,
+      });
+      const score = await calculateReadiness(readinessScope);
+
+      if (score !== null) {
+        const readiness = await saveReadiness({
+          ...readinessScope,
+          score,
+          practiceId: normalizedPracticeId,
+        });
+        logger.info("Student topic readiness saved.", {
+          ...context,
+          ...readinessScope,
+          score: readiness.score,
+        });
+      }
+    }
+
     if (
       !assessment
       || assessment.assessed !== true
       || assessment.isFrameworkCompleted === true
     ) {
+      const outcome = assessment?.isFrameworkCompleted === true
+        ? completionProcessingOutcomes.FRAMEWORK_COMPLETED
+        : completionProcessingOutcomes.PRACTICE_NOT_ASSESSED;
+
+      await processingRepository.markCompleted({
+        ...context,
+        generatedPracticeId: null,
+        outcome,
+      });
       logger.info("Next assessment practice generation skipped.", {
         ...context,
         reason: assessment?.isFrameworkCompleted === true
@@ -102,6 +180,7 @@ async function assessCompletedStudentPractice({
       topicId,
       levelId: assessment.levelId || null,
     });
+    await processingRepository.markGenerating(context);
 
     const generation = await generatePractice({
       studentId: normalizedStudentId,
@@ -115,12 +194,32 @@ async function assessCompletedStudentPractice({
       topicId,
       generatedPracticeId: generation?.practice?.id || null,
     });
+    await processingRepository.markCompleted({
+      ...context,
+      generatedPracticeId: generation?.practice?.id || null,
+      outcome: completionProcessingOutcomes.PRACTICE_GENERATED,
+    });
 
     return Object.freeze({
       assessment,
       generation,
     });
   } catch (error) {
+    try {
+      await processingRepository.markFailed({
+        ...context,
+        errorCode: COMPLETION_PROCESSING_ERROR_CODE,
+      });
+    } catch (statusError) {
+      logger.error("Practice completion failure status could not be saved.", {
+        ...context,
+        errorMessage: statusError instanceof Error
+          ? statusError.message
+          : String(statusError),
+        errorStack: statusError instanceof Error ? statusError.stack : null,
+      });
+    }
+
     logger.error("Student practice completion processing failed.", {
       ...context,
       errorMessage: error instanceof Error ? error.message : String(error),

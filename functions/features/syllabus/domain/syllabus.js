@@ -115,15 +115,25 @@ function normalizePreAssessmentPractices(preAssessmentPractices = {}) {
   return Object.freeze(normalizedPractices);
 }
 
+function requireBoolean(value, fieldName) {
+  if (typeof value !== "boolean") {
+    throw new Error(`${fieldName} must be a boolean.`);
+  }
+
+  return value;
+}
+
 class SyllabusTopic {
   constructor({
     id,
     topicName,
+    pausable = true,
     subtopics = {},
     preAssessmentPractices = {},
   }) {
     this.id = requireNonEmptyString(id, "topic id");
     this.topicName = requireNonEmptyString(topicName, "topicName");
+    this.pausable = requireBoolean(pausable, "pausable");
     this.subtopics = normalizeSubtopics(subtopics);
     this.preAssessmentPractices = normalizePreAssessmentPractices(
       preAssessmentPractices,

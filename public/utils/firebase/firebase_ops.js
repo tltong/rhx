@@ -164,6 +164,27 @@ export async function readDocument(collectionPath, documentId, options = {}) {
   return toDocumentData(snapshot, options);
 }
 
+export function watchDocument(
+  collectionPath,
+  documentId,
+  onChange,
+  onError = undefined,
+  options = {}
+) {
+  if (typeof onChange !== "function") {
+    throw new Error("onChange must be a function.");
+  }
+
+  if (onError !== undefined && typeof onError !== "function") {
+    throw new Error("onError must be a function when provided.");
+  }
+
+  return getDocumentRef(collectionPath, documentId).onSnapshot(
+    (snapshot) => onChange(toDocumentData(snapshot, options)),
+    onError
+  );
+}
+
 export async function readDocuments(documents, options = {}) {
   if (!Array.isArray(documents)) {
     throw new Error("documents must be an array.");
@@ -267,6 +288,7 @@ export default {
   createDocument,
   createDocumentIfAbsent,
   readDocument,
+  watchDocument,
   readDocuments,
   readCollection,
   readCollectionIds,

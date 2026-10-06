@@ -1,6 +1,6 @@
 import {
   FirestoreSyllabusRepository
-} from "./infrastructure/firestore_syllabus_repository.js?v=20260730-topic-pre-assessment";
+} from "./infrastructure/firestore_syllabus_repository.js?v=20261004-topic-pausable-v1";
 import {
   GetSyllabus
 } from "./application/get_syllabus.js?v=20260730-topic-pre-assessment";
@@ -12,7 +12,7 @@ import {
 } from "./application/list_syllabuses.js?v=20260730-topic-pre-assessment";
 import {
   CreateSyllabus
-} from "./application/create_syllabus.js?v=20260730-topic-pre-assessment";
+} from "./application/create_syllabus.js?v=20261004-topic-pausable-v1";
 import {
   UpdateSyllabus
 } from "./application/update_syllabus.js?v=20260730-topic-pre-assessment";
@@ -38,7 +38,12 @@ import {
   RemoveTopicPreAssessmentPractice
 } from "./application/remove_topic_pre_assessment_practice.js?v=20260730-topic-pre-assessment";
 
+import {
+  IsTopicPausable
+} from "./application/is_topic_pausable.js?v=20261004-topic-pausable-v1";
+
 const syllabusRepository = new FirestoreSyllabusRepository();
+const isTopicPausableUseCase = new IsTopicPausable(syllabusRepository);
 const getSyllabus = new GetSyllabus(syllabusRepository);
 const getSyllabusAssessmentFrameworkIdUseCase =
   new GetSyllabusAssessmentFrameworkId(syllabusRepository);
@@ -71,6 +76,15 @@ async function getSyllabusById(syllabusId) {
  */
 async function getSyllabusAssessmentFrameworkId(syllabusId) {
   return getSyllabusAssessmentFrameworkIdUseCase.execute(syllabusId);
+}
+
+/**
+ * @param {string} syllabusId
+ * @param {string} topicId
+ * @returns {Promise<boolean>} Missing pausable fields default to true.
+ */
+async function isTopicPausable(syllabusId, topicId) {
+  return isTopicPausableUseCase.execute(syllabusId, topicId);
 }
 
 async function listSyllabuses() {
@@ -149,6 +163,7 @@ async function removeTopicPreAssessmentPractice(
 export {
   getSyllabusById,
   getSyllabusAssessmentFrameworkId,
+  isTopicPausable,
   listSyllabuses,
   findSyllabusesByScope,
   createSyllabusRecord,

@@ -4,7 +4,7 @@ import {
   getSyllabusById,
   listSyllabuses,
   updateSyllabusRecord
-} from "../../syllabus_module.js?v=20260730-topic-pre-assessment";
+} from "../../syllabus_module.js?v=20261004-topic-pausable-v1";
 
 import {
   listSyllabusScopes
@@ -369,6 +369,7 @@ function addTopicRow(topic = {}) {
 
   row.dataset.topicId = topic.id || "";
   row.querySelector("[data-field='topicName']").value = topic.topicName || "";
+  row.querySelector("[data-field='pausable']").checked = topic.pausable ?? true;
   row.querySelector("[data-action='remove-topic']").addEventListener("click", () => {
     row.remove();
   });
@@ -508,6 +509,7 @@ function readTopics() {
       return {
         id: topicId,
         topicName,
+        pausable: topicRow.querySelector("[data-field='pausable']").checked,
         subtopics,
         preAssessmentPractices:
           existingTopic?.preAssessmentPractices || {}
