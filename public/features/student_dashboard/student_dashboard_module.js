@@ -5,8 +5,11 @@
  *     stream: {id, name}|null,
  *     syllabuses: Array<{
  *       syllabusId, subject, language, frameworkName,
+ *       readinessScore: number|null, readinessUnavailable: boolean,
+ *       reliabilityScore: number|null, reliabilityUnavailable: boolean,
  *       topics: Array<{
  *         readinessScore: number|null, readinessUnavailable: boolean,
+ *         reliabilityScore: number|null, reliabilityUnavailable: boolean,
  *         completedPractices: Array<{
  *           practiceId, dateCompleted, practiceType, difficulty, score
  *         }>
@@ -52,8 +55,13 @@ import {
   getStudentTopicLevel
 } from "../student_assessment_progress/student_assessment_progress_module.js?v=20260823-student-dashboard-v1";
 import {
-  getReadinessScore
-} from "../readiness/readiness_module.js?v=20261007-readiness-completion-v1";
+  getReadinessScore,
+  getSubjectReadinessScore
+} from "../readiness/readiness_module.js?v=20261008-subject-readiness-v2";
+import {
+  getTopicReliabilityScore,
+  getSubjectReliabilityScore
+} from "../reliability/reliability_module.js?v=20261008-reliability-v1";
 import {
   listCompletedPractices
 } from "../student_practice/student_practice_module.js?v=20260824-completed-practices";
@@ -71,7 +79,7 @@ import {
 } from "../syllabus_subscription/syllabus_subscription_module.js?v=20260823-student-dashboard-v1";
 import {
   GetStudentDashboard
-} from "./application/get_student_dashboard.js?v=20261007-topic-readiness-v1";
+} from "./application/get_student_dashboard.js?v=20261009-reliability-landing-v1";
 import {
   createSyllabusProgressPane,
   renderSyllabusProgressPane
@@ -89,6 +97,9 @@ const getStudentDashboardUseCase = new GetStudentDashboard({
   preAssessmentPracticeType: practiceTypes.PRE_ASSESSMENT,
   getStudentTopicLevel,
   getReadinessScore,
+  getSubjectReadinessScore,
+  getTopicReliabilityScore,
+  getSubjectReliabilityScore,
   getAssessmentFrameworkById,
   endLevelId: ASSESSMENT_FRAMEWORK_END_LEVEL_ID
 });

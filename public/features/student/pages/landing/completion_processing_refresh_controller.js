@@ -46,7 +46,7 @@ export class CompletionProcessingRefreshController {
     this.identity = {studentId, practiceId, syllabusId, topicId};
     this.setProcessingActive(true, this.identity);
     this.setStatus(
-      "Updating your level and readiness, and preparing your next practice..."
+      "Updating your level, readiness and reliability, and preparing your next practice..."
     );
     this.unsubscribe = this.watchPracticeCompletionProcessing({
       studentId,
@@ -99,7 +99,7 @@ export class CompletionProcessingRefreshController {
       try {
         await this.refreshDashboard(this.identity);
         if (processingFailed) {
-          // Readiness can have been saved before next-practice generation failed.
+          // Readiness and reliability can be saved before next-practice generation fails.
           // Keep the completion context so a later visit can observe a retry.
           this.setStatus(failureMessage, {isError: true});
         } else {
@@ -124,7 +124,7 @@ export class CompletionProcessingRefreshController {
       return;
     }
 
-    this.setStatus("Updating your topic level and readiness...");
+    this.setStatus("Updating your topic level, readiness and reliability...");
   }
 
   handleError(error) {

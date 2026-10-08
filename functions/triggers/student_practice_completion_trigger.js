@@ -15,7 +15,15 @@ const {
 const {
   calculateReadinessScore,
   saveReadinessScore,
+  calculateSubjectReadinessScore,
+  saveSubjectReadinessScore,
 } = require("../features/readiness/readiness_module");
+const {
+  calculateTopicReliabilityScore,
+  saveTopicReliabilityScore,
+  calculateSubjectReliabilityScore,
+  saveSubjectReliabilityScore,
+} = require("../features/reliability/reliability_module");
 const {
   completionProcessingOutcomes,
 } = require(
@@ -70,6 +78,12 @@ async function assessCompletedStudentPractice({
   generatePractice = generateAssessmentPractice,
   calculateReadiness = calculateReadinessScore,
   saveReadiness = saveReadinessScore,
+  calculateSubjectReadiness = calculateSubjectReadinessScore,
+  saveSubjectReadiness = saveSubjectReadinessScore,
+  calculateTopicReliability = calculateTopicReliabilityScore,
+  saveTopicReliability = saveTopicReliabilityScore,
+  calculateSubjectReliability = calculateSubjectReliabilityScore,
+  saveSubjectReliability = saveSubjectReliabilityScore,
   processingRepository = completionProcessingOperations,
 } = {}) {
   const normalizedStudentId = requireIdentifier(studentId, "studentId");
@@ -140,6 +154,80 @@ async function assessCompletedStudentPractice({
           ...context,
           ...readinessScope,
           score: readiness.score,
+        });
+
+        // Read the subject's latest topic scores only after this topic save resolves.
+        const subjectReadinessScope = {
+          studentId: normalizedStudentId,
+          syllabusId: readinessScope.syllabusId,
+        };
+        logger.info("Student subject readiness calculation started.", {
+          ...context,
+          ...subjectReadinessScope,
+        });
+        const subjectScore = await calculateSubjectReadiness(subjectReadinessScope);
+        if (subjectScore !== null) {
+          const subjectReadiness = await saveSubjectReadiness({
+            ...subjectReadinessScope,
+            score: subjectScore,
+            practiceId: normalizedPracticeId,
+          });
+          logger.info("Student subject readiness saved.", {
+            ...context,
+            ...subjectReadinessScope,
+            score: subjectReadiness.score,
+          });
+        }
+      }
+    }
+
+    // Reliability counts completed practices independently of readiness and
+    // progression. Recalculate totals so redeliveries never increment a counter.
+    if (assessment?.syllabusId && assessment?.topicId) {
+      const reliabilityScope = {
+        studentId: normalizedStudentId,
+        syllabusId: requireIdentifier(assessment.syllabusId, "syllabusId"),
+        topicId: requireIdentifier(assessment.topicId, "topicId"),
+      };
+      logger.info("Student topic reliability calculation started.", {
+        ...context,
+        ...reliabilityScope,
+      });
+      const {score, completedPracticeCount} =
+        await calculateTopicReliability(reliabilityScope);
+      const reliability = await saveTopicReliability({
+        ...reliabilityScope,
+        score,
+        completedPracticeCount,
+      });
+      logger.info("Student topic reliability saved.", {
+        ...context,
+        ...reliabilityScope,
+        score: reliability.score,
+        completedPracticeCount: reliability.completedPracticeCount,
+      });
+
+      // Subject calculation reads the newly saved topic score and includes
+      // every current syllabus topic, with missing topic scores contributing zero.
+      const subjectReliabilityScope = {
+        studentId: normalizedStudentId,
+        syllabusId: reliabilityScope.syllabusId,
+      };
+      logger.info("Student subject reliability calculation started.", {
+        ...context,
+        ...subjectReliabilityScope,
+      });
+      const subjectScore =
+        await calculateSubjectReliability(subjectReliabilityScope);
+      if (subjectScore !== null) {
+        const subjectReliability = await saveSubjectReliability({
+          ...subjectReliabilityScope,
+          score: subjectScore,
+        });
+        logger.info("Student subject reliability saved.", {
+          ...context,
+          ...subjectReliabilityScope,
+          score: subjectReliability.score,
         });
       }
     }

@@ -20,7 +20,7 @@ class Element {
 
 const flatten = (element) => [element, ...element.children.flatMap(flatten)];
 const script = await readFile(new URL("./landing.js", import.meta.url), "utf8");
-const functions = ["formatReadinessScore", "createMetric", "createTopicRow"].map((name) => {
+const functions = ["formatReadinessScore", "formatReliabilityScore", "createMetric", "createTopicRow", "createSyllabusPanel"].map((name) => {
   const match = script.match(new RegExp("function " + name + "\\([\\s\\S]*?\\n}"));
   assert.ok(match, name + " must exist");
   return match[0];
@@ -74,3 +74,85 @@ test("read failures show Unavailable instead of implying that no readiness exist
   assert.equal(renderReadiness({readinessScore: null, readinessUnavailable: true}), "Unavailable");
 });
 
+function renderSubjectReadiness(changes = {}) {
+  const panel = scope.createSyllabusPanel({
+    syllabusId: "math", subject: "Mathematics", language: "English",
+    topics: [{
+      topicId: "topic-1", topicName: "Fractions", preAssessmentState: "completed",
+      currentLevelName: "Developing", nextLevelName: "Secure", finalLevelName: "Ready",
+      progressPercentage: 50, totalLevelCount: 4, completedPractices: [], readinessScore: 70
+    }],
+    ...changes
+  }, "student-1");
+  const heading = panel.children.find(({className}) => className === "syllabus-heading");
+  const metric = flatten(heading).find(({className}) => className === "subject-readiness");
+  assert.ok(metric, "Each syllabus heading must include subject readiness");
+  assert.equal(flatten(heading).filter(({textContent}) => textContent === "Subject readiness score").length, 1);
+  assert.ok(flatten(heading).some(({textContent}) => textContent === "Mathematics"));
+  assert.ok(flatten(heading).some(({textContent}) => textContent === "English"));
+  return {
+    panel,
+    value: metric.children.find(({className}) => className === "metric-value").textContent
+  };
+}
+
+test("syllabus headings display saved subject readiness with the same formatting as topic scores", () => {
+  for (const [readinessScore, expected] of [[0, "0"], [80, "80"], [80.5, "80.5"], [105.625, "105.63"], [175, "175"]]) {
+    const {panel, value} = renderSubjectReadiness({readinessScore});
+    assert.equal(value, expected);
+    const topicRow = flatten(panel).find(({className}) => className === "topic-row");
+    assert.ok(flatten(topicRow).some(({textContent}) => textContent === "70"));
+  }
+});
+
+test("subject readiness distinguishes missing saved scores from unavailable reads", () => {
+  assert.equal(renderSubjectReadiness({readinessScore: null}).value, "No score yet");
+  assert.equal(renderSubjectReadiness({readinessScore: null, readinessUnavailable: true}).value, "Unavailable");
+});
+
+test("subject readiness remains visible for syllabuses without topics or a configured framework", () => {
+  const {panel, value} = renderSubjectReadiness({readinessScore: 50, topics: [], error: "Assessment framework is not configured."});
+  assert.equal(value, "50");
+  assert.ok(flatten(panel).some(({textContent}) => textContent === "No topics are configured for this syllabus."));
+  assert.ok(flatten(panel).some(({textContent}) => textContent === "Assessment framework is not configured."));
+});
+
+function renderReliability({topicScore, subjectScore, topicUnavailable = false, subjectUnavailable = false} = {}) {
+  const panel = scope.createSyllabusPanel({
+    syllabusId: "math", subject: "Mathematics", language: "English", readinessScore: 175,
+    reliabilityScore: subjectScore, reliabilityUnavailable: subjectUnavailable,
+    topics: [{
+      topicId: "topic-1", topicName: "Fractions", preAssessmentState: "completed",
+      currentLevelName: "Developing", nextLevelName: "Secure", finalLevelName: "Ready",
+      progressPercentage: 50, totalLevelCount: 4, completedPractices: [], readinessScore: 70,
+      reliabilityScore: topicScore, reliabilityUnavailable: topicUnavailable
+    }]
+  }, "student-1");
+  const elements = flatten(panel);
+  const metricValue = (label) => {
+    const matches = elements.filter((element) => element.children.some(({textContent}) => textContent === label));
+    assert.equal(matches.length, 1, label + " must appear exactly once");
+    return matches[0].children.find(({className}) => className === "metric-value").textContent;
+  };
+  assert.equal(metricValue("Subject readiness score"), "175");
+  assert.equal(metricValue("Readiness score"), "70");
+  return {topic: metricValue("Reliability score"), subject: metricValue("Subject reliability score")};
+}
+
+test("topic and subject reliability display percentages, including zero and 100%, to at most two decimals", () => {
+  for (const [score, expected] of [[0, "0%"], [10, "10%"], [17.5, "17.5%"], [33.333333, "33.33%"], [100, "100%"]]) {
+    assert.deepEqual(renderReliability({topicScore: score, subjectScore: score}), {topic: expected, subject: expected});
+  }
+});
+
+test("topic and subject reliability distinguish missing scores from failed reads without affecting readiness", () => {
+  assert.deepEqual(renderReliability(), {topic: "No score yet", subject: "No score yet"});
+  assert.deepEqual(renderReliability({topicUnavailable: true, subjectScore: 40}), {topic: "Unavailable", subject: "40%"});
+  assert.deepEqual(renderReliability({topicScore: 60, subjectUnavailable: true}), {topic: "60%", subject: "Unavailable"});
+});
+
+test("invalid reliability values are not presented as valid percentages", () => {
+  for (const score of [-1, 101, NaN, Infinity, "50"]) {
+    assert.deepEqual(renderReliability({topicScore: score, subjectScore: score}), {topic: "No score yet", subject: "No score yet"});
+  }
+});

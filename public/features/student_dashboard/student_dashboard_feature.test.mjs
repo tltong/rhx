@@ -58,6 +58,9 @@ test("an unfinished pre-assessment has no determined level", () => {
 test("student dashboard combines progress and practice history", async () => {
   const levelReads = [];
   const readinessReads = [];
+  const subjectReadinessReads = [];
+  const reliabilityReads = [];
+  const subjectReliabilityReads = [];
   const difficultyReads = [];
   const practices = {
     "practice-1": {
@@ -145,6 +148,18 @@ test("student dashboard combines progress and practice history", async () => {
       readinessReads.push(scope);
       return scope.topicId === "topic-1" ? {score: 105.625} : null;
     },
+    getSubjectReadinessScore: async (scope) => {
+      subjectReadinessReads.push(scope);
+      return {score: 95.875};
+    },
+    getTopicReliabilityScore: async (scope) => {
+      reliabilityReads.push(scope);
+      return scope.topicId === "topic-1" ? {score: 20} : null;
+    },
+    getSubjectReliabilityScore: async (scope) => {
+      subjectReliabilityReads.push(scope);
+      return {score: 10};
+    },
     getAssessmentFrameworkById: async () => framework,
     endLevelId: "endLevel",
     now: () => new Date("2026-08-24T00:00:00.000Z"),
@@ -182,9 +197,25 @@ test("student dashboard combines progress and practice history", async () => {
     {studentId: "student-1", syllabusId: "syllabus-1", topicId: "topic-1"},
     {studentId: "student-1", syllabusId: "syllabus-1", topicId: "topic-2"}
   ]);
+  assert.equal(dashboard.syllabuses[0].readinessScore, 95.875);
+  assert.equal(dashboard.syllabuses[0].readinessUnavailable, false);
+  assert.deepEqual(subjectReadinessReads, [{studentId: "student-1", syllabusId: "syllabus-1"}]);
+  assert.equal(numbers.reliabilityScore, 20);
+  assert.equal(numbers.reliabilityUnavailable, false);
+  assert.equal(shapes.reliabilityScore, null);
+  assert.equal(shapes.reliabilityUnavailable, false);
+  assert.deepEqual(reliabilityReads, readinessReads);
+  assert.equal(dashboard.syllabuses[0].reliabilityScore, 10);
+  assert.equal(dashboard.syllabuses[0].reliabilityUnavailable, false);
+  assert.deepEqual(subjectReliabilityReads, subjectReadinessReads);
 });
 
-function dashboardFixture(getReadinessScore) {
+function dashboardFixture(
+  getReadinessScore,
+  getSubjectReadinessScore = async () => null,
+  getTopicReliabilityScore = async () => null,
+  getSubjectReliabilityScore = async () => null
+) {
   return new GetStudentDashboard({
     getStudentById: async (id) => ({
       id, name: "Student", country: "Malaysia", level: "primary",
@@ -209,6 +240,9 @@ function dashboardFixture(getReadinessScore) {
     preAssessmentPracticeType: "pre assessment",
     getStudentTopicLevel: async () => null,
     getReadinessScore,
+    getSubjectReadinessScore,
+    getTopicReliabilityScore,
+    getSubjectReliabilityScore,
     getAssessmentFrameworkById: async () => framework,
     endLevelId: "endLevel",
     now: () => new Date("2026-10-07")
@@ -217,25 +251,83 @@ function dashboardFixture(getReadinessScore) {
 
 test("dashboard readiness reads are scoped to the requested student and syllabus even before first assessment", async () => {
   const reads = [];
+  const subjectReads = [];
   const dashboard = await dashboardFixture(async (scope) => {
     reads.push(scope);
     return {score: scope.syllabusId === "math" ? 0 : 175};
+  }, async (scope) => {
+    subjectReads.push(scope);
+    return {score: scope.syllabusId === "math" ? 0 : 140};
   }).execute("student-2");
   assert.equal(reads.length, 4);
   assert.ok(reads.every(({studentId}) => studentId === "student-2"));
   assert.deepEqual(dashboard.syllabuses.map(({topics}) => topics.map(({readinessScore}) => readinessScore)), [
     [0, 0], [175, 175]
   ]);
+  assert.deepEqual(subjectReads, [
+    {studentId: "student-2", syllabusId: "math"},
+    {studentId: "student-2", syllabusId: "science"}
+  ]);
+  assert.deepEqual(dashboard.syllabuses.map(({readinessScore}) => readinessScore), [0, 140]);
 });
 
 test("dashboard refresh reads newly saved readiness instead of keeping the initial value", async () => {
   let score = 40;
-  const useCase = dashboardFixture(async () => ({score}));
+  let subjectScore = 70;
+  const useCase = dashboardFixture(async () => ({score}), async () => ({score: subjectScore}));
   const initial = await useCase.execute("student-1");
   score = 85.25;
+  subjectScore = 91.375;
   const refreshed = await useCase.execute("student-1");
   assert.equal(initial.syllabuses[0].topics[0].readinessScore, 40);
   assert.equal(refreshed.syllabuses[0].topics[0].readinessScore, 85.25);
+  assert.equal(initial.syllabuses[0].readinessScore, 70);
+  assert.equal(refreshed.syllabuses[0].readinessScore, 91.375);
+});
+
+test("a failed subject readiness read leaves topics and other subjects available", async () => {
+  const dashboard = await dashboardFixture(async () => ({score: 80}), async ({syllabusId}) => {
+    if (syllabusId === "math") throw new Error("subject read failed");
+    return {score: 65.5};
+  }).execute("student-1");
+  const [math, science] = dashboard.syllabuses;
+  assert.equal(math.readinessScore, null);
+  assert.equal(math.readinessUnavailable, true);
+  assert.equal(math.topics[0].readinessScore, 80);
+  assert.equal(math.topics[0].readinessUnavailable, false);
+  assert.equal(math.topics[0].currentLevelName, "Not determined");
+  assert.equal(science.readinessScore, 65.5);
+  assert.equal(science.readinessUnavailable, false);
+});
+
+test("missing saved subject readiness is distinct from a failed read", async () => {
+  const dashboard = await dashboardFixture(async () => ({score: 80}), async () => null).execute("student-1");
+  for (const syllabus of dashboard.syllabuses) {
+    assert.equal(syllabus.readinessScore, null);
+    assert.equal(syllabus.readinessUnavailable, false);
+    assert.equal(syllabus.topics[0].readinessScore, 80);
+  }
+});
+
+test("a missing syllabus reports unavailable readiness without reading unrelated scores", async () => {
+  let subjectReads = 0;
+  const useCase = dashboardFixture(async () => { throw new Error("must not read a topic"); }, async () => {
+    subjectReads++;
+    return {score: 80};
+  });
+  useCase.getSyllabusById = async () => null;
+  useCase.getTopicReliabilityScore = async () => { throw new Error("must not read a topic"); };
+  useCase.getSubjectReliabilityScore = async () => { subjectReads++; return {score: 10}; };
+  const dashboard = await useCase.execute("student-1");
+  assert.equal(subjectReads, 0);
+  for (const syllabus of dashboard.syllabuses) {
+    assert.equal(syllabus.readinessScore, null);
+    assert.equal(syllabus.readinessUnavailable, true);
+    assert.equal(syllabus.reliabilityScore, null);
+    assert.equal(syllabus.reliabilityUnavailable, true);
+    assert.match(syllabus.error, /Syllabus details/);
+    assert.deepEqual(syllabus.topics, []);
+  }
 });
 
 test("a failed readiness read affects only that topic and is distinct from no stored score", async () => {
@@ -252,4 +344,83 @@ test("a failed readiness read affects only that topic and is distinct from no st
   assert.equal(math.topics[1].readinessScore, null);
   assert.equal(science.topics[0].readinessScore, 65);
   assert.equal(science.topics[0].readinessUnavailable, false);
+});
+
+test("dashboard reliability reads use the requested student and syllabus, including unassessed topics", async () => {
+  const topicReads = [];
+  const subjectReads = [];
+  const dashboard = await dashboardFixture(async () => ({score: 80}), async () => ({score: 75}), async (scope) => {
+    topicReads.push(scope);
+    return {score: scope.syllabusId === "math" ? 0 : 100};
+  }, async (scope) => {
+    subjectReads.push(scope);
+    return {score: scope.syllabusId === "math" ? 0 : 50};
+  }).execute("student-2");
+  assert.deepEqual(topicReads, [
+    {studentId: "student-2", syllabusId: "math", topicId: "shared-topic"},
+    {studentId: "student-2", syllabusId: "math", topicId: "second-topic"},
+    {studentId: "student-2", syllabusId: "science", topicId: "shared-topic"},
+    {studentId: "student-2", syllabusId: "science", topicId: "second-topic"},
+  ]);
+  assert.deepEqual(subjectReads, [
+    {studentId: "student-2", syllabusId: "math"},
+    {studentId: "student-2", syllabusId: "science"},
+  ]);
+  assert.deepEqual(dashboard.syllabuses.map(({reliabilityScore}) => reliabilityScore), [0, 50]);
+  assert.deepEqual(dashboard.syllabuses.map(({topics}) => topics.map(({reliabilityScore}) => reliabilityScore)), [[0, 0], [100, 100]]);
+  assert.ok(dashboard.syllabuses.every((syllabus) => !syllabus.reliabilityUnavailable));
+  assert.ok(dashboard.syllabuses.flatMap(({topics}) => topics).every((topic) => !topic.reliabilityUnavailable));
+});
+
+test("dashboard reloads both reliability levels after new scores are saved", async () => {
+  let topicScore = 10;
+  let subjectScore = 5;
+  const useCase = dashboardFixture(async () => ({score: 80}), async () => ({score: 75}),
+    async () => ({score: topicScore}), async () => ({score: subjectScore}));
+  const initial = await useCase.execute("student-1");
+  topicScore = 20;
+  subjectScore = 10;
+  const refreshed = await useCase.execute("student-1");
+  assert.equal(initial.syllabuses[0].topics[0].reliabilityScore, 10);
+  assert.equal(refreshed.syllabuses[0].topics[0].reliabilityScore, 20);
+  assert.equal(initial.syllabuses[0].reliabilityScore, 5);
+  assert.equal(refreshed.syllabuses[0].reliabilityScore, 10);
+  assert.equal(refreshed.syllabuses[0].readinessScore, 75);
+});
+
+test("reliability read failures affect only their topic or subject while readiness and progress remain visible", async () => {
+  const dashboard = await dashboardFixture(async () => ({score: 80}), async () => ({score: 75}), async ({syllabusId, topicId}) => {
+    if (syllabusId === "math" && topicId === "shared-topic") throw new Error("topic reliability read failed");
+    return topicId === "second-topic" ? null : {score: 40};
+  }, async ({syllabusId}) => {
+    if (syllabusId === "math") throw new Error("subject reliability read failed");
+    return {score: 20};
+  }).execute("student-1");
+  const [math, science] = dashboard.syllabuses;
+  assert.equal(math.reliabilityScore, null);
+  assert.equal(math.reliabilityUnavailable, true);
+  assert.equal(math.topics[0].reliabilityScore, null);
+  assert.equal(math.topics[0].reliabilityUnavailable, true);
+  assert.equal(math.topics[1].reliabilityScore, null);
+  assert.equal(math.topics[1].reliabilityUnavailable, false);
+  assert.equal(math.topics[0].readinessScore, 80);
+  assert.equal(math.topics[0].currentLevelName, "Not determined");
+  assert.equal(math.readinessScore, 75);
+  assert.equal(science.reliabilityScore, 20);
+  assert.equal(science.reliabilityUnavailable, false);
+  assert.equal(science.topics[0].reliabilityScore, 40);
+  assert.equal(science.topics[0].reliabilityUnavailable, false);
+});
+
+test("no saved reliability score is distinct from a failed read at both levels", async () => {
+  const dashboard = await dashboardFixture(async () => ({score: 80})).execute("student-1");
+  for (const syllabus of dashboard.syllabuses) {
+    assert.equal(syllabus.reliabilityScore, null);
+    assert.equal(syllabus.reliabilityUnavailable, false);
+    for (const topic of syllabus.topics) {
+      assert.equal(topic.reliabilityScore, null);
+      assert.equal(topic.reliabilityUnavailable, false);
+      assert.equal(topic.readinessScore, 80);
+    }
+  }
 });

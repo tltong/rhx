@@ -5,8 +5,9 @@ const API_NAMES = [
   "getReadinessConfig", "saveReadinessConfig", "getDifficultyWeight",
   "getReadinessPracticeCount", "setReadinessPracticeCount",
   "getPreAssessmentWeight", "setPreAssessmentWeight",
-  "calculateReadinessScore", "saveReadinessScore",
+  "calculateReadinessScore", "calculateSubjectReadinessScore", "saveReadinessScore",
   "getReadinessScore", "getReadinessScoreHistory",
+  "saveSubjectReadinessScore", "getSubjectReadinessScore", "getSubjectReadinessScoreHistory",
 ];
 
 test("readiness APIs are feature-module exports and are absent from the Firebase Functions entry point", () => {

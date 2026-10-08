@@ -54,6 +54,10 @@ function createMissingSyllabusSummary(subscription) {
     syllabusId: subscription.syllabusId,
     subject: subscription.syllabusId,
     language: subscription.language,
+    readinessScore: null,
+    readinessUnavailable: true,
+    reliabilityScore: null,
+    reliabilityUnavailable: true,
     topics: [],
     error: "Syllabus details could not be loaded."
   };
@@ -167,6 +171,9 @@ export class GetStudentDashboard {
     preAssessmentPracticeType,
     getStudentTopicLevel,
     getReadinessScore,
+    getSubjectReadinessScore,
+    getTopicReliabilityScore,
+    getSubjectReliabilityScore,
     getAssessmentFrameworkById,
     endLevelId,
     now = () => new Date()
@@ -183,6 +190,9 @@ export class GetStudentDashboard {
     this.preAssessmentPracticeType = preAssessmentPracticeType;
     this.getStudentTopicLevel = getStudentTopicLevel;
     this.getReadinessScore = getReadinessScore;
+    this.getSubjectReadinessScore = getSubjectReadinessScore;
+    this.getTopicReliabilityScore = getTopicReliabilityScore;
+    this.getSubjectReliabilityScore = getSubjectReliabilityScore;
     this.getAssessmentFrameworkById = getAssessmentFrameworkById;
     this.endLevelId = endLevelId;
     this.now = now;
@@ -198,6 +208,43 @@ export class GetStudentDashboard {
     } catch {
       // A readiness read failure must not hide the student's other progress.
       return {readinessScore: null, readinessUnavailable: true};
+    }
+  }
+
+  async getSubjectReadiness(scope) {
+    try {
+      const readiness = await this.getSubjectReadinessScore(scope);
+      return {
+        readinessScore: readiness?.score ?? null,
+        readinessUnavailable: false
+      };
+    } catch {
+      return {readinessScore: null, readinessUnavailable: true};
+    }
+  }
+
+  async getTopicReliability(scope) {
+    try {
+      const reliability = await this.getTopicReliabilityScore(scope);
+      return {
+        reliabilityScore: reliability?.score ?? null,
+        reliabilityUnavailable: false
+      };
+    } catch {
+      return {reliabilityScore: null, reliabilityUnavailable: true};
+    }
+  }
+
+  async getSubjectReliability(scope) {
+    try {
+      const reliability = await this.getSubjectReliabilityScore(scope);
+      return {
+        reliabilityScore: reliability?.score ?? null,
+        reliabilityUnavailable: false
+      };
+    } catch {
+      // Score read failures must leave the student's other progress available.
+      return {reliabilityScore: null, reliabilityUnavailable: true};
     }
   }
 
@@ -260,7 +307,11 @@ export class GetStudentDashboard {
           return createMissingSyllabusSummary(subscription);
         }
 
-        const framework = await getFramework(syllabus.assessmentFrameworkId);
+        const [framework, subjectReadiness, subjectReliability] = await Promise.all([
+          getFramework(syllabus.assessmentFrameworkId),
+          this.getSubjectReadiness({studentId, syllabusId: syllabus.id}),
+          this.getSubjectReliability({studentId, syllabusId: syllabus.id})
+        ]);
         const topics = await Promise.all((syllabus.topics || []).map(
           async (topic) => {
             const preAssessment = findTopicPreAssessment(
@@ -272,9 +323,10 @@ export class GetStudentDashboard {
               && completedPracticeIdSet.has(preAssessment.practiceId)
             );
             const scope = {studentId, syllabusId: syllabus.id, topicId: topic.id};
-            const [currentLevelId, readiness] = await Promise.all([
+            const [currentLevelId, readiness, reliability] = await Promise.all([
               preAssessmentCompleted ? this.getStudentTopicLevel(scope) : null,
-              this.getTopicReadiness(scope)
+              this.getTopicReadiness(scope),
+              this.getTopicReliability(scope)
             ]);
             const progress = summarizeTopicProgress({
               hasPreAssessment: Boolean(preAssessment?.practiceId),
@@ -292,6 +344,7 @@ export class GetStudentDashboard {
               completedPractices:
                 completedPracticesByTopic.get(topicKey) || [],
               ...readiness,
+              ...reliability,
               ...progress
             };
           }
@@ -303,6 +356,8 @@ export class GetStudentDashboard {
           language: subscription.language,
           assessmentFrameworkId: syllabus.assessmentFrameworkId,
           frameworkName: framework?.name || null,
+          ...subjectReadiness,
+          ...subjectReliability,
           topics: topics.sort((first, second) => (
             first.topicName.localeCompare(second.topicName)
           )),

@@ -7,10 +7,16 @@ function requireIdentifier(value, fieldName) {
   return value.trim();
 }
 
-function requireTopicScope(input) {
+function requireSubjectScope(input) {
   return {
     studentId: requireIdentifier(input?.studentId, "studentId"),
     syllabusId: requireIdentifier(input?.syllabusId, "syllabusId"),
+  };
+}
+
+function requireTopicScope(input) {
+  return {
+    ...requireSubjectScope(input),
     topicId: requireIdentifier(input?.topicId, "topicId"),
   };
 }
@@ -59,4 +65,4 @@ class ReadinessScoreHistoryEntry {
   }
 }
 
-export {requireTopicScope, requireReadinessScore, requireTimestamp, normalizeSourcePracticeId, ReadinessScore, ReadinessScoreHistoryEntry};
+export {requireSubjectScope, requireTopicScope, requireReadinessScore, requireTimestamp, normalizeSourcePracticeId, ReadinessScore, ReadinessScoreHistoryEntry};

@@ -12,6 +12,10 @@
  *   Averages score times weight for the latest configured N practices of this topic.
  *   Uses available practices when fewer than N; returns null when none exist.
  *   Requires saved configuration. Does not persist or cap the result at 100.
+ * calculateSubjectReadinessScore({studentId, syllabusId}) -> Promise<number|null>
+ *   Equally averages the latest saved scores of current syllabus topics.
+ *   Includes zero, excludes missing scores, and returns null when none exist.
+ *   Throws not-found for an unknown syllabus. Does not recalculate topics or persist.
  * saveReadinessScore({studentId, syllabusId, topicId, score, practiceId?}) -> Promise<ReadinessScore>
  *   Atomically updates the latest score and appends history.
  *   Supplying practiceId retains one entry per completion; retries return the
@@ -19,6 +23,12 @@
  *   Without practiceId, every save appends a new history entry.
  * getReadinessScore({studentId, syllabusId, topicId}) -> Promise<ReadinessScore|null>
  * getReadinessScoreHistory({studentId, syllabusId, topicId})
+ *   -> Promise<ReadinessScoreHistoryEntry[]> sorted newest first.
+ * saveSubjectReadinessScore({studentId, syllabusId, score, practiceId?}) -> Promise<ReadinessScore>
+ *   Atomically updates the latest subject score and appends subject history.
+ *   The same practiceId retry rules apply as for topic score saves.
+ * getSubjectReadinessScore({studentId, syllabusId}) -> Promise<ReadinessScore|null>
+ * getSubjectReadinessScoreHistory({studentId, syllabusId})
  *   -> Promise<ReadinessScoreHistoryEntry[]> sorted newest first.
  * ReadinessScore: {score: number, updatedAt: Date}
  * ReadinessScoreHistoryEntry: {id: string, score: number, savedAt: Date, practiceId?: string}
@@ -36,13 +46,18 @@ const {SaveReadinessConfig} = require("./application/save_readiness_config");
 const {GetDifficultyWeight} = require("./application/get_difficulty_weight");
 const {GetReadinessParameter} = require("./application/get_readiness_parameter");
 const {CalculateReadinessScore} = require("./application/calculate_readiness_score");
+const {CalculateSubjectReadinessScore} = require("./application/calculate_subject_readiness_score");
 const {SaveReadinessScore} = require("./application/save_readiness_score");
 const {GetReadinessScore} = require("./application/get_readiness_score");
 const {GetReadinessScoreHistory} = require("./application/get_readiness_score_history");
+const {SaveSubjectReadinessScore} = require("./application/save_subject_readiness_score");
+const {GetSubjectReadinessScore} = require("./application/get_subject_readiness_score");
+const {GetSubjectReadinessScoreHistory} = require("./application/get_subject_readiness_score_history");
 const {FirestoreReadinessScoreRepository} = require("./infrastructure/firestore_readiness_score_repository");
 const {listCompletedPractices} = require("../student_practice/student_practice_module");
 const {getPracticeById, practiceTypes} = require("../practice/practice_module");
 const {getQuestionDifficulty} = require("../question/question_module");
+const {getSyllabusById} = require("../syllabus/syllabus_module");
 const {
   FirestoreReadinessConfigRepository,
 } = require("./infrastructure/firestore_readiness_config_repository");
@@ -65,6 +80,13 @@ const calculateScore = new CalculateReadinessScore({
 const saveScore = new SaveReadinessScore(scoreRepository);
 const getScore = new GetReadinessScore(scoreRepository);
 const getScoreHistory = new GetReadinessScoreHistory(scoreRepository);
+const saveSubjectScore = new SaveSubjectReadinessScore(scoreRepository);
+const getSubjectScore = new GetSubjectReadinessScore(scoreRepository);
+const getSubjectScoreHistory = new GetSubjectReadinessScoreHistory(scoreRepository);
+const calculateSubjectScore = new CalculateSubjectReadinessScore({
+  getSyllabusById,
+  getReadinessScore,
+});
 
 async function getReadinessConfig() {
   return getConfig.execute();
@@ -100,6 +122,10 @@ async function calculateReadinessScore(input) {
   return calculateScore.execute(input);
 }
 
+async function calculateSubjectReadinessScore(input) {
+  return calculateSubjectScore.execute(input);
+}
+
 async function saveReadinessScore(input) {
   return saveScore.execute(input);
 }
@@ -110,6 +136,18 @@ async function getReadinessScore(input) {
 
 async function getReadinessScoreHistory(input) {
   return getScoreHistory.execute(input);
+}
+
+async function saveSubjectReadinessScore(input) {
+  return saveSubjectScore.execute(input);
+}
+
+async function getSubjectReadinessScore(input) {
+  return getSubjectScore.execute(input);
+}
+
+async function getSubjectReadinessScoreHistory(input) {
+  return getSubjectScoreHistory.execute(input);
 }
 
 module.exports = {
@@ -125,7 +163,11 @@ module.exports = {
   getPreAssessmentWeight,
   setPreAssessmentWeight,
   calculateReadinessScore,
+  calculateSubjectReadinessScore,
   saveReadinessScore,
   getReadinessScore,
   getReadinessScoreHistory,
+  saveSubjectReadinessScore,
+  getSubjectReadinessScore,
+  getSubjectReadinessScoreHistory,
 };

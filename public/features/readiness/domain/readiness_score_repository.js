@@ -11,7 +11,18 @@ class ReadinessScoreRepository {
   async listHistory(scope) {
     throw new Error("ReadinessScoreRepository.listHistory must be implemented.");
   }
+
+  async getSubject(scope) {
+    throw new Error("ReadinessScoreRepository.getSubject must be implemented.");
+  }
+
+  async saveSubject(input) {
+    throw new Error("ReadinessScoreRepository.saveSubject must be implemented.");
+  }
+
+  async listSubjectHistory(scope) {
+    throw new Error("ReadinessScoreRepository.listSubjectHistory must be implemented.");
+  }
 }
 
 export {ReadinessScoreRepository};
-

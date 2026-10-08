@@ -1,9 +1,17 @@
 const {FieldValue} = require("firebase-admin/firestore");
 const firebaseOps = require("../../../utils/firebase/firebase_ops");
 const {STUDENT_READINESS_COLLECTION, READINESS_SYLLABUSES_SUBCOLLECTION, READINESS_TOPICS_SUBCOLLECTION, READINESS_HISTORY_SUBCOLLECTION} = require("../../../schema/student_readiness_schema");
-const {requireTopicScope, requireReadinessScore, normalizeSourcePracticeId, ReadinessScore, ReadinessScoreHistoryEntry} = require("../domain/readiness_score");
+const {requireSubjectScope, requireTopicScope, requireReadinessScore, normalizeSourcePracticeId, ReadinessScore, ReadinessScoreHistoryEntry} = require("../domain/readiness_score");
 const {ReadinessScoreRepository} = require("../domain/readiness_score_repository");
 const defaultServerTimestamp = () => FieldValue.serverTimestamp();
+
+function subjectCollectionPath({studentId}) {
+  return [STUDENT_READINESS_COLLECTION, studentId, READINESS_SYLLABUSES_SUBCOLLECTION].join("/");
+}
+
+function subjectHistoryCollectionPath(scope) {
+  return [subjectCollectionPath(scope), scope.syllabusId, READINESS_HISTORY_SUBCOLLECTION].join("/");
+}
 
 function topicCollectionPath({studentId, syllabusId}) {
   return [
@@ -45,10 +53,25 @@ class FirestoreReadinessScoreRepository extends ReadinessScoreRepository {
 
   async save(input) {
     const scope = requireTopicScope(input);
+    return this.saveRecord(input, topicCollectionPath(scope), scope.topicId, historyCollectionPath(scope));
+  }
+
+  async getSubject(input) {
+    const scope = requireSubjectScope(input);
+    const data = await this.readDocument(subjectCollectionPath(scope), scope.syllabusId);
+    return data === null ? null : new ReadinessScore(data);
+  }
+
+  async saveSubject(input) {
+    const scope = requireSubjectScope(input);
+    return this.saveRecord(input, subjectCollectionPath(scope), scope.syllabusId, subjectHistoryCollectionPath(scope));
+  }
+
+  async saveRecord(input, collectionPath, documentId, historyPath) {
     const score = requireReadinessScore(input.score);
     const practiceId = normalizeSourcePracticeId(input.practiceId);
-    const topicDocument = this.getDocumentRef(topicCollectionPath(scope), scope.topicId);
-    const historyCollection = this.getCollectionRef(historyCollectionPath(scope));
+    const latestDocument = this.getDocumentRef(collectionPath, documentId);
+    const historyCollection = this.getCollectionRef(historyPath);
     const historyDocument = practiceId === null
       ? historyCollection.doc() : historyCollection.doc(`practice-${practiceId}`);
     const timestamp = this.serverTimestamp();
@@ -62,12 +85,12 @@ class FirestoreReadinessScoreRepository extends ReadinessScoreRepository {
         if (existing.exists) {
           return;
         }
-        transaction.set(topicDocument, latestRecord, {merge: true});
+        transaction.set(latestDocument, latestRecord, {merge: true});
         transaction.set(historyDocument, {score, savedAt: timestamp, practiceId});
       });
     } else {
       const batch = this.getFirestoreDb().batch();
-      batch.set(topicDocument, latestRecord, {merge: true});
+      batch.set(latestDocument, latestRecord, {merge: true});
       batch.set(historyDocument, {score, savedAt: timestamp});
       await batch.commit();
     }
@@ -85,8 +108,17 @@ class FirestoreReadinessScoreRepository extends ReadinessScoreRepository {
 
   async listHistory(input) {
     const scope = requireTopicScope(input);
+    return this.listHistoryRecords(historyCollectionPath(scope));
+  }
+
+  async listSubjectHistory(input) {
+    const scope = requireSubjectScope(input);
+    return this.listHistoryRecords(subjectHistoryCollectionPath(scope));
+  }
+
+  async listHistoryRecords(historyPath) {
     const records = await this.readCollection(
-      historyCollectionPath(scope),
+      historyPath,
       (collection) => collection.orderBy("savedAt", "desc"),
     );
     // Preserve Firestore ordering, including timestamps within the same millisecond.

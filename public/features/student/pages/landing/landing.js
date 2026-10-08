@@ -5,7 +5,7 @@ import {
 } from "../../student_module.js?v=20260823-student-country-v1";
 import {
   getStudentDashboard
-} from "../../../student_dashboard/student_dashboard_module.js?v=20261007-topic-readiness-v1";
+} from "../../../student_dashboard/student_dashboard_module.js?v=20261009-reliability-landing-v1";
 import {
   completionProcessingStages,
   completionProcessingStatuses,
@@ -34,7 +34,7 @@ import {
 } from "../../../daily_mission/components/additional_mission_section/additional_mission_section.js?v=20261004-pausable-missions-v1";
 import {
   CompletionProcessingRefreshController
-} from "./completion_processing_refresh_controller.js?v=20261007-topic-readiness-v1";
+} from "./completion_processing_refresh_controller.js?v=20261009-reliability-landing-v1";
 
 const INDEX_URL = "/index.html";
 const COMPLETED_PRACTICE_QUERY_PARAMETER = "completedPracticeId";
@@ -184,6 +184,12 @@ function getPreAssessmentPresentation(state) {
 function formatReadinessScore(value) {
   return typeof value === "number" && Number.isFinite(value) && value >= 0
     ? readinessScoreFormatter.format(value)
+    : "No score yet";
+}
+
+function formatReliabilityScore(value) {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 100
+    ? `${readinessScoreFormatter.format(value)}%`
     : "No score yet";
 }
 
@@ -473,6 +479,10 @@ function createTopicRow(topic, studentId, syllabusId) {
       "Readiness score",
       topic.readinessUnavailable ? "Unavailable" : formatReadinessScore(topic.readinessScore)
     ),
+    createMetric(
+      "Reliability score",
+      topic.reliabilityUnavailable ? "Unavailable" : formatReliabilityScore(topic.reliabilityScore)
+    ),
     progressMetric,
     createCompletedPracticeHistory(topic.completedPractices, studentId),
     processingIndicator
@@ -508,13 +518,26 @@ function createSyllabusPanel(syllabus, studentId) {
   const heading = document.createElement("header");
   const title = document.createElement("h3");
   const language = document.createElement("span");
+  const summary = document.createElement("div");
+  const readinessMetric = createMetric(
+    "Subject readiness score",
+    syllabus.readinessUnavailable ? "Unavailable" : formatReadinessScore(syllabus.readinessScore)
+  );
+  const reliabilityMetric = createMetric(
+    "Subject reliability score",
+    syllabus.reliabilityUnavailable ? "Unavailable" : formatReliabilityScore(syllabus.reliabilityScore)
+  );
 
   panel.className = "syllabus-panel";
   heading.className = "syllabus-heading";
   title.textContent = syllabus.subject;
   language.className = "language-pill";
   language.textContent = syllabus.language;
-  heading.append(title, language);
+  summary.className = "syllabus-summary";
+  readinessMetric.className = "subject-readiness";
+  reliabilityMetric.className = "subject-reliability";
+  summary.append(readinessMetric, reliabilityMetric, language);
+  heading.append(title, summary);
   panel.append(heading);
 
   if (syllabus.error) {

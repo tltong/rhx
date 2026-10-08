@@ -12,8 +12,24 @@ const studentReadinessSchema = {
     syllabuses: {
       collection: READINESS_SYLLABUSES_SUBCOLLECTION,
       documentId: "[syllabus_id]",
-      fields: {},
+      fields: {
+        score: {type: "number", minimum: 0},
+        updatedAt: "timestamp",
+      },
       subcollections: {
+        history: {
+          collection: READINESS_HISTORY_SUBCOLLECTION,
+          documentId: "[auto_generated_id_or_practice_key]",
+          fields: {
+            score: {type: "number", minimum: 0},
+            savedAt: "timestamp",
+            practiceId: {
+              type: "string",
+              optional: true,
+              references: "practices/{practiceId}",
+            },
+          },
+        },
         topics: {
           collection: READINESS_TOPICS_SUBCOLLECTION,
           documentId: "[topic_id]",
