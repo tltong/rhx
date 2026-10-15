@@ -3,6 +3,10 @@ export class PreAssessmentQuestionRepository {
     throw new Error("getById() is not implemented.");
   }
 
+  async getByQuestionId(questionId) {
+    throw new Error("getByQuestionId() is not implemented.");
+  }
+
   async getManyById(questionReferences) {
     throw new Error("getManyById() is not implemented.");
   }

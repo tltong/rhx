@@ -64,6 +64,7 @@
  *     scoreBand: string,
  *     levelId: string,
  *     levelName: string,
+ *     reachedLevelIds: string[],
  *     isEndLevel: boolean
  *   }>.
  *
@@ -77,6 +78,7 @@
  *     levelId: string,
  *     levelName: string,
  *     levelChanged: boolean,
+ *     reachedLevelIds: string[],
  *     isEndLevel: boolean,
  *     qualifyingPracticeCount: number,
  *     criteria: object|null

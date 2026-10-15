@@ -1,8 +1,9 @@
 import {
+  STUDENT_PRACTICE_ASSESSMENTS_SUBCOLLECTION,
   STUDENT_ASSESSMENT_PROGRESS_COLLECTION,
   STUDENT_ASSESSMENT_SYLLABUSES_SUBCOLLECTION,
   STUDENT_ASSESSMENT_TOPICS_SUBCOLLECTION
-} from "../../../config/firebase/student_assessment_progress_schema.js";
+} from "../../../config/firebase/student_assessment_progress_schema.js?v=20261010-level-rewards-v1";
 import {
   getDocumentRef,
   getFirestoreDb,
@@ -13,7 +14,9 @@ import {
 } from "../domain/student_assessment_topic_progress.js?v=20260813-pre-assessment-progress";
 import {
   StudentAssessmentProgressRepository
-} from "../domain/student_assessment_progress_repository.js?v=20260813-pre-assessment-progress";
+} from "../domain/student_assessment_progress_repository.js?v=20261010-level-rewards-v1";
+
+import {PracticeAssessment, requirePracticeAssessmentScope} from "../domain/practice_assessment.js?v=20261010-level-rewards-v1";
 
 function syllabusCollectionPath(studentId) {
   return [
@@ -62,10 +65,72 @@ function toProgressRecord(progress, existingData = {}) {
   };
 }
 
+function progressFingerprint(progress) {
+  if (progress === null || progress === undefined) return null;
+  const normalized = progress instanceof StudentAssessmentTopicProgress ? progress : new StudentAssessmentTopicProgress(progress);
+  return JSON.stringify([
+    normalized.initialLevel.levelId, normalized.initialLevel.setAt.getTime(), normalized.currentLevelId, normalized.isFrameworkCompleted,
+    Object.entries(normalized.levelHistory).sort(([a], [b]) => a.localeCompare(b)).map(([id, date]) => [id, date.getTime()]),
+  ]);
+}
+
 export class FirestoreStudentAssessmentProgressRepository
   extends StudentAssessmentProgressRepository {
+  constructor({getDocumentRefOperation = getDocumentRef, getFirestoreDbOperation = getFirestoreDb, readDocumentOperation = readDocument} = {}) {
+    super();
+    this.getDocumentRef = getDocumentRefOperation;
+    this.getFirestoreDb = getFirestoreDbOperation;
+    this.readDocument = readDocumentOperation;
+  }
+
+  async getPracticeAssessment(input) {
+    const scope = requirePracticeAssessmentScope(input);
+    const data = await this.readDocument(
+      [STUDENT_ASSESSMENT_PROGRESS_COLLECTION, scope.studentId, STUDENT_PRACTICE_ASSESSMENTS_SUBCOLLECTION].join("/"),
+      scope.practiceId,
+    );
+    return data === null ? null : new PracticeAssessment({...data, ...scope});
+  }
+
+  async saveAssessmentProgress({progress, assessment, expectedProgress}) {
+    const normalizedProgress = progress instanceof StudentAssessmentTopicProgress ? progress : new StudentAssessmentTopicProgress(progress);
+    const outcome = new PracticeAssessment(assessment);
+    if (outcome.studentId !== normalizedProgress.studentId || outcome.syllabusId !== normalizedProgress.syllabusId
+        || outcome.topicId !== normalizedProgress.topicId || outcome.levelId !== normalizedProgress.currentLevelId) {
+      throw new Error("The assessment does not match the topic progress.");
+    }
+    const assessmentDocument = this.getDocumentRef(
+      [STUDENT_ASSESSMENT_PROGRESS_COLLECTION, outcome.studentId, STUDENT_PRACTICE_ASSESSMENTS_SUBCOLLECTION].join("/"), outcome.practiceId,
+    );
+    const topicDocument = this.getDocumentRef(topicCollectionPath(outcome.studentId, outcome.syllabusId), outcome.topicId);
+    const studentDocument = this.getDocumentRef(STUDENT_ASSESSMENT_PROGRESS_COLLECTION, outcome.studentId);
+    const syllabusDocument = this.getDocumentRef(syllabusCollectionPath(outcome.studentId), outcome.syllabusId);
+    return this.getFirestoreDb().runTransaction(async transaction => {
+      const [saved, topic] = await Promise.all([transaction.get(assessmentDocument), transaction.get(topicDocument)]);
+      const currentProgress = toProgress(topic.exists ? topic.data() : null, outcome.studentId, outcome.syllabusId, outcome.topicId);
+      if (saved.exists) {
+        const original = new PracticeAssessment({...saved.data(), studentId: outcome.studentId, practiceId: outcome.practiceId});
+        if (original.syllabusId !== outcome.syllabusId || original.topicId !== outcome.topicId) throw new Error("The saved assessment has a conflicting topic.");
+        if (currentProgress === null) throw new Error("Saved assessment topic progress is missing.");
+        return {assessment: original, progress: currentProgress};
+      }
+      if (progressFingerprint(currentProgress) !== progressFingerprint(expectedProgress)) {
+        const error = new Error("Topic progress changed during assessment. Retry with the current progress.");
+        error.code = "aborted";
+        throw error;
+      }
+      const record = toProgressRecord(normalizedProgress, topic.exists ? topic.data() : {});
+      const {studentId, practiceId, ...assessmentRecord} = outcome;
+      transaction.set(studentDocument, {}, {merge: true});
+      transaction.set(syllabusDocument, {}, {merge: true});
+      transaction.set(topicDocument, record, {merge: true});
+      transaction.set(assessmentDocument, assessmentRecord);
+      return {assessment: outcome, progress: toProgress(record, outcome.studentId, outcome.syllabusId, outcome.topicId)};
+    });
+  }
+
   async getByTopic(studentId, syllabusId, topicId) {
-    const data = await readDocument(
+    const data = await this.readDocument(
       topicCollectionPath(studentId, syllabusId),
       topicId
     );
@@ -81,15 +146,15 @@ export class FirestoreStudentAssessmentProgressRepository
     const normalizedProgress = progress instanceof StudentAssessmentTopicProgress
       ? progress
       : new StudentAssessmentTopicProgress(progress);
-    const studentDocument = getDocumentRef(
+    const studentDocument = this.getDocumentRef(
       STUDENT_ASSESSMENT_PROGRESS_COLLECTION,
       normalizedProgress.studentId
     );
-    const syllabusDocument = getDocumentRef(
+    const syllabusDocument = this.getDocumentRef(
       syllabusCollectionPath(normalizedProgress.studentId),
       normalizedProgress.syllabusId
     );
-    const topicDocument = getDocumentRef(
+    const topicDocument = this.getDocumentRef(
       topicCollectionPath(
         normalizedProgress.studentId,
         normalizedProgress.syllabusId
@@ -98,7 +163,7 @@ export class FirestoreStudentAssessmentProgressRepository
     );
     let savedRecord = null;
 
-    await getFirestoreDb().runTransaction(async (transaction) => {
+    await this.getFirestoreDb().runTransaction(async (transaction) => {
       const topicSnapshot = await transaction.get(topicDocument);
       const existingData = topicSnapshot.exists
         ? topicSnapshot.data() || {}

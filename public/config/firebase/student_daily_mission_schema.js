@@ -7,6 +7,8 @@ export const STUDENT_DAILY_MISSION_PRACTICES_SUBCOLLECTION = "practices";
 export const STUDENT_DAILY_MISSION_PAUSED_TOPICS_SUBCOLLECTION = "pausedTopics";
 export const STUDENT_DAILY_MISSION_STATS_SUBCOLLECTION = "missionStats";
 export const STUDENT_DAILY_MISSION_TOPICS_SUBCOLLECTION = "topics";
+export const STUDENT_DAILY_MISSION_ACCEPTED_PRACTICES_SUBCOLLECTION = "acceptedDailyMissionPractices";
+export const STUDENT_DAILY_MISSION_ACCEPTED_ADDITIONAL_PRACTICES_SUBCOLLECTION = "acceptedAdditionalMissionPractices";
 
 export const studentDailyMissionDocumentIdPattern = "[student_id]";
 export const studentDailyMissionDayDocumentIdPattern = "[yyyy-mm-dd]";
@@ -19,6 +21,24 @@ export const studentDailyMissionSchema = {
   documentId: studentDailyMissionDocumentIdPattern,
   fields: {},
   subcollections: {
+    acceptedDailyMissionPractices: {
+      collection: STUDENT_DAILY_MISSION_ACCEPTED_PRACTICES_SUBCOLLECTION,
+      documentId: studentDailyMissionPracticeDocumentIdPattern,
+      fields: {
+        missionDate: {type: "string", format: "YYYY-MM-DD"},
+        syllabusId: "string",
+        topicId: "string",
+      },
+    },
+    acceptedAdditionalMissionPractices: {
+      collection: STUDENT_DAILY_MISSION_ACCEPTED_ADDITIONAL_PRACTICES_SUBCOLLECTION,
+      documentId: studentDailyMissionPracticeDocumentIdPattern,
+      fields: {
+        missionDate: {type: "string", format: "YYYY-MM-DD"},
+        syllabusId: "string",
+        topicId: "string",
+      },
+    },
     days: {
       collection: STUDENT_DAILY_MISSION_DAYS_SUBCOLLECTION,
       documentId: studentDailyMissionDayDocumentIdPattern,
@@ -106,6 +126,8 @@ export default {
   STUDENT_DAILY_MISSION_PAUSED_TOPICS_SUBCOLLECTION,
   STUDENT_DAILY_MISSION_STATS_SUBCOLLECTION,
   STUDENT_DAILY_MISSION_TOPICS_SUBCOLLECTION,
+  STUDENT_DAILY_MISSION_ACCEPTED_ADDITIONAL_PRACTICES_SUBCOLLECTION,
+  STUDENT_DAILY_MISSION_ACCEPTED_PRACTICES_SUBCOLLECTION,
   studentDailyMissionDocumentIdPattern,
   studentDailyMissionDayDocumentIdPattern,
   studentDailyMissionSyllabusDocumentIdPattern,

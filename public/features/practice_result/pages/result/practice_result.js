@@ -9,6 +9,7 @@ import {
 } from "../../../../utils/math/render_math.js?v=20260822-katex-math";
 
 const SIGN_IN_URL = "/features/student/pages/sign_in/sign_in.html";
+const QUESTION_REVIEW_URL = "/features/tutor/pages/question_review/question_review.html";
 const OPTION_KEYS = Object.freeze(["a", "b", "c", "d"]);
 const query = new URLSearchParams(window.location.search);
 const studentId = query.get("studentId")?.trim() || "";
@@ -168,6 +169,7 @@ function createQuestion(question, index) {
   const heading = document.createElement("div");
   const title = document.createElement("h2");
   const answerStatus = document.createElement("span");
+  const headingActions = document.createElement("div");
   const questionText = document.createElement("p");
   const diagram = createDiagram(question, questionNumber);
 
@@ -178,7 +180,20 @@ function createQuestion(question, index) {
     ? "answer-status"
     : "answer-status incorrect";
   answerStatus.textContent = question.isCorrect ? "Correct" : "Incorrect";
-  heading.append(title, answerStatus);
+  headingActions.className = "question-heading-actions";
+  headingActions.append(answerStatus);
+  if (!question.isCorrect) {
+    const reviewLink = document.createElement("a");
+    reviewLink.className = "question-review-link";
+    reviewLink.textContent = "Review this question";
+    reviewLink.href = QUESTION_REVIEW_URL + "?" + new URLSearchParams({
+      questionId: question.questionId,
+      practiceId
+    });
+    reviewLink.setAttribute("aria-label", "Review question " + questionNumber);
+    headingActions.append(reviewLink);
+  }
+  heading.append(title, headingActions);
   questionText.className = "question-text";
   setMathText(questionText, question.questionText);
   item.append(heading);

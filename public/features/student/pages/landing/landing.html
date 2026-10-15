@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Student Learning Dashboard</title>
-    <link rel="stylesheet" href="./landing.css?v=20261009-reliability-landing-v1">
+    <link rel="stylesheet" href="./landing.css?v=20261013-recent-reward-activities-v1">
 
     <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
@@ -82,6 +82,38 @@
       </section>
 
       <section
+        id="student-coins-section"
+        class="dashboard-section"
+        aria-labelledby="student-coins-title"
+        hidden
+      >
+        <div class="section-header">
+          <div>
+            <h2 id="student-coins-title">My Coins</h2>
+          </div>
+        </div>
+        <div class="coin-summary">
+          <div class="coin-balance">
+            <svg class="coin-icon" viewBox="0 0 48 48" aria-hidden="true">
+              <circle cx="24" cy="24" r="21" fill="#f8cc54" stroke="#c98a17" stroke-width="2"></circle>
+              <circle cx="24" cy="24" r="15" fill="none" stroke="#dfaa30" stroke-width="2"></circle>
+              <path d="M29 17a9 9 0 1 0 0 14" fill="none" stroke="#98600e" stroke-width="3" stroke-linecap="round"></path>
+            </svg>
+            <div class="coin-details">
+              <span class="summary-label">Total coins</span>
+              <output id="student-coins-total" class="coin-total" aria-live="polite" aria-atomic="true">—</output>
+              <p id="student-coins-status" class="coin-status" role="status">Loading your coins...</p>
+            </div>
+          </div>
+          <div class="coin-activity">
+            <h3>Recent activity</h3>
+            <p id="student-coin-activity-status" class="coin-status" role="status">Loading recent activity...</p>
+            <ul id="student-coin-activity-list" class="coin-activity-list" aria-label="Recent coin rewards"></ul>
+          </div>
+        </div>
+      </section>
+
+      <section
         id="syllabus-progress-section"
         class="dashboard-section"
         aria-labelledby="syllabus-progress-title"
@@ -97,6 +129,6 @@
       </section>
     </main>
 
-    <script type="module" src="./landing.js?v=20261009-reliability-landing-v1"></script>
+    <script type="module" src="./landing.js?v=20261013-recent-reward-activities-v1"></script>
   </body>
 </html>

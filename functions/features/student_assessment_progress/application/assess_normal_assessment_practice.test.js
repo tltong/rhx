@@ -110,12 +110,13 @@ test("advances using matching-difficulty scores completed after level entry", as
   });
   const useCase = new AssessNormalAssessmentPractice({
     studentAssessmentProgressRepository: {
+      async getPracticeAssessment() { return null; },
       async getByTopic() {
         return existingProgress;
       },
-      async saveProgress(progress) {
+      async saveAssessmentProgress({progress, assessment}) {
         savedProgress = progress;
-        return progress;
+        return {progress, assessment};
       },
     },
     async getSyllabusById() {
@@ -185,11 +186,12 @@ test("does not advance twice when retried after the level transition", async () 
   });
   const useCase = new AssessNormalAssessmentPractice({
     studentAssessmentProgressRepository: {
+      async getPracticeAssessment() { return null; },
       async getByTopic() {
         return progress;
       },
-      async saveProgress(savedProgress) {
-        return savedProgress;
+      async saveAssessmentProgress({progress, assessment}) {
+        return {progress, assessment};
       },
     },
     async getSyllabusById() {

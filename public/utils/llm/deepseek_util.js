@@ -3,6 +3,9 @@ import { firebaseConfig } from "../../config/firebase/firebase_config.js";
 export const DEEPSEEK_FUNCTION_NAME = "generateDeepseekText";
 export const DEFAULT_DEEPSEEK_REGION = "us-central1";
 export const DEFAULT_FUNCTIONS_EMULATOR_PORT = 5001;
+// Allow the backend's four-minute generation deadline to return a JSON error,
+// with a separate browser deadline if the network or gateway never responds.
+export const DEFAULT_DEEPSEEK_TIMEOUT_MS = 270000;
 export const DEEPSEEK_HOSTING_REWRITE_PATH = "/api/generateDeepseekText";
 export const DEEPSEEK_MODELS = Object.freeze({
   PRO: "deepseek-v4-pro"
@@ -206,10 +209,16 @@ function formatPayloadDebugSnippet(payload) {
 }
 
 function createHttpError(response, payload) {
-  const baseMessage = payload?.error ||
+  // Gateway failures can return an HTML error page instead of our function's
+  // JSON response. Keep it on the error for diagnosis, out of the UI message.
+  const isGatewayError = [502, 503, 504].includes(response.status)
+    && !payload?.error && !payload?.message;
+  const baseMessage = (isGatewayError
+    ? "The AI service is temporarily unavailable. Please try again."
+    : null) || payload?.error ||
     payload?.message ||
     `DeepSeek function request failed with HTTP ${response.status}.`;
-  const payloadDebugSnippet = formatPayloadDebugSnippet(payload);
+  const payloadDebugSnippet = isGatewayError ? "" : formatPayloadDebugSnippet(payload);
   const message = payloadDebugSnippet
     ? `${baseMessage} ${payloadDebugSnippet}`
     : baseMessage;
@@ -217,6 +226,8 @@ function createHttpError(response, payload) {
 
   error.status = response.status;
   error.statusText = response.statusText;
+  error.code = payload?.code || null;
+  error.requestId = payload?.requestId || null;
   error.payload = payload;
   error.rawText = payload?.rawText || null;
   error.retryRawText = payload?.retryRawText || null;
@@ -236,21 +247,56 @@ export class DeepseekUtil {
   }
 
   async postJson(endpointUrl, body, options = {}) {
-    const response = await this.fetchImpl(endpointUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(options.headers || {})
-      },
-      body: JSON.stringify(body)
-    });
-    const payload = await parseResponsePayload(response);
-
-    if (!response.ok) {
-      throw createHttpError(response, payload);
+    const timeoutMs = options.timeoutMs ?? DEFAULT_DEEPSEEK_TIMEOUT_MS;
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0 || timeoutMs > 2147483647) {
+      throw new Error("timeoutMs must be a positive number no greater than 2147483647.");
     }
-
-    return payload;
+    const controller = new AbortController();
+    let timer;
+    let timeoutError;
+    const deadline = new Promise((resolve, reject) => {
+      timer = setTimeout(() => {
+        timeoutError = new Error("The AI service took too long to respond. Please try again.");
+        timeoutError.name = "DeepseekTimeoutError";
+        timeoutError.code = "deepseek-timeout";
+        timeoutError.endpointUrl = endpointUrl;
+        reject(timeoutError);
+        controller.abort(timeoutError);
+      }, timeoutMs);
+    });
+    try {
+      return await Promise.race([(async () => {
+        const response = await this.fetchImpl(endpointUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(options.headers || {})
+          },
+          body: JSON.stringify(body),
+          signal: controller.signal,
+        });
+        // Keep the deadline active while reading the response body, too.
+        const payload = await parseResponsePayload(response);
+        if (!response.ok) throw createHttpError(response, payload);
+        return payload;
+      })(), deadline]);
+    } catch (error) {
+      if (timeoutError) throw timeoutError;
+      // Browsers hide HTTP status/body when a gateway error lacks CORS headers.
+      // Fetch reports a TypeError, which must still become a visible UI error.
+      if (error instanceof TypeError) {
+        const networkError = new Error(
+          "Could not reach the AI service. The connection may have failed or timed out. Please try again.",
+          {cause: error},
+        );
+        networkError.code = "deepseek-network-error";
+        networkError.endpointUrl = endpointUrl;
+        throw networkError;
+      }
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   async call(input, options = {}) {

@@ -4,6 +4,11 @@
  * getQuestion(questionReference: QuestionReference)
  *   -> Promise<Question|null>
  *
+ * getQuestionById(questionId: string)
+ *   -> Promise<Question|null> including full SVG and answer details.
+ *   Searches existing question branches. Returns null if missing and throws
+ *   with code "ambiguous-question-id" if the ID occurs in multiple branches.
+ *
  * getQuestionDifficulty(questionReference: QuestionReference)
  *   -> Promise<string>
  *
@@ -135,13 +140,16 @@
  */
 import {
   FirestoreQuestionRepository
-} from "./infrastructure/firestore_question_repository.js?v=20260822-assessment-reuse";
+} from "./infrastructure/firestore_question_repository.js?v=20261015-question-by-id";
 import {
   CheckQuestionAnswers
 } from "./application/check_question_answers.js?v=20260817-question-writes";
 import {
   GetQuestion
 } from "./application/get_question.js?v=20260816-question-routing";
+import {
+  GetQuestionById
+} from "./application/get_question_by_id.js?v=20261015-question-by-id";
 import {
   GetQuestionDifficulty
 } from "./application/get_question_difficulty.js?v=20260822-assessment-progression";
@@ -193,6 +201,7 @@ const checkQuestionAnswersUseCase = new CheckQuestionAnswers(
   questionRepository
 );
 const getQuestionUseCase = new GetQuestion(questionRepository);
+const getQuestionByIdUseCase = new GetQuestionById(questionRepository);
 const getQuestionDifficultyUseCase = new GetQuestionDifficulty(
   questionRepository
 );
@@ -214,6 +223,14 @@ const deleteQuestionUseCase = new DeleteQuestion(questionRepository);
  */
 async function getQuestion(questionReference) {
   return getQuestionUseCase.execute(questionReference);
+}
+
+/**
+ * @param {string} questionId
+ * @returns {Promise<Question|null>}
+ */
+async function getQuestionById(questionId) {
+  return getQuestionByIdUseCase.execute(questionId);
 }
 
 /**
@@ -308,6 +325,7 @@ async function deleteQuestion(questionReference) {
 export {
   checkQuestionAnswers,
   getQuestion,
+  getQuestionById,
   getQuestionDifficulty,
   getQuestionCount,
   getQuestionsForPractice,

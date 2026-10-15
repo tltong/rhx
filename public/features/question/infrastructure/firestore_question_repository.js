@@ -26,6 +26,8 @@ import {
   writeDocument
 } from "../../../utils/firebase/firebase_ops.js?v=20260816-question-id-list";
 
+import { normalizeQuestionId } from "../domain/question_id.js?v=20261015-question-by-id";
+
 function requireIdentifier(value, fieldName) {
   const identifier = String(value ?? "").trim();
 
@@ -158,6 +160,36 @@ function toQuestion(data, questionRoute) {
   return question;
 }
 
+// Discover the existing hierarchy without loading every question's content.
+// Limit concurrent Firestore reads while resolving an ID across all branches.
+const QUESTION_LOOKUP_READ_BATCH_SIZE = 10;
+
+async function listChildDocumentPaths(
+  parentPaths,
+  collectionName,
+  readIds,
+) {
+  const childPaths = [];
+  for (
+    let offset = 0;
+    offset < parentPaths.length;
+    offset += QUESTION_LOOKUP_READ_BATCH_SIZE
+  ) {
+    const batches = await Promise.all(
+      parentPaths.slice(offset, offset + QUESTION_LOOKUP_READ_BATCH_SIZE)
+        .map(async (parentPath) => {
+          const collectionPath = parentPath
+            ? `${parentPath}/${collectionName}`
+            : collectionName;
+          const ids = await readIds(collectionPath);
+          return ids.map((id) => `${collectionPath}/${id}`);
+        }),
+    );
+    childPaths.push(...batches.flat());
+  }
+  return childPaths;
+}
+
 function normalizeQuestion(question) {
   return question instanceof Question
     ? question
@@ -242,6 +274,66 @@ export class FirestoreQuestionRepository extends QuestionRepository {
     );
 
     return toQuestion(data, normalizedReference);
+  }
+
+  async getByQuestionId(questionId) {
+    const id = normalizeQuestionId(questionId);
+    const readIds = readCollectionIds;
+    const readQuestion = readDocument;
+    let branches = [""];
+    for (const collectionName of [
+      QUESTIONS_COLLECTION,
+      QUESTION_TOPICS_SUBCOLLECTION,
+      QUESTION_LANGUAGES_SUBCOLLECTION,
+      QUESTION_DIAGRAM_GROUPS_SUBCOLLECTION,
+    ]) {
+      branches = await listChildDocumentPaths(
+        branches,
+        collectionName,
+        readIds,
+      );
+    }
+    branches = branches.filter((path) => {
+      const diagramGroup = path.split("/").at(-1);
+      return Object.values(questionDiagramGroups).includes(diagramGroup);
+    });
+
+    let match = null;
+    for (
+      let offset = 0;
+      offset < branches.length;
+      offset += QUESTION_LOOKUP_READ_BATCH_SIZE
+    ) {
+      const questions = await Promise.all(
+        branches.slice(offset, offset + QUESTION_LOOKUP_READ_BATCH_SIZE)
+          .map(async (branch) => {
+            const data = await readQuestion(
+              `${branch}/${QUESTION_ITEMS_SUBCOLLECTION}`,
+              id,
+            );
+            if (!data) return null;
+            const segments = branch.split("/");
+            return toQuestion(data, {
+              syllabusId: segments[1],
+              topicId: segments[3],
+              language: decodeURIComponent(segments[5]),
+              hasDiagram: segments[7] === questionDiagramGroups.WITH_DIAGRAM,
+            });
+          }),
+      );
+      for (const question of questions) {
+        if (!question) continue;
+        if (match) {
+          const error = new Error(
+            `Question ID ${id} exists in multiple question branches.`,
+          );
+          error.code = "ambiguous-question-id";
+          throw error;
+        }
+        match = question;
+      }
+    }
+    return match;
   }
 
   async getManyById(questionReferences) {

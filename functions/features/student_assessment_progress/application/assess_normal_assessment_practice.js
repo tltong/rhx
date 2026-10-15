@@ -152,9 +152,23 @@ class AssessNormalAssessmentPractice {
       .map(({score}) => score);
   }
 
-  async execute({studentId, practice, practiceResult} = {}) {
+  async execute(input) {
+    for (let attempt = 0; ; attempt++) {
+      try { return await this.assess(input); }
+      catch (error) { if (error.code !== "aborted" || attempt >= 3) throw error; }
+    }
+  }
+
+  async assess({studentId, practice, practiceResult} = {}) {
     const normalizedStudentId = requireIdentifier(studentId, "studentId");
     const {syllabusId, topicId} = getPracticeScope(practice);
+    const savedAssessment = await this.studentAssessmentProgressRepository.getPracticeAssessment({
+      studentId: normalizedStudentId, practiceId: practiceResult.practiceId,
+    });
+    if (savedAssessment !== null) {
+      if (savedAssessment.syllabusId !== syllabusId || savedAssessment.topicId !== topicId) throw new Error("The saved assessment has a conflicting topic.");
+      return Object.freeze({...savedAssessment, progress: await this.studentAssessmentProgressRepository.getByTopic(normalizedStudentId, syllabusId, topicId)});
+    }
     const syllabus = await requireSyllabusTopic(
       this.getSyllabusById,
       syllabusId,
@@ -256,10 +270,7 @@ class AssessNormalAssessmentPractice {
       isFrameworkCompleted: progression.isEndLevel,
       levelHistory,
     });
-    const savedProgress =
-      await this.studentAssessmentProgressRepository.saveProgress(progress);
-
-    return Object.freeze({
+    const assessment = {
       assessed: true,
       reason: null,
       studentId: normalizedStudentId,
@@ -278,8 +289,13 @@ class AssessNormalAssessmentPractice {
       qualifyingPracticeCount: progression.qualifyingPracticeCount,
       requiredPracticeCount: progression.criteria.requiredPracticeCount,
       minimumScore: progression.criteria.minimumScore,
-      progress: savedProgress,
+    };
+    const saved = await this.studentAssessmentProgressRepository.saveAssessmentProgress({
+      progress, expectedProgress: existingProgress,
+      assessment: {...assessment, assessedAt: practiceResult.submittedAt,
+        reachedLevelIds: progression.reachedLevelIds},
     });
+    return Object.freeze({...saved.assessment, progress: saved.progress});
   }
 }
 

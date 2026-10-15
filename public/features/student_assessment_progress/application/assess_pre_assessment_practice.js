@@ -33,6 +33,13 @@ export class AssessPreAssessmentPractice {
   async execute({ studentId, practice, practiceResult } = {}) {
     const normalizedStudentId = requireIdentifier(studentId, "studentId");
     const { syllabusId, topicId } = getPracticeScope(practice);
+    const savedAssessment = await this.studentAssessmentProgressRepository.getPracticeAssessment({
+      studentId: normalizedStudentId, practiceId: practiceResult.practiceId,
+    });
+    if (savedAssessment !== null) {
+      if (savedAssessment.syllabusId !== syllabusId || savedAssessment.topicId !== topicId) throw new Error("The saved assessment has a conflicting topic.");
+      return Object.freeze({...savedAssessment, progress: await this.studentAssessmentProgressRepository.getByTopic(normalizedStudentId, syllabusId, topicId)});
+    }
     const syllabus = await requireSyllabusTopic(
       this.getSyllabusById,
       syllabusId,
@@ -86,10 +93,7 @@ export class AssessPreAssessmentPractice {
         [levelCalculation.levelId]: practiceResult.submittedAt
       }
     });
-    const savedProgress =
-      await this.studentAssessmentProgressRepository.saveProgress(progress);
-
-    return Object.freeze({
+    const assessment = {
       assessed: true,
       reason: null,
       studentId: normalizedStudentId,
@@ -104,7 +108,12 @@ export class AssessPreAssessmentPractice {
       levelName: levelCalculation.levelName,
       levelChanged: true,
       isFrameworkCompleted: levelCalculation.isEndLevel,
-      progress: savedProgress
+    };
+    const saved = await this.studentAssessmentProgressRepository.saveAssessmentProgress({
+      progress, expectedProgress: existingProgress,
+      assessment: {...assessment, assessedAt: practiceResult.submittedAt,
+        reachedLevelIds: levelCalculation.reachedLevelIds},
     });
+    return Object.freeze({...saved.assessment, progress: saved.progress});
   }
 }

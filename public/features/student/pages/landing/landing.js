@@ -7,6 +7,15 @@ import {
   getStudentDashboard
 } from "../../../student_dashboard/student_dashboard_module.js?v=20261009-reliability-landing-v1";
 import {
+  recordStudentLogin
+} from "../../../student_login/student_login_module.js?v=20261010-login-rewards-v1";
+import {
+  DEFAULT_REWARD_CONFIG,
+  getRewardConfig,
+  listRecentStudentRewardActivities,
+  watchStudentRewardTotal
+} from "../../../reward/reward_module.js?v=20261013-recent-reward-activities-v1";
+import {
   completionProcessingStages,
   completionProcessingStatuses,
   watchPracticeCompletionProcessing
@@ -19,7 +28,7 @@ import {
   listAdditionalMissionPracticeIds,
   pauseCoreDailyMission,
   unpauseTopic
-} from "../../../daily_mission/daily_mission_module.js?v=20261004-pausable-missions-v1";
+} from "../../../daily_mission/daily_mission_module.js?v=20261010-additional-mission-rewards-v1";
 import {
   isTopicPausable
 } from "../../../syllabus/syllabus_module.js?v=20261004-topic-pausable-v1";
@@ -35,6 +44,9 @@ import {
 import {
   CompletionProcessingRefreshController
 } from "./completion_processing_refresh_controller.js?v=20261009-reliability-landing-v1";
+import {
+  StudentCoinBalanceController
+} from "./student_coin_balance_controller.js?v=20261013-recent-reward-activities-v1";
 
 const INDEX_URL = "/index.html";
 const COMPLETED_PRACTICE_QUERY_PARAMETER = "completedPracticeId";
@@ -77,6 +89,17 @@ const studentStreamEl = document.querySelector("#student-stream");
 const syllabusProgressList = document.querySelector(
   "#syllabus-progress-list"
 );
+const studentCoinBalanceController = new StudentCoinBalanceController({
+  watchStudentRewardTotal,
+  getRewardConfig,
+  listRecentStudentRewardActivities,
+  defaultRecentActivitiesLimit: DEFAULT_REWARD_CONFIG.recentActivitiesLimit,
+  section: document.querySelector("#student-coins-section"),
+  balance: document.querySelector("#student-coins-total"),
+  status: document.querySelector("#student-coins-status"),
+  activityList: document.querySelector("#student-coin-activity-list"),
+  activityStatus: document.querySelector("#student-coin-activity-status")
+});
 
 let authenticatedStudentId = null;
 let dailyMissionController = null;
@@ -661,6 +684,8 @@ const completionProcessingRefreshController =
 
 async function handleAuthState(authUser) {
   if (!authUser) {
+    authenticatedStudentId = null;
+    studentCoinBalanceController.stop();
     completionProcessingRefreshController.stop();
     window.location.replace(INDEX_URL);
     return;
@@ -670,6 +695,7 @@ async function handleAuthState(authUser) {
     return;
   }
 
+  studentCoinBalanceController.stop();
   completionProcessingRefreshController.stop();
   authenticatedStudentId = authUser.uid;
   setStatus("Loading your dashboard...");
@@ -678,6 +704,15 @@ async function handleAuthState(authUser) {
     if (!await loadAndRenderDashboard(authUser.uid)) {
       return;
     }
+
+    if (authenticatedStudentId !== authUser.uid) {
+      return;
+    }
+    studentCoinBalanceController.start({studentId: authUser.uid});
+
+    void recordStudentLogin({studentId: authUser.uid}).catch((error) => {
+      console.error("Could not record the student login.", error);
+    });
 
     setStatus("Dashboard loaded.", false, true);
     const completedPracticeId = completedPracticeIdFromUrl();
@@ -717,6 +752,7 @@ logOffButton.addEventListener("click", async () => {
   try {
     completionProcessingRefreshController.stop();
     await signOutStudent();
+    studentCoinBalanceController.stop();
     clearCurrentStudent();
     window.location.replace(INDEX_URL);
   } catch (error) {
@@ -727,5 +763,6 @@ logOffButton.addEventListener("click", async () => {
 });
 
 window.addEventListener("beforeunload", () => {
+  studentCoinBalanceController.stop();
   completionProcessingRefreshController.stop();
 });

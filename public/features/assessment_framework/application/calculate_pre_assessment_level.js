@@ -76,11 +76,17 @@ export class CalculatePreAssessmentLevel {
       throw new Error(`Configured assessment level ${levelId} was not found.`);
     }
 
+    const levelIndex = isEndLevel ? assessmentFramework.levels.length
+      : assessmentFramework.levels.findIndex(item => item.id === levelId);
+    const reachedLevelIds = assessmentFramework.levels.slice(1, levelIndex + 1).map(item => item.id);
+    if (isEndLevel) reachedLevelIds.push(ASSESSMENT_FRAMEWORK_END_LEVEL_ID);
+
     return Object.freeze({
       assessmentFrameworkId: assessmentFramework.id,
       score: normalizedScore,
       scoreBand: scoreBand.field,
       levelId,
+      reachedLevelIds: Object.freeze(reachedLevelIds),
       levelName: isEndLevel
         ? assessmentFramework.endLevelName
         : level.levelName,

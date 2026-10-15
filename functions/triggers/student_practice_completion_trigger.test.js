@@ -43,7 +43,8 @@ function createReliabilityOperations(calls) {
   };
 }
 
-test("awaits assessment, readiness and reliability writes before generating the next practice", async () => {
+test("awaits the reward, assessment, readiness and reliability writes before generating the next practice", async () => {
+  let rewardWriteCompleted = false;
   let levelWriteCompleted = false;
   let readinessWriteCompleted = false;
   let subjectReadinessWriteCompleted = false;
@@ -56,7 +57,19 @@ test("awaits assessment, readiness and reliability writes before generating the 
     practiceId: "pre-assessment-1",
   }, {
     processingRepository: createProcessingRepository(calls),
+    awardLevelUp: async () => null,
+    awardAdditionalMission: async () => null,
+    awardDailyMission: async (input) => {
+      calls.push(["reward", input]);
+      await Promise.resolve();
+      rewardWriteCompleted = true;
+      return {
+        award: {awardId: "daily-mission-1", coins: 25},
+        alreadyAwarded: false,
+      };
+    },
     assessPractice: async (input) => {
+      assert.equal(rewardWriteCompleted, true);
       calls.push(["assess", input]);
       await Promise.resolve();
       levelWriteCompleted = true;
@@ -136,6 +149,13 @@ test("awaits assessment, readiness and reliability writes before generating the 
       },
     ],
     [
+      "reward",
+      {
+        studentId: "student-1",
+        practiceId: "pre-assessment-1",
+      },
+    ],
+    [
       "assess",
       {
         studentId: "student-1",
@@ -205,6 +225,7 @@ test("awaits assessment, readiness and reliability writes before generating the 
 });
 
 test("does not generate when assessment was skipped", async () => {
+  let rewardCalls = 0;
   let generatorCalls = 0;
   const processingCalls = [];
   const result = await assessCompletedStudentPractice({
@@ -213,6 +234,12 @@ test("does not generate when assessment was skipped", async () => {
     practiceId: "assessment-1",
   }, {
     processingRepository: createProcessingRepository(processingCalls),
+    awardLevelUp: async () => null,
+    awardAdditionalMission: async () => null,
+    awardDailyMission: async () => {
+      rewardCalls++;
+      return {award: {awardId: "daily-mission-1", coins: 25}, alreadyAwarded: false};
+    },
     assessPractice: async () => ({
       assessed: false,
       reason: "assessment-not-supported",
@@ -230,6 +257,7 @@ test("does not generate when assessment was skipped", async () => {
     },
   });
 
+  assert.equal(rewardCalls, 1);
   assert.equal(generatorCalls, 0);
   assert.equal(result.generation, null);
   assert.equal(processingCalls.at(-1)[0], "completed");
@@ -240,6 +268,7 @@ test("does not generate when assessment was skipped", async () => {
 });
 
 test("does not generate after the framework end level", async () => {
+  let rewardCalls = 0;
   let generatorCalls = 0;
   let readinessSaved = false;
   let subjectReadinessSaved = false;
@@ -250,6 +279,12 @@ test("does not generate after the framework end level", async () => {
     practiceId: "pre-assessment-1",
   }, {
     processingRepository: createProcessingRepository(processingCalls),
+    awardLevelUp: async () => null,
+    awardAdditionalMission: async () => null,
+    awardDailyMission: async () => {
+      rewardCalls++;
+      return {award: {awardId: "daily-mission-1", coins: 25}, alreadyAwarded: false};
+    },
     ...createReliabilityOperations(processingCalls),
     assessPractice: async () => ({
       assessed: true,
@@ -276,6 +311,7 @@ test("does not generate after the framework end level", async () => {
     },
   });
 
+  assert.equal(rewardCalls, 1);
   assert.equal(generatorCalls, 0);
   assert.equal(readinessSaved, true);
   assert.equal(subjectReadinessSaved, true);
@@ -302,6 +338,9 @@ test("records a terminal processing failure before rethrowing", async () => {
       practiceId: "assessment-1",
     }, {
       processingRepository: createProcessingRepository(processingCalls),
+      awardLevelUp: async () => null,
+      awardAdditionalMission: async () => null,
+    awardDailyMission: async () => null,
       assessPractice: async () => {
         throw expectedError;
       },
@@ -322,7 +361,7 @@ test("records a terminal processing failure before rethrowing", async () => {
   ]);
 });
 
-test("does not repeat assessment after processing already completed", async () => {
+test("does not repeat the reward or assessment after processing already completed", async () => {
   let assessmentCalls = 0;
   const result = await assessCompletedStudentPractice({
     eventId: "event-5",
@@ -342,6 +381,11 @@ test("does not repeat assessment after processing already completed", async () =
       async markFailed() {
         throw new Error("must not be called");
       },
+    },
+    awardLevelUp: async () => { throw new Error("must not award after processing completed"); },
+    awardAdditionalMission: async () => { throw new Error("must not award after processing completed"); },
+    awardDailyMission: async () => {
+      throw new Error("must not award after processing completed");
     },
     assessPractice: async () => {
       assessmentCalls += 1;
@@ -369,6 +413,9 @@ test("updates readiness and reliability for scoped completions when level assess
     eventId: "event-skipped", studentId: "student-1", practiceId: "assessment-1",
   }, {
     processingRepository: createProcessingRepository(calls),
+    awardLevelUp: async () => null,
+    awardAdditionalMission: async () => null,
+    awardDailyMission: async () => null,
     ...createReliabilityOperations(calls),
     assessPractice: async () => ({
       assessed: false, reason: "framework-already-completed",
@@ -414,6 +461,9 @@ test("a null readiness calculation skips readiness writes and still updates reli
     eventId: "event-empty", studentId: "student-1", practiceId: "assessment-1",
   }, {
     processingRepository: createProcessingRepository(calls),
+    awardLevelUp: async () => null,
+    awardAdditionalMission: async () => null,
+    awardDailyMission: async () => null,
     ...createReliabilityOperations(calls),
     assessPractice: async () => ({
       assessed: true, isFrameworkCompleted: true,
@@ -439,6 +489,9 @@ for (const operation of ["calculate", "save"]) {
       eventId: "event-failure", studentId: "student-1", practiceId: "assessment-1",
     }, {
       processingRepository: createProcessingRepository(calls),
+      awardLevelUp: async () => null,
+      awardAdditionalMission: async () => null,
+    awardDailyMission: async () => null,
       ...createReliabilityOperations(calls),
       assessPractice: async () => ({
         assessed: true, isFrameworkCompleted: false,
@@ -464,6 +517,9 @@ test("a null subject readiness calculation skips its save and still completes pr
     studentId: "student-1", practiceId: "assessment-1",
   }, {
     processingRepository: createProcessingRepository(calls),
+    awardLevelUp: async () => null,
+    awardAdditionalMission: async () => null,
+    awardDailyMission: async () => null,
     ...createReliabilityOperations(calls),
     assessPractice: async () => ({
       assessed: true, isFrameworkCompleted: true,
@@ -497,6 +553,9 @@ for (const operation of ["calculate", "save"]) {
         studentId: "student-1", practiceId: "assessment-1",
       }, {
         processingRepository: createProcessingRepository(calls),
+        awardLevelUp: async () => null,
+        awardAdditionalMission: async () => null,
+    awardDailyMission: async () => null,
         ...createReliabilityOperations(calls),
         assessPractice: async () => ({
           assessed: true, isFrameworkCompleted,
@@ -524,6 +583,9 @@ test("updates reliability before completing a scoped practice whose assessment w
   const calls = [];
   await assessCompletedStudentPractice({studentId: "student-1", practiceId: "assessment-1"}, {
     processingRepository: createProcessingRepository(calls),
+    awardLevelUp: async () => null,
+    awardAdditionalMission: async () => null,
+    awardDailyMission: async () => null,
     ...createReliabilityOperations(calls),
     assessPractice: async () => ({
       assessed: false, reason: "progression-skipped", isFrameworkCompleted: false,
@@ -544,6 +606,9 @@ test("zero topic and subject reliability are saved before completing processing"
   const calls = [];
   await assessCompletedStudentPractice({studentId: "student-1", practiceId: "assessment-1"}, {
     processingRepository: createProcessingRepository(calls),
+    awardLevelUp: async () => null,
+    awardAdditionalMission: async () => null,
+    awardDailyMission: async () => null,
     ...createReliabilityOperations(calls),
     assessPractice: async () => ({
       assessed: true, isFrameworkCompleted: true,
@@ -568,6 +633,9 @@ test("a null subject reliability calculation skips its save and still completes 
   const calls = [];
   await assessCompletedStudentPractice({studentId: "student-1", practiceId: "assessment-1"}, {
     processingRepository: createProcessingRepository(calls),
+    awardLevelUp: async () => null,
+    awardAdditionalMission: async () => null,
+    awardDailyMission: async () => null,
     ...createReliabilityOperations(calls),
     assessPractice: async () => ({
       assessed: true, isFrameworkCompleted: true,
@@ -608,6 +676,9 @@ for (const [index, [operation]] of reliabilityStages.entries()) {
         eventId: "event-reliability-failed", studentId: "student-1", practiceId: "assessment-1",
       }, {
         processingRepository: createProcessingRepository(calls),
+        awardLevelUp: async () => null,
+        awardAdditionalMission: async () => null,
+    awardDailyMission: async () => null,
         ...reliabilityOperations,
         assessPractice: async () => ({
           assessed: true, isFrameworkCompleted,
@@ -626,3 +697,117 @@ for (const [index, [operation]] of reliabilityStages.entries()) {
     });
   }
 }
+
+for (const assessment of [
+  {assessed: false, reason: "assessment-not-supported"},
+  {assessed: true, isFrameworkCompleted: true},
+]) {
+  test("awaits additional rewards before assessment even when generation is skipped: " + JSON.stringify(assessment), async () => {
+    const calls = [];
+    let saved = false;
+    const scope = {studentId: "student-1", practiceId: "additional-1"};
+    const result = await assessCompletedStudentPractice({
+      studentId: " student-1 ", practiceId: " additional-1 ",
+    }, {
+      processingRepository: createProcessingRepository(calls),
+      awardDailyMission: async input => {assert.deepEqual(input, scope); calls.push(["daily-reward"]); return null;},
+      awardLevelUp: async () => null,
+      awardAdditionalMission: async input => {
+        assert.deepEqual(input, scope); calls.push(["additional-reward"]);
+        await Promise.resolve(); saved = true;
+        return {award: {awardId: "additional-mission-1", coins: 20}, alreadyAwarded: false};
+      },
+      assessPractice: async () => {assert.equal(saved, true); calls.push(["assess"]); return assessment;},
+      generatePractice: async () => {throw new Error("must not generate");},
+    });
+    assert.equal(result.generation, null);
+    assert.deepEqual(calls.map(([name]) => name), ["processing", "daily-reward", "additional-reward", "assess", "completed"]);
+  });
+}
+
+test("awaits level-up rewards after assessment and before readiness, including framework completion", async () => {
+  const calls = [];
+  let assessed = false, rewarded = false;
+  const result = await assessCompletedStudentPractice({studentId: " student-1 ", practiceId: " practice-1 "}, {
+    processingRepository: createProcessingRepository(calls),
+    awardDailyMission: async () => null, awardAdditionalMission: async () => null,
+    assessPractice: async () => {
+      calls.push(["assess"]); assessed = true;
+      return {assessed: true, isFrameworkCompleted: true, syllabusId: "math", topicId: "fractions"};
+    },
+    awardLevelUp: async value => {
+      assert.equal(assessed, true);
+      assert.deepEqual(value, {studentId: "student-1", practiceId: "practice-1"});
+      calls.push(["level-reward"]); await Promise.resolve(); rewarded = true;
+      return {awards: [{details: {levelId: "endLevel"}}], coinsAwarded: 60, alreadyAwarded: false};
+    },
+    calculateReadiness: async () => {assert.equal(rewarded, true); calls.push(["readiness"]); return null;},
+    ...createReliabilityOperations(calls),
+    generatePractice: async () => {throw new Error("must not generate after framework completion");},
+  });
+  assert.equal(result.generation, null);
+  assert.deepEqual(calls.slice(0, 4).map(([name]) => name), ["processing", "assess", "level-reward", "readiness"]);
+  assert.equal(calls.at(-1)[0], "completed");
+});
+
+test("level-up reward failures mark processing failed and prevent readiness and generation", async () => {
+  const calls = [], error = new Error("Level reward failed");
+  await assert.rejects(() => assessCompletedStudentPractice({eventId: "level-failed", studentId: "student-1", practiceId: "practice-1"}, {
+    processingRepository: createProcessingRepository(calls),
+    awardDailyMission: async () => null, awardAdditionalMission: async () => null,
+    assessPractice: async () => {calls.push(["assess"]); return {assessed: true, syllabusId: "math", topicId: "fractions"};},
+    awardLevelUp: async () => {calls.push(["level-reward"]); throw error;},
+    calculateReadiness: async () => {throw new Error("must not calculate readiness");},
+    generatePractice: async () => {throw new Error("must not generate");},
+  }), actual => actual === error);
+  assert.deepEqual(calls.map(([name]) => name), ["processing", "assess", "level-reward", "failed"]);
+});
+
+test("additional reward failures mark processing failed and prevent assessment and generation", async () => {
+  const calls = [];
+  const error = new Error("additional reward storage unavailable");
+  await assert.rejects(() => assessCompletedStudentPractice({
+    eventId: "event-additional-reward-failed", studentId: " student-1 ", practiceId: " additional-1 ",
+  }, {
+    processingRepository: createProcessingRepository(calls),
+    awardDailyMission: async () => null,
+    awardLevelUp: async () => null,
+    awardAdditionalMission: async input => {calls.push(["additional-reward", input]); throw error;},
+    assessPractice: async () => {throw new Error("must not assess after reward failure");},
+    generatePractice: async () => {throw new Error("must not generate after reward failure");},
+  }), actual => actual === error);
+  assert.deepEqual(calls, [
+    ["processing", {eventId: "event-additional-reward-failed", studentId: "student-1", practiceId: "additional-1"}],
+    ["additional-reward", {studentId: "student-1", practiceId: "additional-1"}],
+    ["failed", {eventId: "event-additional-reward-failed", studentId: "student-1", practiceId: "additional-1",
+      errorCode: "COMPLETION_PROCESSING_FAILED"}],
+  ]);
+});
+
+test("reward failures mark processing failed and prevent assessment and generation", async () => {
+  const calls = [];
+  const error = new Error("reward storage unavailable");
+  await assert.rejects(() => assessCompletedStudentPractice({
+    eventId: "event-reward-failed",
+    studentId: " student-1 ",
+    practiceId: " daily-1 ",
+  }, {
+    processingRepository: createProcessingRepository(calls),
+    awardLevelUp: async () => null,
+    awardAdditionalMission: async () => null,
+    awardDailyMission: async (input) => {
+      calls.push(["reward", input]);
+      throw error;
+    },
+    assessPractice: async () => { throw new Error("must not assess after reward failure"); },
+    generatePractice: async () => { throw new Error("must not generate after reward failure"); },
+  }), actual => actual === error);
+  assert.deepEqual(calls, [
+    ["processing", {eventId: "event-reward-failed", studentId: "student-1", practiceId: "daily-1"}],
+    ["reward", {studentId: "student-1", practiceId: "daily-1"}],
+    ["failed", {
+      eventId: "event-reward-failed", studentId: "student-1", practiceId: "daily-1",
+      errorCode: "COMPLETION_PROCESSING_FAILED",
+    }],
+  ]);
+});

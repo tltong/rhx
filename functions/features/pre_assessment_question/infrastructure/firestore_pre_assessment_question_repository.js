@@ -11,6 +11,8 @@ const {
   PreAssessmentQuestionRepository,
 } = require("../domain/pre_assessment_question_repository");
 
+const {normalizePreAssessmentQuestionId} = require("../domain/pre_assessment_question_id");
+
 function requireIdentifier(value, fieldName) {
   const identifier = String(value ?? "").trim();
 
@@ -81,12 +83,14 @@ class FirestorePreAssessmentQuestionRepository
   constructor({
     createDocument = firebaseOps.createDocument,
     readDocument = firebaseOps.readDocument,
+    readCollectionIds = firebaseOps.readCollectionIds,
     readDocuments = firebaseOps.readDocuments,
     writeDocument = firebaseOps.writeDocument,
   } = {}) {
     super();
     this.createDocument = createDocument;
     this.readDocument = readDocument;
+    this.readCollectionIds = readCollectionIds;
     this.readDocuments = readDocuments;
     this.writeDocument = writeDocument;
   }
@@ -114,6 +118,38 @@ class FirestorePreAssessmentQuestionRepository
       normalizedSyllabusId,
       normalizedTopicId,
     );
+  }
+
+  async getByQuestionId(questionId) {
+    const id = normalizePreAssessmentQuestionId(questionId);
+    const readIds = this.readCollectionIds;
+    const syllabusIds = await readIds(PRE_ASSESSMENT_QUESTIONS_COLLECTION);
+    const topics = [];
+    // Resolve existing parent documents with bounded reads, without scanning
+    // question contents or adding an index to the question schema.
+    for (let offset = 0; offset < syllabusIds.length; offset += 10) {
+      const groups = await Promise.all(syllabusIds.slice(offset, offset + 10)
+        .map(async syllabusId => {
+          const topicIds = await readIds(getTopicsCollectionPath(syllabusId));
+          return topicIds.map(topicId => ({syllabusId, topicId}));
+        }));
+      topics.push(...groups.flat());
+    }
+    let match = null;
+    for (let offset = 0; offset < topics.length; offset += 10) {
+      const questions = await Promise.all(topics.slice(offset, offset + 10)
+        .map(({syllabusId, topicId}) => this.getById(syllabusId, topicId, id)));
+      for (const question of questions) {
+        if (!question) continue;
+        if (match) {
+          const error = new Error("Question ID " + id + " exists in multiple pre-assessment branches.");
+          error.code = "ambiguous-question-id";
+          throw error;
+        }
+        match = question;
+      }
+    }
+    return match;
   }
 
   async getManyById(questionReferences) {

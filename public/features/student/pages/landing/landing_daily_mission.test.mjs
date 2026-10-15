@@ -18,8 +18,8 @@ test("student landing places Additional Mission below Daily Mission", async () =
   assert.ok(dailyMissionIndex < additionalMissionIndex);
   assert.ok(additionalMissionIndex < syllabusProgressIndex);
   assert.match(html, /firebase-functions-compat\.js/);
-  assert.match(html, /landing\.css\?v=20261009-reliability-landing-v1/);
-  assert.match(html, /landing\.js\?v=20261009-reliability-landing-v1/);
+  assert.match(html, /landing\.css\?v=20261013-recent-reward-activities-v1/);
+  assert.match(html, /landing\.js\?v=20261013-recent-reward-activities-v1/);
 });
 
 test("student landing wires the Additional Mission feature", async () => {
@@ -43,7 +43,7 @@ test("student landing uses Daily Mission as its practice entry point", async () 
   assert.match(script, /getNextCoreDailyMission/);
   assert.match(script, /acceptCoreDailyMission/);
   assert.match(script, /pauseCoreDailyMission/);
-  assert.match(script, /daily_mission_module\.js\?v=20261004-pausable-missions-v1/);
+  assert.match(script, /daily_mission_module\.js\?v=20261010-additional-mission-rewards-v1/);
   assert.match(
     script,
     /daily_mission_section\.js\?v=20261004-pausable-missions-v1/

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Reward Admin</title>
+    <script>document.documentElement.hidden = true;</script>
+    <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script type="module" src="/init_fb.js"></script>
+    <link rel="stylesheet" href="./reward_admin.css?v=20261013-recent-reward-activities-v1">
+  </head>
+  <body>
+    <main class="page-shell">
+      <a class="back-link" href="/features/site_admin/pages/site_admin/site_admin.html">Back to Site Admin</a>
+      <header>
+        <h1>Reward Admin</h1>
+        <p class="subtitle">Configure coin rewards and how recent reward activity appears to students.</p>
+      </header>
+      <p id="coin-help" class="help-text">Enter whole numbers of coins, starting from 0. Set a reward to 0 to disable it.</p>
+      <form id="reward-form" class="panel" novalidate aria-labelledby="reward-heading">
+        <div class="panel-heading">
+          <h2 id="reward-heading">Login, mission and activity settings</h2>
+          <span id="global-updated-at" class="updated-at">Never saved</span>
+        </div>
+        <div class="config-fields">
+          <div class="config-row">
+  <label for="daily-login-coins">Daily login</label>
+  <div><input id="daily-login-coins" name="dailyLoginCoins" type="number" min="0" max="9007199254740991" step="1" required disabled aria-describedby="coin-help daily-login-coins-error">
+    <span id="daily-login-coins-error" class="field-error" hidden></span></div>
+</div>
+<div class="config-row">
+  <label for="daily-mission-coins">Daily mission completion</label>
+  <div><input id="daily-mission-coins" name="dailyMissionCompletionCoins" type="number" min="0" max="9007199254740991" step="1" required disabled aria-describedby="coin-help daily-mission-coins-error">
+    <span id="daily-mission-coins-error" class="field-error" hidden></span></div>
+</div>
+<div class="config-row">
+  <label for="bonus-mission-coins">Bonus mission completion</label>
+  <div><input id="bonus-mission-coins" name="bonusMissionCompletionCoins" type="number" min="0" max="9007199254740991" step="1" required disabled aria-describedby="coin-help bonus-mission-coins-error">
+    <span id="bonus-mission-coins-error" class="field-error" hidden></span></div>
+</div>
+<div class="config-row">
+  <label for="recent-activities-limit">Recent activities shown</label>
+  <div><input id="recent-activities-limit" name="recentActivitiesLimit" type="number" min="1" max="50" step="1" required disabled aria-describedby="recent-activities-help recent-activities-limit-error">
+    <span id="recent-activities-limit-error" class="field-error" hidden></span>
+    <span id="recent-activities-help" class="field-help">Number of rewarded activities shown in My Coins.</span></div>
+</div>
+        </div>
+        <h3>Login streak rewards</h3>
+        <div class="config-fields">
+          <div class="config-row">
+  <label for="streak-3-coins">3-day login streak</label>
+  <div><input id="streak-3-coins" name="loginStreakCoins.3" type="number" min="0" max="9007199254740991" step="1" required disabled aria-describedby="coin-help streak-3-coins-error">
+    <span id="streak-3-coins-error" class="field-error" hidden></span></div>
+</div>
+<div class="config-row">
+  <label for="streak-7-coins">7-day login streak</label>
+  <div><input id="streak-7-coins" name="loginStreakCoins.7" type="number" min="0" max="9007199254740991" step="1" required disabled aria-describedby="coin-help streak-7-coins-error">
+    <span id="streak-7-coins-error" class="field-error" hidden></span></div>
+</div>
+<div class="config-row">
+  <label for="streak-14-coins">14-day login streak</label>
+  <div><input id="streak-14-coins" name="loginStreakCoins.14" type="number" min="0" max="9007199254740991" step="1" required disabled aria-describedby="coin-help streak-14-coins-error">
+    <span id="streak-14-coins-error" class="field-error" hidden></span></div>
+</div>
+<div class="config-row">
+  <label for="streak-30-coins">30-day login streak</label>
+  <div><input id="streak-30-coins" name="loginStreakCoins.30" type="number" min="0" max="9007199254740991" step="1" required disabled aria-describedby="coin-help streak-30-coins-error">
+    <span id="streak-30-coins-error" class="field-error" hidden></span></div>
+</div>
+        </div>
+        <p id="global-status" class="status" role="status" aria-live="polite" hidden></p>
+        <div class="form-actions">
+          <button id="save-global-config" type="submit" disabled>Save Configuration</button>
+          <button id="reset-global-config" class="secondary" type="button" disabled>Reset to Defaults</button>
+          <button id="retry-global-load" class="secondary" type="button" hidden>Retry Loading</button>
+        </div>
+      </form>
+      <form id="framework-reward-form" class="panel" novalidate aria-labelledby="framework-heading">
+        <div class="panel-heading">
+          <h2 id="framework-heading">Assessment level rewards</h2>
+          <span id="framework-updated-at" class="updated-at">Never saved</span>
+        </div>
+        <p class="help-text">Choose a framework and enter coins for each level. Newly added levels need a coin value before saving.</p>
+        <div class="framework-picker">
+          <label for="assessment-framework">Assessment framework</label>
+          <select id="assessment-framework" disabled></select>
+        </div>
+        <div id="level-coin-fields" class="config-fields"></div>
+        <p id="framework-status" class="status" role="status" aria-live="polite" hidden></p>
+        <div class="form-actions">
+          <button id="save-framework-config" type="submit" disabled>Save Level Coins</button>
+          <button id="reload-frameworks" class="secondary" type="button" disabled>Reload Frameworks</button>
+          <button id="retry-framework-load" class="secondary" type="button" hidden>Retry Loading Levels</button>
+        </div>
+      </form>
+    </main>
+    <script
+      id="site-admin-page-loader"
+      type="module"
+      data-site-admin-page
+      data-page-module="./reward_admin.js?v=20261013-recent-reward-activities-v1"
+      src="/features/site_admin/pages/common/site_admin_page_loader.js?v=20260827-site-admin-guard-v1"
+    ></script>
+  </body>
+</html>

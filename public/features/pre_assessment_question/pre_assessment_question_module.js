@@ -1,6 +1,13 @@
+/**
+ * getPreAssessmentQuestionById(questionId: string) -> Promise<PreAssessmentQuestion|null>
+ * Returns the full question, answers, explanation and SVG using only its ID.
+ * Missing IDs return null; duplicate IDs throw with code "ambiguous-question-id".
+ */
+import {GetPreAssessmentQuestionById} from "./application/get_pre_assessment_question_by_id.js?v=20261015-practice-result-review-v1";
+
 import {
   FirestorePreAssessmentQuestionRepository
-} from "./infrastructure/firestore_pre_assessment_question_repository.js?v=20260807-pre-assessment-answer-check";
+} from "./infrastructure/firestore_pre_assessment_question_repository.js?v=20261015-practice-result-review-v1";
 import {
   CheckPreAssessmentQuestionAnswers
 } from "./application/check_pre_assessment_question_answers.js?v=20260807-pre-assessment-answer-check";
@@ -38,6 +45,8 @@ const checkPreAssessmentQuestionAnswersUseCase =
   new CheckPreAssessmentQuestionAnswers(preAssessmentQuestionRepository);
 const getPreAssessmentQuestionUseCase =
   new GetPreAssessmentQuestion(preAssessmentQuestionRepository);
+const getPreAssessmentQuestionByIdUseCase =
+  new GetPreAssessmentQuestionById(preAssessmentQuestionRepository);
 const getPreAssessmentQuestionsForPracticeUseCase =
   new GetPreAssessmentQuestionsForPractice(
     preAssessmentQuestionRepository
@@ -66,6 +75,10 @@ async function getPreAssessmentQuestion(syllabusId, topicId, questionId) {
     topicId,
     questionId
   );
+}
+
+async function getPreAssessmentQuestionById(questionId) {
+  return getPreAssessmentQuestionByIdUseCase.execute(questionId);
 }
 
 /**
@@ -143,6 +156,7 @@ async function deletePreAssessmentQuestion(
 export {
   checkPreAssessmentQuestionAnswers,
   getPreAssessmentQuestion,
+  getPreAssessmentQuestionById,
   getPreAssessmentQuestionsForPractice,
   listPreAssessmentQuestionsByTopic,
   writePreAssessmentQuestion,

@@ -27,6 +27,14 @@ class DailyMissionRepository {
     throw new Error("getCoreMission() is not implemented.");
   }
 
+  async getAcceptedAdditionalMissionForPractice(input) {
+    throw new Error("getAcceptedAdditionalMissionForPractice() is not implemented.");
+  }
+
+  async getAcceptedDailyMissionForPractice(input) {
+    throw new Error("getAcceptedDailyMissionForPractice() is not implemented.");
+  }
+
   async isPracticeCompleted(input) {
     throw new Error("isPracticeCompleted() is not implemented.");
   }

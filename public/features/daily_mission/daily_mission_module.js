@@ -1,6 +1,21 @@
 /**
  * Feature API
  *
+ * getAcceptedAdditionalMissionForPractice({studentId: string, practiceId: string})
+ *   -> Promise<{missionDate: string, syllabusId: string, topicId: string,
+ *     practiceId: string}|null>
+ * Read-only. Verifies the lookup against the accepted additional practice record.
+ * Supports older records without a lookup and returns the latest acceptance.
+ * Acceptance is independent of practice completion.
+ *
+ * getAcceptedDailyMissionForPractice({studentId: string, practiceId: string})
+ *   -> Promise<{missionDate: string, syllabusId: string, topicId: string,
+ *     practiceId: string}|null>
+ * Read-only. Verifies the lookup against the accepted core mission record.
+ * Reads older accepted records when no lookup exists. Returns the latest core
+ * acceptance if the same practice was accepted on multiple mission days.
+ * Acceptance is independent of whether the practice has been completed.
+ *
  * getNextCoreDailyMission({studentId: string, syllabusId: string})
  *   -> Promise<{
  *     studentId: string,
@@ -82,6 +97,10 @@ import {
 import {
   GetNextCoreDailyMission
 } from "./application/get_next_core_daily_mission.js?v=20261001-direct-core-v1";
+import {GetAcceptedAdditionalMissionForPractice} from "./application/get_accepted_additional_mission_for_practice.js?v=20261010-additional-mission-rewards-v1";
+import {
+  GetAcceptedDailyMissionForPractice
+} from "./application/get_accepted_daily_mission_for_practice.js?v=20261010-accepted-daily-mission-v1";
 import {
   IsTopicPaused
 } from "./application/is_topic_paused.js";
@@ -96,7 +115,7 @@ import {
 } from "./application/unpause_topic.js";
 import {
   FirestoreDailyMissionRepository
-} from "./infrastructure/firestore_daily_mission_repository.js?v=20261004-subject-topic-missions-v1";
+} from "./infrastructure/firestore_daily_mission_repository.js?v=20261010-additional-mission-rewards-v1";
 import {
   getPracticeById
 } from "../practice/practice_module.js?v=20260824-completed-practices";
@@ -108,6 +127,8 @@ import {
 } from "../syllabus/syllabus_module.js?v=20261004-topic-pausable-v1";
 
 const dailyMissionRepository = new FirestoreDailyMissionRepository();
+const getAcceptedAdditionalMissionForPracticeUseCase = new GetAcceptedAdditionalMissionForPractice({dailyMissionRepository});
+const getAcceptedDailyMissionForPracticeUseCase = new GetAcceptedDailyMissionForPractice({dailyMissionRepository});
 const checkPausedTopicValidityUseCase = new CheckPausedTopicValidity({
   dailyMissionRepository
 });
@@ -151,6 +172,14 @@ const unpauseTopicUseCase = new UnpauseTopic({
   dailyMissionRepository
 });
 
+async function getAcceptedAdditionalMissionForPractice(input) {
+  return getAcceptedAdditionalMissionForPracticeUseCase.execute(input);
+}
+
+async function getAcceptedDailyMissionForPractice(input) {
+  return getAcceptedDailyMissionForPracticeUseCase.execute(input);
+}
+
 async function getNextCoreDailyMission(input) {
   return getNextCoreDailyMissionUseCase.execute(input);
 }
@@ -182,6 +211,8 @@ async function unpauseTopic(input) {
 export {
   acceptAdditionalDailyMission,
   acceptCoreDailyMission,
+  getAcceptedAdditionalMissionForPractice,
+  getAcceptedDailyMissionForPractice,
   getNextCoreDailyMission,
   isTopicPaused,
   listAdditionalMissionPracticeIds,

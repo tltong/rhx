@@ -1,3 +1,10 @@
+/**
+ * getPreAssessmentQuestionById(questionId: string) -> Promise<PreAssessmentQuestion|null>
+ * Returns the full question, answers, explanation and SVG using only its ID.
+ * Missing IDs return null; duplicate IDs throw with code "ambiguous-question-id".
+ */
+const {GetPreAssessmentQuestionById} = require("./application/get_pre_assessment_question_by_id");
+
 const {
   CheckPreAssessmentQuestionAnswers,
 } = require("./application/check_pre_assessment_question_answers");
@@ -22,6 +29,8 @@ const checkPreAssessmentQuestionAnswersUseCase =
   new CheckPreAssessmentQuestionAnswers(preAssessmentQuestionRepository);
 const getPreAssessmentQuestionUseCase =
   new GetPreAssessmentQuestion(preAssessmentQuestionRepository);
+const getPreAssessmentQuestionByIdUseCase =
+  new GetPreAssessmentQuestionById(preAssessmentQuestionRepository);
 const getPreAssessmentQuestionsForPracticeUseCase =
   new GetPreAssessmentQuestionsForPractice(
     preAssessmentQuestionRepository,
@@ -41,6 +50,10 @@ async function getPreAssessmentQuestion(syllabusId, topicId, questionId) {
   );
 }
 
+async function getPreAssessmentQuestionById(questionId) {
+  return getPreAssessmentQuestionByIdUseCase.execute(questionId);
+}
+
 async function getPreAssessmentQuestionsForPractice(questionReferences) {
   return getPreAssessmentQuestionsForPracticeUseCase.execute(
     questionReferences,
@@ -54,6 +67,7 @@ async function writePreAssessmentQuestions(questionInputs) {
 module.exports = {
   checkPreAssessmentQuestionAnswers,
   getPreAssessmentQuestion,
+  getPreAssessmentQuestionById,
   getPreAssessmentQuestionsForPractice,
   writePreAssessmentQuestions,
 };

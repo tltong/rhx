@@ -7,8 +7,10 @@ import {
   STUDENT_DAILY_MISSION_PRACTICES_SUBCOLLECTION,
   STUDENT_DAILY_MISSION_STATS_SUBCOLLECTION,
   STUDENT_DAILY_MISSION_SYLLABUSES_SUBCOLLECTION,
-  STUDENT_DAILY_MISSION_TOPICS_SUBCOLLECTION
-} from "../../../config/firebase/student_daily_mission_schema.js";
+  STUDENT_DAILY_MISSION_TOPICS_SUBCOLLECTION,
+  STUDENT_DAILY_MISSION_ACCEPTED_ADDITIONAL_PRACTICES_SUBCOLLECTION,
+  STUDENT_DAILY_MISSION_ACCEPTED_PRACTICES_SUBCOLLECTION
+} from "../../../config/firebase/student_daily_mission_schema.js?v=20261010-additional-mission-rewards-v1";
 import {
   ASSIGNED_PRACTICES_SUBCOLLECTION,
   COMPLETED_PRACTICES_SUBCOLLECTION,
@@ -25,10 +27,11 @@ import {
 } from "../../../utils/firebase/firebase_ops.js";
 import {
   DailyMissionRepository
-} from "../domain/daily_mission_repository.js";
+} from "../domain/daily_mission_repository.js?v=20261010-additional-mission-rewards-v1";
 import {
   isPausedTopicExpired
 } from "../domain/daily_mission_policy.js";
+import {requireAcceptedDailyMissionScope, requireAcceptedDailyMissionContext} from "../domain/accepted_daily_mission.js?v=20261010-accepted-daily-mission-v1";
 
 function requireDocumentId(value, fieldName) {
   const id = String(value ?? "").trim();
@@ -194,6 +197,82 @@ export class FirestoreDailyMissionRepository
     });
   }
 
+  async getAcceptedAdditionalMissionForPractice(input) {
+    const scope = requireAcceptedDailyMissionScope(input);
+    const lookup = await this.readDocument(
+      [studentDailyMissionPath(scope.studentId), STUDENT_DAILY_MISSION_ACCEPTED_ADDITIONAL_PRACTICES_SUBCOLLECTION].join("/"),
+      scope.practiceId,
+    );
+    if (lookup !== null && lookup !== undefined) {
+      const context = requireAcceptedDailyMissionContext({...lookup, practiceId: scope.practiceId});
+      const accepted = await this.readDocument(
+        additionalPracticesCollectionPath(scope.studentId, context.missionDate, context.syllabusId, context.topicId),
+        scope.practiceId,
+      );
+      return accepted !== null && accepted !== undefined ? context : null;
+    }
+
+    // Older accepted additional missions predate the lookup. Do not backfill on reads.
+    const daysPath = [studentDailyMissionPath(scope.studentId), STUDENT_DAILY_MISSION_DAYS_SUBCOLLECTION].join("/");
+    const dates = (await this.readCollectionIds(daysPath)).map((date) => requireDateKey(date)).sort().reverse();
+    for (const missionDate of dates) {
+      let match = null;
+      const syllabusIds = await this.readCollectionIds(
+        [daysPath, missionDate, STUDENT_DAILY_MISSION_SYLLABUSES_SUBCOLLECTION].join("/"),
+      );
+      for (const syllabusId of syllabusIds) {
+        const topicIds = await this.readCollectionIds(
+          additionalTopicsCollectionPath(scope.studentId, missionDate, syllabusId),
+        );
+        for (const topicId of topicIds) {
+          const context = requireAcceptedDailyMissionContext({missionDate, syllabusId, topicId, practiceId: scope.practiceId});
+          const accepted = await this.readDocument(
+            additionalPracticesCollectionPath(scope.studentId, missionDate, syllabusId, topicId), scope.practiceId,
+          );
+          if (accepted !== null && accepted !== undefined) {
+            if (match !== null) throw new Error("The practice has conflicting additional mission records.");
+            match = context;
+          }
+        }
+      }
+      if (match !== null) return match;
+    }
+    return null;
+  }
+
+  async getAcceptedDailyMissionForPractice(input) {
+    const scope = requireAcceptedDailyMissionScope(input);
+    const lookup = await this.readDocument(
+      [studentDailyMissionPath(scope.studentId), STUDENT_DAILY_MISSION_ACCEPTED_PRACTICES_SUBCOLLECTION].join("/"),
+      scope.practiceId,
+    );
+    if (lookup !== null && lookup !== undefined) {
+      const context = requireAcceptedDailyMissionContext({...lookup, practiceId: scope.practiceId});
+      const accepted = await this.getCoreMission({
+        studentId: scope.studentId, syllabusId: context.syllabusId, date: context.missionDate,
+      });
+      return accepted?.practiceId === scope.practiceId && accepted.topicId === context.topicId ? context : null;
+    }
+
+    // Older accepted missions predate the lookup. Keep this fallback read-only.
+    const daysPath = [studentDailyMissionPath(scope.studentId), STUDENT_DAILY_MISSION_DAYS_SUBCOLLECTION].join("/");
+    const dates = (await this.readCollectionIds(daysPath)).map((date) => requireDateKey(date)).sort().reverse();
+    for (const missionDate of dates) {
+      const syllabuses = await this.readCollection(
+        [daysPath, missionDate, STUDENT_DAILY_MISSION_SYLLABUSES_SUBCOLLECTION].join("/"),
+      );
+      const matches = syllabuses.filter((syllabus) => syllabus.coreMission?.practiceId === scope.practiceId);
+      if (matches.length > 1) throw new Error("The practice has conflicting daily mission records.");
+      if (matches.length === 1) {
+        const syllabus = matches[0];
+        return requireAcceptedDailyMissionContext({
+          missionDate, syllabusId: syllabus.id, topicId: syllabus.coreMission.topicId, practiceId: scope.practiceId,
+        });
+      }
+    }
+    return null;
+  }
+
   async isPracticeCompleted({studentId, practiceId} = {}) {
     const normalizedStudentId = requireDocumentId(studentId, "studentId");
     const normalizedPracticeId = requireDocumentId(practiceId, "practiceId");
@@ -260,12 +339,34 @@ export class FirestoreDailyMissionRepository
       normalizedPracticeId
     );
 
+    const missionContext = requireAcceptedDailyMissionContext({
+      missionDate: normalizedDate, syllabusId: normalizedSyllabusId,
+      topicId: normalizedTopicId, practiceId: normalizedPracticeId,
+    });
+    const lookupData = {
+      missionDate: missionContext.missionDate, syllabusId: missionContext.syllabusId, topicId: missionContext.topicId,
+    };
+    const lookupDocument = this.getDocumentRef(
+      [studentPath, STUDENT_DAILY_MISSION_ACCEPTED_ADDITIONAL_PRACTICES_SUBCOLLECTION].join("/"),
+      normalizedPracticeId,
+    );
+
     return this.getFirestoreDb().runTransaction(async (transaction) => {
       const practiceSnapshot = await transaction.get(
         additionalPracticeDocument
       );
 
+      const lookupSnapshot = await transaction.get(lookupDocument);
+      const previousLookup = lookupSnapshot.exists
+        ? requireAcceptedDailyMissionContext({...lookupSnapshot.data(), practiceId: normalizedPracticeId}) : null;
+      if (previousLookup?.missionDate === normalizedDate
+          && (previousLookup.syllabusId !== normalizedSyllabusId || previousLookup.topicId !== normalizedTopicId)) {
+        throw createCodedError("failed-precondition", "The additional mission lookup contains conflicting route data.");
+      }
+      const updateLookup = previousLookup === null || previousLookup.missionDate < normalizedDate;
+
       if (practiceSnapshot.exists) {
+        if (updateLookup) transaction.set(lookupDocument, lookupData);
         return Object.freeze({created: false});
       }
 
@@ -325,6 +426,7 @@ export class FirestoreDailyMissionRepository
       transaction.set(syllabusDocument, {}, {merge: true});
       transaction.set(additionalTopicDocument, {}, {merge: true});
       transaction.set(additionalPracticeDocument, {});
+      if (updateLookup) transaction.set(lookupDocument, lookupData);
 
       return Object.freeze({created: true});
     });
@@ -407,8 +509,28 @@ export class FirestoreDailyMissionRepository
       normalizedTopicId
     );
 
+    const missionContext = requireAcceptedDailyMissionContext({
+      missionDate: normalizedDate, syllabusId: normalizedSyllabusId,
+      topicId: normalizedTopicId, practiceId: normalizedPracticeId,
+    });
+    const lookupData = {
+      missionDate: missionContext.missionDate, syllabusId: missionContext.syllabusId, topicId: missionContext.topicId,
+    };
+    const lookupDocument = this.getDocumentRef(
+      [studentPath, STUDENT_DAILY_MISSION_ACCEPTED_PRACTICES_SUBCOLLECTION].join("/"),
+      normalizedPracticeId,
+    );
+
     return this.getFirestoreDb().runTransaction(async (transaction) => {
       const syllabusSnapshot = await transaction.get(syllabusDocument);
+      const lookupSnapshot = await transaction.get(lookupDocument);
+      const previousLookup = lookupSnapshot.exists
+        ? requireAcceptedDailyMissionContext({...lookupSnapshot.data(), practiceId: normalizedPracticeId}) : null;
+      if (previousLookup?.missionDate === normalizedDate
+          && (previousLookup.syllabusId !== normalizedSyllabusId || previousLookup.topicId !== normalizedTopicId)) {
+        throw createCodedError("failed-precondition", "The daily mission lookup contains conflicting route data.");
+      }
+      const updateLookup = previousLookup === null || previousLookup.missionDate < normalizedDate;
       const existingMission = syllabusSnapshot.exists
         ? syllabusSnapshot.data()?.coreMission
         : null;
@@ -427,6 +549,7 @@ export class FirestoreDailyMissionRepository
           existingTopicId === normalizedTopicId
           && existingPracticeId === normalizedPracticeId
         ) {
+          if (updateLookup) transaction.set(lookupDocument, lookupData);
           return Object.freeze({created: false});
         }
 
@@ -465,6 +588,7 @@ export class FirestoreDailyMissionRepository
       }, {merge: true});
       transaction.set(coreTopicDocument, {}, {merge: true});
       transaction.set(corePracticeDocument, {});
+      if (updateLookup) transaction.set(lookupDocument, lookupData);
       transaction.set(statsSyllabusDocument, {}, {merge: true});
       transaction.set(statsTopicDocument, {
         lastAcceptedDate: normalizedDate

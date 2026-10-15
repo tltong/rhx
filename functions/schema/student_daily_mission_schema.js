@@ -7,6 +7,8 @@ const STUDENT_DAILY_MISSION_PRACTICES_SUBCOLLECTION = "practices";
 const STUDENT_DAILY_MISSION_PAUSED_TOPICS_SUBCOLLECTION = "pausedTopics";
 const STUDENT_DAILY_MISSION_STATS_SUBCOLLECTION = "missionStats";
 const STUDENT_DAILY_MISSION_TOPICS_SUBCOLLECTION = "topics";
+const STUDENT_DAILY_MISSION_ACCEPTED_PRACTICES_SUBCOLLECTION = "acceptedDailyMissionPractices";
+const STUDENT_DAILY_MISSION_ACCEPTED_ADDITIONAL_PRACTICES_SUBCOLLECTION = "acceptedAdditionalMissionPractices";
 
 const studentDailyMissionDocumentIdPattern = "[student_id]";
 const studentDailyMissionDayDocumentIdPattern = "[yyyy-mm-dd]";
@@ -19,6 +21,24 @@ const studentDailyMissionSchema = {
   documentId: studentDailyMissionDocumentIdPattern,
   fields: {},
   subcollections: {
+    acceptedDailyMissionPractices: {
+      collection: STUDENT_DAILY_MISSION_ACCEPTED_PRACTICES_SUBCOLLECTION,
+      documentId: studentDailyMissionPracticeDocumentIdPattern,
+      fields: {
+        missionDate: {type: "string", format: "YYYY-MM-DD"},
+        syllabusId: "string",
+        topicId: "string",
+      },
+    },
+    acceptedAdditionalMissionPractices: {
+      collection: STUDENT_DAILY_MISSION_ACCEPTED_ADDITIONAL_PRACTICES_SUBCOLLECTION,
+      documentId: studentDailyMissionPracticeDocumentIdPattern,
+      fields: {
+        missionDate: {type: "string", format: "YYYY-MM-DD"},
+        syllabusId: "string",
+        topicId: "string",
+      },
+    },
     days: {
       collection: STUDENT_DAILY_MISSION_DAYS_SUBCOLLECTION,
       documentId: studentDailyMissionDayDocumentIdPattern,
@@ -106,6 +126,8 @@ module.exports = {
   STUDENT_DAILY_MISSION_PAUSED_TOPICS_SUBCOLLECTION,
   STUDENT_DAILY_MISSION_STATS_SUBCOLLECTION,
   STUDENT_DAILY_MISSION_TOPICS_SUBCOLLECTION,
+  STUDENT_DAILY_MISSION_ACCEPTED_ADDITIONAL_PRACTICES_SUBCOLLECTION,
+  STUDENT_DAILY_MISSION_ACCEPTED_PRACTICES_SUBCOLLECTION,
   studentDailyMissionDocumentIdPattern,
   studentDailyMissionDayDocumentIdPattern,
   studentDailyMissionSyllabusDocumentIdPattern,

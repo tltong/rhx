@@ -6,6 +6,7 @@ import { DeleteSyllabusScope } from "./application/delete_syllabusscope.js?v=202
 import { AddSyllabusScopeLanguage } from "./application/add_syllabusscope_language.js?v=20260718-scope-languages";
 import { DeleteSyllabusScopeLanguage } from "./application/delete_syllabusscope_language.js?v=20260718-scope-languages";
 import { ListSyllabusScopeCountries } from "./application/list_syllabusscope_countries.js?v=20260823-student-country-v1";
+import { ListSyllabusScopeLanguages } from "./application/list_syllabusscope_languages.js?v=20261014-scope-languages-v1";
 
 const syllabusScopeRepository = new FirestoreSyllabusScopeRepository();
 const getSyllabusScope = new GetSyllabusScope(syllabusScopeRepository);
@@ -19,6 +20,9 @@ const deleteSyllabusScopeLanguageUseCase = new DeleteSyllabusScopeLanguage(
   syllabusScopeRepository
 );
 const listSyllabusScopeCountriesUseCase = new ListSyllabusScopeCountries(
+  syllabusScopeRepository
+);
+const listSyllabusScopeLanguagesUseCase = new ListSyllabusScopeLanguages(
   syllabusScopeRepository
 );
 
@@ -36,6 +40,15 @@ async function listSyllabusScopes() {
 
 async function listSyllabusScopeCountries() {
   return listSyllabusScopeCountriesUseCase.execute();
+}
+
+/**
+ * Returns Promise<string[]>: sorted languages across every scope.
+ * Trims whitespace, deduplicates case-insensitively and keeps the first spelling.
+ * Returns [] when none are configured; does not write any documents.
+ */
+async function listSyllabusScopeLanguages() {
+  return listSyllabusScopeLanguagesUseCase.execute();
 }
 
 async function createSyllabusScopeRecord(data) {
@@ -63,6 +76,7 @@ export {
   findSyllabusScopeByCountry,
   listSyllabusScopes,
   listSyllabusScopeCountries,
+  listSyllabusScopeLanguages,
   createSyllabusScopeRecord,
   updateSyllabusScopeRecord,
   deleteSyllabusScopeRecord,

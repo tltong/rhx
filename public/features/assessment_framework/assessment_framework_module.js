@@ -102,6 +102,7 @@
  *     scoreBand: string,
  *     levelId: string,
  *     levelName: string,
+ *     reachedLevelIds: string[],
  *     isEndLevel: boolean
  *   }>.
  *
@@ -115,6 +116,7 @@
  *     levelId: string,
  *     levelName: string,
  *     levelChanged: boolean,
+ *     reachedLevelIds: string[],
  *     isEndLevel: boolean,
  *     qualifyingPracticeCount: number,
  *     criteria: object|null
@@ -134,10 +136,10 @@ import {
 } from "./infrastructure/firestore_assessment_framework_repository.js?v=20260730-score-bands";
 import {
   CalculatePreAssessmentLevel
-} from "./application/calculate_pre_assessment_level.js?v=20260807-pre-assessment-level";
+} from "./application/calculate_pre_assessment_level.js?v=20261010-level-rewards-v1";
 import {
   CalculateAssessmentProgression
-} from "./application/calculate_assessment_progression.js?v=20260822-assessment-progression";
+} from "./application/calculate_assessment_progression.js?v=20261010-level-rewards-v1";
 import {
   GetAssessmentLevelCriteria
 } from "./application/get_assessment_level_criteria.js?v=20260815-level-criteria";

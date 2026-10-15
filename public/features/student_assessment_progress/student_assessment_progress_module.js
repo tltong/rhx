@@ -21,6 +21,10 @@
  *   }>
  *   Routes pre-assessment and normal assessment practices internally.
  *
+ * getStudentPracticeAssessment({studentId, practiceId}) -> Promise<PracticeAssessment|null>
+ * Read-only. Returns the original assessment and ordered reachedLevelIds.
+ * Assessment progress and this record are saved atomically; retries replay it.
+ *
  * getStudentTopicLevel({
  *   studentId: string,
  *   syllabusId: string,
@@ -33,7 +37,7 @@ import {
   calculateAssessmentProgression,
   calculatePreAssessmentLevel,
   getAssessmentLevelCriteria
-} from "../assessment_framework/assessment_framework_module.js?v=20260822-assessment-progression";
+} from "../assessment_framework/assessment_framework_module.js?v=20261010-level-rewards-v1";
 import {
   getPracticeById,
   practiceTypes
@@ -52,22 +56,25 @@ import {
 } from "./application/assess_student_practice.js?v=20260822-assessment-progression";
 import {
   AssessPreAssessmentPractice
-} from "./application/assess_pre_assessment_practice.js?v=20260822-assessment-progression";
+} from "./application/assess_pre_assessment_practice.js?v=20261010-level-rewards-v1";
 import {
   AssessNormalAssessmentPractice
-} from "./application/assess_normal_assessment_practice.js?v=20260822-assessment-progression";
+} from "./application/assess_normal_assessment_practice.js?v=20261010-level-rewards-v1";
 import {
   listCompletedPracticeIds
 } from "../student_practice/student_practice_module.js?v=20260822-assessment-progression";
+import {GetStudentPracticeAssessment} from "./application/get_student_practice_assessment.js?v=20261010-level-rewards-v1";
+import {requireCurrentFirebaseAuthUser} from "../../utils/firebase/firebase_auth.js";
 import {
   GetStudentTopicLevel
 } from "./application/get_student_topic_level.js?v=20260814-student-topic-level";
 import {
   FirestoreStudentAssessmentProgressRepository
-} from "./infrastructure/firestore_student_assessment_progress_repository.js?v=20260822-assessment-progression";
+} from "./infrastructure/firestore_student_assessment_progress_repository.js?v=20261010-level-rewards-v1";
 
 const studentAssessmentProgressRepository =
   new FirestoreStudentAssessmentProgressRepository();
+const getStudentPracticeAssessmentUseCase = new GetStudentPracticeAssessment(studentAssessmentProgressRepository);
 const getStudentTopicLevelUseCase = new GetStudentTopicLevel(
   studentAssessmentProgressRepository
 );
@@ -106,11 +113,17 @@ async function assessStudentPractice(input) {
   return assessStudentPracticeUseCase.execute(input);
 }
 
+async function getStudentPracticeAssessment(input) {
+  requireCurrentFirebaseAuthUser();
+  return getStudentPracticeAssessmentUseCase.execute(input);
+}
+
 async function getStudentTopicLevel(input) {
   return getStudentTopicLevelUseCase.execute(input);
 }
 
 export {
   assessStudentPractice,
+  getStudentPracticeAssessment,
   getStudentTopicLevel
 };

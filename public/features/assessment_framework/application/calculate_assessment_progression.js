@@ -92,6 +92,7 @@ export class CalculateAssessmentProgression {
         levelId: ASSESSMENT_FRAMEWORK_END_LEVEL_ID,
         levelName: framework.endLevelName,
         levelChanged: false,
+        reachedLevelIds: Object.freeze([]),
         isEndLevel: true,
         qualifyingPracticeCount: 0,
         criteria: null
@@ -129,6 +130,7 @@ export class CalculateAssessmentProgression {
         levelId: currentLevel.id,
         levelName: currentLevel.levelName,
         levelChanged: false,
+        reachedLevelIds: Object.freeze([]),
         isEndLevel: false,
         qualifyingPracticeCount,
         criteria
@@ -143,6 +145,7 @@ export class CalculateAssessmentProgression {
       levelId: nextLevel?.id || ASSESSMENT_FRAMEWORK_END_LEVEL_ID,
       levelName: nextLevel?.levelName || framework.endLevelName,
       levelChanged: true,
+      reachedLevelIds: Object.freeze([nextLevel?.id || ASSESSMENT_FRAMEWORK_END_LEVEL_ID]),
       isEndLevel: nextLevel === null,
       qualifyingPracticeCount,
       criteria

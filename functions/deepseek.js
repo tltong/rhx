@@ -1,6 +1,8 @@
 const { onRequest } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
+const logger = require("firebase-functions/logger");
 const OpenAI = require("openai");
+const {randomUUID} = require("node:crypto");
 
 const deepseekApiKey = defineSecret("DEEPSEEK_API_KEY");
 
@@ -14,6 +16,9 @@ const DEEPSEEK_THINKING_TYPES = Object.freeze({
 const DEFAULT_MODEL = DEEPSEEK_MODELS.PRO;
 const DEFAULT_THINKING_TYPE = DEEPSEEK_THINKING_TYPES.DISABLED;
 const DEFAULT_MAX_TOKENS = 2048;
+// Finish the whole workflow (including JSON retries/repair and response-body
+// reads) before the HTTP function's 600-second platform deadline.
+const DEEPSEEK_GENERATION_TIMEOUT_MS = 240000;
 const ALLOWED_ORIGINS = new Set([
   "https://readyherox.web.app",
   "https://readyherox.firebaseapp.com",
@@ -104,6 +109,8 @@ function getDeepseekClient() {
   return new OpenAI({
     baseURL: DEEPSEEK_BASE_URL,
     apiKey: deepseekApiKey.value(),
+    timeout: DEEPSEEK_GENERATION_TIMEOUT_MS,
+    maxRetries: 0,
   });
 }
 
@@ -216,7 +223,9 @@ async function createDeepseekCompletion({
   maxTokens,
   temperature,
   useJsonMode = true,
+  signal,
 }) {
+  signal?.throwIfAborted();
   const request = {
     model: DEFAULT_MODEL,
     messages,
@@ -233,7 +242,9 @@ async function createDeepseekCompletion({
     request.response_format = { type: "json_object" };
   }
 
-  return getDeepseekClient().chat.completions.create(request);
+  const completion = await getDeepseekClient().chat.completions.create(request, {signal});
+  signal?.throwIfAborted();
+  return completion;
 }
 
 function getContentPartText(part) {
@@ -306,6 +317,7 @@ function buildPlainJsonRetryMessages(messages) {
 async function repairJsonWithDeepseek({
   content,
   maxTokens,
+  signal,
 }) {
   const rawText = String(content || "").trim();
 
@@ -315,6 +327,7 @@ async function repairJsonWithDeepseek({
 
   return createDeepseekCompletion({
     maxTokens,
+    signal,
     temperature: 0,
     useJsonMode: false,
     messages: [
@@ -344,7 +357,46 @@ function createDeepseekError(message, status, payload = null) {
   return error;
 }
 
+function createDeepseekTimeoutError() {
+  const error = createDeepseekError(
+    "The AI service took too long to respond. Please try again.", 504,
+  );
+  error.name = "DeepseekTimeoutError";
+  error.code = "deepseek-timeout";
+  return error;
+}
+
 async function generateDeepseekJson(input, options = {}) {
+  // timeoutMs is an internal server option, never read from an HTTP body.
+  const timeoutMs = normalizeNumber(options.timeoutMs, DEEPSEEK_GENERATION_TIMEOUT_MS,
+    1, DEEPSEEK_GENERATION_TIMEOUT_MS);
+  const controller = new AbortController();
+  let timer;
+  const deadline = new Promise((resolve, reject) => {
+    timer = setTimeout(() => {
+      const error = createDeepseekTimeoutError();
+      reject(error);
+      controller.abort(error);
+    }, timeoutMs);
+  });
+  try {
+    return await Promise.race([
+      generateDeepseekJsonWithinDeadline(input, {...options, signal: controller.signal}),
+      deadline,
+    ]);
+  } catch (error) {
+    if (error.name === "APIConnectionTimeoutError") throw createDeepseekTimeoutError();
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function generateDeepseekJsonWithinDeadline(input, options) {
+  const reportProgress = (stage, details = {}) => {
+    options.signal.throwIfAborted();
+    options.onProgress?.({stage, ...details});
+  };
   const body = typeof input === "string"
     ? { prompt: input }
     : { ...(input || {}) };
@@ -361,11 +413,14 @@ async function generateDeepseekJson(input, options = {}) {
     0,
     2,
   );
+  reportProgress("generation-started", {maxTokens});
   let completion = await createDeepseekCompletion({
     messages,
     maxTokens,
     temperature,
+    signal: options.signal,
   });
+  reportProgress("generation-received");
   const initialDiagnostics = getCompletionDiagnostics(completion);
   let content = getCompletionContent(completion);
   let json = parseModelJson(content);
@@ -375,12 +430,15 @@ async function generateDeepseekJson(input, options = {}) {
   let repairDiagnostics = null;
 
   if (json === null && !content.trim()) {
+    reportProgress("json-retry-started");
     completion = await createDeepseekCompletion({
       messages: buildPlainJsonRetryMessages(messages),
       maxTokens,
       temperature: Math.min(temperature, 0.2),
       useJsonMode: false,
+      signal: options.signal,
     });
+    reportProgress("json-retry-received");
     retryDiagnostics = getCompletionDiagnostics(completion);
     retryRawText = getCompletionContent(completion);
     content = retryRawText;
@@ -388,7 +446,9 @@ async function generateDeepseekJson(input, options = {}) {
   }
 
   if (json === null && content.trim()) {
-    completion = await repairJsonWithDeepseek({ content, maxTokens });
+    reportProgress("json-repair-started");
+    completion = await repairJsonWithDeepseek({ content, maxTokens, signal: options.signal });
+    reportProgress("json-repair-received");
     repairDiagnostics = completion
       ? getCompletionDiagnostics(completion)
       : null;
@@ -413,6 +473,7 @@ async function generateDeepseekJson(input, options = {}) {
     throw createDeepseekError(payload.error, 502, payload);
   }
 
+  reportProgress("json-validated");
   return {
     json,
     model: completion.model || DEFAULT_MODEL,
@@ -433,7 +494,12 @@ const generateDeepseekText = onRequest(
     timeoutSeconds: 600,
   },
   async (req, res) => {
+    const requestId = randomUUID();
+    const startedAt = Date.now();
+    let stage = "request-started";
     setCorsHeaders(req, res);
+    res.set("X-Request-ID", requestId);
+    res.set("Access-Control-Expose-Headers", "X-Request-ID");
 
     if (req.method === "OPTIONS") {
       res.status(204).send("");
@@ -441,108 +507,43 @@ const generateDeepseekText = onRequest(
     }
 
     if (req.method !== "POST") {
-      res.status(405).json({ error: "Use POST to generate DeepSeek text." });
+      res.status(405).json({ error: "Use POST to generate DeepSeek text.", requestId });
       return;
     }
 
     let body;
-    let messages;
-    let maxTokens;
-    let temperature;
 
     try {
       body = parseRequestBody(req);
-      messages = ensureJsonInstruction(normalizeMessages(body));
-      maxTokens = normalizeNumber(
-        body.maxTokens,
-        DEFAULT_MAX_TOKENS,
-        128,
-        8192,
-      );
-      temperature = normalizeNumber(body.temperature, 0.3, 0, 2);
+      normalizeMessages(body);
     } catch (error) {
-      res.status(400).json({ error: error.message });
+      res.status(400).json({ error: error.message, requestId });
       return;
     }
 
+    const reportProgress = ({stage: nextStage, ...details}) => {
+      stage = nextStage;
+      logger.info("DeepSeek request progress", {
+        requestId, stage, elapsedMs: Date.now() - startedAt, ...details,
+      });
+    };
+    reportProgress({stage, model: DEFAULT_MODEL, timeoutMs: DEEPSEEK_GENERATION_TIMEOUT_MS});
     try {
-      let completion = await createDeepseekCompletion({
-        messages,
-        maxTokens,
-        temperature,
-      });
-      const initialDiagnostics = getCompletionDiagnostics(completion);
-      let content = getCompletionContent(completion);
-      let json = parseModelJson(content);
-      let retryRawText = "";
-      let repairedRawText = "";
-      let retryDiagnostics = null;
-      let repairDiagnostics = null;
-
-      if (json === null && !content.trim()) {
-        const retryCompletion = await createDeepseekCompletion({
-          messages: buildPlainJsonRetryMessages(messages),
-          maxTokens,
-          temperature: Math.min(temperature, 0.2),
-          useJsonMode: false,
-        });
-
-        retryDiagnostics = getCompletionDiagnostics(retryCompletion);
-        retryRawText = getCompletionContent(retryCompletion);
-        json = parseModelJson(retryRawText);
-
-        if (json !== null) {
-          completion = retryCompletion;
-          content = retryRawText;
-        }
-      }
-
-      if (json === null && (retryRawText || content).trim()) {
-        const repairCompletion = await repairJsonWithDeepseek({
-          content: retryRawText || content,
-          maxTokens,
-        });
-
-        repairDiagnostics = repairCompletion
-          ? getCompletionDiagnostics(repairCompletion)
-          : null;
-        repairedRawText = repairCompletion
-          ? getCompletionContent(repairCompletion)
-          : "";
-        json = parseModelJson(repairedRawText);
-
-        if (json !== null) {
-          completion = repairCompletion;
-          content = repairedRawText;
-        }
-      }
-
-      if (json === null) {
-        res.status(502).json({
-          error: "DeepSeek did not return valid JSON.",
-          rawText: content,
-          retryRawText,
-          repairedRawText,
-          diagnostics: {
-            initial: initialDiagnostics,
-            retry: retryDiagnostics,
-            repair: repairDiagnostics,
-          },
-        });
-        return;
-      }
-
-      res.status(200).json({
-        json,
-        model: completion.model || DEFAULT_MODEL,
-        usage: completion.usage || null,
-      });
+      const result = await generateDeepseekJson(body, {onProgress: reportProgress});
+      reportProgress({stage: "completed"});
+      res.status(200).json({...result, requestId});
     } catch (error) {
-      console.error("DeepSeek request failed", error);
-      res.status(500).json({
-        error: "DeepSeek text generation failed.",
-        message: error.message,
+      const timedOut = error.code === "deepseek-timeout";
+      const status = timedOut ? 504 : error.status === 502 ? 502 : 500;
+      logger.error("DeepSeek request failed", {
+        requestId, stage, elapsedMs: Date.now() - startedAt, status,
+        code: error.code || null, errorName: error.name,
+        errorMessage: String(error.message || "").slice(0, 500),
       });
+      const payload = timedOut
+        ? {error: error.message, code: "deepseek-timeout"}
+        : error.payload || {error: "DeepSeek text generation failed.", message: error.message};
+      res.status(status).json({...payload, requestId});
     }
   },
 );

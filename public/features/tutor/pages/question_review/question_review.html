@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Question Review</title>
+    <link rel="stylesheet" href="/vendor/katex/0.18.1/katex.min.css" integrity="sha384-1vdNCNel6Tx/NQa8IR1mGOGKsbGreCkOPfbtPPnUURJ5Tu2PRVfQ/7KLZC+Pi1p1">
+    <link rel="stylesheet" href="./question_review.css?v=20261015-review-return-to-result-v1">
+    <script defer src="/vendor/katex/0.18.1/katex.min.js" integrity="sha384-ycJ6GAwiS15LoUPipwJOrWTvkUHl/YqELValBwI5I4awP1EeEQJYarj+w85ntcz7"></script>
+    <script defer src="/vendor/katex/0.18.1/contrib/auto-render.min.js" integrity="sha384-bjyGPfbij8/NDKJhSGZNP/khQVgtHUE5exjm4Ydllo42FwIgYsdLO2lXGmRBf5Mz"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script type="module" src="/init_fb.js"></script>
+  </head>
+  <body>
+    <main id="question-review-page" class="page-shell">
+      <nav class="review-navigation" aria-label="Review navigation">
+        <a id="review-back-to-results" class="back-link" hidden>Back to practice results</a>
+        <a class="back-link" href="/features/student/pages/landing/landing.html">Back to student home</a>
+      </nav>
+      <header class="page-header">
+        <p class="eyebrow">Guided learning</p>
+        <h1>Question review</h1>
+        <p class="subtitle">Work through one small question at a time to find the final answer.</p>
+      </header>
+
+      <section id="review-original" class="panel original-panel" aria-labelledby="original-heading" hidden>
+        <h2 id="original-heading">Your question</h2>
+        <p id="review-question-text" class="question-copy" dir="auto"></p>
+        <figure id="review-diagram" class="question-diagram" hidden></figure>
+        <ul id="review-options" class="question-options" aria-label="Original answer options"></ul>
+      </section>
+
+      <section id="review-guidance" class="panel guidance-panel" aria-labelledby="guidance-heading" aria-busy="true">
+        <div class="panel-heading">
+          <h2 id="guidance-heading">Let's work it out</h2>
+          <span id="review-step" class="step-label" hidden></span>
+        </div>
+
+        <div id="review-preparation" class="preparation">
+          <p id="review-preparation-message" role="status" aria-live="polite">Loading your question…</p>
+          <div class="preparation-track" role="progressbar" aria-labelledby="review-preparation-message">
+            <div class="preparation-bar"></div>
+          </div>
+          <p class="help-text">Your guided questions will appear here when they are ready.</p>
+        </div>
+
+        <div id="review-load-error" class="load-error" hidden>
+          <p id="review-error-message" class="status is-error" role="alert"></p>
+          <button id="retry-review" type="button" class="secondary">Retry</button>
+        </div>
+
+        <form id="review-answer-form" novalidate hidden>
+          <p id="review-mini-question" class="mini-question" dir="auto"></p>
+          <label for="review-answer">Your answer</label>
+          <textarea id="review-answer" name="answer" rows="3" dir="auto" required disabled
+            aria-describedby="review-answer-help review-feedback"></textarea>
+          <p id="review-answer-help" class="help-text">Write your answer in your own words.</p>
+          <div class="form-actions">
+            <button id="check-review-answer" type="submit" disabled>Check answer</button>
+          </div>
+          <p id="review-feedback" class="status" role="status" aria-live="polite" dir="auto" hidden></p>
+          <div id="review-step-explanation" class="step-explanation" hidden>
+            <h3>Answer</h3>
+            <p id="review-step-answer" class="step-answer" dir="auto"></p>
+            <h3>Why this works</h3>
+            <p id="review-step-explanation-text" dir="auto"></p>
+          </div>
+          <div class="form-actions">
+            <button id="next-review-question" type="button" class="secondary" disabled
+              aria-describedby="review-step-answer review-step-explanation-text">Next</button>
+          </div>
+        </form>
+
+        <section id="review-complete" class="completion" aria-labelledby="review-complete-heading" hidden>
+          <p class="eyebrow">All steps complete</p>
+          <h2 id="review-complete-heading" tabindex="-1">Review complete</h2>
+          <p class="help-text">Here is the answer to the original question.</p>
+          <p id="review-final-answer" class="final-answer" dir="auto"></p>
+          <p id="review-final-explanation" dir="auto"></p>
+          <div class="form-actions">
+            <button id="restart-review" type="button" class="secondary">Review again</button>
+            <a id="review-complete-back-to-results" class="button-link" hidden>Back to practice results</a>
+            <a class="button-link" href="/features/student/pages/landing/landing.html">Back to student home</a>
+          </div>
+        </section>
+      </section>
+    </main>
+    <script type="module" src="./question_review.js?v=20261015-review-finish-result-v1"></script>
+  </body>
+</html>

@@ -29,6 +29,7 @@ test("Functions module exposes the same syllabus-scope API as the website", () =
       "findSyllabusScopeByCountry",
       "getSyllabusScopeById",
       "listSyllabusScopeCountries",
+      "listSyllabusScopeLanguages",
       "listSyllabusScopes",
       "updateSyllabusScopeRecord",
     ],

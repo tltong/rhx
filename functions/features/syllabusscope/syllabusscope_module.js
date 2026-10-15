@@ -17,6 +17,13 @@
  *   Input: none.
  *   Output: Promise<string[]>.
  *
+ * listSyllabusScopeLanguages()
+ *   Input: none.
+ *   Output: Promise<string[]>.
+ *   Combines languages across all scopes, trims whitespace, deduplicates
+ *   case-insensitively and sorts by language name. Keeps the first spelling.
+ *   Returns [] when none are configured; does not write any documents.
+ *
  * createSyllabusScopeRecord(data)
  *   Input: {id, country, languages?: string[], levels?: Object}.
  *   Output: Promise<SyllabusScope>.
@@ -60,6 +67,9 @@ const {
 const {
   ListSyllabusScopeCountries,
 } = require("./application/list_syllabusscope_countries");
+const {
+  ListSyllabusScopeLanguages,
+} = require("./application/list_syllabusscope_languages");
 
 const syllabusScopeRepository = new FirestoreSyllabusScopeRepository();
 const getSyllabusScope = new GetSyllabusScope(syllabusScopeRepository);
@@ -79,6 +89,8 @@ const deleteSyllabusScopeLanguageUseCase =
   new DeleteSyllabusScopeLanguage(syllabusScopeRepository);
 const listSyllabusScopeCountriesUseCase =
   new ListSyllabusScopeCountries(syllabusScopeRepository);
+const listSyllabusScopeLanguagesUseCase =
+  new ListSyllabusScopeLanguages(syllabusScopeRepository);
 
 async function getSyllabusScopeById(syllabusScopeId) {
   return getSyllabusScope.execute(syllabusScopeId);
@@ -94,6 +106,10 @@ async function listSyllabusScopes() {
 
 async function listSyllabusScopeCountries() {
   return listSyllabusScopeCountriesUseCase.execute();
+}
+
+async function listSyllabusScopeLanguages() {
+  return listSyllabusScopeLanguagesUseCase.execute();
 }
 
 async function createSyllabusScopeRecord(data) {
@@ -127,6 +143,7 @@ module.exports = {
   findSyllabusScopeByCountry,
   listSyllabusScopes,
   listSyllabusScopeCountries,
+  listSyllabusScopeLanguages,
   createSyllabusScopeRecord,
   updateSyllabusScopeRecord,
   deleteSyllabusScopeRecord,

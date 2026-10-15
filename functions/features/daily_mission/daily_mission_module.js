@@ -1,6 +1,21 @@
 /**
  * Feature API
  *
+ * getAcceptedAdditionalMissionForPractice({studentId: string, practiceId: string})
+ *   -> Promise<{missionDate: string, syllabusId: string, topicId: string,
+ *     practiceId: string}|null>
+ * Read-only. Verifies the lookup against the accepted additional practice record.
+ * Supports older records without a lookup and returns the latest acceptance.
+ * Acceptance is independent of practice completion.
+ *
+ * getAcceptedDailyMissionForPractice({studentId: string, practiceId: string})
+ *   -> Promise<{missionDate: string, syllabusId: string, topicId: string,
+ *     practiceId: string}|null>
+ * Read-only. Verifies the lookup against the accepted core mission record.
+ * Reads older accepted records when no lookup exists. Returns the latest core
+ * acceptance if the same practice was accepted on multiple mission days.
+ * Acceptance is independent of whether the practice has been completed.
+ *
  * getNextCoreDailyMission({studentId: string, syllabusId: string})
  *   -> Promise<{
  *     studentId: string,
@@ -98,6 +113,10 @@ const {
 const {
   GetNextCoreDailyMission,
 } = require("./application/get_next_core_daily_mission");
+const {GetAcceptedAdditionalMissionForPractice} = require("./application/get_accepted_additional_mission_for_practice");
+const {
+  GetAcceptedDailyMissionForPractice,
+} = require("./application/get_accepted_daily_mission_for_practice");
 const {
   IsTopicPaused,
 } = require("./application/is_topic_paused");
@@ -115,6 +134,8 @@ const {
 } = require("./infrastructure/firestore_daily_mission_repository");
 
 const dailyMissionRepository = new FirestoreDailyMissionRepository();
+const getAcceptedAdditionalMissionForPracticeUseCase = new GetAcceptedAdditionalMissionForPractice({dailyMissionRepository});
+const getAcceptedDailyMissionForPracticeUseCase = new GetAcceptedDailyMissionForPractice({dailyMissionRepository});
 const checkPausedTopicValidityUseCase = new CheckPausedTopicValidity({
   dailyMissionRepository,
 });
@@ -159,6 +180,14 @@ const unpauseTopicUseCase = new UnpauseTopic({
   dailyMissionRepository,
 });
 
+async function getAcceptedAdditionalMissionForPractice(input) {
+  return getAcceptedAdditionalMissionForPracticeUseCase.execute(input);
+}
+
+async function getAcceptedDailyMissionForPractice(input) {
+  return getAcceptedDailyMissionForPracticeUseCase.execute(input);
+}
+
 async function getNextCoreDailyMission(input) {
   return getNextCoreDailyMissionUseCase.execute(input);
 }
@@ -195,6 +224,8 @@ module.exports = {
   acceptAdditionalDailyMission,
   acceptCoreDailyMission,
   checkPausedTopicValidity,
+  getAcceptedAdditionalMissionForPractice,
+  getAcceptedDailyMissionForPractice,
   getNextCoreDailyMission,
   isTopicPaused,
   listAdditionalMissionPracticeIds,

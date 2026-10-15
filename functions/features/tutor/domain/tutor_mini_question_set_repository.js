@@ -1,0 +1,11 @@
+class TutorMiniQuestionSetRepository {
+  async get(reference) {
+    throw new Error("TutorMiniQuestionSetRepository.get must be implemented.");
+  }
+
+  async save(input, options = {}) {
+    throw new Error("TutorMiniQuestionSetRepository.save must be implemented.");
+  }
+}
+
+module.exports = {TutorMiniQuestionSetRepository};

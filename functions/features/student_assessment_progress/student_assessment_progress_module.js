@@ -3,6 +3,10 @@
  *   -> Promise<AssessmentOutcome>
  *   Routes pre-assessment and normal assessment practices internally.
  *
+ * getStudentPracticeAssessment({studentId, practiceId}) -> Promise<PracticeAssessment|null>
+ * Read-only. Returns the original assessment and ordered reachedLevelIds.
+ * Assessment progress and this record are saved atomically; retries replay it.
+ *
  * getStudentTopicLevel({studentId, syllabusId, topicId})
  *   -> Promise<string|null>
 
@@ -37,6 +41,7 @@ const {
 const {
   AssessNormalAssessmentPractice,
 } = require("./application/assess_normal_assessment_practice");
+const {GetStudentPracticeAssessment} = require("./application/get_student_practice_assessment");
 const {
   GetStudentTopicLevel,
 } = require("./application/get_student_topic_level");
@@ -48,6 +53,7 @@ const {
 
 const studentAssessmentProgressRepository =
   new FirestoreStudentAssessmentProgressRepository();
+const getStudentPracticeAssessmentUseCase = new GetStudentPracticeAssessment(studentAssessmentProgressRepository);
 const getStudentTopicLevelUseCase = new GetStudentTopicLevel(
   studentAssessmentProgressRepository,
 );
@@ -86,11 +92,16 @@ async function assessStudentPractice(input) {
   return assessStudentPracticeUseCase.execute(input);
 }
 
+async function getStudentPracticeAssessment(input) {
+  return getStudentPracticeAssessmentUseCase.execute(input);
+}
+
 async function getStudentTopicLevel(input) {
   return getStudentTopicLevelUseCase.execute(input);
 }
 
 module.exports = {
   assessStudentPractice,
+  getStudentPracticeAssessment,
   getStudentTopicLevel,
 };

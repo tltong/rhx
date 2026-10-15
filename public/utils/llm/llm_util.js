@@ -1,7 +1,7 @@
 import deepseekUtil, {
   callDeepseek,
   generateDeepseekText
-} from "./deepseek_util.js?v=20260724-thinking-disabled";
+} from "./deepseek_util.js?v=20261015-deepseek-deadline-v1";
 
 export const LLM_PROVIDERS = Object.freeze({
   DEEPSEEK: "deepseek"

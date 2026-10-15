@@ -1,0 +1,41 @@
+:root {
+  color-scheme: light;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #102a43;
+  background: #eef3f8;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+button, input, select { font: inherit; }
+[hidden] { display: none !important; }
+.page-shell { max-width: 800px; margin: 0 auto; padding: 32px 20px 48px; }
+.back-link { display: inline-block; color: #0369a1; font-weight: 700; margin-bottom: 18px; }
+h1 { font-size: 30px; margin: 0 0 8px; }
+h2 { font-size: 21px; margin: 0; }
+h3 { font-size: 17px; margin: 24px 0 16px; }
+.subtitle, .help-text, .updated-at { color: #52606d; line-height: 1.5; }
+.subtitle { margin: 0 0 24px; }
+.panel { background: white; border: 1px solid #cbd9e6; border-radius: 8px; padding: 22px; margin-top: 24px; }
+.panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.updated-at { font-size: 13px; }
+.help-text { margin: 12px 0 20px; }
+.config-fields { display: grid; gap: 16px; margin-top: 20px; }
+.config-row { display: grid; grid-template-columns: 1fr minmax(140px, 220px); align-items: start; gap: 18px; }
+.config-row label { font-weight: 700; padding-top: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.framework-picker { display: grid; gap: 8px; }
+.framework-picker label { font-weight: 700; }
+input, select { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid #a8bdcf; border-radius: 6px; min-height: 44px; color: inherit; background: white; }
+input[aria-invalid="true"] { border-color: #b91c1c; }
+.field-error { display: block; color: #b91c1c; font-size: 13px; margin-top: 6px; }
+.field-help { display: block; color: #667789; font-size: 12px; margin-top: 5px; }
+.form-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+button { border: 1px solid #0369a1; border-radius: 6px; background: #0369a1; color: white; cursor: pointer; min-height: 44px; padding: 10px 16px; font-weight: 700; }
+button.secondary { background: white; color: #0369a1; }
+button:disabled { cursor: default; opacity: 0.55; }
+input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible { outline: 3px solid #7dd3fc; outline-offset: 3px; }
+.status { border: 1px solid #a8cfdd; background: #e0f2fe; border-radius: 6px; padding: 12px 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.status.is-error { border-color: #fca5a5; background: #fef2f2; color: #991b1b; }
+@media (max-width: 480px) {
+  .config-row { grid-template-columns: 1fr; gap: 7px; }
+  .config-row label { padding-top: 0; }
+}

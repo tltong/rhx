@@ -144,6 +144,101 @@ summary:focus-visible {
   font-weight: 700;
 }
 
+.coin-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 28px;
+  border: 1px solid #e4d5ac;
+  border-radius: 8px;
+  padding: 20px;
+  background: #fffdf5;
+}
+
+.coin-balance {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 180px;
+}
+
+.coin-icon {
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+}
+
+.coin-details {
+  min-width: 0;
+}
+
+.coin-total {
+  display: block;
+  color: #754b0e;
+  font-size: 36px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.coin-status {
+  margin: 7px 0 0;
+  color: #667789;
+  font-size: 13px;
+}
+
+.coin-status.is-error {
+  color: #9f1d24;
+}
+
+.coin-status[hidden] {
+  display: none;
+}
+
+.coin-activity {
+  flex: 1 1 520px;
+  max-width: 650px;
+  min-width: 0;
+  border-left: 1px solid #eadfbe;
+  padding-left: 28px;
+}
+
+.coin-activity h3 {
+  margin: 0 0 10px;
+  color: #5f441b;
+  font-size: 16px;
+}
+
+.coin-activity-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.coin-activity-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+.coin-activity-item + .coin-activity-item {
+  border-top: 1px solid #eee5cb;
+}
+
+.coin-activity-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.coin-activity-amount {
+  flex: 0 0 auto;
+  color: #754b0e;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
 .daily-mission-launch {
   width: 100%;
   min-height: 104px;
@@ -717,6 +812,20 @@ summary:focus-visible {
 
   .student-summary {
     grid-template-columns: 1fr;
+  }
+
+  .coin-summary {
+    flex-direction: column;
+  }
+
+  .coin-activity {
+    flex-basis: auto;
+    width: 100%;
+    max-width: none;
+    border-top: 1px solid #eadfbe;
+    border-left: 0;
+    padding-top: 18px;
+    padding-left: 0;
   }
 
   .summary-item:nth-child(even) {

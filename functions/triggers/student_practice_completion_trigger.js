@@ -25,6 +25,11 @@ const {
   saveSubjectReliabilityScore,
 } = require("../features/reliability/reliability_module");
 const {
+  awardAssessmentLevelUp,
+  awardAdditionalMissionCompletion,
+  awardDailyMissionCompletion,
+} = require("../features/reward/reward_module");
+const {
   completionProcessingOutcomes,
 } = require(
   "../features/student_practice/domain/practice_completion_processing",
@@ -74,6 +79,9 @@ async function assessCompletedStudentPractice({
   studentId,
   practiceId,
 } = {}, {
+  awardLevelUp = awardAssessmentLevelUp,
+  awardAdditionalMission = awardAdditionalMissionCompletion,
+  awardDailyMission = awardDailyMissionCompletion,
   assessPractice = assessStudentPractice,
   generatePractice = generateAssessmentPractice,
   calculateReadiness = calculateReadinessScore,
@@ -111,6 +119,34 @@ async function assessCompletedStudentPractice({
       });
     }
 
+    // Completion is already stored. Reward it independently of assessment
+    // progression and next-practice generation; the Reward feature deduplicates.
+    const reward = await awardDailyMission({
+      studentId: normalizedStudentId,
+      practiceId: normalizedPracticeId,
+    });
+    if (reward !== null) {
+      logger.info("Student daily mission completion reward processed.", {
+        ...context,
+        awardId: reward.award.awardId,
+        coins: reward.award.coins,
+        alreadyAwarded: reward.alreadyAwarded,
+      });
+    }
+
+    const additionalReward = await awardAdditionalMission({
+      studentId: normalizedStudentId,
+      practiceId: normalizedPracticeId,
+    });
+    if (additionalReward !== null) {
+      logger.info("Student additional mission completion reward processed.", {
+        ...context,
+        awardId: additionalReward.award.awardId,
+        coins: additionalReward.award.coins,
+        alreadyAwarded: additionalReward.alreadyAwarded,
+      });
+    }
+
     logger.info("Student practice assessment started.", context);
     const assessment = await assessPractice({
       studentId: normalizedStudentId,
@@ -129,6 +165,19 @@ async function assessCompletedStudentPractice({
       levelChanged: assessment?.levelChanged === true,
       isFrameworkCompleted: assessment?.isFrameworkCompleted === true,
     });
+
+    const levelReward = await awardLevelUp({
+      studentId: normalizedStudentId,
+      practiceId: normalizedPracticeId,
+    });
+    if (levelReward !== null) {
+      logger.info("Student assessment level rewards processed.", {
+        ...context,
+        levelIds: levelReward.awards.map(award => award.details.levelId),
+        coinsAwarded: levelReward.coinsAwarded,
+        alreadyAwarded: levelReward.alreadyAwarded,
+      });
+    }
 
     // Completion is already stored. Update readiness even when level progression
     // is skipped or the framework is complete and no next practice is generated.

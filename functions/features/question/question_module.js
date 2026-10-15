@@ -4,6 +4,11 @@
  * getQuestion(questionReference: QuestionReference)
  *   -> Promise<Question|null>
  *
+ * getQuestionById(questionId: string)
+ *   -> Promise<Question|null> including full SVG and answer details.
+ *   Searches existing question branches. Returns null if missing and throws
+ *   with code "ambiguous-question-id" if the ID occurs in multiple branches.
+ *
  * getQuestionDifficulty(questionReference: QuestionReference)
  *   -> Promise<string>
  *
@@ -140,6 +145,7 @@ const {
   CheckQuestionAnswers,
 } = require("./application/check_question_answers");
 const { GetQuestion } = require("./application/get_question");
+const { GetQuestionById } = require("./application/get_question_by_id");
 const {
   GetQuestionDifficulty,
 } = require("./application/get_question_difficulty");
@@ -182,6 +188,7 @@ const questionRepository = new FirestoreQuestionRepository();
 const checkQuestionAnswersUseCase =
   new CheckQuestionAnswers(questionRepository);
 const getQuestionUseCase = new GetQuestion(questionRepository);
+const getQuestionByIdUseCase = new GetQuestionById(questionRepository);
 const getQuestionDifficultyUseCase =
   new GetQuestionDifficulty(questionRepository);
 const getQuestionCountUseCase = new GetQuestionCount(questionRepository);
@@ -198,6 +205,10 @@ const deleteQuestionUseCase = new DeleteQuestion(questionRepository);
 
 async function getQuestion(questionReference) {
   return getQuestionUseCase.execute(questionReference);
+}
+
+async function getQuestionById(questionId) {
+  return getQuestionByIdUseCase.execute(questionId);
 }
 
 async function getQuestionDifficulty(questionReference) {
@@ -261,6 +272,7 @@ async function deleteQuestion(questionReference) {
 module.exports = {
   checkQuestionAnswers,
   getQuestion,
+  getQuestionById,
   getQuestionDifficulty,
   getQuestionCount,
   getQuestionsForPractice,

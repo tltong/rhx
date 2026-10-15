@@ -31,6 +31,12 @@ const {
 const {
   onStudentPracticeCompleted,
 } = require("./triggers/student_practice_completion_trigger");
+const {
+  pruneStudentLoginHistoryDaily,
+} = require("./triggers/student_login_history_cleanup_trigger");
+const {
+  onStudentLoginRecorded,
+} = require("./triggers/student_login_reward_trigger");
 
 exports.generateDeepseekText = generateDeepseekText;
 exports.createPaymentCustomer = createPaymentCustomer;
@@ -48,3 +54,5 @@ exports.listSiteAdminEmails = listSiteAdminEmails;
 exports.removeSiteAdminEmail = removeSiteAdminEmail;
 exports.onSyllabusSubscriptionCreated = onSyllabusSubscriptionCreated;
 exports.onStudentPracticeCompleted = onStudentPracticeCompleted;
+exports.pruneStudentLoginHistoryDaily = pruneStudentLoginHistoryDaily;
+exports.onStudentLoginRecorded = onStudentLoginRecorded;

@@ -1,4 +1,5 @@
 export const STUDENT_ASSESSMENT_PROGRESS_COLLECTION = "studentAssessmentProgress";
+export const STUDENT_PRACTICE_ASSESSMENTS_SUBCOLLECTION = "practiceAssessments";
 export const STUDENT_ASSESSMENT_SYLLABUSES_SUBCOLLECTION = "syllabuses";
 export const STUDENT_ASSESSMENT_TOPICS_SUBCOLLECTION = "topics";
 
@@ -12,6 +13,19 @@ export const studentAssessmentProgressSchema = {
   documentId: studentAssessmentProgressDocumentIdPattern,
   fields: {},
   subcollections: {
+    practiceAssessments: {
+      collection: STUDENT_PRACTICE_ASSESSMENTS_SUBCOLLECTION,
+      documentId: "[practice_id]",
+      fields: {
+        syllabusId: "string", topicId: "string", assessmentFrameworkId: "string",
+        previousLevelId: "string|null", levelId: "string", reachedLevelIds: "string[]",
+        assessed: "boolean", levelChanged: "boolean", isFrameworkCompleted: "boolean",
+        practiceType: "string", score: "number", reason: "string|null", levelName: "string|null",
+        assessedAt: "timestamp",
+        eligiblePracticeCount: "integer (optional)", qualifyingPracticeCount: "integer (optional)",
+        requiredPracticeCount: "integer (optional)", minimumScore: "number (optional)",
+      },
+    },
     syllabuses: {
       collection: STUDENT_ASSESSMENT_SYLLABUSES_SUBCOLLECTION,
       documentId: studentAssessmentSyllabusDocumentIdPattern,
@@ -44,6 +58,7 @@ export const studentAssessmentProgressSchema = {
 };
 
 export default {
+  STUDENT_PRACTICE_ASSESSMENTS_SUBCOLLECTION,
   STUDENT_ASSESSMENT_PROGRESS_COLLECTION,
   STUDENT_ASSESSMENT_SYLLABUSES_SUBCOLLECTION,
   STUDENT_ASSESSMENT_TOPICS_SUBCOLLECTION,

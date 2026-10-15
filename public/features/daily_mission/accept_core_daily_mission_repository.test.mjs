@@ -28,7 +28,8 @@ const PATHS = Object.freeze({
   assignedPractice: "studentPractices/student-1/"
     + "assignedPractices/practice-1",
   pausedTopic: "studentDailyMissions/student-1/pausedTopics/"
-    + "syllabus-1/topics/topic-1"
+    + "syllabus-1/topics/topic-1",
+  lookup: "studentDailyMissions/student-1/acceptedDailyMissionPractices/practice-1"
 });
 
 function snapshot(data = null) {
@@ -79,6 +80,7 @@ test("web acceptCoreMission atomically writes the accepted path and stats", asyn
   });
   assert.deepEqual(reads, [
     PATHS.syllabus,
+    PATHS.lookup,
     PATHS.assignedPractice,
     PATHS.pausedTopic
   ]);
@@ -88,6 +90,7 @@ test("web acceptCoreMission atomically writes the accepted path and stats", asyn
     PATHS.syllabus,
     PATHS.coreTopic,
     PATHS.corePractice,
+    PATHS.lookup,
     PATHS.statsSyllabus,
     PATHS.statsTopic
   ]);
@@ -97,13 +100,14 @@ test("web acceptCoreMission atomically writes the accepted path and stats", asyn
       practiceId: "practice-1"
     }
   });
-  assert.deepEqual(writes[6].data, {
+  assert.deepEqual(writes[7].data, {
     lastAcceptedDate: "2026-09-27"
   });
 });
 
 test("web acceptCoreMission is idempotent for the same mission", async () => {
   const {reads, repository, writes} = createRepository({
+    [PATHS.lookup]: {missionDate: "2026-09-27", syllabusId: "syllabus-1", topicId: "topic-1"},
     [PATHS.syllabus]: {
       coreMission: {
         topicId: "topic-1",
@@ -115,7 +119,7 @@ test("web acceptCoreMission is idempotent for the same mission", async () => {
   assert.deepEqual(await repository.acceptCoreMission(ROUTE), {
     created: false
   });
-  assert.deepEqual(reads, [PATHS.syllabus]);
+  assert.deepEqual(reads, [PATHS.syllabus, PATHS.lookup]);
   assert.deepEqual(writes, []);
 });
 
