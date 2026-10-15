@@ -8,9 +8,9 @@ class CheckTutorMiniQuestionAnswer {
 
   async execute(input, {assertAccess = () => {}} = {}) {
     const request = normalizeTutorAnswerCheckInput(input);
-    // Checking answers only reads an already generated set; it never creates
-    // a new set or records a student's response.
-    const set = await this.repository.get(request);
+    // Use the selected saved variant (copying a matching legacy set if needed).
+    // Never generate questions or record a student's response here.
+    const set = await this.repository.get(request, {beforeWrite: assertAccess});
     if (!set) throw new Error("Load the tutor mini question set before checking an answer.");
     const miniQuestion = set.miniQuestions[request.sequence - 1];
     if (!miniQuestion || miniQuestion.sequence !== request.sequence) {

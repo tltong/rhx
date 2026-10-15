@@ -34,16 +34,22 @@ const question = {
   hasDiagram: true, svg: '<svg xmlns="http://www.w3.org/2000/svg"><text>A = 60°</text></svg>',
 };
 const config = {
+  miniQuestionCount: 2,
   correctAnswerMessage: {English: "Well done!", "中文": "答对了"},
   incorrectAnswerMessage: {English: "Try again.", "中文": "再试一次"},
 };
-function miniSet(language = "English") {
-  return {questionId: "q", language, miniQuestions: [
+function miniSet(language = "English", count = 2) {
+  const steps = [
     {sequence: 1, questionText: "What do a triangle's angles add up to?", expectedAnswer: "180°",
       acceptedAnswers: ["180"], answerExplanation: "All three interior angles add to 180°."},
     {sequence: 2, questionText: "What is the missing angle?", expectedAnswer: "50°",
       acceptedAnswers: ["50"], answerExplanation: "Subtract the two known angles from 180°."},
-  ]};
+  ];
+  return {questionId: "q", language, miniQuestionCount: count,
+    miniQuestions: Array.from({length: count}, (_, index) => ({
+      ...steps[index === 0 ? 0 : 1], sequence: index + 1,
+    })),
+  };
 }
 function deferred() {
   let resolve;
@@ -71,7 +77,7 @@ function harness(options = {}) {
     root, params: new URLSearchParams(options.query ?? "questionId=q"),
     loadQuestion: async id => {loads.push(["question", id]); return options.loadQuestion ? options.loadQuestion(id) : question;},
     loadConfig: async () => {loads.push(["config"]); return options.loadConfig ? options.loadConfig() : config;},
-    loadSet: async input => {loads.push(["set", input]); return options.loadSet ? options.loadSet(input) : miniSet(input.language);},
+    loadSet: async input => {loads.push(["set", input]); return options.loadSet ? options.loadSet(input) : miniSet(input.language, input.miniQuestionCount);},
     checkAnswer: async input => {
       checks.push(input);
       return options.checkAnswer ? options.checkAnswer(input) : {isCorrect: input.answer === (input.sequence === 1 ? "180" : "50")};
@@ -93,7 +99,7 @@ test("shows an indeterminate progress bar and the original question while mini q
   const started = deferred();
   const h = harness({loadSet: input => {called = input; started.resolve(); return waiting.promise;}});
   await started.promise;
-  assert.deepEqual(called, {questionId: "q", language: "English"});
+  assert.deepEqual(called, {questionId: "q", language: "English", miniQuestionCount: 2});
   assert.equal(h.get("review-original").hidden, false);
   assert.equal(h.get("review-diagram").children[0].src, "blob:diagram");
   assert.equal(h.get("review-preparation").hidden, false);
@@ -261,7 +267,7 @@ test("unconfigured feedback prevents generation and retries fetch newly saved co
 test("accepts an optional language and displays the configured translated messages", async () => {
   const h = harness({query: "questionId=q&language=" + encodeURIComponent("中文"), checkAnswer: async () => ({isCorrect: true})});
   await h.ready;
-  assert.deepEqual(h.loads.find(([kind]) => kind === "set")[1], {questionId: "q", language: "中文"});
+  assert.deepEqual(h.loads.find(([kind]) => kind === "set")[1], {questionId: "q", language: "中文", miniQuestionCount: 2});
   h.get("review-answer").value = "180";
   await h.get("review-answer-form").submit();
   assert.equal(h.get("review-feedback").textContent, "答对了");
@@ -317,7 +323,7 @@ test("correct answers show each answer and explanation, then completion reveals 
   for (const [index, answer] of ["180", "50"].entries()) {
     h.get("review-answer").value = answer;
     await h.get("review-answer-form").submit();
-    assert.deepEqual(h.checks[index], {questionId: "q", language: "English", sequence: index + 1, answer});
+    assert.deepEqual(h.checks[index], {questionId: "q", language: "English", miniQuestionCount: 2, sequence: index + 1, answer});
     assert.equal(h.get("review-feedback").textContent, "Well done!");
     assert.equal(h.get("review-step-answer").textContent, miniSet().miniQuestions[index].expectedAnswer);
     assert.equal(h.get("review-step-explanation-text").textContent, miniSet().miniQuestions[index].answerExplanation);
@@ -399,6 +405,248 @@ test("sign-out or disposal ignores late generation results and revokes diagram U
     if (dispose) assert.equal(h.unsubscribed, true);
     else assert.deepEqual(h.navigations, ["/features/student/pages/sign_in/sign_in.html"]);
   }
+});
+
+test("answer checks retain the loaded count after the admin changes configuration", async () => {
+  const configuration = structuredClone(config);
+  const h = harness({loadConfig: async () => configuration});
+  await h.ready;
+  configuration.miniQuestionCount = 6;
+  for (const answer of ["180", "50"]) {
+    h.get("review-answer").value = answer;
+    await h.get("review-answer-form").submit();
+    assert.equal(h.checks.at(-1).miniQuestionCount, 2);
+    await h.get("next-review-question").click();
+  }
+  assert.equal(h.get("review-complete").hidden, false);
+  assert.equal(h.loads.filter(([kind]) => kind === "set").length, 1);
+});
+
+test("a returned set with the wrong count is rejected before students can answer", async () => {
+  const h = harness({loadSet: async () => ({...miniSet(), miniQuestionCount: 6})});
+  await h.ready;
+  assert.equal(h.get("review-answer-form").hidden, true);
+  assert.equal(h.get("check-review-answer").disabled, true);
+  assert.match(h.get("review-error-message").textContent, /could not be loaded/);
+  assert.deepEqual(h.checks, []);
+});
+
+async function checkEntireSet(h, count = 2, answer = "incorrect") {
+  for (let index = 0; index < count; index++) {
+    h.get("review-answer").value = answer;
+    await h.get("review-answer-form").submit();
+    if (index < count - 1) await h.get("next-review-question").click();
+  }
+}
+
+test("More guidance is available only after the final answer is checked, including incorrect answers", async () => {
+  for (const isCorrect of [true, false]) {
+    let failCheck = true;
+    const h = harness({checkAnswer: async input => {
+      if (input.sequence === 2 && failCheck) throw new Error("Check unavailable");
+      return {isCorrect};
+    }});
+    await h.ready;
+    assert.equal(h.get("review-more-guidance").hidden, true);
+    await h.get("review-more-guidance").click();
+    assert.equal(h.loads.filter(([kind]) => kind === "set").length, 1);
+    h.get("review-answer").value = "180";
+    await h.get("review-answer-form").submit();
+    assert.equal(h.get("review-more-guidance").hidden, true);
+    await h.get("next-review-question").click();
+    h.get("review-answer").value = "50";
+    await h.get("review-answer-form").submit();
+    assert.equal(h.get("review-more-guidance").hidden, true);
+    failCheck = false;
+    await h.get("review-answer-form").submit();
+    assert.equal(h.get("review-more-guidance").hidden, false);
+    assert.equal(h.get("review-more-guidance").disabled, false);
+    assert.equal(h.get("review-more-guidance").textContent, "More guidance — 4 questions");
+    assert.equal(h.get("next-review-question").textContent, "Finish review");
+    assert.deepEqual(h.navigations, []);
+  }
+});
+
+test("More guidance doubles the latest configuration and shows progress without duplicate requests", async () => {
+  let currentConfig = structuredClone(config);
+  const waiting = deferred();
+  const started = deferred();
+  const h = harness({loadConfig: async () => currentConfig, loadSet: async input => {
+    if (input.miniQuestionCount === 2) return miniSet();
+    started.resolve();
+    return waiting.promise;
+  }});
+  await h.ready;
+  await checkEntireSet(h);
+  currentConfig = {...config, miniQuestionCount: 3};
+  const pending = h.get("review-more-guidance").click();
+  await started.promise;
+  await h.get("review-more-guidance").click();
+  await h.get("review-complete-more-guidance").click();
+  assert.deepEqual(h.loads.filter(([kind]) => kind === "set").map(([, input]) => input), [
+    {questionId: "q", language: "English", miniQuestionCount: 2},
+    {questionId: "q", language: "English", miniQuestionCount: 6},
+  ]);
+  assert.equal(h.loads.filter(([kind]) => kind === "config").length, 2);
+  assert.equal(h.loads.filter(([kind]) => kind === "question").length, 1);
+  assert.equal(h.get("review-original").hidden, false);
+  assert.equal(h.get("review-preparation").hidden, false);
+  assert.equal(h.get("review-preparation-message").textContent, "Preparing 6 guided questions…");
+  assert.equal(h.get("next-review-question").disabled, true);
+  assert.equal(h.get("review-answer-form").hidden, true);
+  assert.equal(h.get("review-more-guidance").disabled, true);
+  waiting.resolve(miniSet("English", 6));
+  await pending;
+  assert.equal(h.get("review-preparation").hidden, true);
+  assert.equal(h.get("review-answer-form").hidden, false);
+  assert.equal(h.get("review-step").textContent, "Step 1 of 6");
+  assert.equal(h.get("review-answer").value, "");
+  assert.equal(h.get("review-answer").disabled, false);
+  assert.equal(h.get("next-review-question").disabled, true);
+  assert.equal(h.get("review-step-explanation").hidden, true);
+  assert.equal(h.get("review-more-guidance").hidden, true);
+});
+
+test("additional reviews preserve language, use the loaded count for checks and return to the same results", async () => {
+  const practiceId = "practice #1 & review";
+  const h = harness({query: new URLSearchParams({questionId: "q", practiceId, language: "中文"}).toString()});
+  await h.ready;
+  await checkEntireSet(h);
+  await h.get("review-more-guidance").click();
+  assert.equal(h.get("review-step").textContent, "Step 1 of 4");
+  await checkEntireSet(h, 4);
+  assert.ok(h.checks.slice(2).every(input => input.miniQuestionCount === 4 && input.language === "中文"));
+  await h.get("review-more-guidance").click();
+  assert.equal(h.get("review-step").textContent, "Step 1 of 4");
+  assert.deepEqual(h.loads.filter(([kind]) => kind === "set").map(([, input]) => input.miniQuestionCount), [2, 4, 4]);
+  await checkEntireSet(h, 4);
+  await h.get("next-review-question").click();
+  const destination = new URL(h.navigations[0], "https://readyherox.web.app");
+  assert.equal(destination.pathname, "/features/practice_result/pages/result/practice_result.html");
+  assert.equal(destination.searchParams.get("practiceId"), practiceId);
+  assert.equal(destination.searchParams.get("studentId"), "student-1");
+  assert.equal(h.get("review-more-guidance").disabled, true);
+  assert.equal(h.get("next-review-question").disabled, true);
+});
+
+test("failed additional loads retry the selected doubled count after configuration changes", async () => {
+  let currentConfig = structuredClone(config);
+  let failAdditional = true;
+  const h = harness({query: "questionId=q&practiceId=practice-1", loadConfig: async () => currentConfig,
+    loadSet: async input => {
+      if (input.miniQuestionCount === 4 && failAdditional) throw new Error("Additional generation unavailable");
+      return miniSet(input.language, input.miniQuestionCount);
+    },
+  });
+  await h.ready;
+  await checkEntireSet(h);
+  await h.get("review-more-guidance").click();
+  assert.equal(h.get("review-preparation").hidden, true);
+  assert.equal(h.get("review-load-error").hidden, false);
+  assert.equal(h.get("review-original").hidden, false);
+  assert.equal(h.get("review-back-to-results").hidden, false);
+  assert.equal(h.get("review-answer-form").hidden, true);
+  assert.equal(h.get("retry-review").disabled, false);
+  assert.equal(h.errors.at(-1).action, "prepare-more-guided-questions");
+  currentConfig = {...config, miniQuestionCount: 3};
+  failAdditional = false;
+  await h.get("retry-review").click();
+  assert.deepEqual(h.loads.filter(([kind]) => kind === "set").map(([, input]) => input.miniQuestionCount), [2, 4, 4]);
+  assert.equal(h.get("review-step").textContent, "Step 1 of 4");
+});
+
+test("configuration failures prevent additional generation and retry reads the latest configuration", async () => {
+  for (const failure of [new Error("Config unavailable"), null,
+    {...config, correctAnswerMessage: {}}, {...config, miniQuestionCount: Number.MAX_SAFE_INTEGER}]) {
+    let currentConfig = structuredClone(config);
+    const h = harness({loadConfig: async () => {
+      if (currentConfig instanceof Error) throw currentConfig;
+      return currentConfig;
+    }});
+    await h.ready;
+    await checkEntireSet(h);
+    currentConfig = failure;
+    await h.get("review-more-guidance").click();
+    assert.equal(h.get("review-load-error").hidden, false);
+    assert.equal(h.get("review-answer-form").hidden, true);
+    assert.equal(h.loads.filter(([kind]) => kind === "set").length, 1);
+    currentConfig = {...config, miniQuestionCount: 3};
+    await h.get("retry-review").click();
+    assert.equal(h.loads.filter(([kind]) => kind === "set").at(-1)[1].miniQuestionCount, 6);
+    assert.equal(h.get("review-step").textContent, "Step 1 of 6");
+  }
+});
+
+test("mismatched additional sets are rejected before the answer form is enabled", async () => {
+  for (const incorrectSet of [miniSet(), {...miniSet("English", 4), miniQuestions: []}]) {
+    const h = harness({loadSet: async input => input.miniQuestionCount === 2 ? miniSet() : incorrectSet});
+    await h.ready;
+    await checkEntireSet(h);
+    await h.get("review-more-guidance").click();
+    assert.equal(h.get("review-answer-form").hidden, true);
+    assert.equal(h.get("check-review-answer").disabled, true);
+    assert.match(h.get("review-error-message").textContent, /could not be loaded/);
+    assert.equal(h.checks.length, 2);
+  }
+});
+
+test("late additional sets cannot replace a review after sign-out, disposal or account changes", async () => {
+  for (const action of ["sign-out", "dispose", "change-account"]) {
+    const waiting = deferred();
+    const started = deferred();
+    const h = harness({loadSet: async input => {
+      if (input.miniQuestionCount === 2) return miniSet();
+      started.resolve();
+      return waiting.promise;
+    }});
+    await h.ready;
+    await checkEntireSet(h);
+    const pending = h.get("review-more-guidance").click();
+    await started.promise;
+    if (action === "dispose") h.page.dispose();
+    else await h.authenticate(action === "sign-out" ? null : {uid: "student-2"});
+    waiting.resolve(miniSet("English", 4));
+    await pending;
+    if (action === "change-account") {
+      assert.equal(h.get("review-step").textContent, "Step 1 of 2");
+      assert.equal(h.get("review-answer-form").hidden, false);
+    } else assert.equal(h.get("review-answer-form").hidden, true);
+    assert.equal(h.get("review-more-guidance").hidden, true);
+  }
+});
+
+test("late additional configuration responses cannot start generation for a different account", async () => {
+  const waiting = deferred();
+  const started = deferred();
+  let configReads = 0;
+  const h = harness({loadConfig: async () => {
+    if (++configReads === 2) {started.resolve(); return waiting.promise;}
+    return config;
+  }});
+  await h.ready;
+  await checkEntireSet(h);
+  const pending = h.get("review-more-guidance").click();
+  await started.promise;
+  await h.authenticate({uid: "student-2"});
+  waiting.resolve({...config, miniQuestionCount: 3});
+  await pending;
+  assert.deepEqual(h.loads.filter(([kind]) => kind === "set").map(([, input]) => input.miniQuestionCount), [2, 2]);
+  assert.equal(h.get("review-step").textContent, "Step 1 of 2");
+  await checkEntireSet(h);
+  assert.equal(h.get("review-more-guidance").textContent, "More guidance — 4 questions");
+});
+
+test("direct reviews also offer More guidance from their completion screen", async () => {
+  const h = harness();
+  await h.ready;
+  await checkEntireSet(h);
+  await h.get("next-review-question").click();
+  assert.equal(h.get("review-complete").hidden, false);
+  assert.equal(h.get("review-complete-more-guidance").hidden, false);
+  await h.get("review-complete-more-guidance").click();
+  assert.equal(h.get("review-complete").hidden, true);
+  assert.equal(h.get("review-step").textContent, "Step 1 of 4");
+  assert.deepEqual(h.navigations, []);
 });
 
 test("page markup supplies accessible indeterminate progress and reduced-motion styling", async () => {

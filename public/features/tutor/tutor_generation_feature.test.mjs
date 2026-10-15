@@ -5,6 +5,7 @@ import * as web from "./tutor_module.js";
 import {GenerateTutorMiniQuestionSet as WebGenerate} from "./application/generate_tutor_mini_question_set.js";
 import {buildTutorPrompt as webBuildPrompt} from "./application/build_tutor_prompt.js";
 import {tutorSetDocumentId as webDocumentId} from "./infrastructure/tutor_set_document_id.js";
+import {tutorSetPath as webSetPath} from "./infrastructure/tutor_set_path.js";
 import * as webLlm from "../../utils/llm/llm_util.js?v=20261015-deepseek-deadline-v1";
 import {tutorMiniQuestionSetSchema as webSetSchema} from "../../config/firebase/tutor_schema.js";
 import {getPreAssessmentQuestionById as webGetPreAssessmentQuestionById} from "../pre_assessment_question/pre_assessment_question_module.js?v=20261015-practice-result-review-v1";
@@ -19,6 +20,11 @@ const {buildTutorPrompt: backendBuildPrompt} = require(
 const {tutorSetDocumentId: backendDocumentId} = require(
   "../../../functions/features/tutor/infrastructure/tutor_set_document_id.js"
 );
+const {tutorSetPath: backendSetPath} = require("../../../functions/features/tutor/infrastructure/tutor_set_path.js");
+function setPath(reference) {
+  const {collectionPath, documentId} = backendSetPath({...reference, miniQuestionCount: reference.miniQuestionCount ?? 3});
+  return collectionPath + "/" + documentId;
+}
 const backendOps = require("../../../functions/utils/firebase/firebase_ops.js");
 const backendLlm = require("../../../functions/utils/llm/llm_ops.js");
 const originalOps = {...backendOps};
@@ -100,7 +106,8 @@ async function writeDocument(collectionPath, documentId, data, options) {
   writes.push({path, data, options});
   if (!omitSavedDocument) {
     documents.set(path, structuredClone({
-      ...data, generatedAt: new Date(baseTime.getTime() + writes.length * 1000),
+      ...data, generatedAt: data.generatedAt instanceof Date ? data.generatedAt
+        : new Date(baseTime.getTime() + writes.length * 1000),
     }));
   }
 }
@@ -119,6 +126,10 @@ async function generateLlmText(prompt, options) {
 backendOps.readDocument = readDocument;
 backendOps.readCollectionIds = readIds;
 backendOps.writeDocument = writeDocument;
+backendOps.createDocumentIfAbsent = async (collection, id, data) => {
+  if (documents.has(collection + "/" + id)) throw Object.assign(new Error("Already exists"), {code: "already-exists"});
+  await writeDocument(collection, id, data, {merge: false});
+};
 backendLlm.generateLlmText = generateLlmText;
 webLlm.registerLlmProvider("deepseek", {
   call() {throw new Error("Tutor must use the existing generateText abstraction");},
@@ -129,6 +140,14 @@ const {getPreAssessmentQuestionById: backendGetPreAssessmentQuestionById} = requ
   "../../../functions/features/pre_assessment_question/pre_assessment_question_module.js"
 );
 const db = {
+  async runTransaction(operation) {
+    const writes = [];
+    const result = await operation({
+      get: ref => ref.get(), set: (ref, data) => writes.push([ref, data]),
+    });
+    for (const [ref, data] of writes) await ref.set(data, {merge: false});
+    return result;
+  },
   collection(path) {
     return {
       async get() {
@@ -333,7 +352,7 @@ for (const [layer, api] of [["backend", backend], ["web", web]]) {
     assert.equal(sourceQuestionData(llmCalls[0].prompt).svg, question().svg);
     assert.equal(sourceQuestionData(llmCalls[0].prompt).correctAnswerText, "60°");
     assert.equal(writes.length, 1);
-    assert.equal(writes[0].path.startsWith("tutor/set-"), true);
+    assert.equal(writes[0].path, "tutor/pre-q/counts/3/languages/English");
   });
 
   test(layer + ": tutor rejects cross-collection ID collisions before generating or storing a set", async () => {
@@ -348,8 +367,8 @@ for (const [layer, api] of [["backend", backend], ["web", web]]) {
   });
 
   test(layer + ": answer-check API reads the existing set without storing student answers", async () => {
-    const reference = {questionId: "q", language: "English"};
-    const path = "tutor/" + await backendDocumentId(reference);
+    const reference = {questionId: "q", language: "English", miniQuestionCount: 3};
+    const path = setPath(reference);
     documents.set(path, {
       ...reference, ...response(), miniQuestionCount: 3, configUpdatedAt: baseTime, generatedAt: baseTime,
     });
@@ -367,7 +386,7 @@ for (const [layer, api] of [["backend", backend], ["web", web]]) {
   test(layer + ": getter generates and saves a missing set, then reuses it without question or config reads", async () => {
     seedQuestion();
     documents.set("tutor/config", configuration());
-    const reference = {questionId: "q", language: "English"};
+    const reference = {questionId: "q", language: "English", miniQuestionCount: 3};
     const saved = await api.getTutorMiniQuestionSet(reference);
     assert.equal(saved.miniQuestions[2].expectedAnswer, "60°");
     assert.deepEqual(saved.miniQuestions[2].acceptedAnswers, ["60 degrees", "60"]);
@@ -387,27 +406,80 @@ for (const [layer, api] of [["backend", backend], ["web", web]]) {
     assert.equal(writes.length, 1);
   });
 
-  test(layer + ": getter generates each missing language independently and preserves saved sets", async () => {
+  test(layer + ": getter selects the configured count while retaining other count and language variants", async () => {
     seedQuestion();
     documents.set("tutor/config", configuration());
     const english = await api.getTutorMiniQuestionSet({questionId: "q", language: "English"});
     const malay = await api.getTutorMiniQuestionSet({questionId: "q", language: "Bahasa Melayu"});
-    assert.equal(malay.language, "Bahasa Melayu");
     assert.notEqual(writes[0].path, writes[1].path);
     documents.set("tutor/config", configuration({miniQuestionCount: 6}));
-    assert.deepEqual(await api.getTutorMiniQuestionSet({questionId: "q", language: "English"}), english);
-    assert.deepEqual(await api.getTutorMiniQuestionSet({questionId: "q", language: "Bahasa Melayu"}), malay);
-    assert.equal(llmCalls.length, 2);
-    assert.equal(writes.length, 2);
+    const six = await api.getTutorMiniQuestionSet({questionId: "q", language: "English"});
+    assert.equal(six.miniQuestionCount, 6);
+    assert.equal(six.miniQuestions.length, 6);
+    assert.notEqual(writes[2].path, writes[0].path);
+    assert.deepEqual(await api.getTutorMiniQuestionSet({questionId: "q", language: "English", miniQuestionCount: 3}), english);
+    assert.deepEqual(await api.getTutorMiniQuestionSet({questionId: "q", language: "Bahasa Melayu", miniQuestionCount: 3}), malay);
+    assert.deepEqual(await api.getTutorMiniQuestionSet({questionId: "q", language: "English"}), six);
+    assert.equal(llmCalls.length, 3);
+    assert.equal(writes.length, 3);
+  });
+
+  test(layer + ": feature lookup migrates matching legacy data without question, config or LLM reads", async () => {
+    const reference = {questionId: "q", language: "English", miniQuestionCount: 3};
+    const legacyPath = "tutor/" + await backendDocumentId(reference);
+    const legacy = {...reference, ...response(), configUpdatedAt: baseTime, generatedAt: new Date(0)};
+    documents.set(legacyPath, legacy);
+    const saved = await api.getTutorMiniQuestionSet(reference);
+    assert.deepEqual({...saved}, legacy);
+    assert.equal(saved.generatedAt.getTime(), 0);
+    assert.deepEqual(documents.get(setPath(reference)), legacy);
+    assert.equal(documents.has(legacyPath), true);
+    assert.equal(llmCalls.length, 0);
+    assert.equal(writes.length, 1);
+    assert.deepEqual(await api.checkTutorMiniQuestionAnswer({...reference, sequence: 3, answer: "60"}), {isCorrect: true});
+    assert.equal(writes.length, 1);
+    assert.equal(events.some(event => event === "read:tutor/config" || event.startsWith("list:")), false);
+  });
+
+  test(layer + ": a configuration change during lookup cannot redirect the selected count", async () => {
+    seedQuestion();
+    documents.set("tutor/config", configuration());
+    onRead = path => {
+      if (path === "tutor/q/counts/3/languages/English") {
+        documents.set("tutor/config", configuration({miniQuestionCount: 6}));
+      }
+    };
+    const saved = await api.getTutorMiniQuestionSet({questionId: "q", language: "English"});
+    assert.equal(saved.miniQuestionCount, 3);
+    assert.equal(saved.miniQuestions.length, 3);
+    assert.equal(writes[0].path, "tutor/q/counts/3/languages/English");
+    assert.ok(llmCalls[0].prompt.includes("Number of mini questions: 3"));
+  });
+
+  test(layer + ": answer checking uses the requested count rather than the current default", async () => {
+    for (const miniQuestionCount of [3, 6]) {
+      const reference = {questionId: "q", language: "English", miniQuestionCount};
+      const data = {...reference, ...response("English", miniQuestionCount), configUpdatedAt: baseTime, generatedAt: baseTime};
+      data.miniQuestions[0].expectedAnswer = String(miniQuestionCount);
+      documents.set(setPath(reference), data);
+    }
+    documents.set("tutor/config", configuration({miniQuestionCount: 6}));
+    for (const miniQuestionCount of [3, 6]) {
+      assert.deepEqual(await api.checkTutorMiniQuestionAnswer({questionId: "q", language: "English",
+        miniQuestionCount, sequence: 1, answer: String(miniQuestionCount)}), {isCorrect: true});
+    }
+    assert.deepEqual(events, ["read:tutor/q/counts/3/languages/English", "read:tutor/q/counts/6/languages/English"]);
+    assert.equal(llmCalls.length, 0);
+    assert.equal(writes.length, 0);
   });
 
   test(layer + ": getter propagates failures without storing partial sets and succeeds on a later retry", async () => {
-    const reference = {questionId: "q", language: "English"};
+    const reference = {questionId: "q", language: "English", miniQuestionCount: 3};
     await assert.rejects(() => api.getTutorMiniQuestionSet(reference), /was not found/);
     seedQuestion();
     await assert.rejects(() => api.getTutorMiniQuestionSet(reference), /Save tutor configuration/);
     documents.set("tutor/config", configuration());
-    readFailurePath = "tutor/" + await backendDocumentId(reference);
+    readFailurePath = setPath(reference);
     await assert.rejects(() => api.getTutorMiniQuestionSet(reference), /Read unavailable/);
     assert.equal(llmCalls.length, 0);
     readFailurePath = null;
@@ -429,7 +501,7 @@ for (const [layer, api] of [["backend", backend], ["web", web]]) {
     documents.set("tutor/config", configuration({miniQuestionCount: 6}));
     const input = {
       questionId: "q", language: "English", studentId: "discard",
-      miniQuestionCount: 1, generatedAt: new Date(0), configUpdatedAt: new Date(0),
+      miniQuestionCount: 6, generatedAt: new Date(0), configUpdatedAt: new Date(0),
       questionText: "discard", miniQuestions: [],
     };
     const saved = await api.generateTutorMiniQuestionSet(input);
@@ -443,7 +515,7 @@ for (const [layer, api] of [["backend", backend], ["web", web]]) {
     assert.equal(llmCalls.length, 1);
     assert.equal(sourceQuestionData(llmCalls[0].prompt).svg, svg);
     assert.equal(writes.length, 1);
-    assert.match(writes[0].path, /^tutor\/set-[a-f0-9]{64}$/);
+    assert.equal(writes[0].path, "tutor/q/counts/6/languages/English");
     assert.equal(writes[0].options.merge, false);
     assert.deepEqual(Object.keys(documents.get(writes[0].path)).sort(), [
       "configUpdatedAt", "generatedAt", "language", "miniQuestionCount", "miniQuestions", "questionId",
@@ -464,14 +536,14 @@ for (const [layer, api] of [["backend", backend], ["web", web]]) {
     const malay = await api.generateTutorMiniQuestionSet({questionId: "q", language: "Bahasa Melayu"});
     assert.notEqual(writes[0].path, writes[1].path);
     documents.set("tutor/config", configuration({miniQuestionCount: 1, updatedAt: new Date(baseTime.getTime() + 5000)}));
-    const replacement = await api.generateTutorMiniQuestionSet({questionId: "q", language: "English"});
+    const replacement = await api.generateTutorMiniQuestionSet({questionId: "q", language: "English", miniQuestionCount: 3});
     assert.equal(writes[2].path, writes[0].path);
-    assert.equal(replacement.miniQuestionCount, 1);
+    assert.equal(replacement.miniQuestionCount, 3);
     assert.equal(replacement.configUpdatedAt.getTime(), baseTime.getTime() + 5000);
     assert.equal(english.miniQuestionCount, 3);
-    assert.deepEqual(await api.getTutorMiniQuestionSet({questionId: "q", language: "Bahasa Melayu"}), malay);
-    assert.deepEqual(await api.getTutorMiniQuestionSet({questionId: "q", language: "English"}), replacement);
-    assert.equal([...documents.keys()].filter(path => path.startsWith("tutor/set-")).length, 2);
+    assert.deepEqual(await api.getTutorMiniQuestionSet({questionId: "q", language: "Bahasa Melayu", miniQuestionCount: 3}), malay);
+    assert.deepEqual(await api.getTutorMiniQuestionSet({questionId: "q", language: "English", miniQuestionCount: 3}), replacement);
+    assert.equal([...documents.keys()].filter(path => path.includes("/counts/")).length, 2);
     assert.equal(documents.get("tutor/config").updatedBy, "admin-1");
   });
 
@@ -490,6 +562,7 @@ for (const [layer, api] of [["backend", backend], ["web", web]]) {
       null, [], {}, {questionId: "q"}, {questionId: "q", language: " "},
       {questionId: "a/b", language: "English"}, {questionId: "__reserved__", language: "English"},
       {questionId: 7, language: "English"},
+      ...[null, 0, -1, 1.5, "3"].map(miniQuestionCount => ({questionId: "q", language: "English", miniQuestionCount})),
     ]) {
       await assert.rejects(() => api.generateTutorMiniQuestionSet(input));
       await assert.rejects(() => api.getTutorMiniQuestionSet(input));
@@ -530,8 +603,8 @@ for (const [layer, api] of [["backend", backend], ["web", web]]) {
   });
 
   test(layer + ": saved set lookup validates stored data without regeneration", async () => {
-    const reference = {questionId: "q", language: "English"};
-    const path = "tutor/" + await backendDocumentId(reference);
+    const reference = {questionId: "q", language: "English", miniQuestionCount: 3};
+    const path = setPath(reference);
     const valid = {...reference, ...response(), miniQuestionCount: 3, configUpdatedAt: baseTime, generatedAt: baseTime};
     documents.set(path, valid);
     assert.deepEqual({...await api.getTutorMiniQuestionSet(reference)}, valid);
@@ -549,12 +622,12 @@ for (const [layer, api] of [["backend", backend], ["web", web]]) {
   test(layer + ": input changes while the LLM is pending cannot redirect the saved set", async () => {
     seedQuestion();
     documents.set("tutor/config", configuration());
-    const input = {questionId: "q", language: "English"};
-    onLlm = () => {input.questionId = "redirected"; input.language = "中文";};
+    const input = {questionId: "q", language: "English", miniQuestionCount: 3};
+    onLlm = () => {input.miniQuestionCount = 6; input.questionId = "redirected"; input.language = "中文";};
     const saved = await api.generateTutorMiniQuestionSet(input);
     assert.equal(saved.questionId, "q");
     assert.equal(saved.language, "English");
-    assert.equal(writes[0].path, "tutor/" + await backendDocumentId({questionId: "q", language: "English"}));
+    assert.equal(writes[0].path, setPath({questionId: "q", language: "English"}));
   });
 }
 
@@ -615,7 +688,7 @@ test("web generation and answer checking bypass Hosting through the existing Dee
     assert.equal(set.miniQuestions[2].expectedAnswer, "60°");
     assert.equal(requests, 1);
     const result = await web.checkTutorMiniQuestionAnswer({
-      questionId: "q", language: "English", sequence: 1, answer: "One hundred and eighty degrees",
+      questionId: "q", language: "English", miniQuestionCount: 3, sequence: 1, answer: "One hundred and eighty degrees",
     });
     assert.deepEqual(result, {isCorrect: true});
     assert.equal(requests, 2);
@@ -629,8 +702,8 @@ test("web generation and answer checking bypass Hosting through the existing Dee
 });
 
 test("web getter keeps the initial account guard during the cache lookup and generation fallback", async () => {
-  const reference = {questionId: "q", language: "English"};
-  const path = "tutor/" + await backendDocumentId(reference);
+  const reference = {questionId: "q", language: "English", miniQuestionCount: 3};
+  const path = setPath(reference);
   seedQuestion();
   documents.set("tutor/config", configuration());
   for (const cached of [false, true]) {
@@ -665,6 +738,9 @@ test("backend and web document keys, templates, schemas and feature APIs agree",
   ]) {
     assert.equal(await webDocumentId(input), await backendDocumentId(input));
     assert.match(await webDocumentId(input), /^set-[a-f0-9]{64}$/);
+    for (const miniQuestionCount of [3, 6]) {
+      assert.deepEqual(webSetPath({...input, miniQuestionCount}), backendSetPath({...input, miniQuestionCount}));
+    }
   }
   assert.notEqual(await backendDocumentId({questionId: "a_b", language: "c"}), await backendDocumentId({questionId: "a", language: "b_c"}));
   assert.deepEqual(webSetSchema, require("../../../functions/schema/tutor_schema.js").tutorMiniQuestionSetSchema);

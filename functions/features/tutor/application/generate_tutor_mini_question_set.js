@@ -17,8 +17,9 @@ class GenerateTutorMiniQuestionSet {
       throw new Error("Tutor feedback is not configured for language " + reference.language + ".");
     }
     const configUpdatedAt = new Date(configuration.updatedAt.getTime());
-    const miniQuestionCount = configuration.miniQuestionCount;
-    const prompt = buildTutorPrompt({question, configuration, language: reference.language});
+    const miniQuestionCount = reference.miniQuestionCount ?? configuration.miniQuestionCount;
+    const prompt = buildTutorPrompt({question,
+      configuration: {...configuration, miniQuestionCount}, language: reference.language});
     assertAccess();
     const response = await this.generateLlmText(prompt, {maxTokens: 8192});
     const miniQuestions = normalizeTutorResponse(response, {...reference, miniQuestionCount});

@@ -20,21 +20,24 @@
  *   incorrectAnswerMessage, updatedAt: Date, updatedBy: administrator UID}.
  * DEFAULT_TUTOR_MINI_QUESTION_COUNT is 3; using it never persists defaults.
  *
- * generateTutorMiniQuestionSet({questionId, language})
+ * generateTutorMiniQuestionSet({questionId, language, miniQuestionCount?})
  *   -> Promise<TutorMiniQuestionSet>
  * Loads the complete Question (including SVG) and saved TutorConfig, builds
  * the fixed prompt, calls the existing LLM utility, validates and saves the set.
  * The requested language must have feedback configured. Each generation
- * replaces only that question/language set; malformed responses never write.
+ * replaces only that question/count/language set; malformed responses never write.
+ * An omitted count is resolved from configuration; an explicit count overrides it.
  *
- * getTutorMiniQuestionSet({questionId, language})
+ * getTutorMiniQuestionSet({questionId, language, miniQuestionCount?})
  *   -> Promise<TutorMiniQuestionSet>
  * Reads and returns the saved set first. If none exists, generates, validates,
  * saves and returns a new set through the existing generation workflow.
- * Saved sets are reused without reading the source question or configuration.
+ * An omitted count is read from configuration once before selecting the set.
+ * With an explicit count, cached sets require no source question or config reads.
+ * Matching legacy sets are copied to the new path on access, preserving timestamps.
  * Read failures and corrupt saved data propagate without triggering generation.
  *
- * checkTutorMiniQuestionAnswer({questionId, language, sequence, answer})
+ * checkTutorMiniQuestionAnswer({questionId, language, miniQuestionCount, sequence, answer})
  *   -> Promise<{isCorrect: boolean}>
  * Checks an already saved mini question. Normalized expected/accepted answers
  * pass locally; other wording is judged by the existing LLM utility.
@@ -44,24 +47,24 @@
  *   miniQuestions: [{sequence, questionText, expectedAnswer,
  *     acceptedAnswers: string[], answerExplanation}],
  *   configUpdatedAt: Date, generatedAt: Date}.
- * Stored in tutor/set-[SHA-256 of the question ID and language].
+ * Stored in tutor/{questionId}/counts/{miniQuestionCount}/languages/{encodedLanguage}.
  * No student identity, original question content or invocation history is saved.
  */
 /** Reads and generation require sign-in; configuration writes require a site administrator. */
-import {DEFAULT_TUTOR_MINI_QUESTION_COUNT} from "../../config/firebase/tutor_schema.js?v=20261014-tutor-config-v1";
-import {FirestoreTutorConfigRepository} from "./infrastructure/firestore_tutor_config_repository.js?v=20261014-tutor-config-v1";
+import {DEFAULT_TUTOR_MINI_QUESTION_COUNT} from "../../config/firebase/tutor_schema.js?v=20261015-tutor-count-variants-v1";
+import {FirestoreTutorConfigRepository} from "./infrastructure/firestore_tutor_config_repository.js?v=20261015-tutor-count-variants-v1";
 import {GetTutorConfig} from "./application/get_tutor_config.js?v=20261014-tutor-config-v1";
 import {SaveTutorConfig} from "./application/save_tutor_config.js?v=20261014-tutor-config-v1";
 import {requireCurrentSiteAdmin} from "../site_admin/site_admin_module.js?v=20260827-site-admin-guard-v1";
 import {requireCurrentFirebaseAuthUser} from "../../utils/firebase/firebase_auth.js";
-import {FirestoreTutorMiniQuestionSetRepository} from "./infrastructure/firestore_tutor_mini_question_set_repository.js?v=20261015-tutor-generation-v1";
-import {GenerateTutorMiniQuestionSet} from "./application/generate_tutor_mini_question_set.js?v=20261015-tutor-simple-answers-v1";
-import {GetTutorMiniQuestionSet} from "./application/get_tutor_mini_question_set.js?v=20261015-tutor-get-or-generate-v1";
+import {FirestoreTutorMiniQuestionSetRepository} from "./infrastructure/firestore_tutor_mini_question_set_repository.js?v=20261015-tutor-count-variants-v1";
+import {GenerateTutorMiniQuestionSet} from "./application/generate_tutor_mini_question_set.js?v=20261015-tutor-count-variants-v1";
+import {GetTutorMiniQuestionSet} from "./application/get_tutor_mini_question_set.js?v=20261015-tutor-count-variants-v1";
 import {getQuestionById} from "../question/question_module.js?v=20261015-question-by-id";
 import {getPreAssessmentQuestionById} from "../pre_assessment_question/pre_assessment_question_module.js?v=20261015-practice-result-review-v1";
 import {GetTutorQuestionById} from "./application/get_tutor_question_by_id.js?v=20261015-practice-result-review-v1";
 import {generateLlmText} from "../../utils/llm/llm_util.js?v=20261015-deepseek-deadline-v1";
-import {CheckTutorMiniQuestionAnswer} from "./application/check_tutor_mini_question_answer.js?v=20261015-question-review-v1";
+import {CheckTutorMiniQuestionAnswer} from "./application/check_tutor_mini_question_answer.js?v=20261015-tutor-count-variants-v1";
 
 const repository = new FirestoreTutorConfigRepository();
 const getConfig = new GetTutorConfig(repository);
@@ -81,7 +84,7 @@ const generateSet = new GenerateTutorMiniQuestionSet({
   generateLlmText: generateTutorLlmText, repository: setRepository,
 });
 const getSet = new GetTutorMiniQuestionSet(
-  setRepository, (input, options) => generateSet.execute(input, options),
+  setRepository, (input, options) => generateSet.execute(input, options), getTutorConfig,
 );
 const checkAnswer = new CheckTutorMiniQuestionAnswer({
   repository: setRepository, generateLlmText: generateTutorLlmText,

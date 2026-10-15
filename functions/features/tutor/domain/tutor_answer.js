@@ -1,7 +1,7 @@
-const {normalizeTutorSetReference} = require("./tutor_mini_question_set");
+const {normalizeTutorSetVariantReference} = require("./tutor_mini_question_set");
 
 function normalizeTutorAnswerCheckInput(input) {
-  const reference = normalizeTutorSetReference(input);
+  const reference = normalizeTutorSetVariantReference(input);
   if (!Number.isSafeInteger(input.sequence) || input.sequence < 1) {
     throw new Error("sequence must be a positive safe integer.");
   }

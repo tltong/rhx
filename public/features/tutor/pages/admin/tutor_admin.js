@@ -1,6 +1,6 @@
 import {
   DEFAULT_TUTOR_MINI_QUESTION_COUNT, getTutorConfig, saveTutorConfig,
-} from "../../tutor_module.js?v=20261014-tutor-config-v1";
+} from "../../tutor_module.js?v=20261015-tutor-count-variants-v1";
 import {
   listSyllabusScopeLanguages,
 } from "../../../syllabusscope/syllabusscope_module.js?v=20261014-scope-languages-v1";

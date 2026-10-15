@@ -26,7 +26,22 @@ function normalizeTutorSetReference(input) {
   if (new TextEncoder().encode(language).length > 1500) {
     throw new Error("language is too long.");
   }
-  return {questionId, language};
+  toTutorLanguageDocumentId(language);
+  return {questionId, language, ...(input.miniQuestionCount === undefined ? {}
+    : {miniQuestionCount: requireMiniQuestionCount(input.miniQuestionCount)})};
+}
+
+function toTutorLanguageDocumentId(language) {
+  let id;
+  try { id = encodeURIComponent(language).replace(/\./g, "%2E").replace(/_/g, "%5F"); }
+  catch { throw new Error("language must contain valid Unicode."); }
+  if (id.length > 1500) throw new Error("Encoded language is too long for a Firestore document ID.");
+  return id;
+}
+
+function normalizeTutorSetVariantReference(input) {
+  return {...normalizeTutorSetReference(input),
+    miniQuestionCount: requireMiniQuestionCount(input.miniQuestionCount)};
 }
 
 function normalizeTutorResponse(response, {language, miniQuestionCount}) {
@@ -72,7 +87,7 @@ function requireTimestamp(value, name) {
 }
 
 function normalizeTutorSetInput(input) {
-  const reference = normalizeTutorSetReference(input);
+  const reference = normalizeTutorSetVariantReference(input);
   const miniQuestionCount = requireMiniQuestionCount(input.miniQuestionCount);
   return {
     ...reference,
@@ -90,4 +105,4 @@ class TutorMiniQuestionSet {
   }
 }
 
-module.exports = {TutorMiniQuestionSet, normalizeTutorSetReference, normalizeTutorResponse, normalizeTutorSetInput};
+module.exports = {TutorMiniQuestionSet, normalizeTutorSetReference, normalizeTutorSetVariantReference, toTutorLanguageDocumentId, normalizeTutorResponse, normalizeTutorSetInput};

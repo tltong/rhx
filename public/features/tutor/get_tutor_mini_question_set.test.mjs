@@ -7,7 +7,7 @@ const require = createRequire(import.meta.url);
 const {GetTutorMiniQuestionSet: BackendGet} = require(
   "../../../functions/features/tutor/application/get_tutor_mini_question_set.js"
 );
-const reference = {questionId: "q", language: "English"};
+const reference = {questionId: "q", language: "English", miniQuestionCount: 3};
 
 for (const [layer, GetSet] of [["backend", BackendGet], ["web", WebGet]]) {
   test(layer + ": returns a saved set without calling generation", async () => {
@@ -15,7 +15,7 @@ for (const [layer, GetSet] of [["backend", BackendGet], ["web", WebGet]]) {
     const useCase = new GetSet({
       get: async input => {assert.deepEqual(input, reference); return saved;},
     }, () => {throw new Error("Do not regenerate a saved set");});
-    assert.equal(await useCase.execute({questionId: " q ", language: " English "}), saved);
+    assert.equal(await useCase.execute({questionId: " q ", language: " English ", miniQuestionCount: 3}), saved);
   });
 
   test(layer + ": generates and returns a missing set after the backend lookup", async () => {
@@ -55,9 +55,48 @@ for (const [layer, GetSet] of [["backend", BackendGet], ["web", WebGet]]) {
     const useCase = new GetSet({get: async () => {
       input.questionId = "changed";
       input.language = "Malay";
+      input.miniQuestionCount = 6;
       return null;
     }}, async selected => selected);
     assert.deepEqual(await useCase.execute(input), reference);
+  });
+
+  test(layer + ": an omitted count is resolved once and retained through generation", async () => {
+    let configReads = 0;
+    const config = {miniQuestionCount: 3};
+    const useCase = new GetSet({get: async (selected, options) => {
+      assert.deepEqual(selected, reference);
+      assert.equal(typeof options.beforeWrite, "function");
+      config.miniQuestionCount = 6;
+      return null;
+    }}, async selected => selected, async () => {configReads++; return config;});
+    assert.deepEqual(await useCase.execute({questionId: "q", language: "English"}), reference);
+    assert.equal(configReads, 1);
+  });
+
+  test(layer + ": an explicit count needs no configuration read", async () => {
+    const useCase = new GetSet({get: async selected => selected}, () => {
+      throw new Error("Do not generate a cached set");
+    }, () => {throw new Error("Do not read config for an explicit count");});
+    assert.deepEqual(await useCase.execute(reference), reference);
+  });
+
+  test(layer + ": invalid counts, missing configuration and account changes stop lookup", async () => {
+    let reads = 0;
+    let config = null;
+    const useCase = new GetSet({get: async () => {reads++;}}, () => {
+      throw new Error("Do not generate");
+    }, async () => config);
+    for (const miniQuestionCount of [null, 0, -1, 1.5, "3", NaN, Infinity]) {
+      await assert.rejects(() => useCase.execute({...reference, miniQuestionCount}), /miniQuestionCount/);
+    }
+    const unspecified = {questionId: "q", language: "English"};
+    await assert.rejects(() => useCase.execute(unspecified), /Save tutor configuration/);
+    config = {miniQuestionCount: 6};
+    await assert.rejects(() => useCase.execute(unspecified, {
+      assertAccess: () => {throw new Error("Account changed");},
+    }), /Account changed/);
+    assert.equal(reads, 0);
   });
 
   test(layer + ": access changes during lookup block cached results and generation", async () => {

@@ -1,5 +1,5 @@
 import * as firebaseOps from "../../../utils/firebase/firebase_ops.js";
-import {TUTOR_COLLECTION, TUTOR_CONFIG_DOCUMENT_ID} from "../../../config/firebase/tutor_schema.js?v=20261014-tutor-config-v1";
+import {TUTOR_COLLECTION, TUTOR_CONFIG_DOCUMENT_ID} from "../../../config/firebase/tutor_schema.js?v=20261015-tutor-count-variants-v1";
 import {TutorConfig, requireConfigurationInput, requireAdministratorUid} from "../domain/tutor_config.js?v=20261014-tutor-config-v1";
 import {TutorConfigRepository} from "../domain/tutor_config_repository.js?v=20261014-tutor-config-v1";
 

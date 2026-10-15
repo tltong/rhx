@@ -1,13 +1,14 @@
 import {
   getTutorConfig, getTutorMiniQuestionSet, checkTutorMiniQuestionAnswer,
   getTutorQuestionById,
-} from "../../tutor_module.js?v=20261015-tutor-simple-answers-v1";
+} from "../../tutor_module.js?v=20261015-tutor-count-variants-v1";
 import {onStudentAuthStateChanged} from "../../../student/student_module.js?v=20260716-no-eager-auth";
 import {setMathText} from "../../../../utils/math/render_math.js?v=20260822-katex-math";
 
 const SIGN_IN_URL = "/features/student/pages/sign_in/sign_in.html";
 const PRACTICE_RESULT_URL = "/features/practice_result/pages/result/practice_result.html";
 const OPTION_KEYS = ["a", "b", "c", "d"];
+const MORE_GUIDANCE_IDS = ["review-more-guidance", "review-complete-more-guidance"];
 
 export function mountQuestionReview({
   root = document,
@@ -31,7 +32,7 @@ export function mountQuestionReview({
     "review-mini-question", "review-answer", "check-review-answer", "next-review-question",
     "review-feedback", "review-step-explanation", "review-step-answer", "review-step-explanation-text",
     "review-complete", "review-complete-heading", "review-final-answer",
-    "review-final-explanation", "restart-review",
+    "review-final-explanation", "restart-review", ...MORE_GUIDANCE_IDS,
   ];
   const elements = Object.fromEntries(ids.map(id => {
     const element = root.getElementById(id);
@@ -54,6 +55,7 @@ export function mountQuestionReview({
   let diagramUrl = null;
   let destroyed = false;
   let pending = Promise.resolve();
+  let loadSelection = {additional: false};
 
   function getResultUrl() {
     return practiceId && uid
@@ -89,10 +91,21 @@ export function mountQuestionReview({
     feedback.classList.toggle("is-correct", correct);
   }
 
+  function setMoreGuidanceAvailable(available) {
+    const count = configuration?.miniQuestionCount * 2;
+    for (const id of MORE_GUIDANCE_IDS) {
+      el(id).hidden = !available;
+      el(id).disabled = !available;
+      el(id).textContent = Number.isSafeInteger(count) && count > 0
+        ? "More guidance — " + count + " questions" : "More guidance";
+    }
+  }
+
   function disableAnswers() {
     el("review-answer").disabled = true;
     el("check-review-answer").disabled = true;
     el("next-review-question").disabled = true;
+    setMoreGuidanceAvailable(false);
   }
 
   function setPreparing(message) {
@@ -138,6 +151,7 @@ export function mountQuestionReview({
   function renderStep() {
     phase = "answering";
     answerChecked = false;
+    setMoreGuidanceAvailable(false);
     const miniQuestion = set.miniQuestions[index];
     el("review-guidance").setAttribute("aria-busy", "false");
     el("review-preparation").hidden = true;
@@ -164,7 +178,9 @@ export function mountQuestionReview({
   async function load() {
     if (destroyed || !uid) return;
     const request = ++token;
-    setPreparing(question ? "Preparing your guided questions…" : "Loading your question…");
+    const selection = loadSelection;
+    setPreparing(selection.additional ? "Preparing more guided questions…"
+      : question ? "Preparing your guided questions…" : "Loading your question…");
     try {
       if (!questionId) throw new Error("A question ID is required. Open a question review link to get started.");
       if (!question) {
@@ -175,18 +191,31 @@ export function mountQuestionReview({
         renderOriginal();
       }
       language = requestedLanguage || question.language;
-      configuration = await loadConfig();
+      const loadedConfiguration = await loadConfig();
       if (destroyed || request !== token) return;
+      configuration = loadedConfiguration;
       if (!configuration) throw new Error("Guided review has not been configured yet. Please try again later.");
       if (!configuration.correctAnswerMessage?.[language]
           || !configuration.incorrectAnswerMessage?.[language]) {
         throw new Error("Guided review feedback is not configured for " + language + ".");
       }
-      setPreparing("Preparing your guided questions…");
-      const loadedSet = await loadSet({questionId, language});
+      const configCount = configuration.miniQuestionCount;
+      const miniQuestionCount = selection.miniQuestionCount
+        ?? configCount * (selection.additional ? 2 : 1);
+      if (!Number.isSafeInteger(configCount) || configCount < 1
+          || !Number.isSafeInteger(miniQuestionCount) || miniQuestionCount < 1) {
+        throw new Error("The requested number of guided questions is invalid. Please try again later.");
+      }
+      // Keep the selected variant on retries, even if the default later changes.
+      selection.miniQuestionCount = miniQuestionCount;
+      setPreparing(selection.additional ? "Preparing " + miniQuestionCount + " guided questions…"
+        : "Preparing your guided questions…");
+      const loadedSet = await loadSet({questionId, language, miniQuestionCount});
       if (destroyed || request !== token) return;
       if (!loadedSet || loadedSet.questionId !== questionId || loadedSet.language !== language
-          || !Array.isArray(loadedSet.miniQuestions) || !loadedSet.miniQuestions.length) {
+          || loadedSet.miniQuestionCount !== miniQuestionCount
+          || !Array.isArray(loadedSet.miniQuestions)
+          || loadedSet.miniQuestions.length !== miniQuestionCount) {
         throw new Error("The guided questions could not be loaded. Please try again.");
       }
       set = loadedSet;
@@ -194,7 +223,7 @@ export function mountQuestionReview({
       renderStep();
     } catch (error) {
       if (destroyed || request !== token) return;
-      reportFailure(error, "prepare-guided-questions");
+      reportFailure(error, selection.additional ? "prepare-more-guided-questions" : "prepare-guided-questions");
       phase = "error";
       el("review-guidance").setAttribute("aria-busy", "false");
       el("review-preparation").hidden = true;
@@ -223,7 +252,8 @@ export function mountQuestionReview({
     el("review-guidance").setAttribute("aria-busy", "true");
     setFeedback("Checking your answer…");
     try {
-      const result = await checkAnswer({questionId, language, sequence: miniQuestion.sequence, answer});
+      const result = await checkAnswer({questionId, language, miniQuestionCount: set.miniQuestionCount,
+        sequence: miniQuestion.sequence, answer});
       if (destroyed || request !== token) return;
       if (!result || typeof result.isCorrect !== "boolean") throw new Error("Could not check your answer. Please try again.");
       const isCorrect = result.isCorrect;
@@ -236,6 +266,7 @@ export function mountQuestionReview({
       answerChecked = true;
       phase = "answering";
       el("next-review-question").disabled = false;
+      setMoreGuidanceAvailable(index === set.miniQuestions.length - 1);
       el("next-review-question").focus();
     } catch (error) {
       if (destroyed || request !== token) return;
@@ -271,9 +302,21 @@ export function mountQuestionReview({
     el("review-answer-form").hidden = true;
     el("review-step").hidden = true;
     el("review-complete").hidden = false;
+    setMoreGuidanceAvailable(true);
     mathText(el("review-final-answer"), question.options[question.correctAnswer]);
     mathText(el("review-final-explanation"), question.explanation);
     el("review-complete-heading").focus();
+  }
+
+  function moreGuidance() {
+    const completed = phase === "complete" || (phase === "answering" && answerChecked
+      && index === set?.miniQuestions.length - 1);
+    if (destroyed || !uid || !completed) return pending;
+    // Read fresh configuration for each additional set, rather than doubling
+    // the previously loaded set. The normal getter reuses saved variants.
+    loadSelection = {additional: true};
+    pending = load();
+    return pending;
   }
 
   function restart() {
@@ -295,6 +338,7 @@ export function mountQuestionReview({
     uid = user?.uid || null;
     updateResultLinks();
     question = configuration = set = null;
+    loadSelection = {additional: false};
     clearDiagram();
     el("review-original").hidden = true;
     el("review-answer-form").hidden = true;
@@ -319,6 +363,7 @@ export function mountQuestionReview({
   el("next-review-question").addEventListener("click", nextStep);
   el("restart-review").addEventListener("click", restart);
   el("retry-review").addEventListener("click", retry);
+  for (const id of MORE_GUIDANCE_IDS) el(id).addEventListener("click", moreGuidance);
   setPreparing("Loading your question…");
   const unsubscribe = onAuthChanged(onAuth);
   return {
@@ -333,6 +378,7 @@ export function mountQuestionReview({
       el("next-review-question").removeEventListener("click", nextStep);
       el("restart-review").removeEventListener("click", restart);
       el("retry-review").removeEventListener("click", retry);
+      for (const id of MORE_GUIDANCE_IDS) el(id).removeEventListener("click", moreGuidance);
     },
   };
 }

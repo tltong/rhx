@@ -1,7 +1,7 @@
-import {normalizeTutorSetReference} from "./tutor_mini_question_set.js?v=20261015-tutor-generation-v1";
+import {normalizeTutorSetVariantReference} from "./tutor_mini_question_set.js?v=20261015-tutor-count-variants-v1";
 
 function normalizeTutorAnswerCheckInput(input) {
-  const reference = normalizeTutorSetReference(input);
+  const reference = normalizeTutorSetVariantReference(input);
   if (!Number.isSafeInteger(input.sequence) || input.sequence < 1) {
     throw new Error("sequence must be a positive safe integer.");
   }

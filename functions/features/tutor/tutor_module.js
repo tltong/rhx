@@ -20,21 +20,24 @@
  *   incorrectAnswerMessage, updatedAt: Date, updatedBy: administrator UID}.
  * DEFAULT_TUTOR_MINI_QUESTION_COUNT is 3; using it never persists defaults.
  *
- * generateTutorMiniQuestionSet({questionId, language})
+ * generateTutorMiniQuestionSet({questionId, language, miniQuestionCount?})
  *   -> Promise<TutorMiniQuestionSet>
  * Loads the complete Question (including SVG) and saved TutorConfig, builds
  * the fixed prompt, calls the existing LLM utility, validates and saves the set.
  * The requested language must have feedback configured. Each generation
- * replaces only that question/language set; malformed responses never write.
+ * replaces only that question/count/language set; malformed responses never write.
+ * An omitted count is resolved from configuration; an explicit count overrides it.
  *
- * getTutorMiniQuestionSet({questionId, language})
+ * getTutorMiniQuestionSet({questionId, language, miniQuestionCount?})
  *   -> Promise<TutorMiniQuestionSet>
  * Reads and returns the saved set first. If none exists, generates, validates,
  * saves and returns a new set through the existing generation workflow.
- * Saved sets are reused without reading the source question or configuration.
+ * An omitted count is read from configuration once before selecting the set.
+ * With an explicit count, cached sets require no source question or config reads.
+ * Matching legacy sets are copied to the new path on access, preserving timestamps.
  * Read failures and corrupt saved data propagate without triggering generation.
  *
- * checkTutorMiniQuestionAnswer({questionId, language, sequence, answer})
+ * checkTutorMiniQuestionAnswer({questionId, language, miniQuestionCount, sequence, answer})
  *   -> Promise<{isCorrect: boolean}>
  * Checks an already saved mini question. Normalized expected/accepted answers
  * pass locally; other wording is judged by the existing LLM utility.
@@ -44,7 +47,7 @@
  *   miniQuestions: [{sequence, questionText, expectedAnswer,
  *     acceptedAnswers: string[], answerExplanation}],
  *   configUpdatedAt: Date, generatedAt: Date}.
- * Stored in tutor/set-[SHA-256 of the question ID and language].
+ * Stored in tutor/{questionId}/counts/{miniQuestionCount}/languages/{encodedLanguage}.
  * No student identity, original question content or invocation history is saved.
  */
 /** Configuration writes require trusted backend context {updatedBy: administratorUid}. */
@@ -75,7 +78,7 @@ const generateSet = new GenerateTutorMiniQuestionSet({
   getQuestionById: getTutorQuestionById, getTutorConfig, generateLlmText, repository: setRepository,
 });
 const getSet = new GetTutorMiniQuestionSet(
-  setRepository, (input, options) => generateSet.execute(input, options),
+  setRepository, (input, options) => generateSet.execute(input, options), getTutorConfig,
 );
 const checkAnswer = new CheckTutorMiniQuestionAnswer({
   repository: setRepository, generateLlmText,

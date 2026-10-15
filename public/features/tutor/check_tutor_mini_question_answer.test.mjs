@@ -7,7 +7,7 @@ const require = createRequire(import.meta.url);
 const {CheckTutorMiniQuestionAnswer: BackendCheck} = require(
   "../../../functions/features/tutor/application/check_tutor_mini_question_answer.js"
 );
-const request = {questionId: "q", language: "English", sequence: 1, answer: "180°"};
+const request = {questionId: "q", language: "English", miniQuestionCount: 3, sequence: 1, answer: "180°"};
 const miniQuestion = {
   sequence: 1, questionText: "What is the sum of a triangle's angles?",
   expectedAnswer: "180°", acceptedAnswers: ["180 degrees", "180"],
@@ -17,7 +17,11 @@ const miniQuestion = {
 for (const [layer, Check] of [["backend", BackendCheck], ["web", WebCheck]]) {
   test(layer + ": expected and accepted answers pass without an LLM call", async () => {
     const useCase = new Check({
-      repository: {get: async ref => {assert.equal(ref.questionId, "q"); return {miniQuestions: [miniQuestion]};}},
+      repository: {get: async ref => {
+        assert.equal(ref.questionId, "q");
+        assert.equal(ref.miniQuestionCount, 3);
+        return {miniQuestions: [miniQuestion]};
+      }},
       generateLlmText: () => {throw new Error("Do not call the LLM for a listed answer");},
     });
     for (const answer of ["180°", " 180 degrees ", "180\n degrees", "１８０"]) {
@@ -77,7 +81,8 @@ for (const [layer, Check] of [["backend", BackendCheck], ["web", WebCheck]]) {
       generateLlmText: () => {throw new Error("Do not call the LLM without a saved mini question");},
     });
     for (const input of [null, [], {}, {...request, answer: ""}, {...request, answer: 42},
-      {...request, sequence: 0}, {...request, sequence: 1.5}, {...request, questionId: "a/b"}]) {
+      {...request, sequence: 0}, {...request, sequence: 1.5}, {...request, questionId: "a/b"},
+      ...[undefined, null, 0, "3"].map(miniQuestionCount => ({...request, miniQuestionCount}))]) {
       await assert.rejects(() => useCase.execute(input));
     }
     assert.equal(reads, 0);

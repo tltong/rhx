@@ -1,5 +1,7 @@
 const TUTOR_COLLECTION = "tutor";
 const TUTOR_CONFIG_DOCUMENT_ID = "config";
+const TUTOR_COUNTS_SUBCOLLECTION = "counts";
+const TUTOR_LANGUAGES_SUBCOLLECTION = "languages";
 const DEFAULT_TUTOR_MINI_QUESTION_COUNT = 3;
 
 const feedbackMessageMapSchema = {
@@ -25,11 +27,10 @@ const tutorConfigSchema = {
   },
 };
 
-// Set IDs are "set-" plus SHA-256 of JSON.stringify([questionId, language]).
-// Each language has an independent reusable set in the same tutor collection.
+// One reusable set per original question ID, count and encoded language.
 const tutorMiniQuestionSetSchema = {
-  collection: TUTOR_COLLECTION,
-  documentId: "set-[question_id_and_language_sha256]",
+  collection: "tutor/[questionId]/counts/[miniQuestionCount]/languages",
+  documentId: "[languageId]",
   fields: {
     questionId: "string",
     language: "string",
@@ -52,5 +53,5 @@ const tutorMiniQuestionSetSchema = {
   },
 };
 
-export {TUTOR_COLLECTION, TUTOR_CONFIG_DOCUMENT_ID, DEFAULT_TUTOR_MINI_QUESTION_COUNT, tutorConfigSchema, tutorMiniQuestionSetSchema};
+export {TUTOR_COLLECTION, TUTOR_CONFIG_DOCUMENT_ID, TUTOR_COUNTS_SUBCOLLECTION, TUTOR_LANGUAGES_SUBCOLLECTION, DEFAULT_TUTOR_MINI_QUESTION_COUNT, tutorConfigSchema, tutorMiniQuestionSetSchema};
 

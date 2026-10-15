@@ -1,5 +1,5 @@
 class TutorMiniQuestionSetRepository {
-  async get(reference) {
+  async get(reference, options = {}) {
     throw new Error("TutorMiniQuestionSetRepository.get must be implemented.");
   }
 
