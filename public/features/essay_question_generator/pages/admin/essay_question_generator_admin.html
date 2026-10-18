@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Essay Question Generator Admin</title>
+    <script>document.documentElement.hidden = true;</script>
+    <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script type="module" src="/init_fb.js"></script>
+    <link rel="stylesheet" href="./essay_question_generator_admin.css?v=20261017-essay-grade-min-words-v1">
+  </head>
+  <body>
+    <main class="page-shell" id="essay-question-generator-admin">
+      <a class="back-link" href="/features/site_admin/pages/site_admin/site_admin.html">Back to Site Admin</a>
+      <header>
+        <h1>Essay Question Generator</h1>
+        <p class="subtitle">Configure the instructions used to generate essay questions.</p>
+      </header>
+      <p id="essay-status" class="status" role="status" aria-live="polite" hidden></p>
+      <button id="essay-retry-load" class="secondary" type="button" hidden>Retry loading</button>
+
+      <form id="essay-config-form">
+        <section class="panel" aria-labelledby="essay-common-heading">
+          <div class="panel-heading">
+            <h2 id="essay-common-heading">Common instructions</h2>
+            <span id="essay-updated-at" class="updated-at">Never saved</span>
+          </div>
+          <p class="help-text" id="essay-common-help">Apply these instructions to every generated essay question.</p>
+          <label for="essay-common-instructions">Additional LLM instructions</label>
+          <textarea id="essay-common-instructions" rows="4" aria-describedby="essay-common-help" disabled></textarea>
+        </section>
+
+        <div class="section-heading">
+          <h2>Grade instructions</h2>
+          <p class="help-text">Configure additional instructions and minimum essay words for each grade. Leave the minimum blank for no word-count requirement. Set word counts here; word counts in additional instructions are ignored.</p>
+        </div>
+        <div class="grade-grid">
+          <section class="panel" aria-labelledby="essay-primary-heading">
+            <h3 id="essay-primary-heading">Primary</h3>
+            <div id="essay-primary-instructions" class="instruction-list"></div>
+          </section>
+          <section class="panel" aria-labelledby="essay-secondary-heading">
+            <h3 id="essay-secondary-heading">Secondary</h3>
+            <div id="essay-secondary-instructions" class="instruction-list"></div>
+          </section>
+        </div>
+
+        <section class="panel difficulty-panel" aria-labelledby="essay-difficulty-heading">
+          <h2 id="essay-difficulty-heading">Difficulty instructions</h2>
+          <p class="help-text">The selected difficulty instructions are added to the common and grade instructions.</p>
+          <div id="essay-difficulty-instructions" class="difficulty-grid"></div>
+        </section>
+
+        <div class="save-bar">
+          <p class="help-text">Blank instruction fields add no extra guidance. Blank minimum words means no requirement.</p>
+          <button id="essay-save-config" type="submit" disabled>Save settings</button>
+        </div>
+      </form>
+      <section id="essay-demo-panel" class="panel demo-panel" aria-labelledby="essay-demo-heading">
+        <h2 id="essay-demo-heading">Try essay question generation</h2>
+        <p class="help-text" id="essay-demo-help">Choose the learner and difficulty, provide a seed, then generate a question using your saved settings.</p>
+        <form id="essay-demo-form">
+          <div class="demo-grid">
+            <div>
+              <label for="essay-demo-level">Level</label>
+              <select id="essay-demo-level" required disabled>
+                <option value="">Choose a level</option>
+                <option value="primary">Primary</option>
+                <option value="secondary">Secondary</option>
+              </select>
+            </div>
+            <div>
+              <label for="essay-demo-standard">Grade</label>
+              <select id="essay-demo-standard" required disabled>
+                <option value="">Choose a grade</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+              </select>
+            </div>
+            <div>
+              <label for="essay-demo-language">Language</label>
+              <select id="essay-demo-language" required disabled>
+                <option value="">Choose a language</option>
+              </select>
+            </div>
+            <div>
+              <label for="essay-demo-difficulty">Difficulty</label>
+              <select id="essay-demo-difficulty" required disabled>
+                <option value="">Choose a difficulty</option>
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+              </select>
+            </div>
+          </div>
+          <div class="demo-actions language-actions">
+            <p id="essay-demo-language-status" class="help-text" role="status" aria-live="polite"></p>
+            <button id="essay-demo-reload-languages" class="secondary" type="button" disabled>Reload languages</button>
+          </div>
+          <label for="essay-demo-seed">Generation seed</label>
+          <p id="essay-demo-seed-help" class="help-text">Enter a seed, or get a combined theme, setting and type for the selected level and grade.</p>
+          <textarea id="essay-demo-seed" rows="4" dir="auto" placeholder="Enter a seed or get a combined seed below." aria-describedby="essay-demo-seed-help" required disabled></textarea>
+          <div class="demo-actions">
+            <button id="essay-demo-get-seed" class="secondary" type="button" disabled>Get combined seed</button>
+            <button id="essay-demo-generate" type="submit" disabled>Generate question</button>
+          </div>
+        </form>
+        <progress id="essay-demo-progress" aria-label="Generating essay question" hidden></progress>
+        <p id="essay-demo-status" class="status" role="status" aria-live="polite" hidden></p>
+        <div id="essay-demo-result" class="demo-result" hidden>
+          <h3>Generated question</h3>
+          <p id="essay-demo-result-meta" class="help-text"></p>
+          <label for="essay-demo-preview">Question preview</label>
+          <textarea id="essay-demo-preview" rows="8" dir="auto" readonly></textarea>
+          <div class="demo-actions">
+            <button id="essay-demo-save-question" type="button" disabled>Save question</button>
+          </div>
+        </div>
+      </section>
+    </main>
+    <script
+      id="site-admin-page-loader"
+      type="module"
+      data-site-admin-page
+      data-page-module="./essay_question_generator_admin.js?v=20261017-essay-grade-min-words-v1"
+      src="/features/site_admin/pages/common/site_admin_page_loader.js?v=20260827-site-admin-guard-v1"
+    ></script>
+  </body>
+</html>

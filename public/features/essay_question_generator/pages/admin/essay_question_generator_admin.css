@@ -1,0 +1,60 @@
+:root {font-family: Arial, Helvetica, sans-serif; color: #102a43; background: #eef3f8;}
+* {box-sizing: border-box;}
+body {margin: 0;}
+.page-shell {max-width: 1120px; margin: 0 auto; padding: 28px 20px 48px;}
+.back-link {color: #0369a1; display: inline-block; font-weight: 700; margin-bottom: 16px; text-decoration: none;}
+h1 {font-size: 30px; line-height: 1.2; margin: 0 0 10px;}
+h2 {font-size: 21px; margin: 0;}
+h3 {font-size: 20px; margin: 0 0 18px;}
+.subtitle, .help-text {color: #52606d; line-height: 1.5;}
+.subtitle {margin: 0 0 24px;}
+.help-text {font-size: 14px; margin: 10px 0 16px;}
+.panel {background: #fff; border: 1px solid #cbd9e6; border-radius: 8px; padding: 22px; min-width: 0;}
+.panel-heading {display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 10px;}
+.updated-at {color: #52606d; font-size: 13px;}
+.section-heading {margin: 26px 0 14px;}
+.section-heading .help-text {margin-bottom: 0;}
+.grade-grid {display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px;}
+.instruction-list {display: grid; gap: 18px;}
+label {display: block; font-size: 14px; font-weight: 700; margin-bottom: 8px;}
+textarea {width: 100%; min-height: 100px; padding: 10px 12px; border: 1px solid #a8bccd; border-radius: 6px; background: #fff; color: #102a43; font: inherit; font-size: 14px; line-height: 1.5; resize: vertical; display: block;}
+textarea:focus-visible, button:focus-visible, a:focus-visible {outline: 3px solid #38bdf8; outline-offset: 3px;}
+textarea:disabled {background: #f1f5f9; color: #64748b;}
+input[type="number"] {width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid #a8bccd; border-radius: 6px; color: #102a43; font: inherit; font-size: 14px;}
+input[type="number"]:disabled {background: #f1f5f9; color: #64748b;}
+input[type="number"]:focus-visible {outline: 3px solid #38bdf8; outline-offset: 3px;}
+.word-count-field {margin-top: 12px;}
+.word-count-field label {font-weight: 400; color: #52606d;}
+.field-error {font-size: 13px; color: #9f1239; margin: 7px 0 0;}
+input[aria-invalid="true"] {border-color: #be123c;}
+select {width: 100%; min-height: 44px; padding: 10px; border: 1px solid #a8bccd; border-radius: 6px; background: #fff; color: #102a43; font: inherit; font-size: 14px;}
+select:disabled {background: #f1f5f9; color: #64748b;}
+select:focus-visible {outline: 3px solid #38bdf8; outline-offset: 3px;}
+.difficulty-panel {margin-top: 22px;}
+.difficulty-grid {display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px;}
+.save-bar {display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding-top: 18px;}
+.save-bar .help-text {margin: 0;}
+button {border: 1px solid #0369a1; border-radius: 6px; background: #0369a1; color: #fff; font: inherit; font-size: 14px; font-weight: 700; padding: 11px 18px; min-height: 44px; cursor: pointer;}
+button:hover:not(:disabled) {background: #075985;}
+button.secondary {background: #fff; color: #075985; margin-bottom: 18px;}
+button:disabled {opacity: 0.55; cursor: default;}
+.status {padding: 12px 14px; border: 1px solid #a7d7f2; border-radius: 6px; background: #eff9ff; line-height: 1.5; overflow-wrap: anywhere;}
+.status.is-error {background: #fff1f2; border-color: #fecdd3; color: #9f1239;}
+.demo-panel {margin-top: 32px;}
+.demo-grid {display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px;}
+.demo-actions {display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 16px;}
+.demo-actions button.secondary {margin-bottom: 0;}
+.language-actions {justify-content: space-between; margin: 12px 0 22px;}
+.language-actions .help-text {margin: 0; flex: 1; min-width: 170px;}
+.help-text.is-error {color: #9f1239;}
+.demo-result {border-top: 1px solid #d5e1ec; padding-top: 22px; margin-top: 24px;}
+.demo-result h3 {margin-bottom: 8px;}
+.demo-result textarea {background: #f8fbfd;}
+progress {display: block; width: 100%; height: 9px; margin-top: 20px; accent-color: #0369a1;}
+[hidden] {display: none !important;}
+@media (max-width: 720px) {
+  .page-shell {padding: 20px 14px 32px;}
+  .grade-grid, .difficulty-grid, .demo-grid {grid-template-columns: 1fr;}
+  .panel {padding: 18px;}
+  h1 {font-size: 27px;}
+}

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Question Seed Generator Admin</title>
+    <script>document.documentElement.hidden = true;</script>
+    <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script type="module" src="/init_fb.js"></script>
+    <link rel="stylesheet" href="./question_seed_generator_admin.css?v=20261017-seed-association-order-v1">
+  </head>
+  <body>
+    <main class="page-shell" id="question-seed-admin">
+      <a class="back-link" href="/features/site_admin/pages/site_admin/site_admin.html">Back to Site Admin</a>
+      <header>
+        <h1>Question Seed Generator</h1>
+        <p class="subtitle">Build a library of themes, settings and types to inspire different questions.</p>
+      </header>
+
+      <p id="seed-page-status" class="status" role="status" aria-live="polite" hidden></p>
+      <button id="seed-retry-load" class="secondary" type="button" hidden>Retry loading</button>
+
+      <section class="panel" aria-labelledby="seed-settings-heading">
+        <div class="panel-heading">
+          <h2 id="seed-settings-heading">Generation settings</h2>
+          <span id="seed-updated-at" class="updated-at">Never saved</span>
+        </div>
+        <form id="seed-config-form">
+          <div class="settings-grid">
+            <div>
+              <label for="seed-generation-seed">High-level seed</label>
+              <input id="seed-generation-seed" name="generationSeed" type="text" value="latest news"
+                aria-describedby="seed-generation-help" disabled>
+              <p id="seed-generation-help" class="field-help">Default: latest news. Used when a vertical has “Use high-level seed” checked, unless you enter an override.</p>
+            </div>
+            <div>
+              <label for="seed-llm-instructions">Additional LLM instructions <span class="optional">(optional)</span></label>
+              <textarea id="seed-llm-instructions" name="additionalLlmInstructions" rows="3" disabled></textarea>
+            </div>
+          </div>
+          <div class="actions">
+            <button id="seed-save-config" type="submit" disabled>Save settings</button>
+            <p id="seed-config-status" class="inline-status" role="status" aria-live="polite" hidden></p>
+          </div>
+        </form>
+      </section>
+
+      <div class="section-heading">
+        <h2>Seed verticals</h2>
+        <p class="help-text">Generate or type an entry, assign its levels and grades, then save it. You can edit generated text before saving. Select saved entries below to remove them.</p>
+      </div>
+      <div class="vertical-grid">
+        <section id="seed-theme-card" class="panel vertical-card" aria-labelledby="seed-theme-heading">
+          <div class="panel-heading">
+            <h3 id="seed-theme-heading">Theme</h3>
+            <span id="seed-theme-count" class="entry-count">0 saved</span>
+          </div>
+          <p class="help-text">The central idea, such as friendship or technology.</p>
+          <label class="seed-option" for="seed-theme-use-seed">
+            <input id="seed-theme-use-seed" type="checkbox" checked disabled>
+            <span>Use high-level seed</span>
+          </label>
+          <label for="seed-theme-override">Seed override <span class="optional">(optional)</span></label>
+          <input id="seed-theme-override" type="text" placeholder="Use high-level seed" disabled>
+          <div class="actions generation-actions">
+            <button id="seed-theme-generate" type="button" disabled>Generate entry</button>
+          </div>
+          <label for="seed-theme-preview">Entry</label>
+          <textarea id="seed-theme-preview" rows="3" placeholder="Type an entry or generate one above." disabled></textarea>
+          <div id="seed-theme-association-section" hidden>
+            <h4>Associations for this entry</h4>
+            <p class="field-help">Select one or more grades, then save this entry.</p>
+            <div id="seed-theme-associations"></div>
+          </div>
+          <div class="actions">
+            <button id="seed-theme-save" class="secondary" type="button" disabled>Save entry</button>
+          </div>
+          <p id="seed-theme-status" class="status" role="status" aria-live="polite" hidden></p>
+          <h4>Saved themes</h4>
+          <p id="seed-theme-empty" class="empty-note">No themes saved yet.</p>
+          <ul id="seed-theme-entries" class="entry-list" aria-label="Saved themes" hidden></ul>
+          <div class="removal-actions">
+            <button id="seed-theme-remove" class="danger" type="button" disabled>Remove selected</button>
+          </div>
+        </section>
+
+        <section id="seed-setting-card" class="panel vertical-card" aria-labelledby="seed-setting-heading">
+          <div class="panel-heading">
+            <h3 id="seed-setting-heading">Setting</h3>
+            <span id="seed-setting-count" class="entry-count">0 saved</span>
+          </div>
+          <p class="help-text">The place or situation, such as a school or library.</p>
+          <label class="seed-option" for="seed-setting-use-seed">
+            <input id="seed-setting-use-seed" type="checkbox" checked disabled>
+            <span>Use high-level seed</span>
+          </label>
+          <label for="seed-setting-override">Seed override <span class="optional">(optional)</span></label>
+          <input id="seed-setting-override" type="text" placeholder="Use high-level seed" disabled>
+          <div class="actions generation-actions">
+            <button id="seed-setting-generate" type="button" disabled>Generate entry</button>
+          </div>
+          <label for="seed-setting-preview">Entry</label>
+          <textarea id="seed-setting-preview" rows="3" placeholder="Type an entry or generate one above." disabled></textarea>
+          <div id="seed-setting-association-section" hidden>
+            <h4>Associations for this entry</h4>
+            <p class="field-help">Select one or more grades, then save this entry.</p>
+            <div id="seed-setting-associations"></div>
+          </div>
+          <div class="actions">
+            <button id="seed-setting-save" class="secondary" type="button" disabled>Save entry</button>
+          </div>
+          <p id="seed-setting-status" class="status" role="status" aria-live="polite" hidden></p>
+          <h4>Saved settings</h4>
+          <p id="seed-setting-empty" class="empty-note">No settings saved yet.</p>
+          <ul id="seed-setting-entries" class="entry-list" aria-label="Saved settings" hidden></ul>
+          <div class="removal-actions">
+            <button id="seed-setting-remove" class="danger" type="button" disabled>Remove selected</button>
+          </div>
+        </section>
+
+        <section id="seed-type-card" class="panel vertical-card" aria-labelledby="seed-type-heading">
+          <div class="panel-heading">
+            <h3 id="seed-type-heading">Type</h3>
+            <span id="seed-type-count" class="entry-count">0 saved</span>
+          </div>
+          <p class="help-text">The question format or task, such as narrative or persuasive.</p>
+          <label class="seed-option" for="seed-type-use-seed">
+            <input id="seed-type-use-seed" type="checkbox" checked disabled>
+            <span>Use high-level seed</span>
+          </label>
+          <label for="seed-type-override">Seed override <span class="optional">(optional)</span></label>
+          <input id="seed-type-override" type="text" placeholder="Use high-level seed" disabled>
+          <div class="actions generation-actions">
+            <button id="seed-type-generate" type="button" disabled>Generate entry</button>
+          </div>
+          <label for="seed-type-preview">Entry</label>
+          <textarea id="seed-type-preview" rows="3" placeholder="Type an entry or generate one above." disabled></textarea>
+          <div id="seed-type-association-section" hidden>
+            <h4>Associations for this entry</h4>
+            <p class="field-help">Select one or more grades, then save this entry.</p>
+            <div id="seed-type-associations"></div>
+          </div>
+          <div class="actions">
+            <button id="seed-type-save" class="secondary" type="button" disabled>Save entry</button>
+          </div>
+          <p id="seed-type-status" class="status" role="status" aria-live="polite" hidden></p>
+          <h4>Saved types</h4>
+          <p id="seed-type-empty" class="empty-note">No types saved yet.</p>
+          <ul id="seed-type-entries" class="entry-list" aria-label="Saved types" hidden></ul>
+          <div class="removal-actions">
+            <button id="seed-type-remove" class="danger" type="button" disabled>Remove selected</button>
+          </div>
+        </section>
+      </div>
+
+      <section id="seed-combined-panel" class="panel" aria-labelledby="seed-combined-heading">
+        <h2 id="seed-combined-heading">Combined seed</h2>
+        <p class="help-text">Pick one matching saved entry from each vertical for the selected level and grade. Unassigned entries are excluded.</p>
+        <div class="scope-selectors">
+          <div>
+            <label for="seed-combined-level">Level</label>
+            <select id="seed-combined-level" disabled>
+              <option value="">Choose a level</option>
+              <option value="primary">Primary</option>
+              <option value="secondary">Secondary</option>
+            </select>
+          </div>
+          <div>
+            <label for="seed-combined-grade">Grade</label>
+            <select id="seed-combined-grade" disabled>
+              <option value="">Choose a grade</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+            </select>
+          </div>
+        </div>
+        <p id="seed-combined-availability" class="help-text" role="status" aria-live="polite"></p>
+        <label class="visually-hidden" for="seed-combined-output">Combined seed</label>
+        <textarea id="seed-combined-output" rows="4" placeholder="Your combined seed will appear here." readonly></textarea>
+        <div class="actions">
+          <button id="seed-get-combined" type="button" disabled>Get combined seed</button>
+        </div>
+        <p id="seed-combined-status" class="status" role="status" aria-live="polite" hidden></p>
+      </section>
+    </main>
+    <script
+      id="site-admin-page-loader"
+      type="module"
+      data-site-admin-page
+      data-page-module="./question_seed_generator_admin.js?v=20261017-seed-manual-entry-v1"
+      src="/features/site_admin/pages/common/site_admin_page_loader.js?v=20260827-site-admin-guard-v1"
+    ></script>
+  </body>
+</html>

@@ -27,7 +27,7 @@ export function mountQuestionReview({
   const ids = [
     "review-back-to-results", "review-complete-back-to-results",
     "review-original", "review-question-text", "review-diagram", "review-options",
-    "review-guidance", "review-step", "review-preparation", "review-preparation-message",
+    "review-guidance", "review-history", "review-step", "review-preparation", "review-preparation-message",
     "review-load-error", "review-error-message", "retry-review", "review-answer-form",
     "review-mini-question", "review-answer", "check-review-answer", "next-review-question",
     "review-feedback", "review-step-explanation", "review-step-answer", "review-step-explanation-text",
@@ -56,6 +56,10 @@ export function mountQuestionReview({
   let destroyed = false;
   let pending = Promise.resolve();
   let loadSelection = {additional: false};
+  let checkedAnswer = null;
+  let currentStepArchived = false;
+  let reviewNumber = 0;
+  let archivedStepCount = 0;
 
   function getResultUrl() {
     return practiceId && uid
@@ -89,6 +93,54 @@ export function mountQuestionReview({
     feedback.hidden = !message;
     feedback.classList.toggle("is-error", error);
     feedback.classList.toggle("is-correct", correct);
+  }
+
+  function clearHistory() {
+    el("review-history").replaceChildren();
+    el("review-history").hidden = true;
+    checkedAnswer = null;
+    currentStepArchived = false;
+    reviewNumber = archivedStepCount = 0;
+  }
+
+  function textElement(tag, text, className = "") {
+    const element = root.createElement(tag);
+    element.textContent = text;
+    element.className = className;
+    return element;
+  }
+
+  function mathParagraph(text, className = "") {
+    const element = textElement("p", "", className);
+    element.dir = "auto";
+    mathText(element, text);
+    return element;
+  }
+
+  function archiveCurrentStep() {
+    if (!set || !answerChecked || !checkedAnswer || currentStepArchived) return;
+    const miniQuestion = set.miniQuestions[index];
+    const card = root.createElement("article");
+    card.className = "reviewed-step";
+    const heading = textElement("h3", "Review " + reviewNumber + " · Step "
+      + (index + 1) + " of " + set.miniQuestionCount);
+    heading.id = "reviewed-step-" + (++archivedStepCount);
+    card.setAttribute("aria-labelledby", heading.id);
+    const feedback = textElement("p", checkedAnswer.feedbackMessage,
+      "status " + (checkedAnswer.isCorrect ? "is-correct" : "is-error"));
+    feedback.dir = "auto";
+    const explanation = root.createElement("div");
+    explanation.className = "step-explanation";
+    explanation.append(
+      textElement("h4", "Answer"), mathParagraph(miniQuestion.expectedAnswer, "step-answer"),
+      textElement("h4", "Why this works"), mathParagraph(miniQuestion.answerExplanation),
+    );
+    card.append(heading, mathParagraph(miniQuestion.questionText, "mini-question"),
+      textElement("h4", "Your answer"), mathParagraph(checkedAnswer.answer, "reviewed-answer"),
+      feedback, explanation);
+    el("review-history").append(card);
+    el("review-history").hidden = false;
+    currentStepArchived = true;
   }
 
   function setMoreGuidanceAvailable(available) {
@@ -151,6 +203,8 @@ export function mountQuestionReview({
   function renderStep() {
     phase = "answering";
     answerChecked = false;
+    checkedAnswer = null;
+    currentStepArchived = false;
     setMoreGuidanceAvailable(false);
     const miniQuestion = set.miniQuestions[index];
     el("review-guidance").setAttribute("aria-busy", "false");
@@ -220,6 +274,7 @@ export function mountQuestionReview({
       }
       set = loadedSet;
       index = 0;
+      reviewNumber++;
       renderStep();
     } catch (error) {
       if (destroyed || request !== token) return;
@@ -258,11 +313,13 @@ export function mountQuestionReview({
       if (!result || typeof result.isCorrect !== "boolean") throw new Error("Could not check your answer. Please try again.");
       const isCorrect = result.isCorrect;
       el("review-answer").setAttribute("aria-invalid", isCorrect ? "false" : "true");
-      setFeedback(isCorrect ? configuration.correctAnswerMessage[language]
-        : configuration.incorrectAnswerMessage[language], {correct: isCorrect, error: !isCorrect});
+      const feedbackMessage = isCorrect ? configuration.correctAnswerMessage[language]
+        : configuration.incorrectAnswerMessage[language];
+      setFeedback(feedbackMessage, {correct: isCorrect, error: !isCorrect});
       mathText(el("review-step-answer"), miniQuestion.expectedAnswer);
       mathText(el("review-step-explanation-text"), miniQuestion.answerExplanation);
       el("review-step-explanation").hidden = false;
+      checkedAnswer = {answer, isCorrect, feedbackMessage};
       answerChecked = true;
       phase = "answering";
       el("next-review-question").disabled = false;
@@ -286,6 +343,7 @@ export function mountQuestionReview({
 
   function nextStep() {
     if (phase !== "answering" || !answerChecked) return;
+    archiveCurrentStep();
     if (index < set.miniQuestions.length - 1) {
       index++;
       renderStep();
@@ -295,6 +353,7 @@ export function mountQuestionReview({
     if (resultUrl) {
       phase = "leaving";
       disableAnswers();
+      el("review-answer-form").hidden = true;
       navigate(resultUrl);
       return;
     }
@@ -312,6 +371,7 @@ export function mountQuestionReview({
     const completed = phase === "complete" || (phase === "answering" && answerChecked
       && index === set?.miniQuestions.length - 1);
     if (destroyed || !uid || !completed) return pending;
+    archiveCurrentStep();
     // Read fresh configuration for each additional set, rather than doubling
     // the previously loaded set. The normal getter reuses saved variants.
     loadSelection = {additional: true};
@@ -322,6 +382,7 @@ export function mountQuestionReview({
   function restart() {
     if (phase !== "complete") return;
     index = 0;
+    reviewNumber++;
     renderStep();
   }
 
@@ -339,6 +400,7 @@ export function mountQuestionReview({
     updateResultLinks();
     question = configuration = set = null;
     loadSelection = {additional: false};
+    clearHistory();
     clearDiagram();
     el("review-original").hidden = true;
     el("review-answer-form").hidden = true;
@@ -374,6 +436,7 @@ export function mountQuestionReview({
       ++token;
       unsubscribe?.();
       clearDiagram();
+      clearHistory();
       el("review-answer-form").removeEventListener("submit", submitAnswer);
       el("next-review-question").removeEventListener("click", nextStep);
       el("restart-review").removeEventListener("click", restart);

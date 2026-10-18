@@ -649,6 +649,157 @@ test("direct reviews also offer More guidance from their completion screen", asy
   assert.deepEqual(h.navigations, []);
 });
 
+function textIn(element) {
+  return [element.textContent, ...element.children.map(textIn)].join("\n");
+}
+
+function descendants(element) {
+  return element.children.flatMap(child => [child, ...descendants(child)]);
+}
+
+test("Next retains each checked question, the submitted answer, feedback and explanation", async () => {
+  const set = miniSet("English", 3);
+  set.miniQuestions.forEach((step, index) => {step.questionText = "Guided question " + (index + 1);});
+  const h = harness({loadConfig: async () => ({...config, miniQuestionCount: 3}), loadSet: async () => set});
+  await h.ready;
+  const history = h.get("review-history");
+  assert.equal(history.hidden, true);
+  assert.equal(history.children.length, 0);
+  h.get("review-answer").value = "  180  ";
+  await h.get("review-answer-form").submit();
+  // Retain the answer that was actually checked, even if the DOM is changed later.
+  h.get("review-answer").value = "changed after checking";
+  await h.get("next-review-question").click();
+  assert.equal(history.hidden, false);
+  assert.equal(history.children.length, 1);
+  const firstCard = history.children[0];
+  const firstText = textIn(firstCard);
+  for (const expected of ["Review 1 · Step 1 of 3", set.miniQuestions[0].questionText,
+    "Your answer", "180", "Well done!", set.miniQuestions[0].expectedAnswer,
+    set.miniQuestions[0].answerExplanation]) assert.ok(firstText.includes(expected));
+  assert.equal(firstText.includes("changed after checking"), false);
+  assert.equal(firstText.includes("Guided question 3"), false);
+  assert.ok(descendants(firstCard).some(element => element.className === "status is-correct"));
+  assert.equal(h.get("review-step").textContent, "Step 2 of 3");
+  assert.equal(h.get("review-answer").value, "");
+  assert.equal(h.get("next-review-question").disabled, true);
+  assert.equal(h.get("review-step-explanation").hidden, true);
+  h.get("review-answer").value = "90";
+  await h.get("review-answer-form").submit();
+  await h.get("next-review-question").click();
+  assert.equal(history.children.length, 2);
+  assert.equal(history.children[0], firstCard);
+  assert.ok(textIn(history.children[1]).includes("90"));
+  assert.ok(textIn(history.children[1]).includes("Try again."));
+  assert.ok(textIn(history.children[1]).includes(set.miniQuestions[1].expectedAnswer));
+  assert.ok(descendants(history.children[1]).some(element => element.className === "status is-error"));
+  assert.equal(h.get("review-mini-question").textContent, "Guided question 3");
+  assert.equal(descendants(history).some(element => ["textarea", "button", "form"].includes(element.tagName)), false);
+  assert.equal(h.loads.filter(([kind]) => kind === "set").length, 1);
+});
+
+test("blank answers, failed checks and repeated Next clicks never add unfinished or duplicate history", async () => {
+  let fail = true;
+  const h = harness({checkAnswer: async () => {if (fail) throw new Error("Check unavailable"); return {isCorrect: true};}});
+  await h.ready;
+  await h.get("review-answer-form").submit();
+  await h.get("next-review-question").click();
+  assert.equal(h.get("review-history").children.length, 0);
+  h.get("review-answer").value = "180";
+  await h.get("review-answer-form").submit();
+  await h.get("next-review-question").click();
+  assert.equal(h.get("review-history").children.length, 0);
+  fail = false;
+  await h.get("review-answer-form").submit();
+  await h.get("next-review-question").click();
+  await h.get("next-review-question").click();
+  assert.equal(h.get("review-history").children.length, 1);
+  assert.equal(h.get("review-step").textContent, "Step 2 of 2");
+});
+
+test("More guidance and failed-load retries retain the completed set without duplicating its final step", async () => {
+  const waiting = deferred();
+  const started = deferred();
+  let additionalCalls = 0;
+  const h = harness({loadSet: async input => {
+    if (input.miniQuestionCount === 4 && ++additionalCalls === 1) {
+      started.resolve();
+      return waiting.promise;
+    }
+    return miniSet(input.language, input.miniQuestionCount);
+  }});
+  await h.ready;
+  await checkEntireSet(h);
+  assert.equal(h.get("review-history").children.length, 1);
+  const pending = h.get("review-more-guidance").click();
+  await started.promise;
+  const history = h.get("review-history");
+  assert.equal(history.hidden, false);
+  assert.equal(history.children.length, 2);
+  assert.ok(textIn(history.children[1]).includes("Review 1 · Step 2 of 2"));
+  const cards = [...history.children];
+  waiting.reject(new Error("Additional generation failed"));
+  await pending;
+  assert.equal(history.hidden, false);
+  assert.deepEqual(history.children, cards);
+  await h.get("retry-review").click();
+  assert.deepEqual(history.children, cards);
+  assert.equal(h.get("review-step").textContent, "Step 1 of 4");
+  await checkEntireSet(h, 4);
+  await h.get("next-review-question").click();
+  assert.equal(h.get("review-complete").hidden, false);
+  assert.equal(history.children.length, 6);
+  assert.ok(textIn(history.children[2]).includes("Review 2 · Step 1 of 4"));
+  assert.ok(textIn(history.children[5]).includes("Review 2 · Step 4 of 4"));
+  assert.equal(history.children[0], cards[0]);
+  await h.get("review-complete-more-guidance").click();
+  assert.equal(history.children.length, 6);
+  assert.equal(h.get("review-step").textContent, "Step 1 of 4");
+});
+
+test("direct completion retains every question and restarting begins another review below it", async () => {
+  const h = harness();
+  await h.ready;
+  await checkEntireSet(h);
+  await h.get("next-review-question").click();
+  const history = h.get("review-history");
+  assert.equal(history.children.length, 2);
+  assert.equal(history.hidden, false);
+  const ids = history.children.map(card => card.attributes.get("aria-labelledby"));
+  assert.equal(new Set(ids).size, 2);
+  await h.get("restart-review").click();
+  assert.equal(history.children.length, 2);
+  assert.equal(h.get("review-step").textContent, "Step 1 of 2");
+  assert.equal(h.get("review-step-explanation").hidden, true);
+  h.get("review-answer").value = "180";
+  await h.get("review-answer-form").submit();
+  await h.get("next-review-question").click();
+  assert.equal(history.children.length, 3);
+  assert.ok(textIn(history.children[2]).includes("Review 2 · Step 1 of 2"));
+});
+
+test("account changes, sign-out and disposal clear retained answers and ignore late checks", async () => {
+  for (const action of ["change-account", "sign-out", "dispose"]) {
+    const waiting = deferred();
+    const h = harness({checkAnswer: async input => input.sequence === 1 ? {isCorrect: true} : waiting.promise});
+    await h.ready;
+    h.get("review-answer").value = "180";
+    await h.get("review-answer-form").submit();
+    await h.get("next-review-question").click();
+    assert.equal(h.get("review-history").children.length, 1);
+    h.get("review-answer").value = "50";
+    const pending = h.get("review-answer-form").submit();
+    if (action === "dispose") h.page.dispose();
+    else await h.authenticate(action === "sign-out" ? null : {uid: "student-2"});
+    waiting.resolve({isCorrect: true});
+    await pending;
+    assert.equal(h.get("review-history").hidden, true);
+    assert.equal(h.get("review-history").children.length, 0);
+    assert.equal(h.get("next-review-question").disabled, true);
+    if (action === "change-account") assert.equal(h.get("review-step").textContent, "Step 1 of 2");
+  }
+});
+
 test("page markup supplies accessible indeterminate progress and reduced-motion styling", async () => {
   const css = await readFile(new URL("./question_review.css", import.meta.url), "utf8");
   assert.match(html, /role="progressbar" aria-labelledby="review-preparation-message"/);

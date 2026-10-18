@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Question Review</title>
     <link rel="stylesheet" href="/vendor/katex/0.18.1/katex.min.css" integrity="sha384-1vdNCNel6Tx/NQa8IR1mGOGKsbGreCkOPfbtPPnUURJ5Tu2PRVfQ/7KLZC+Pi1p1">
-    <link rel="stylesheet" href="./question_review.css?v=20261015-review-return-to-result-v1">
+    <link rel="stylesheet" href="./question_review.css?v=20261017-review-keep-questions-v1">
     <script defer src="/vendor/katex/0.18.1/katex.min.js" integrity="sha384-ycJ6GAwiS15LoUPipwJOrWTvkUHl/YqELValBwI5I4awP1EeEQJYarj+w85ntcz7"></script>
     <script defer src="/vendor/katex/0.18.1/contrib/auto-render.min.js" integrity="sha384-bjyGPfbij8/NDKJhSGZNP/khQVgtHUE5exjm4Ydllo42FwIgYsdLO2lXGmRBf5Mz"></script>
     <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
@@ -36,8 +36,9 @@
       <section id="review-guidance" class="panel guidance-panel" aria-labelledby="guidance-heading" aria-busy="true">
         <div class="panel-heading">
           <h2 id="guidance-heading">Let's work it out</h2>
-          <span id="review-step" class="step-label" hidden></span>
         </div>
+
+        <section id="review-history" class="review-history" aria-label="Answered guided questions" hidden></section>
 
         <div id="review-preparation" class="preparation">
           <p id="review-preparation-message" role="status" aria-live="polite">Loading your question…</p>
@@ -53,6 +54,7 @@
         </div>
 
         <form id="review-answer-form" novalidate hidden>
+          <span id="review-step" class="step-label" hidden></span>
           <p id="review-mini-question" class="mini-question" dir="auto"></p>
           <label for="review-answer">Your answer</label>
           <textarea id="review-answer" name="answer" rows="3" dir="auto" required disabled
@@ -90,6 +92,6 @@
         </section>
       </section>
     </main>
-    <script type="module" src="./question_review.js?v=20261015-review-more-guidance-v1"></script>
+    <script type="module" src="./question_review.js?v=20261017-review-keep-questions-v1"></script>
   </body>
 </html>
