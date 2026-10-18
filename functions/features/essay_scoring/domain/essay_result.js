@@ -40,11 +40,15 @@ function normalizeResultReference(input) {
   });
 }
 
-function normalizeAssessment(input, answer) {
+function normalizeAssessment(input, answer, {allowMissingReviewComment = false} = {}) {
   requireRecord(input, "Essay assessment");
   requireAnswer(answer);
   if (typeof input.score !== "number" || !Number.isFinite(input.score) || input.score < 0 || input.score > 100) {
     throw new Error("score must be a finite number between 0 and 100.");
+  }
+  if (!(allowMissingReviewComment && input.reviewComment === undefined)
+      && (typeof input.reviewComment !== "string" || !input.reviewComment.trim())) {
+    throw new Error("reviewComment must be a nonempty string.");
   }
   if (!Array.isArray(input.corrections)) throw new Error("corrections must be an array.");
   const corrections = input.corrections.map((entry, index) => {
@@ -61,7 +65,9 @@ function normalizeAssessment(input, answer) {
       originalText: entry.originalText, correctedText: entry.correctedText, explanation: entry.explanation.trim(),
     });
   });
-  return Object.freeze({score: input.score, corrections: Object.freeze(corrections)});
+  return Object.freeze({score: input.score,
+    ...(input.reviewComment === undefined ? {} : {reviewComment: input.reviewComment.trim()}),
+    corrections: Object.freeze(corrections)});
 }
 
 function parseAssessment(response, answer) {
@@ -73,10 +79,10 @@ function parseAssessment(response, answer) {
   return normalizeAssessment(data, answer);
 }
 
-function normalizeResultInput(input) {
+function normalizeResultInput(input, options) {
   const reference = normalizeResultReference(input);
   const answer = requireAnswer(input.answer);
-  return Object.freeze({...reference, answer, ...normalizeAssessment(input, answer)});
+  return Object.freeze({...reference, answer, ...normalizeAssessment(input, answer, options)});
 }
 
 function readEssayResult(data, reference) {
@@ -86,7 +92,8 @@ function readEssayResult(data, reference) {
     throw new Error("scoredAt must be a valid timestamp.");
   }
   return Object.freeze({
-    ...normalizeResultInput({...data, ...normalizeResultReference(reference)}),
+    // Results saved before overall reviews were introduced remain readable.
+    ...normalizeResultInput({...data, ...normalizeResultReference(reference)}, {allowMissingReviewComment: true}),
     scoredAt: new Date(scoredAt.getTime()),
   });
 }

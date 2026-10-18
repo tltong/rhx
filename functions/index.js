@@ -54,5 +54,7 @@ exports.listSiteAdminEmails = listSiteAdminEmails;
 exports.removeSiteAdminEmail = removeSiteAdminEmail;
 exports.onSyllabusSubscriptionCreated = onSyllabusSubscriptionCreated;
 exports.onStudentPracticeCompleted = onStudentPracticeCompleted;
+exports.onStudentEssayPracticeCompleted = require("./triggers/student_essay_practice_completion_trigger").onStudentEssayPracticeCompleted;
 exports.pruneStudentLoginHistoryDaily = pruneStudentLoginHistoryDaily;
 exports.onStudentLoginRecorded = onStudentLoginRecorded;
+exports.studentTopicPracticeReset = require("./student_topic_practice_reset_http").studentTopicPracticeReset;

@@ -38,6 +38,11 @@ function save(path, data, options) {
 }
 function reference(path) {
   return {path, id: path.split("/").at(-1), get: () => read(path),
+    async update(data) {
+      if (!documents.has(path)) throw new Error("Missing document");
+      if (writeFailure) throw writeFailure;
+      save(path, data, {merge: true});
+    },
     collection: name => query(path + "/" + name)};
 }
 function query(path, criteria = {}) {
@@ -75,6 +80,7 @@ const db = {
           const result = await ref.get(); await onTransactionRead?.(ref.path); return result;
         },
         set: (ref, data, options) => pending.push({ref, data, options}),
+        update: (ref, data) => pending.push({ref, data, options: {merge: true}}),
         delete: ref => pending.push({ref, remove: true}),
       });
       if ([...observed].some(([path, version]) => (versions.get(path) ?? 0) !== version)) continue;
@@ -97,6 +103,8 @@ const app = {firestore: () => db, auth: () => auth, functions() {throw new Error
 globalThis.firebase = {apps: [], firestore, initializeApp: () => app};
 backendOps.getFirestoreDb = () => db;
 const backend = require("../../../functions/features/student_essay_practice/student_essay_practice_module");
+const backendSessions = require("../../../functions/features/essay_practice_session/essay_practice_session_module");
+const webSessions = await import("../essay_practice_session/essay_practice_session_module.js");
 const backendSchema = require("../../../functions/schema/student_essay_practice_schema");
 const apis = ["assignEssayPracticeToStudent", "getAssignedEssayPractice", "listAssignedEssayPractices",
   "completeAssignedEssayPractice", "getCompletedEssayPractice", "listCompletedEssayPractices"];
@@ -127,7 +135,8 @@ test("matching backend/web schemas and all six APIs; no callable exports", async
     {essayQuestionId: "string", syllabusId: "string", topicId: "string", assignedAt: "timestamp"});
   assert.deepEqual(webSchema.studentEssayPracticeSchema.subcollections.completedEssayPractices.fields,
     {essayQuestionId: "string", syllabusId: "string", topicId: "string", assignedAt: "timestamp",
-      completedAt: "timestamp", essayText: "string", timeTakenSeconds: "number"});
+      completedAt: "timestamp", essayText: "string", timeTakenSeconds: "number",
+      scoring: {type: "map", fields: {status: "pending|scoring|completed|failed|superseded", updatedAt: "timestamp", leaseUntil: {type: "timestamp", optional: true}}}});
   for (const api of [backend, web]) for (const name of apis) assert.equal(typeof api[name], "function");
   const entry = await readFile(new URL("../../../functions/index.js", import.meta.url), "utf8");
   for (const name of apis) assert.ok(!entry.includes(name));
@@ -207,6 +216,35 @@ for (const [layer, api] of [["backend", backend], ["web", web]]) {
     assert.equal(documents.has(assignedPath("attempt-1")), false);
   });
 
+  test(layer + ": concurrent guarded assignments cannot give one student the same question twice", async () => {
+    seedQuestion();
+    const results = await Promise.allSettled(["attempt-1", "attempt-2"].map(essayPracticeId =>
+      api.assignEssayPracticeToStudent(assignment({essayPracticeId}), {preventQuestionReuse: true})));
+    assert.equal(results.filter(result => result.status === "fulfilled").length, 1);
+    assert.equal(results.find(result => result.status === "rejected").reason.code, "essay-question-already-used");
+    const first = results.find(result => result.status === "fulfilled").value;
+    const usagePath = "studentEssayPractices/student-1/questionUsage/question-1";
+    assert.equal(documents.get(usagePath).essayPracticeId, first.essayPracticeId);
+    const count = writes.length;
+    assert.deepEqual(await api.assignEssayPracticeToStudent(assignment({essayPracticeId: first.essayPracticeId}), {preventQuestionReuse: true}), first);
+    assert.equal(writes.length, count);
+    await api.completeAssignedEssayPractice(completion({essayPracticeId: first.essayPracticeId}));
+    await assert.rejects(() => api.assignEssayPracticeToStudent(assignment({essayPracticeId: "attempt-3"}), {preventQuestionReuse: true}),
+      {code: "essay-question-already-used"});
+    const other = await api.assignEssayPracticeToStudent(assignment({studentId: "another-student", essayPracticeId: "attempt-1"}), {preventQuestionReuse: true});
+    assert.equal(other.essayQuestionId, first.essayQuestionId);
+  });
+
+  test(layer + ": completing legacy assignments reserves their question against later guarded reuse", async () => {
+    seedQuestion();
+    put(assignedPath("attempt-1"), assignmentRecord());
+    await api.completeAssignedEssayPractice(completion());
+    assert.deepEqual(documents.get("studentEssayPractices/student-1/questionUsage/question-1"),
+      {essayPracticeId: "attempt-1", syllabusId: "syllabus-1", topicId: "topic-1", assignedAt: earlier});
+    await assert.rejects(() => api.assignEssayPracticeToStudent(assignment({essayPracticeId: "attempt-2"}), {preventQuestionReuse: true}),
+      {code: "essay-question-already-used"});
+  });
+
   test(layer + ": completion atomically preserves assignment metadata and exact student text", async () => {
     put(assignedPath("attempt-1"), assignmentRecord());
     const saved = await api.completeAssignedEssayPractice(completion({
@@ -214,9 +252,9 @@ for (const [layer, api] of [["backend", backend], ["web", web]]) {
     }));
     assert.equal(documents.has(assignedPath("attempt-1")), false);
     assert.deepEqual(saved, {...ref("attempt-1"), ...assignmentRecord(),
-      completedAt: now, essayText: completion().essayText, timeTakenSeconds: 90.5});
+      completedAt: now, essayText: completion().essayText, timeTakenSeconds: 90.5, scoring: {status: "pending"}});
     assert.deepEqual(Object.keys(documents.get(completedPath("attempt-1"))).sort(),
-      ["assignedAt", "completedAt", "essayQuestionId", "essayText", "syllabusId", "timeTakenSeconds", "topicId"]);
+      ["assignedAt", "completedAt", "essayQuestionId", "essayText", "scoring", "syllabusId", "timeTakenSeconds", "topicId"]);
     assert.deepEqual(await api.getCompletedEssayPractice(ref("attempt-1")), saved);
     assert.equal(await api.getAssignedEssayPractice(ref("attempt-1")), null);
     const count = writes.length;
@@ -347,3 +385,48 @@ test("web account changes before returning reads do not disclose the previous ac
   assert.deepEqual(writes, []);
 });
 
+
+for (const [layer, api] of [["backend", backendSessions], ["web", webSessions]]) {
+  test(layer + ": session rejects essays below the saved question's minimum without moving the assignment", async () => {
+    seedQuestion();
+    const questionPath = documents.get("essayQuestionGenerator/questionIndex/entries/question-1").documentPath;
+    put(questionPath, {...documents.get(questionPath), wordCountRequirement: {minWords: 3}});
+    put(assignedPath("attempt-1"), assignmentRecord());
+    await assert.rejects(api.submitEssayPracticeSession(completion({essayText: "Two words", minWords: 1})), /at least 3 words/);
+    assert.equal(documents.has(assignedPath("attempt-1")), true);
+    assert.equal(documents.has(completedPath("attempt-1")), false);
+    assert.equal(writes.length, 0);
+    const text = "  Three\nwhole words.  ";
+    const saved = await api.submitEssayPracticeSession(completion({essayText: text}));
+    assert.equal(saved.essayText, text);
+    assert.equal(documents.has(assignedPath("attempt-1")), false);
+  });
+  test(layer + ": session APIs submit once, reopen original answer and read its grade", async () => {
+    seedQuestion();
+    put(assignedPath("attempt-1"), assignmentRecord());
+    assert.equal((await api.loadEssayPracticeSession(ref("attempt-1"))).status, "assigned");
+    const saved = await api.submitEssayPracticeSession(completion());
+    assert.equal(documents.has(assignedPath("attempt-1")), false);
+    assert.equal(saved.scoring.status, "pending");
+    assert.equal((await api.loadEssayPracticeSession(ref("attempt-1"))).result, null);
+    assert.deepEqual(await api.submitEssayPracticeSession(completion({essayText: "Retry changed text", timeTakenSeconds: 0})), saved);
+    put("essayResults/student-1/questions/question-1", {answer: saved.essayText, score: 88, corrections: [], scoredAt: now});
+    const session = await api.loadEssayPracticeSession(ref("attempt-1"));
+    assert.equal(session.status, "completed"); assert.equal(session.practice.essayText, completion().essayText);
+    assert.equal(session.result.score, 88);
+  });
+}
+
+test("backend grading lease prevents concurrent work, failed grading is retryable and terminal states are skipped", async () => {
+  put(completedPath("attempt-1"), {...assignmentRecord(), ...completion(), completedAt: now});
+  const claims = await Promise.allSettled([backend.claimEssayPracticeScoring(ref("attempt-1")), backend.claimEssayPracticeScoring(ref("attempt-1"))]);
+  assert.equal(claims.filter(result => result.status === "fulfilled").length, 1);
+  assert.equal(claims.filter(result => result.status === "rejected").length, 1);
+  assert.equal((await backend.getCompletedEssayPractice(ref("attempt-1"))).scoring.status, "scoring");
+  await backend.setEssayPracticeScoringStatus({...ref("attempt-1"), status: "failed"});
+  assert.equal(await backend.claimEssayPracticeScoring(ref("attempt-1")), true);
+  await backend.setEssayPracticeScoringStatus({...ref("attempt-1"), status: "completed"});
+  assert.equal(await backend.claimEssayPracticeScoring(ref("attempt-1")), false);
+  const data = documents.get(completedPath("attempt-1"));
+  assert.equal(data.essayText, completion().essayText);
+});

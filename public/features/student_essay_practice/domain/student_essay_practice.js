@@ -69,6 +69,7 @@ function readCompletion(data, reference) {
     ...readAssignment(data, reference),
     ...normalizeCompletion({...data, ...reference}),
     completedAt: requireDate(data.completedAt, "completedAt"),
+    ...(data.scoring ? {scoring: Object.freeze({status: data.scoring.status})} : {}),
   });
 }
 

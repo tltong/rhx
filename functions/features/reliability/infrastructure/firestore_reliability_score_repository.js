@@ -1,5 +1,6 @@
 const {FieldValue} = require("firebase-admin/firestore");
 const firebaseOps = require("../../../utils/firebase/firebase_ops");
+const {guardResetTransaction, hasResetGuard} = require("../../../utils/student_topic_reset_guard");
 const {RELIABILITY_COLLECTION, RELIABILITY_SYLLABUSES_SUBCOLLECTION, RELIABILITY_TOPICS_SUBCOLLECTION} = require("../../../schema/reliability_schema");
 const {
   requireSubjectScope, requireTopicScope, requireReliabilityScore, requireCompletedPracticeCount,
@@ -20,11 +21,13 @@ class FirestoreReliabilityScoreRepository extends ReliabilityScoreRepository {
     readDocument = firebaseOps.readDocument,
     writeDocument = firebaseOps.writeDocument,
     serverTimestamp = () => FieldValue.serverTimestamp(),
+    getFirestoreDb = firebaseOps.getFirestoreDb,
   } = {}) {
     super();
     this.readDocument = readDocument;
     this.writeDocument = writeDocument;
     this.serverTimestamp = serverTimestamp;
+    this.getFirestoreDb = getFirestoreDb;
   }
 
   async getTopic(input) {
@@ -37,7 +40,7 @@ class FirestoreReliabilityScoreRepository extends ReliabilityScoreRepository {
     const scope = requireTopicScope(input);
     const score = requireReliabilityScore(input.score);
     const completedPracticeCount = requireCompletedPracticeCount(input.completedPracticeCount);
-    await this.writeDocument(topicCollectionPath(scope), scope.topicId, {
+    await this.writeScore(topicCollectionPath(scope), scope.topicId, {
       score, completedPracticeCount, updatedAt: this.serverTimestamp(),
     }, {merge: true});
     return this.getTopic(scope);
@@ -52,10 +55,19 @@ class FirestoreReliabilityScoreRepository extends ReliabilityScoreRepository {
   async saveSubject(input) {
     const scope = requireSubjectScope(input);
     const score = requireReliabilityScore(input.score);
-    await this.writeDocument(subjectCollectionPath(scope), scope.syllabusId, {
+    await this.writeScore(subjectCollectionPath(scope), scope.syllabusId, {
       score, updatedAt: this.serverTimestamp(),
     }, {merge: true});
     return this.getSubject(scope);
+  }
+
+  async writeScore(collectionPath, id, data, options) {
+    if (!hasResetGuard()) return this.writeDocument(collectionPath, id, data, options);
+    const db = this.getFirestoreDb();
+    return db.runTransaction(async transaction => {
+      await guardResetTransaction(transaction, db);
+      transaction.set(db.collection(collectionPath).doc(id), data, options);
+    });
   }
 }
 

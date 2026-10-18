@@ -1,3 +1,8 @@
+const ESSAY_PRACTICE_URL = "/features/essay_practice_session/pages/essay_practice/essay_practice.html";
+function createMissionUrl(mission, normalUrl) {
+  return mission.practiceType === "essay" ? ESSAY_PRACTICE_URL + "?essayPracticeId=" + encodeURIComponent(mission.practiceId)
+    : createCommencePracticeUrl(mission.practiceId, normalUrl);
+}
 const DEFAULT_COMMENCE_PRACTICE_URL =
   "/features/practice_session/pages/commence_practice/commence_practice.html";
 
@@ -57,12 +62,12 @@ function findTopicName(syllabus, topicId) {
   return topic?.topicName || "Topic details unavailable";
 }
 
-function isPracticeCompleted(syllabus, practiceId) {
+function isPracticeCompleted(syllabus, practiceId, practiceType) {
   return (Array.isArray(syllabus?.topics) ? syllabus.topics : []).some(
     (topic) => (
       Array.isArray(topic?.completedPractices)
       && topic.completedPractices.some(
-        (practice) => practice?.practiceId === practiceId
+        (practice) => practice?.practiceId === practiceId && (practice.practiceType === "essay") === (practiceType === "essay")
       )
     )
   );
@@ -227,7 +232,7 @@ export class DailyMissionSection {
   updateAvailability(syllabusId, mission) {
     const syllabus = this.syllabusById.get(syllabusId);
     const hasMission = Boolean(mission) && !(
-      mission.isAccepted && isPracticeCompleted(syllabus, mission.practiceId)
+      mission.isAccepted && isPracticeCompleted(syllabus, mission.practiceId, mission.practiceType)
     );
 
     this.availabilityBySyllabusId.set(syllabusId, {mission, hasMission});
@@ -381,12 +386,12 @@ export class DailyMissionSection {
       : "Suggested core mission";
     heading.textContent = syllabusLabel(syllabus);
     details.className = "daily-mission-topic";
-    details.textContent = findTopicName(syllabus, mission.topicId);
+    details.textContent = findTopicName(syllabus, mission.topicId) + (mission.practiceType === "essay" ? " — First essay assessment" : "");
     card.append(eyebrow, heading, details);
     this.actionButtons = [];
 
     if (mission.isAccepted) {
-      const completed = isPracticeCompleted(syllabus, mission.practiceId);
+      const completed = isPracticeCompleted(syllabus, mission.practiceId, mission.practiceType);
 
       if (completed) {
         const complete = this.documentRef.createElement("p");
@@ -398,8 +403,8 @@ export class DailyMissionSection {
         const start = this.documentRef.createElement("a");
 
         start.className = "daily-mission-start";
-        start.href = createCommencePracticeUrl(
-          mission.practiceId,
+        start.href = createMissionUrl(
+          mission,
           this.commencePracticeUrl
         );
         start.textContent = "Start Mission";
@@ -512,11 +517,12 @@ export class DailyMissionSection {
     try {
       const accepted = await this.acceptCoreDailyMission({
         studentId: this.studentId,
-        practiceId: mission.practiceId
+        practiceId: mission.practiceId,
+        ...(mission.practiceType === "essay" ? {practiceType: "essay"} : {})
       });
 
-      this.navigate(createCommencePracticeUrl(
-        accepted.practiceId,
+      this.navigate(createMissionUrl(
+        accepted,
         this.commencePracticeUrl
       ));
     } catch (error) {
@@ -543,7 +549,8 @@ export class DailyMissionSection {
 
       await this.pauseCoreDailyMission({
         studentId: this.studentId,
-        practiceId: mission.practiceId
+        practiceId: mission.practiceId,
+        ...(mission.practiceType === "essay" ? {practiceType: "essay"} : {})
       });
 
       try {

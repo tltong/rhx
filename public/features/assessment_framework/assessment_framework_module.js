@@ -4,6 +4,7 @@
  * AssessmentFramework output:
  * {
  *   id: string,
+ *   frameworkType: "normal"|"essay",
  *   name: string,
  *   endLevelName: string,
  *   levels: Array<{
@@ -133,36 +134,37 @@
  */
 import {
   FirestoreAssessmentFrameworkRepository
-} from "./infrastructure/firestore_assessment_framework_repository.js?v=20260730-score-bands";
+} from "./infrastructure/firestore_assessment_framework_repository.js?v=20261018-topic-framework-v1";
 import {
   CalculatePreAssessmentLevel
-} from "./application/calculate_pre_assessment_level.js?v=20261010-level-rewards-v1";
+} from "./application/calculate_pre_assessment_level.js?v=20261018-topic-framework-v1";
 import {
   CalculateAssessmentProgression
-} from "./application/calculate_assessment_progression.js?v=20261010-level-rewards-v1";
+} from "./application/calculate_assessment_progression.js?v=20261018-topic-framework-v1";
 import {
   GetAssessmentLevelCriteria
-} from "./application/get_assessment_level_criteria.js?v=20260815-level-criteria";
+} from "./application/get_assessment_level_criteria.js?v=20261018-topic-framework-v1";
 import {
   GetAssessmentFramework
-} from "./application/get_assessment_framework.js?v=20260730-score-bands";
+} from "./application/get_assessment_framework.js?v=20261018-topic-framework-v1";
 import {
   CreateAssessmentFramework
-} from "./application/create_assessment_framework.js?v=20260730-score-bands";
+} from "./application/create_assessment_framework.js?v=20261018-topic-framework-v1";
 import {
   UpdateAssessmentFramework
-} from "./application/update_assessment_framework.js?v=20260730-score-bands";
+} from "./application/update_assessment_framework.js?v=20261018-topic-framework-v1";
 import {
   DeleteAssessmentFramework
-} from "./application/delete_assessment_framework.js?v=20260730-score-bands";
+} from "./application/delete_assessment_framework.js?v=20261018-topic-framework-v1";
 import {
   SaveAssessmentFrameworkPreAssessment
-} from "./application/save_assessment_framework_pre_assessment.js?v=20260730-score-bands";
+} from "./application/save_assessment_framework_pre_assessment.js?v=20261018-topic-framework-v1";
 import {
+  assessmentFrameworkTypes,
   ASSESSMENT_FRAMEWORK_END_LEVEL_ID,
   assessmentFrameworkPreAssessmentDifficultyLevels,
   assessmentFrameworkPreAssessmentScoreBands
-} from "../../config/firebase/assessment_framework_schema.js?v=20260730-score-bands";
+} from "../../config/firebase/assessment_framework_schema.js?v=20261018-topic-framework-v1";
 
 const assessmentFrameworkRepository =
   new FirestoreAssessmentFrameworkRepository();
@@ -228,6 +230,7 @@ async function saveAssessmentFrameworkPreAssessment(
 }
 
 export {
+  assessmentFrameworkTypes,
   calculateAssessmentProgression,
   calculatePreAssessmentLevel,
   getAssessmentLevelCriteria,

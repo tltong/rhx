@@ -1,3 +1,8 @@
+import {missionPracticeType, missionTypeFields} from "../domain/mission_practice_type.js?v=20261018-essay-session-v1";
+import {
+  practiceMissionRoute,
+} from "./accept_core_daily_mission.js?v=20261018-essay-session-v1";
+
 function requireFunction(value, name) {
   if (typeof value !== "function") {
     throw new Error(`${name} must be a function.`);
@@ -52,53 +57,14 @@ function createCodedError(code, message) {
   return error;
 }
 
-function practiceMissionRoute(practice) {
-  if (!practice || !Array.isArray(practice.questions)) {
-    throw createCodedError(
-      "failed-precondition",
-      "The practice does not have a valid daily mission route."
-    );
-  }
-
-  const syllabusIds = new Set();
-  const topicIds = new Set();
-
-  practice.questions.forEach((question) => {
-    const syllabusId = String(question?.syllabusId ?? "").trim();
-    const topicId = String(question?.topicId ?? "").trim();
-
-    if (syllabusId) {
-      syllabusIds.add(syllabusId);
-    }
-
-    if (topicId) {
-      topicIds.add(topicId);
-    }
-  });
-
-  if (
-    practice.questions.length === 0
-    || syllabusIds.size !== 1
-    || topicIds.size !== 1
-  ) {
-    throw createCodedError(
-      "failed-precondition",
-      "A daily mission practice must belong to one syllabus and one topic."
-    );
-  }
-
-  return Object.freeze({
-    syllabusId: [...syllabusIds][0],
-    topicId: [...topicIds][0]
-  });
-}
-
-export class PauseCoreDailyMission {
+class PauseCoreDailyMission {
   constructor({
     dailyMissionRepository,
+    getAssignedEssayPractice = async () => null,
+    getCompletedEssayPractice = async () => null,
     getPracticeById,
     isTopicPausable,
-    getCurrentDate = currentUtcDate
+    getCurrentDate = currentUtcDate,
   } = {}) {
     if (
       !dailyMissionRepository
@@ -108,44 +74,51 @@ export class PauseCoreDailyMission {
     }
 
     this.dailyMissionRepository = dailyMissionRepository;
+    Object.assign(this, {getAssignedEssayPractice, getCompletedEssayPractice});
     this.getPracticeById = requireFunction(
       getPracticeById,
-      "getPracticeById"
+      "getPracticeById",
     );
     this.getCurrentDate = requireFunction(getCurrentDate, "getCurrentDate");
     this.isTopicPausable = requireFunction(isTopicPausable, "isTopicPausable");
   }
 
-  async execute({studentId, practiceId} = {}) {
+  async execute({studentId, practiceId, practiceType} = {}) {
     const normalizedStudentId = requireDocumentId(studentId, "studentId");
     const normalizedPracticeId = requireDocumentId(practiceId, "practiceId");
-    const practice = await this.getPracticeById(normalizedPracticeId);
+    const type = missionPracticeType(practiceType);
+    const essayReference = {studentId: normalizedStudentId, essayPracticeId: normalizedPracticeId};
+    const practice = type === "essay"
+      ? await this.getAssignedEssayPractice(essayReference)
+      : await this.getPracticeById(normalizedPracticeId);
 
     if (!practice) {
       throw createCodedError(
         "not-found",
-        `Practice ${normalizedPracticeId} could not be found.`
+        `Practice ${normalizedPracticeId} could not be found.`,
       );
     }
 
-    const {syllabusId, topicId} = practiceMissionRoute(practice);
+    const {syllabusId, topicId} = type === "essay"
+      ? {syllabusId: requireDocumentId(practice.syllabusId, "syllabusId"), topicId: requireDocumentId(practice.topicId, "topicId")}
+      : practiceMissionRoute(practice);
     const pausable = await this.isTopicPausable(syllabusId, topicId);
 
     if (pausable !== true) {
       throw createCodedError(
         "failed-precondition",
-        "This topic cannot be paused."
+        "This topic cannot be paused.",
       );
     }
 
     const requestedPausedDate = normalizeDateKey(
-      await this.getCurrentDate()
+      await this.getCurrentDate(),
     );
     const pauseResult = await this.dailyMissionRepository.pauseTopic({
       studentId: normalizedStudentId,
       syllabusId,
       topicId,
-      pausedDate: requestedPausedDate
+      pausedDate: requestedPausedDate,
     });
 
     if (typeof pauseResult?.created !== "boolean") {
@@ -157,15 +130,17 @@ export class PauseCoreDailyMission {
       syllabusId,
       topicId,
       practiceId: normalizedPracticeId,
+      ...missionTypeFields(type),
       pausedDate: normalizeDateKey(pauseResult.pausedDate),
       isPaused: true,
-      created: pauseResult.created
+      created: pauseResult.created,
     });
   }
 }
 
 export {
+  PauseCoreDailyMission,
   currentUtcDate,
   normalizeDateKey,
-  practiceMissionRoute
+  practiceMissionRoute,
 };

@@ -1,9 +1,10 @@
+import {guardStudentMaintenance} from "../../../utils/student_topic_reset_guard.js?v=20261018-topic-reset-v1";
 import {
   STUDENT_PRACTICE_ASSESSMENTS_SUBCOLLECTION,
   STUDENT_ASSESSMENT_PROGRESS_COLLECTION,
   STUDENT_ASSESSMENT_SYLLABUSES_SUBCOLLECTION,
   STUDENT_ASSESSMENT_TOPICS_SUBCOLLECTION
-} from "../../../config/firebase/student_assessment_progress_schema.js?v=20261010-level-rewards-v1";
+} from "../../../config/firebase/student_assessment_progress_schema.js?v=20261018-essay-progression-v1";
 import {
   getDocumentRef,
   getFirestoreDb,
@@ -11,10 +12,10 @@ import {
 } from "../../../utils/firebase/firebase_ops.js";
 import {
   StudentAssessmentTopicProgress
-} from "../domain/student_assessment_topic_progress.js?v=20260813-pre-assessment-progress";
+} from "../domain/student_assessment_topic_progress.js?v=20261018-essay-progression-v1";
 import {
   StudentAssessmentProgressRepository
-} from "../domain/student_assessment_progress_repository.js?v=20261010-level-rewards-v1";
+} from "../domain/student_assessment_progress_repository.js?v=20261018-essay-progression-v1";
 
 import {PracticeAssessment, requirePracticeAssessmentScope} from "../domain/practice_assessment.js?v=20261010-level-rewards-v1";
 
@@ -46,6 +47,7 @@ function toProgress(data, studentId, syllabusId, topicId) {
     initialLevel: data.initialLevel,
     currentLevelId: data.currentLevelId,
     isFrameworkCompleted: data.isFrameworkCompleted,
+    assessmentRevision: data.assessmentRevision,
     levelHistory: data.levelHistory
   });
 }
@@ -56,6 +58,7 @@ function toProgressRecord(progress, existingData = {}) {
       levelId: progress.initialLevel.levelId,
       setAt: progress.initialLevel.setAt
     },
+    assessmentRevision: progress.assessmentRevision,
     currentLevelId: progress.currentLevelId,
     isFrameworkCompleted: progress.isFrameworkCompleted,
     levelHistory: {
@@ -69,7 +72,7 @@ function progressFingerprint(progress) {
   if (progress === null || progress === undefined) return null;
   const normalized = progress instanceof StudentAssessmentTopicProgress ? progress : new StudentAssessmentTopicProgress(progress);
   return JSON.stringify([
-    normalized.initialLevel.levelId, normalized.initialLevel.setAt.getTime(), normalized.currentLevelId, normalized.isFrameworkCompleted,
+    normalized.assessmentRevision, normalized.initialLevel.levelId, normalized.initialLevel.setAt.getTime(), normalized.currentLevelId, normalized.isFrameworkCompleted,
     Object.entries(normalized.levelHistory).sort(([a], [b]) => a.localeCompare(b)).map(([id, date]) => [id, date.getTime()]),
   ]);
 }
@@ -92,7 +95,16 @@ export class FirestoreStudentAssessmentProgressRepository
     return data === null ? null : new PracticeAssessment({...data, ...scope});
   }
 
-  async saveAssessmentProgress({progress, assessment, expectedProgress}) {
+  async listEssayAssessmentScores(input) {
+    const collection = [STUDENT_ASSESSMENT_PROGRESS_COLLECTION, input.studentId, STUDENT_PRACTICE_ASSESSMENTS_SUBCOLLECTION].join("/");
+    const snapshot = await this.getFirestoreDb().collection(collection).where("practiceType", "==", "essay").get();
+    return snapshot.docs.map(doc => new PracticeAssessment({...doc.data(), studentId: input.studentId, practiceId: doc.id}))
+      .filter(record => record.syllabusId === input.syllabusId && record.topicId === input.topicId
+        && record.assessmentFrameworkId === input.assessmentFrameworkId && record.previousLevelId === input.levelId)
+      .map(record => record.score);
+  }
+
+  async saveAssessmentProgress({progress, assessment, expectedProgress, sourceCompletion, assertAccess = () => {}}) {
     const normalizedProgress = progress instanceof StudentAssessmentTopicProgress ? progress : new StudentAssessmentTopicProgress(progress);
     const outcome = new PracticeAssessment(assessment);
     if (outcome.studentId !== normalizedProgress.studentId || outcome.syllabusId !== normalizedProgress.syllabusId
@@ -106,11 +118,24 @@ export class FirestoreStudentAssessmentProgressRepository
     const studentDocument = this.getDocumentRef(STUDENT_ASSESSMENT_PROGRESS_COLLECTION, outcome.studentId);
     const syllabusDocument = this.getDocumentRef(syllabusCollectionPath(outcome.studentId), outcome.syllabusId);
     return this.getFirestoreDb().runTransaction(async transaction => {
+      if (sourceCompletion) {
+        const db = this.getFirestoreDb();
+        await guardStudentMaintenance(transaction, db.collection("studentPracticeResets").doc(outcome.studentId));
+        const source = await transaction.get(db.collection("studentEssayPractices").doc(outcome.studentId)
+          .collection("completedEssayPractices").doc(outcome.practiceId));
+        const date = source.data()?.completedAt?.toDate?.() ?? source.data()?.completedAt;
+        if (!source.exists || !(date instanceof Date) || date.getTime() !== sourceCompletion.completedAt.getTime()
+            || source.data().essayQuestionId !== sourceCompletion.essayQuestionId
+            || source.data().syllabusId !== outcome.syllabusId || source.data().topicId !== outcome.topicId) {
+          throw Object.assign(new Error("The source essay was removed or reset."), {code: "topic-practice-reset"});
+        }
+      }
+      assertAccess();
       const [saved, topic] = await Promise.all([transaction.get(assessmentDocument), transaction.get(topicDocument)]);
       const currentProgress = toProgress(topic.exists ? topic.data() : null, outcome.studentId, outcome.syllabusId, outcome.topicId);
       if (saved.exists) {
         const original = new PracticeAssessment({...saved.data(), studentId: outcome.studentId, practiceId: outcome.practiceId});
-        if (original.syllabusId !== outcome.syllabusId || original.topicId !== outcome.topicId) throw new Error("The saved assessment has a conflicting topic.");
+        if (original.syllabusId !== outcome.syllabusId || original.topicId !== outcome.topicId || original.practiceType !== outcome.practiceType) throw new Error("The saved assessment has a conflicting topic.");
         if (currentProgress === null) throw new Error("Saved assessment topic progress is missing.");
         return {assessment: original, progress: currentProgress};
       }
@@ -119,7 +144,9 @@ export class FirestoreStudentAssessmentProgressRepository
         error.code = "aborted";
         throw error;
       }
-      const record = toProgressRecord(normalizedProgress, topic.exists ? topic.data() : {});
+      const record = {...toProgressRecord(normalizedProgress, topic.exists ? topic.data() : {}),
+        assessmentRevision: (currentProgress?.assessmentRevision ?? 0) + 1};
+      assertAccess();
       const {studentId, practiceId, ...assessmentRecord} = outcome;
       transaction.set(studentDocument, {}, {merge: true});
       transaction.set(syllabusDocument, {}, {merge: true});
@@ -171,7 +198,7 @@ export class FirestoreStudentAssessmentProgressRepository
 
       transaction.set(studentDocument, {}, { merge: true });
       transaction.set(syllabusDocument, {}, { merge: true });
-      savedRecord = toProgressRecord(normalizedProgress, existingData);
+      savedRecord = {...toProgressRecord(normalizedProgress, existingData), assessmentRevision: (existingData.assessmentRevision ?? 0) + 1};
       transaction.set(
         topicDocument,
         savedRecord,

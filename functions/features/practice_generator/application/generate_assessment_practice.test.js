@@ -274,3 +274,17 @@ test("deletes the new practice when assignment fails", async () => {
   );
   assert.deepEqual(deletedPracticeIds, ["practice-new"]);
 });
+
+test("generation resolves topic/language overrides before reading level criteria", async () => {
+ const calls = [];
+ const useCase = new GenerateAssessmentPractice(createDependencies({
+  getSyllabusAssessmentFrameworkId: async () => assert.fail("Do not use the parent when topic resolution is available"),
+  getTopicAssessmentFrameworkId: async scope => {calls.push(scope); return "topic-framework";},
+  getAssessmentLevelCriteria: async scope => {assert.equal(scope.assessmentFrameworkId, "topic-framework"); return {criteria: {questionsPerPractice: 4, difficultyLevel: "Easy"}};},
+  listQuestionsByTopic: async (syllabusId, topicId, options) => Array.from({length: 4}, (_, index) => question((options.hasDiagram ? "diagram" : "plain") + index, options.hasDiagram)),
+  generateQuestions: async () => assert.fail("All questions are reusable"),
+  generateQuestionsWithDiagram: async () => assert.fail("All questions are reusable"),
+ }));
+ await useCase.execute({studentId: "student-1", syllabusId: "syllabus-1", topicId: "topic-1"});
+ assert.deepEqual(calls, [{syllabusId: "syllabus-1", topicId: "topic-1", language: "English"}]);
+});

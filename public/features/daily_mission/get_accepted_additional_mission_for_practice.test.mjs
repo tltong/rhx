@@ -89,6 +89,7 @@ function fixture(Repository, UseCase, web) {
     documents.set(path, {});
     documents.set(path + "/syllabuses/" + syllabusId, {coreMission: {topicId: "core-topic", practiceId: "core-1"}});
     documents.set("studentPractices/" + scope.studentId + "/completedPractices/core-1", {});
+    documents.set(assignmentPath, {});
   }
   function seedLookup(changes = {}) {
     documents.set(lookupPath, {missionDate: route.date, syllabusId: route.syllabusId, topicId: route.topicId, ...changes});

@@ -14,6 +14,9 @@ const INPUT = Object.freeze({
 });
 
 const PATHS = Object.freeze({
+  reset: "studentPracticeResets/student-1",
+  assigned: "studentPractices/student-1/assignedPractices/practice-1",
+  paused: "studentDailyMissions/student-1/pausedTopics/syllabus-1/topics/topic-1",
   student: "studentDailyMissions/student-1",
   day: "studentDailyMissions/student-1/days/2026-09-27",
   syllabus: "studentDailyMissions/student-1/days/2026-09-27/"
@@ -33,6 +36,9 @@ function createRepository({practiceExists = false, topicExists = false} = {}) {
   const transaction = {
     async get(reference) {
       reads.push(reference.path);
+      if (reference.path === PATHS.assigned) return {exists: true, data: () => ({})};
+      if (reference.path === PATHS.paused) return {exists: false, data: () => null};
+      if (reference.path === PATHS.reset) return {exists: false, data: () => null};
       if (reference.path === PATHS.lookup) {
         return {exists: practiceExists, data: () => ({missionDate: INPUT.date, syllabusId: INPUT.syllabusId, topicId: INPUT.topicId})};
       }
@@ -77,7 +83,7 @@ test("web acceptAdditionalMission writes the additional hierarchy", async () => 
   assert.deepEqual(await repository.acceptAdditionalMission(INPUT), {
     created: true
   });
-  assert.deepEqual(reads, [PATHS.practice, PATHS.lookup, PATHS.topic, PATHS.syllabus, PATHS.completedCore]);
+  assert.deepEqual(reads, [PATHS.reset, PATHS.practice, PATHS.lookup, PATHS.topic, PATHS.syllabus, PATHS.completedCore, PATHS.assigned, PATHS.paused]);
   assert.deepEqual(writes, [
     {path: PATHS.student, data: {}, options: {merge: true}},
     {path: PATHS.day, data: {}, options: {merge: true}},
@@ -97,7 +103,7 @@ test("web acceptAdditionalMission is idempotent for the same day", async () => {
   assert.deepEqual(await repository.acceptAdditionalMission(INPUT), {
     created: false
   });
-  assert.deepEqual(reads, [PATHS.practice, PATHS.lookup]);
+  assert.deepEqual(reads, [PATHS.reset, PATHS.practice, PATHS.lookup]);
   assert.deepEqual(writes, []);
 });
 
@@ -111,6 +117,6 @@ test("web acceptAdditionalMission rejects another practice for the topic", async
       && /topic topic-1/.test(error.message)
     )
   );
-  assert.deepEqual(reads, [PATHS.practice, PATHS.lookup, PATHS.topic]);
+  assert.deepEqual(reads, [PATHS.reset, PATHS.practice, PATHS.lookup, PATHS.topic]);
   assert.deepEqual(writes, []);
 });

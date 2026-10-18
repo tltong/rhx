@@ -1,3 +1,12 @@
+import {missionPracticeType, missionTypeFields} from "../domain/mission_practice_type.js?v=20261018-essay-session-v1";
+function requireFunction(value, name) {
+  if (typeof value !== "function") {
+    throw new Error(`${name} must be a function.`);
+  }
+
+  return value;
+}
+
 function requireDocumentId(value, fieldName) {
   const id = String(value ?? "").trim();
 
@@ -12,14 +21,6 @@ function requireDocumentId(value, fieldName) {
   return id;
 }
 
-function requireFunction(value, name) {
-  if (typeof value !== "function") {
-    throw new Error(`${name} must be a function.`);
-  }
-
-  return value;
-}
-
 function createCodedError(code, message) {
   const error = new Error(message);
 
@@ -31,7 +32,7 @@ function practiceMissionRoute(practice) {
   if (!practice || !Array.isArray(practice.questions)) {
     throw createCodedError(
       "failed-precondition",
-      "The practice does not have a valid daily mission route."
+      "The practice does not have a valid daily mission route.",
     );
   }
 
@@ -58,21 +59,23 @@ function practiceMissionRoute(practice) {
   ) {
     throw createCodedError(
       "failed-precondition",
-      "A daily mission practice must belong to one syllabus and one topic."
+      "A daily mission practice must belong to one syllabus and one topic.",
     );
   }
 
   return Object.freeze({
     syllabusId: [...syllabusIds][0],
-    topicId: [...topicIds][0]
+    topicId: [...topicIds][0],
   });
 }
 
-export class AcceptCoreDailyMission {
+class AcceptCoreDailyMission {
   constructor({
     dailyMissionRepository,
     getNextCoreDailyMission,
-    getPracticeById
+    getAssignedEssayPractice = async () => null,
+    getCompletedEssayPractice = async () => null,
+    getPracticeById,
   } = {}) {
     if (
       !dailyMissionRepository
@@ -82,48 +85,56 @@ export class AcceptCoreDailyMission {
     }
 
     this.dailyMissionRepository = dailyMissionRepository;
+    Object.assign(this, {getAssignedEssayPractice, getCompletedEssayPractice});
     this.getNextCoreDailyMission = requireFunction(
       getNextCoreDailyMission,
-      "getNextCoreDailyMission"
+      "getNextCoreDailyMission",
     );
     this.getPracticeById = requireFunction(
       getPracticeById,
-      "getPracticeById"
+      "getPracticeById",
     );
   }
 
-  async execute({studentId, practiceId} = {}) {
+  async execute({studentId, practiceId, practiceType} = {}) {
     const normalizedStudentId = requireDocumentId(studentId, "studentId");
     const normalizedPracticeId = requireDocumentId(practiceId, "practiceId");
-    const practice = await this.getPracticeById(normalizedPracticeId);
+    const type = missionPracticeType(practiceType);
+    const essayReference = {studentId: normalizedStudentId, essayPracticeId: normalizedPracticeId};
+    const practice = type === "essay"
+      ? await this.getAssignedEssayPractice(essayReference) || await this.getCompletedEssayPractice(essayReference)
+      : await this.getPracticeById(normalizedPracticeId);
 
     if (!practice) {
       throw createCodedError(
         "not-found",
-        `Practice ${normalizedPracticeId} could not be found.`
+        `Practice ${normalizedPracticeId} could not be found.`,
       );
     }
 
-    const {syllabusId, topicId} = practiceMissionRoute(practice);
+    const {syllabusId, topicId} = type === "essay"
+      ? {syllabusId: requireDocumentId(practice.syllabusId, "syllabusId"), topicId: requireDocumentId(practice.topicId, "topicId")}
+      : practiceMissionRoute(practice);
     const mission = await this.getNextCoreDailyMission({
       studentId: normalizedStudentId,
-      syllabusId
+      syllabusId,
     });
 
     if (!mission) {
       throw createCodedError(
         "failed-precondition",
-        "No core daily mission is currently available for this syllabus."
+        "No core daily mission is currently available for this syllabus.",
       );
     }
 
     if (
       mission.practiceId !== normalizedPracticeId
       || mission.topicId !== topicId
+      || missionPracticeType(mission.practiceType) !== type
     ) {
       throw createCodedError(
         "failed-precondition",
-        "The practice is not the student's current core daily mission."
+        "The practice is not the student's current core daily mission.",
       );
     }
 
@@ -132,7 +143,8 @@ export class AcceptCoreDailyMission {
       syllabusId,
       topicId,
       practiceId: normalizedPracticeId,
-      date: mission.date
+      date: mission.date,
+      ...missionTypeFields(type),
     });
 
     if (typeof acceptance?.created !== "boolean") {
@@ -145,12 +157,14 @@ export class AcceptCoreDailyMission {
       topicId,
       practiceId: normalizedPracticeId,
       date: mission.date,
+      ...missionTypeFields(type),
       isAccepted: true,
-      created: acceptance.created
+      created: acceptance.created,
     });
   }
 }
 
 export {
-  practiceMissionRoute
+  AcceptCoreDailyMission,
+  practiceMissionRoute,
 };

@@ -207,3 +207,34 @@ for (const [layer, Repository, UseCase, web] of [
     assert.deepEqual(f.writes, []);
   });
 }
+
+for (const [layer, Repository, UseCase, web] of [["backend", BackendRepository, BackendUseCase, false], ["web", WebRepository, WebUseCase, true]]) {
+  test(layer + ": essay mission acceptance stores type, reads essay completion and keeps normal lookup separate", async () => {
+    const f = fixture(Repository, UseCase, web);
+    const essayRoute = {...route, practiceType: "essay"};
+    const essayPath = "studentEssayPractices/" + scope.studentId;
+    f.documents.set(essayPath + "/assignedEssayPractices/" + scope.practiceId, {syllabusId: route.syllabusId, topicId: route.topicId});
+    assert.deepEqual(await f.repository.acceptCoreMission(essayRoute), {created: true});
+    assert.equal(f.documents.get(syllabusPath).coreMission.practiceType, "essay");
+    assert.equal(f.documents.has(lookupPath), false);
+    assert.ok(f.documents.has(studentPath + "/acceptedDailyMissionEssays/" + scope.practiceId));
+    assert.deepEqual(await f.useCase.execute({...scope, practiceType: "essay"}), {...context, practiceType: "essay"});
+    assert.equal(await f.useCase.execute(scope), null);
+    assert.equal(await f.repository.isPracticeCompleted({...scope, practiceType: "essay"}), false);
+    f.documents.set(essayPath + "/completedEssayPractices/" + scope.practiceId, {});
+    assert.equal(await f.repository.isPracticeCompleted({...scope, practiceType: "essay"}), true);
+    assert.equal(await f.repository.isPracticeCompleted(scope), false);
+    assert.deepEqual(await f.repository.acceptCoreMission(essayRoute), {created: false});
+    await assert.rejects(f.repository.acceptCoreMission(route), /different core/);
+    // Submission, rather than grading, unlocks normal additional missions.
+    const additional = {...route, practiceId: "additional-practice", topicId: "other-topic"};
+    f.documents.set("studentPractices/" + scope.studentId + "/assignedPractices/" + additional.practiceId, {});
+    assert.deepEqual(await f.repository.acceptAdditionalMission(additional), {created: true});
+  });
+  test(layer + ": an essay assignment for another topic cannot be accepted", async () => {
+    const f = fixture(Repository, UseCase, web);
+    f.documents.set("studentEssayPractices/" + scope.studentId + "/assignedEssayPractices/" + scope.practiceId, {syllabusId: route.syllabusId, topicId: "different"});
+    await assert.rejects(f.repository.acceptCoreMission({...route, practiceType: "essay"}), /does not match/);
+    assert.deepEqual(f.writes, []);
+  });
+}

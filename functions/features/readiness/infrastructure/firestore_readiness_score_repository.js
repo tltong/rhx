@@ -1,7 +1,8 @@
 const {FieldValue} = require("firebase-admin/firestore");
 const firebaseOps = require("../../../utils/firebase/firebase_ops");
+const {guardResetTransaction} = require("../../../utils/student_topic_reset_guard");
 const {STUDENT_READINESS_COLLECTION, READINESS_SYLLABUSES_SUBCOLLECTION, READINESS_TOPICS_SUBCOLLECTION, READINESS_HISTORY_SUBCOLLECTION} = require("../../../schema/student_readiness_schema");
-const {requireSubjectScope, requireTopicScope, requireReadinessScore, normalizeSourcePracticeId, ReadinessScore, ReadinessScoreHistoryEntry} = require("../domain/readiness_score");
+const {requireSubjectScope, requireTopicScope, requireReadinessScore, normalizeSourcePracticeId, normalizeSourcePracticeType, ReadinessScore, ReadinessScoreHistoryEntry} = require("../domain/readiness_score");
 const {ReadinessScoreRepository} = require("../domain/readiness_score_repository");
 const defaultServerTimestamp = () => FieldValue.serverTimestamp();
 
@@ -70,10 +71,12 @@ class FirestoreReadinessScoreRepository extends ReadinessScoreRepository {
   async saveRecord(input, collectionPath, documentId, historyPath) {
     const score = requireReadinessScore(input.score);
     const practiceId = normalizeSourcePracticeId(input.practiceId);
+    const practiceType = normalizeSourcePracticeType(input.practiceType);
+    if (practiceType !== null && practiceId === null) throw new Error("practiceId is required with practiceType.");
     const latestDocument = this.getDocumentRef(collectionPath, documentId);
     const historyCollection = this.getCollectionRef(historyPath);
     const historyDocument = practiceId === null
-      ? historyCollection.doc() : historyCollection.doc(`practice-${practiceId}`);
+      ? historyCollection.doc() : historyCollection.doc(`${practiceType === "essay" ? "essay" : "practice"}-${practiceId}`);
     const timestamp = this.serverTimestamp();
     const latestRecord = {score, updatedAt: timestamp};
 
@@ -81,12 +84,14 @@ class FirestoreReadinessScoreRepository extends ReadinessScoreRepository {
       // A retried completion must neither append history again nor replace a
       // newer score. Transactions also protect concurrent deliveries.
       await this.getFirestoreDb().runTransaction(async (transaction) => {
+        await guardResetTransaction(transaction, this.getFirestoreDb());
         const existing = await transaction.get(historyDocument);
         if (existing.exists) {
           return;
         }
         transaction.set(latestDocument, latestRecord, {merge: true});
-        transaction.set(historyDocument, {score, savedAt: timestamp, practiceId});
+        transaction.set(historyDocument, {score, savedAt: timestamp, practiceId,
+          ...(practiceType === null ? {} : {practiceType})});
       });
     } else {
       const batch = this.getFirestoreDb().batch();

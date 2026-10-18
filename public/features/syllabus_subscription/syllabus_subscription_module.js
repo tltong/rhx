@@ -30,7 +30,7 @@ import {
 } from "./application/list_available_syllabuses_for_student.js?v=20260823-student-syllabus-availability-v1";
 import {
   getSyllabusById
-} from "../syllabus/syllabus_module.js?v=20260726-subscription-language";
+} from "../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
 import {
   getStudentById
 } from "../student/student_module.js?v=20260823-student-country-v1";

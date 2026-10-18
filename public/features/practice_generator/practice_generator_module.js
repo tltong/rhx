@@ -150,15 +150,16 @@
 import {
   assignTopicPreAssessmentPractice,
   getSyllabusAssessmentFrameworkId,
+  getTopicAssessmentFrameworkId,
   getSyllabusById,
   getTopicPreAssessmentPractice,
   listSyllabuses
-} from "../syllabus/syllabus_module.js?v=20260815-assessment-practice";
+} from "../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
 import {
   ASSESSMENT_FRAMEWORK_END_LEVEL_ID,
   getAssessmentLevelCriteria,
   getAssessmentFrameworkById
-} from "../assessment_framework/assessment_framework_module.js?v=20260815-assessment-practice";
+} from "../assessment_framework/assessment_framework_module.js?v=20261018-topic-framework-v1";
 import {
   getDiagramConfigForSyllabus,
   getTopicDiagramPercentage
@@ -185,26 +186,26 @@ import {
   assignPracticeToStudent,
   listAssignedPracticeIds,
   listCompletedPracticeIds
-} from "../student_practice/student_practice_module.js?v=20260822-assessment-reuse";
+} from "../student_practice/student_practice_module.js?v=20261018-topic-reset-v1";
 import {
   deletePreAssessmentQuestion,
   getPreAssessmentQuestion
 } from "../pre_assessment_question/pre_assessment_question_module.js?v=20260822-saved-question-ids";
 import {
   GeneratePreAssessmentPractice
-} from "./application/generate_pre_assessment_practice.js?v=20260731-planned-question-batches";
+} from "./application/generate_pre_assessment_practice.js?v=20261018-preassessment-essay-v1";
 import {
   GeneratePreAssessmentQuestions
 } from "./application/generate_pre_assessment_questions.js?v=20260731-planned-question-batches";
 import {
   LoadPreAssessmentContext
-} from "./application/load_pre_assessment_context.js?v=20260731-practice-replacement";
+} from "./application/load_pre_assessment_context.js?v=20261018-topic-framework-v1";
 import {
   LoadPreAssessmentGeneratorOptions
-} from "./application/load_pre_assessment_generator_options.js?v=20260731-existing-practice-preview";
+} from "./application/load_pre_assessment_generator_options.js?v=20261018-topic-framework-v1";
 import {
   LoadPreAssessmentPractice
-} from "./application/load_pre_assessment_practice.js?v=20260731-existing-practice-preview";
+} from "./application/load_pre_assessment_practice.js?v=20261018-preassessment-essay-v1";
 import {
   allocatePreAssessmentQuestions
 } from "./domain/pre_assessment_allocation.js?v=20260731-practice-replacement";
@@ -213,10 +214,10 @@ import {
 } from "../syllabus_subscription/syllabus_subscription_module.js?v=20260815-language-lookup";
 import {
   getStudentTopicLevel
-} from "../student_assessment_progress/student_assessment_progress_module.js?v=20260822-assessment-progression";
+} from "../student_assessment_progress/student_assessment_progress_module.js?v=20261018-essay-progression-v1";
 import {
   GenerateAssessmentPractice
-} from "./application/generate_assessment_practice.js?v=20260822-previous-practice-variety";
+} from "./application/generate_assessment_practice.js?v=20261018-topic-reset-v1";
 import {
   allocateAssessmentQuestions
 } from "./domain/assessment_question_allocation.js?v=20260815-assessment-practice";
@@ -238,6 +239,7 @@ const loadPreAssessmentContextUseCase = new LoadPreAssessmentContext({
 const generateAssessmentPracticeUseCase = new GenerateAssessmentPractice({
   getStudentTopicLevel,
   getSyllabusAssessmentFrameworkId,
+  getTopicAssessmentFrameworkId,
   getAssessmentLevelCriteria,
   getStudentSyllabusSubscriptionLanguage,
   getTopicDiagramPercentage,
@@ -278,7 +280,7 @@ const generatePreAssessmentPracticeUseCase =
     preAssessmentPracticeType: practiceTypes.PRE_ASSESSMENT
   });
 const loadPreAssessmentGeneratorOptionsUseCase =
-  new LoadPreAssessmentGeneratorOptions(listSyllabuses);
+  new LoadPreAssessmentGeneratorOptions(listSyllabuses, {getAssessmentFrameworkById});
 const loadPreAssessmentPracticeUseCase = new LoadPreAssessmentPractice({
   getTopicPreAssessmentPractice,
   getPracticeById,
@@ -303,7 +305,9 @@ async function generatePreAssessmentPractice(input) {
  * @param {{studentId: string, syllabusId: string, topicId: string}} input
  */
 async function generateAssessmentPractice(input) {
-  return generateAssessmentPracticeUseCase.execute(input);
+  const {captureTopicPracticeGuard} = await import("../../utils/student_topic_reset_guard.js?v=20261018-topic-reset-v1");
+  const resetGuard = await captureTopicPracticeGuard(input);
+  return generateAssessmentPracticeUseCase.execute(input, {resetGuard});
 }
 
 async function loadPreAssessmentGeneratorOptions() {

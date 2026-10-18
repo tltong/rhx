@@ -63,6 +63,7 @@ function toAssessmentFramework(data, levels, preAssessment = null) {
   return new AssessmentFramework({
     id: data.id,
     name: data.name,
+    frameworkType: data.frameworkType,
     endLevelName: data.endLevelName,
     levels,
     preAssessment,

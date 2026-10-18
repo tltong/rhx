@@ -34,6 +34,12 @@ function normalizeSourcePracticeId(value) {
     ? null : requireIdentifier(value, "practiceId");
 }
 
+function normalizeSourcePracticeType(value) {
+  if (value === undefined || value === null) return null;
+  if (!["normal", "essay"].includes(value)) throw new Error("practiceType must be normal or essay.");
+  return value;
+}
+
 function requireTimestamp(value, fieldName) {
   const date = value instanceof Date ? value
     : typeof value?.toDate === "function" ? value.toDate()
@@ -53,7 +59,7 @@ class ReadinessScore {
 }
 
 class ReadinessScoreHistoryEntry {
-  constructor({id, score, savedAt, practiceId}) {
+  constructor({id, score, savedAt, practiceId, practiceType}) {
     this.id = requireIdentifier(id, "history entry ID");
     this.score = requireReadinessScore(score);
     this.savedAt = requireTimestamp(savedAt, "savedAt");
@@ -61,8 +67,13 @@ class ReadinessScoreHistoryEntry {
     if (sourcePracticeId !== null) {
       this.practiceId = sourcePracticeId;
     }
+    const sourceType = normalizeSourcePracticeType(practiceType);
+    if (sourceType !== null) {
+      if (sourcePracticeId === null) throw new Error("practiceId is required with practiceType.");
+      this.practiceType = sourceType;
+    }
     Object.freeze(this);
   }
 }
 
-export {requireSubjectScope, requireTopicScope, requireReadinessScore, requireTimestamp, normalizeSourcePracticeId, ReadinessScore, ReadinessScoreHistoryEntry};
+export {requireSubjectScope, requireTopicScope, requireReadinessScore, requireTimestamp, normalizeSourcePracticeId, normalizeSourcePracticeType, ReadinessScore, ReadinessScoreHistoryEntry};

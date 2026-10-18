@@ -1,15 +1,17 @@
 /**
  * Essay Scoring feature APIs, mirrored in backend and web.
  *
- * scoreEssay({questionId, answer}) -> Promise<{score, corrections}>
+ * scoreEssay({questionId, answer}) -> Promise<{score, reviewComment, corrections}>
  *   Loads the saved essay question and grades with the LLM. Does not write results.
- * saveEssayResult({studentId, questionId, answer, score, corrections}) -> Promise<EssayResult>
+ * saveEssayResult({studentId, questionId, answer, score, reviewComment, corrections}) -> Promise<EssayResult>
  *   Validates that the essay question exists and atomically replaces the current result.
  * getEssayResult({studentId, questionId}) -> Promise<EssayResult|null>
  *
  * Storage: essayResults/{studentId}/questions/{questionId}.
  * One result per student and question; saving again replaces the earlier result.
- * EssayResult: {studentId, questionId, answer, score, corrections, scoredAt}.
+ * EssayResult: {studentId, questionId, answer, score, reviewComment, corrections, scoredAt}.
+ * reviewComment: nonempty overall feedback on strengths and improvements, in the question's language.
+ * Required for new assessments and saves; legacy reads may omit reviewComment.
  * score: finite number 0-100. corrections: [{originalText, correctedText, explanation}].
  * originalText is an exact nonempty excerpt from answer; correctedText may be empty for deletion.
  * The exact submitted answer is retained. scoredAt is a server timestamp, returned as a Date.
@@ -22,10 +24,10 @@
 import {getEssayQuestionById} from "../essay_question_generator/essay_question_generator_module.js?v=20261017-essay-grade-min-words-v1";
 import {generateLlmText} from "../../utils/llm/llm_util.js?v=20261015-deepseek-deadline-v1";
 import {requireCurrentFirebaseAuthUser} from "../../utils/firebase/firebase_auth.js";
-import {ScoreEssay} from "./application/score_essay.js?v=20261018-essay-scoring-v1";
-import {SaveEssayResult} from "./application/save_essay_result.js?v=20261018-essay-scoring-v1";
-import {GetEssayResult} from "./application/get_essay_result.js?v=20261018-essay-scoring-v1";
-import {FirestoreEssayResultRepository} from "./infrastructure/firestore_essay_result_repository.js?v=20261018-essay-scoring-v1";
+import {ScoreEssay} from "./application/score_essay.js?v=20261018-essay-review-comment-v1";
+import {SaveEssayResult} from "./application/save_essay_result.js?v=20261018-essay-review-comment-v1";
+import {GetEssayResult} from "./application/get_essay_result.js?v=20261018-essay-review-comment-v1";
+import {FirestoreEssayResultRepository} from "./infrastructure/firestore_essay_result_repository.js?v=20261018-essay-review-comment-v1";
 
 async function withCurrentAccount(operation) {
   const user = requireCurrentFirebaseAuthUser();

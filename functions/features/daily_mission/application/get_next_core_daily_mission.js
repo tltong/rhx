@@ -1,3 +1,4 @@
+const {missionTypeFields} = require("../domain/mission_practice_type");
 const {
   refreshPausedTopicIds,
 } = require("./check_paused_topic_validity");
@@ -143,6 +144,7 @@ function createMissionResult({
   practiceId,
   date,
   isAccepted,
+  practiceType,
 }) {
   return Object.freeze({
     studentId,
@@ -151,6 +153,7 @@ function createMissionResult({
     practiceId: requireDocumentId(practiceId, "practiceId"),
     date,
     isAccepted,
+    ...missionTypeFields(practiceType),
   });
 }
 
@@ -158,6 +161,7 @@ class GetNextCoreDailyMission {
   constructor({
     dailyMissionRepository,
     listAssignedPracticeIds,
+    listAssignedEssayPractices = async () => ({practices: [], nextCursor: null}),
     getPracticeById,
     checkPausedTopicValidity,
     getCurrentDate = currentUtcDate,
@@ -171,6 +175,7 @@ class GetNextCoreDailyMission {
     }
 
     this.dailyMissionRepository = dailyMissionRepository;
+    this.listAssignedEssayPractices = listAssignedEssayPractices;
     this.listAssignedPracticeIds = requireFunction(
       listAssignedPracticeIds,
       "listAssignedPracticeIds",
@@ -246,6 +251,17 @@ class GetNextCoreDailyMission {
       return [{topicId, practiceId}];
     });
 
+    let cursor = null;
+    do {
+      const page = await this.listAssignedEssayPractices({...input, limit: 100, cursor});
+      for (const assignment of page.practices) {
+        if (assignment.syllabusId === normalizedSyllabusId && !pausedTopics.has(assignment.topicId)) {
+          candidates.push({topicId: assignment.topicId, practiceId: assignment.essayPracticeId, practiceType: "essay"});
+        }
+      }
+      cursor = page.nextCursor;
+    } while (cursor);
+
     if (candidates.length === 0) {
       return null;
     }
@@ -264,8 +280,8 @@ class GetNextCoreDailyMission {
     );
     const practicesByTopic = new Map();
 
-    candidates.forEach(({topicId, practiceId}) => {
-      if (acceptedAdditionalPractices.has(practiceId)) {
+    candidates.forEach(({topicId, practiceId, practiceType}) => {
+      if (practiceType !== "essay" && acceptedAdditionalPractices.has(practiceId)) {
         return;
       }
 
@@ -273,7 +289,7 @@ class GetNextCoreDailyMission {
         practicesByTopic.set(topicId, []);
       }
 
-      practicesByTopic.get(topicId).push(practiceId);
+      practicesByTopic.get(topicId).push({practiceId, ...missionTypeFields(practiceType)});
     });
 
     if (practicesByTopic.size === 0) {
@@ -295,10 +311,10 @@ class GetNextCoreDailyMission {
     ));
 
     const selectedTopic = topics[0];
-    const selectedPracticeId = [...selectedTopic.practiceIds].sort(
+    const selectedPractice = [...selectedTopic.practiceIds].sort(
       (first, second) => compareStable(
-        first,
-        second,
+        first.practiceType === "essay" ? `essay|${first.practiceId}` : first.practiceId,
+        second.practiceType === "essay" ? `essay|${second.practiceId}` : second.practiceId,
         `${seed}|${selectedTopic.topicId}|practice`,
       ),
     )[0];
@@ -306,7 +322,8 @@ class GetNextCoreDailyMission {
     return createMissionResult({
       ...input,
       topicId: selectedTopic.topicId,
-      practiceId: selectedPracticeId,
+      practiceId: selectedPractice.practiceId,
+      ...missionTypeFields(selectedPractice.practiceType),
       date,
       isAccepted: false,
     });

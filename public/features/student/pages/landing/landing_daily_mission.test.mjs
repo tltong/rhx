@@ -19,20 +19,22 @@ test("student landing places Additional Mission below Daily Mission", async () =
   assert.ok(additionalMissionIndex < syllabusProgressIndex);
   assert.match(html, /firebase-functions-compat\.js/);
   assert.match(html, /landing\.css\?v=20261013-recent-reward-activities-v1/);
-  assert.match(html, /landing\.js\?v=20261013-recent-reward-activities-v1/);
+  assert.match(html, /landing\.js\?v=20261019-essay-level-display-v1/);
 });
 
 test("student landing wires the Additional Mission feature", async () => {
   const script = await readFile(scriptUrl, "utf8");
 
   assert.match(script, /AdditionalMissionSection/);
-  assert.match(script, /listAdditionalMissionPracticeIds/);
+  assert.match(script, /listAdditionalMissions/);
+  assert.match(script, /getAdditionalMissionAvailability/);
+  assert.match(script, /watchStudentEssayPracticeUpdates/);
   assert.match(script, /acceptAdditionalDailyMission/);
   assert.match(script, /getPracticeById/);
   assert.match(script, /student-additional-mission-root/);
   assert.match(
     script,
-    /additional_mission_section\.js\?v=20261004-pausable-missions-v1/
+    /additional_mission_section\.js\?v=20261018-additional-essay-v1/
   );
   assert.match(script, /onTopicPaused:\s*refreshTopicPauseStatus/);
 });
@@ -43,10 +45,10 @@ test("student landing uses Daily Mission as its practice entry point", async () 
   assert.match(script, /getNextCoreDailyMission/);
   assert.match(script, /acceptCoreDailyMission/);
   assert.match(script, /pauseCoreDailyMission/);
-  assert.match(script, /daily_mission_module\.js\?v=20261010-additional-mission-rewards-v1/);
+  assert.match(script, /daily_mission_module\.js\?v=20261018-essay-reuse-v1/);
   assert.match(
     script,
-    /daily_mission_section\.js\?v=20261004-pausable-missions-v1/
+    /daily_mission_section\.js\?v=20261018-essay-session-v1/
   );
   assert.doesNotMatch(script, /createPracticeMetric/);
   assert.doesNotMatch(script, /Start practice/);

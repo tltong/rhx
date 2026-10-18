@@ -15,7 +15,8 @@ test("web schema defines the core mission transaction reference", () => {
     type: "map",
     fields: {
       topicId: "string",
-      practiceId: "string"
+      practiceId: "string",
+      practiceType: {type: "enum", values: ["normal", "essay"], default: "normal"}
     }
   });
 });

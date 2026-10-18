@@ -12,6 +12,7 @@ export const essayResultsSchema = {
       fields: {
         answer: "string",
         score: {type: "number", minimum: 0, maximum: 100},
+        reviewComment: {type: "string", optional: true}, // Required on new writes; absent in legacy results.
         corrections: {
           type: "array",
           items: {
@@ -23,7 +24,8 @@ export const essayResultsSchema = {
             }
           }
         },
-        scoredAt: "timestamp"
+        scoredAt: "timestamp",
+        submittedAt: {type: "timestamp", optional: true}
       }
     }
   }

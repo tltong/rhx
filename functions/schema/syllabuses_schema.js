@@ -1,6 +1,8 @@
 const SYLLABUSES_COLLECTION = "syllabuses";
 const SYLLABUS_TOPICS_SUBCOLLECTION = "topics";
 
+const preAssessmentPracticeTypes = Object.freeze({NORMAL: "normal", ESSAY: "essay"});
+
 const syllabusDocumentIdPattern = "[auto_generated_id]";
 const syllabusTopicDocumentIdPattern = "[auto_generated_id]";
 const syllabusSubtopicIdPattern = "[auto_generated_subtopic_id]";
@@ -37,6 +39,7 @@ const syllabusesSchema = {
       documentId: syllabusTopicDocumentIdPattern,
       fields: {
         topicName: "string",
+        assessmentFrameworkIds: {type: "map", entries: {[syllabusPreAssessmentLanguageKeyPattern]: {type: "string", references: "assessmentFrameworks/{assessmentFrameworkId}"}}},
         pausable: {
           type: "boolean",
           default: true
@@ -54,10 +57,18 @@ const syllabusesSchema = {
               type: "map",
               fields: {
                 language: "string",
+                practiceType: {
+                  type: "string",
+                  enum: Object.values(preAssessmentPracticeTypes),
+                  default: preAssessmentPracticeTypes.NORMAL
+                },
                 practiceId: {
                   type: "string",
                   pattern: syllabusPreAssessmentPracticeIdPattern,
-                  references: "practices/{practiceId}"
+                  referencesByPracticeType: {
+                    normal: "practices/{practiceId}",
+                    essay: "essayPractices/{practiceId}"
+                  }
                 }
               }
             }
@@ -71,6 +82,7 @@ const syllabusesSchema = {
 module.exports = {
   SYLLABUSES_COLLECTION,
   SYLLABUS_TOPICS_SUBCOLLECTION,
+  preAssessmentPracticeTypes,
   syllabusDocumentIdPattern,
   syllabusTopicDocumentIdPattern,
   syllabusSubtopicIdPattern,

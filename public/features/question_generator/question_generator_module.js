@@ -116,7 +116,7 @@ import {
 } from "../llm_prompt_generator/llm_prompt_generator_module.js?v=20260822-previous-practice-variety";
 import {
   getSyllabusById
-} from "../syllabus/syllabus_module.js?v=20260722-question-generator";
+} from "../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
 import {
   practiceTypes,
   writeQuestions

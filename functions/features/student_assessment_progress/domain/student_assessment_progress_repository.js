@@ -1,6 +1,8 @@
 class StudentAssessmentProgressRepository {
   async getPracticeAssessment(input) { throw new Error("getPracticeAssessment() is not implemented."); }
 
+  async listEssayAssessmentScores(input) { throw new Error("listEssayAssessmentScores() is not implemented."); }
+
   async saveAssessmentProgress(input) { throw new Error("saveAssessmentProgress() is not implemented."); }
 
   async getByTopic(studentId, syllabusId, topicId) {

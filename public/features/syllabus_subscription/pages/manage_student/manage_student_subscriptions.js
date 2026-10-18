@@ -8,7 +8,7 @@ import {
 } from "../../../guardian_student_link/guardian_student_link_module.js?v=20260827-guardian-access-v1";
 import {
   getSyllabusById
-} from "../../../syllabus/syllabus_module.js?v=20260827-student-subscriptions-v1";
+} from "../../../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
 import {
   activateSyllabus,
   deactivateSyllabus,

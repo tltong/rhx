@@ -21,6 +21,7 @@ import {
 import {
   StudentPracticeRepository
 } from "../domain/student_practice_repository.js?v=20260824-completed-practices";
+import {guardStudentMaintenance} from "../../../utils/student_topic_reset_guard.js?v=20261018-topic-reset-v1";
 
 function requireIdentifier(value, fieldName) {
   const identifier = String(value ?? "").trim();
@@ -85,23 +86,16 @@ function toCompletion(record, studentId) {
 
 export class FirestoreStudentPracticeRepository
   extends StudentPracticeRepository {
-  async assign(assignment) {
+  async assign(assignment, {resetGuard} = {}) {
     const normalizedAssignment = assignment instanceof StudentPracticeAssignment
       ? assignment
       : new StudentPracticeAssignment(assignment);
 
-    await writeDocument(
-      STUDENT_PRACTICES_COLLECTION,
-      normalizedAssignment.studentId,
-      {},
-      { merge: true }
-    );
-    await writeDocument(
-      assignedPracticesCollectionPath(normalizedAssignment.studentId),
-      normalizedAssignment.practiceId,
-      {},
-      { merge: false }
-    );
+    await getFirestoreDb().runTransaction(async transaction => {
+      await guardStudentMaintenance(transaction, getDocumentRef("studentPracticeResets", normalizedAssignment.studentId), resetGuard);
+      transaction.set(getDocumentRef(STUDENT_PRACTICES_COLLECTION, normalizedAssignment.studentId), {}, {merge: true});
+      transaction.set(getDocumentRef(assignedPracticesCollectionPath(normalizedAssignment.studentId), normalizedAssignment.practiceId), {});
+    });
 
     return normalizedAssignment;
   }
@@ -120,6 +114,7 @@ export class FirestoreStudentPracticeRepository
     );
 
     await getFirestoreDb().runTransaction(async (transaction) => {
+      await guardStudentMaintenance(transaction, getDocumentRef("studentPracticeResets", normalizedCompletion.studentId));
       const completedSnapshot = await transaction.get(completedDocument);
 
       if (completedSnapshot.exists) {

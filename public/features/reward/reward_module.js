@@ -1,9 +1,12 @@
+import {getCompletedEssayPractice} from "../student_essay_practice/student_essay_practice_module.js?v=20261018-essay-reuse-v1";
 /**
  * Feature APIs; none are Firebase callable endpoints.
  * awardAssessmentLevelUp({studentId, practiceId})
  *   -> Promise<{awards, coinsAwarded, totalCoins, categoryTotalCoins, alreadyAwarded}|null>
  * Reads the saved assessment transition and completion, then awards every newly
- * reached level using framework levelCoins. The first level is the initial baseline.
+ * reached level using framework levelCoins, for normal or essay practices.
+ * The saved assessment determines which completion collection to verify.
+ * The first level is the initial baseline.
  * Each student/syllabus/topic/framework/level is awarded once. Jumps commit all
  * eligible rewards together; retries retain the first amounts. Returns null when
  * no saved level-up exists. Missing regular-level configuration fails; endLevel
@@ -15,14 +18,14 @@
  * awards configured daily coins (unsaved default 1) and the 3/7/14/30-day bonus.
  * Missing login records fail with "not-found" unless a committed award plan exists.
  * Retries retain that plan, including after login history has been pruned.
- * awardAdditionalMissionCompletion({studentId, practiceId})
+ * awardAdditionalMissionCompletion({studentId, practiceId, practiceType?})
  *   -> Promise<{award, totalCoins, categoryTotalCoins, alreadyAwarded}|null>
  * Verifies accepted Additional Mission and saved completion, then awards
  * bonusMissionCompletionCoins (unsaved default 20), once per student/subject/topic/day.
  * Returns null when no accepted Additional Mission exists; incomplete missions
  * fail with "failed-precondition". Retries retain the original coin amount.
  *
- * awardDailyMissionCompletion({studentId, practiceId})
+ * awardDailyMissionCompletion({studentId, practiceId, practiceType?: "normal"|"essay"})
  *   -> Promise<{award, totalCoins, categoryTotalCoins, alreadyAwarded}|null>
  * Site-admin write. Verifies accepted Daily Mission and saved completion, then
  * awards dailyMissionCompletionCoins (unsaved default 25).
@@ -67,14 +70,14 @@
 /** Reads require sign-in; writes require a site administrator. */
 import {DEFAULT_REWARD_CONFIG, RewardCategory} from "../../config/firebase/reward_schema.js?v=20261013-recent-reward-activities-v1";
 import {FirestoreStudentRewardRepository} from "./infrastructure/firestore_student_reward_repository.js?v=20261013-recent-reward-activities-v1";
-import {AwardAdditionalMissionCompletion} from "./application/award_additional_mission_completion.js?v=20261010-additional-mission-rewards-v1";
-import {AwardDailyMissionCompletion} from "./application/award_daily_mission_completion.js?v=20261010-daily-mission-rewards-v1";
-import {AwardAssessmentLevelUp} from "./application/award_assessment_level_up.js?v=20261010-level-rewards-v1";
-import {getStudentPracticeAssessment} from "../student_assessment_progress/student_assessment_progress_module.js?v=20261010-level-rewards-v1";
+import {AwardAdditionalMissionCompletion} from "./application/award_additional_mission_completion.js?v=20261018-additional-essay-v1";
+import {AwardDailyMissionCompletion} from "./application/award_daily_mission_completion.js?v=20261018-essay-session-v1";
+import {AwardAssessmentLevelUp} from "./application/award_assessment_level_up.js?v=20261018-essay-progression-v1";
+import {getStudentPracticeAssessment} from "../student_assessment_progress/student_assessment_progress_module.js?v=20261018-essay-progression-v1";
 import {AwardStudentLogin} from "./application/award_student_login.js?v=20261010-login-reward-api-v1";
 import {getStudentLoginRecord, listStudentLoginHistory} from "../student_login/student_login_module.js?v=20261010-login-reward-api-v1";
-import {getAcceptedAdditionalMissionForPractice, getAcceptedDailyMissionForPractice} from "../daily_mission/daily_mission_module.js?v=20261010-additional-mission-rewards-v1";
-import {listCompletedPracticeIds} from "../student_practice/student_practice_module.js?v=20261003-completion-processing-v1";
+import {getAcceptedAdditionalMissionForPractice, getAcceptedDailyMissionForPractice} from "../daily_mission/daily_mission_module.js?v=20261018-essay-reuse-v1";
+import {listCompletedPracticeIds} from "../student_practice/student_practice_module.js?v=20261018-topic-reset-v1";
 import {SaveStudentReward} from "./application/save_student_reward.js?v=20261013-recent-reward-activities-v1";
 import {GetStudentRewardTotal} from "./application/get_student_reward_total.js?v=20261013-recent-reward-activities-v1";
 import {WatchStudentRewardTotal} from "./application/watch_student_reward_total.js?v=20261013-recent-reward-activities-v1";
@@ -82,7 +85,7 @@ import {GetStudentRewardCategoryTotal} from "./application/get_student_reward_ca
 import {ListStudentRewardHistory} from "./application/list_student_reward_history.js?v=20261013-recent-reward-activities-v1";
 import {ListRecentStudentRewardActivities} from "./application/list_recent_student_reward_activities.js?v=20261013-recent-reward-activities-v1";
 import {FirestoreRewardConfigRepository} from "./infrastructure/firestore_reward_config_repository.js?v=20261013-recent-reward-activities-v1";
-import {getAssessmentFrameworkById, ASSESSMENT_FRAMEWORK_END_LEVEL_ID} from "../assessment_framework/assessment_framework_module.js?v=20260823-student-dashboard-v1";
+import {getAssessmentFrameworkById, ASSESSMENT_FRAMEWORK_END_LEVEL_ID} from "../assessment_framework/assessment_framework_module.js?v=20261018-topic-framework-v1";
 import {requireCurrentSiteAdmin} from "../site_admin/site_admin_module.js?v=20260827-site-admin-guard-v1";
 import {requireCurrentFirebaseAuthUser} from "../../utils/firebase/firebase_auth.js";
 import {GetRewardConfig} from "./application/get_reward_config.js?v=20261013-recent-reward-activities-v1";
@@ -100,7 +103,7 @@ const listHistory = new ListStudentRewardHistory(studentRepository);
 const listRecentActivities = new ListRecentStudentRewardActivities(studentRepository);
 const getConfig = new GetRewardConfig(repository);
 const awardLevelUp = new AwardAssessmentLevelUp({
-  studentRewardRepository: studentRepository, getStudentPracticeAssessment, listCompletedPracticeIds,
+  studentRewardRepository: studentRepository, getStudentPracticeAssessment, listCompletedPracticeIds, getCompletedEssayPractice,
   getAssessmentFrameworkRewardConfig, authorizeWrite: requireRewardAdministrator,
 });
 const awardLogin = new AwardStudentLogin({
@@ -109,11 +112,11 @@ const awardLogin = new AwardStudentLogin({
 });
 const awardAdditionalMission = new AwardAdditionalMissionCompletion({
   studentRewardRepository: studentRepository, getAcceptedAdditionalMissionForPractice,
-  listCompletedPracticeIds, getRewardConfig, authorizeWrite: requireRewardAdministrator,
+  listCompletedPracticeIds, getCompletedEssayPractice, getRewardConfig, authorizeWrite: requireRewardAdministrator,
 });
 const awardDailyMission = new AwardDailyMissionCompletion({
   studentRewardRepository: studentRepository, getAcceptedDailyMissionForPractice,
-  listCompletedPracticeIds, getRewardConfig, authorizeWrite: requireRewardAdministrator,
+  listCompletedPracticeIds, getCompletedEssayPractice, getRewardConfig, authorizeWrite: requireRewardAdministrator,
 });
 const saveConfig = new SaveRewardConfig(repository, requireRewardAdministrator);
 const getFrameworkConfig = new GetAssessmentFrameworkRewardConfig(repository);

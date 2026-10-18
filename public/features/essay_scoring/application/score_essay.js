@@ -1,5 +1,5 @@
-import {normalizeScoringInput, parseAssessment} from "../domain/essay_result.js?v=20261018-essay-scoring-v1";
-import {buildEssayScoringPrompt} from "./build_essay_scoring_prompt.js?v=20261018-essay-scoring-v1";
+import {normalizeScoringInput, parseAssessment} from "../domain/essay_result.js?v=20261018-essay-review-comment-v1";
+import {buildEssayScoringPrompt} from "./build_essay_scoring_prompt.js?v=20261018-essay-review-comment-v1";
 
 class ScoreEssay {
   constructor({getEssayQuestionById, generateLlmText}) {

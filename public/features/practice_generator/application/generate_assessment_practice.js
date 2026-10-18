@@ -97,6 +97,7 @@ function createEmptyAvoidQuestionTexts() {
 export class GenerateAssessmentPractice {
   constructor({
     getStudentTopicLevel,
+    getTopicAssessmentFrameworkId = null,
     getSyllabusAssessmentFrameworkId,
     getAssessmentLevelCriteria,
     getStudentSyllabusSubscriptionLanguage,
@@ -120,6 +121,7 @@ export class GenerateAssessmentPractice {
       getStudentTopicLevel,
       "getStudentTopicLevel"
     );
+    this.getTopicAssessmentFrameworkId = getTopicAssessmentFrameworkId;
     this.getSyllabusAssessmentFrameworkId = requireFunction(
       getSyllabusAssessmentFrameworkId,
       "getSyllabusAssessmentFrameworkId"
@@ -452,7 +454,7 @@ export class GenerateAssessmentPractice {
     });
   }
 
-  async createAndAssignPractice(studentId, questions) {
+  async createAndAssignPractice(studentId, questions, resetGuard) {
     const practice = await this.createPractice({
       type: this.assessmentPracticeType,
       questions: questions.map((question, index) => (
@@ -461,13 +463,13 @@ export class GenerateAssessmentPractice {
     });
 
     try {
-      const assignment = await this.assignPracticeToStudent({
-        studentId,
-        practiceId: practice.id
-      });
+      const assignmentInput = {studentId, practiceId: practice.id};
+      const assignment = resetGuard ? await this.assignPracticeToStudent(assignmentInput, {resetGuard})
+        : await this.assignPracticeToStudent(assignmentInput);
 
       return Object.freeze({ practice, assignment });
     } catch (error) {
+      if (error.code === "topic-practice-reset" || error.code === "student-maintenance") throw error;
       try {
         await this.deletePractice(practice.id);
       } catch (cleanupError) {
@@ -483,7 +485,7 @@ export class GenerateAssessmentPractice {
     }
   }
 
-  async execute(input = {}) {
+  async execute(input = {}, {resetGuard} = {}) {
     const studentId = requireIdentifier(input.studentId, "studentId");
     const syllabusId = requireIdentifier(input.syllabusId, "syllabusId");
     const topicId = requireIdentifier(input.topicId, "topicId");
@@ -494,7 +496,7 @@ export class GenerateAssessmentPractice {
       diagramPercentage
     ] = await Promise.all([
       this.getStudentTopicLevel({ studentId, syllabusId, topicId }),
-      this.getSyllabusAssessmentFrameworkId(syllabusId),
+      this.getTopicAssessmentFrameworkId ? null : this.getSyllabusAssessmentFrameworkId(syllabusId),
       this.getStudentSyllabusSubscriptionLanguage(studentId, syllabusId),
       this.getTopicDiagramPercentage(syllabusId, topicId)
     ]);
@@ -510,8 +512,8 @@ export class GenerateAssessmentPractice {
     }
 
     const assessmentFrameworkId = requireIdentifier(
-      storedAssessmentFrameworkId,
-      "Syllabus assessment framework ID"
+      this.getTopicAssessmentFrameworkId ? await this.getTopicAssessmentFrameworkId({syllabusId, topicId, language: storedLanguage}) : storedAssessmentFrameworkId,
+      "Topic assessment framework ID"
     );
     const language = requireIdentifier(
       storedLanguage,
@@ -524,6 +526,7 @@ export class GenerateAssessmentPractice {
       }),
       "Assessment level criteria"
     );
+    if (levelCriteria.frameworkType === "essay") throw new Error("Use the essay practice generator for an essay framework.");
     const criteria = requireObject(
       levelCriteria.criteria,
       "Assessment level criteria.criteria"
@@ -595,7 +598,7 @@ export class GenerateAssessmentPractice {
     const {
       practice,
       assignment
-    } = await this.createAndAssignPractice(studentId, questions);
+    } = await this.createAndAssignPractice(studentId, questions, resetGuard);
 
     return Object.freeze({
       studentId,

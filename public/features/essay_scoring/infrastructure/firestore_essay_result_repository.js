@@ -1,7 +1,7 @@
 import * as firebaseOps from "../../../utils/firebase/firebase_ops.js";
-import {ESSAY_RESULTS_COLLECTION, ESSAY_RESULT_QUESTIONS_SUBCOLLECTION} from "../../../config/firebase/essay_scoring_schema.js?v=20261018-essay-scoring-v1";
-import {normalizeResultReference, normalizeResultInput, readEssayResult} from "../domain/essay_result.js?v=20261018-essay-scoring-v1";
-import {EssayResultRepository} from "../domain/essay_result_repository.js?v=20261018-essay-scoring-v1";
+import {ESSAY_RESULTS_COLLECTION, ESSAY_RESULT_QUESTIONS_SUBCOLLECTION} from "../../../config/firebase/essay_scoring_schema.js?v=20261018-essay-review-comment-v1";
+import {normalizeResultReference, normalizeResultInput, readEssayResult} from "../domain/essay_result.js?v=20261018-essay-review-comment-v1";
+import {EssayResultRepository} from "../domain/essay_result_repository.js?v=20261018-essay-review-comment-v1";
 
 const defaultServerTimestamp = () => firebaseOps.getFirebaseNamespace().firestore.FieldValue.serverTimestamp();
 
@@ -25,7 +25,7 @@ class FirestoreEssayResultRepository extends EssayResultRepository {
     assertAccess();
     const ref = this.reference(result);
     const data = {answer: result.answer, score: result.score,
-      corrections: result.corrections, scoredAt: this.serverTimestamp()};
+      reviewComment: result.reviewComment, corrections: result.corrections, scoredAt: this.serverTimestamp()};
     assertAccess();
     // A single atomic replacement keeps exactly one result per student and question.
     await ref.set(data, {merge: false});

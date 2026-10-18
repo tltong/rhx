@@ -4,7 +4,7 @@ import {
 
 import {
   getSyllabusById
-} from "../../../syllabus/syllabus_module.js?v=20260823-student-availability-page-v1";
+} from "../../../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
 
 import {
   activateSyllabus,

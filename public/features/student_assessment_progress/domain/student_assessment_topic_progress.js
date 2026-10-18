@@ -50,7 +50,8 @@ export class StudentAssessmentTopicProgress {
     initialLevel,
     currentLevelId,
     isFrameworkCompleted = false,
-    levelHistory = {}
+    levelHistory = {},
+    assessmentRevision = 0
   } = {}) {
     if (!initialLevel || typeof initialLevel !== "object") {
       throw new Error("initialLevel is required.");
@@ -74,6 +75,8 @@ export class StudentAssessmentTopicProgress {
 
     this.isFrameworkCompleted = isFrameworkCompleted;
     this.levelHistory = normalizeLevelHistory(levelHistory);
+    if (!Number.isSafeInteger(assessmentRevision) || assessmentRevision < 0) throw new Error("assessmentRevision must be a nonnegative integer.");
+    this.assessmentRevision = assessmentRevision;
 
     Object.freeze(this);
   }

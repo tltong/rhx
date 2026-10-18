@@ -1,3 +1,4 @@
+import {resolveTopicAssessmentFrameworkId} from "../../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
 function requireIdentifier(value, fieldName) {
   const identifier = String(value ?? "").trim();
 
@@ -76,7 +77,7 @@ export class LoadPreAssessmentContext {
     }
 
     const assessmentFrameworkId = requireIdentifier(
-      syllabus.assessmentFrameworkId,
+      resolveTopicAssessmentFrameworkId(syllabus, {topicId, language}),
       "syllabus.assessmentFrameworkId"
     );
     const [
@@ -95,6 +96,7 @@ export class LoadPreAssessmentContext {
       throw new Error("Assessment framework could not be found.");
     }
 
+    if (assessmentFramework.frameworkType === "essay") throw new Error("Essay frameworks do not use pre-assessment. Generate an essay practice instead.");
     if (!assessmentFramework.preAssessment) {
       throw new Error(
         "Assessment framework pre-assessment settings are not configured."

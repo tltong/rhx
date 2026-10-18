@@ -5,6 +5,9 @@ class CalculateReadinessScore {
   constructor({
     getReadinessConfig,
     listCompletedPractices,
+    listCompletedEssayPractices = async () => ({practices: [], nextCursor: null}),
+    getEssayResult,
+    getEssayQuestionById,
     getPracticeById,
     getQuestionDifficulty,
     assessmentPracticeType,
@@ -12,6 +15,7 @@ class CalculateReadinessScore {
   }) {
     this.getReadinessConfig = getReadinessConfig;
     this.listCompletedPractices = listCompletedPractices;
+    Object.assign(this, {listCompletedEssayPractices, getEssayResult, getEssayQuestionById});
     this.getPracticeById = getPracticeById;
     this.getQuestionDifficulty = getQuestionDifficulty;
     this.assessmentPracticeType = assessmentPracticeType;
@@ -27,15 +31,43 @@ class CalculateReadinessScore {
       error.code = "failed-precondition";
       throw error;
     }
-    const completions = await this.listCompletedPractices({studentId: scope.studentId});
+    const completions = (await this.listCompletedPractices({studentId: scope.studentId})).map(
+      completion => ({...completion, kind: "normal"}),
+    );
+    let cursor = null;
+    do {
+      const page = await this.listCompletedEssayPractices({...scope, limit: 100, cursor});
+      for (const completion of page.practices) {
+        if (completion.syllabusId === scope.syllabusId && completion.topicId === scope.topicId) {
+          completions.push({...completion, kind: "essay", practiceId: completion.essayPracticeId, dateCompleted: completion.completedAt});
+        }
+      }
+      cursor = page.nextCursor;
+    } while (cursor);
     const newestFirst = [...completions].sort((first, second) => (
       requireTimestamp(second.dateCompleted, "dateCompleted").getTime()
         - requireTimestamp(first.dateCompleted, "dateCompleted").getTime()
         || first.practiceId.localeCompare(second.practiceId)
+        || first.kind.localeCompare(second.kind)
     ));
     const weightedScores = [];
+    const essayResults = new Map();
 
     for (const completion of newestFirst) {
+      if (completion.kind === "essay") {
+        if (!essayResults.has(completion.essayQuestionId)) {
+          essayResults.set(completion.essayQuestionId, await this.getEssayResult({studentId: scope.studentId, questionId: completion.essayQuestionId}));
+        }
+        const result = essayResults.get(completion.essayQuestionId);
+        // Submitted essays count toward readiness only once their exact answer is graded.
+        if (!result || result.answer !== completion.essayText) continue;
+        const question = await this.getEssayQuestionById(completion.essayQuestionId);
+        if (!question) throw new Error("A completed essay question could not be found.");
+        const difficulty = normalizeDifficultyLevel(question.difficulty);
+        weightedScores.push(requireReadinessScore(result.score) * config.difficultyWeights[difficulty]);
+        if (weightedScores.length === config.numberOfPractices) break;
+        continue;
+      }
       const practice = await this.getPracticeById(completion.practiceId);
       const questions = practice?.questions;
       if (!Array.isArray(questions) || questions.length === 0

@@ -39,6 +39,10 @@ class DailyMissionRepository {
     throw new Error("isPracticeCompleted() is not implemented.");
   }
 
+  async getEssayGenerationStatus(input) {
+    throw new Error("getEssayGenerationStatus() is not implemented.");
+  }
+
   async listAcceptedAdditionalPracticeIds(input) {
     throw new Error("listAcceptedAdditionalPracticeIds() is not implemented.");
   }

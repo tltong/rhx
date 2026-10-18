@@ -1,4 +1,4 @@
-import {ESSAY_SCORING_PROMPT_TEMPLATE} from "../config/essay_scoring_prompt_template.js?v=20261018-essay-scoring-v1";
+import {ESSAY_SCORING_PROMPT_TEMPLATE} from "../config/essay_scoring_prompt_template.js?v=20261018-essay-review-comment-v1";
 
 function buildEssayScoringPrompt(question, answer) {
   const reference = {

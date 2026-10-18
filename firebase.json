@@ -24,6 +24,10 @@
     ],
     "rewrites": [
       {
+        "source": "/api/student-topic-practice-reset",
+        "function": {"functionId": "studentTopicPracticeReset", "region": "us-central1"}
+      },
+      {
         "source": "/api/generateDeepseekText",
         "function": {
           "functionId": "generateDeepseekText",

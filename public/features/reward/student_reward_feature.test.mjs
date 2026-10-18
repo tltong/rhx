@@ -59,6 +59,7 @@ function checkRead(recordPath, direct = false) {
 function reference(recordPath) {
   return {
     id: recordPath.split("/").at(-1), path: recordPath,
+    collection: name => collection(recordPath + "/" + name),
     async get() { checkRead(recordPath, true); return snapshot(recordPath); },
     onSnapshot(onChange, onError) {
       checkRead(recordPath, true);
@@ -1585,6 +1586,36 @@ for (const [layer, api, LevelAward, Repository, assessmentFeature, PreAssessment
   ["backend", backend, AwardAssessmentLevelUp, FirestoreStudentRewardRepository, backendAssessment, AssessPreAssessmentPractice, CalculatePreAssessmentLevel, FirestoreStudentAssessmentProgressRepository],
   ["web", web, WebAwardAssessmentLevelUp, WebStudentRewardRepository, webAssessment, WebPreAssessment, WebPreCalculation, WebAssessmentRepository],
 ]) {
+  test(layer + ": essay level rewards verify essay completion and pay the configured newly reached level once", async () => {
+    seedLevelConfig();
+    const input = seedLevelAssessment({practiceId: "essay-level", levelId: "bridge", reachedLevelIds: ["bridge"], completed: false});
+    const assessmentPath = "studentAssessmentProgress/student-1/practiceAssessments/essay-level";
+    documents.set(assessmentPath, {...documents.get(assessmentPath), practiceType: "essay"});
+    const essayPath = "studentEssayPractices/student-1/completedEssayPractices/essay-level";
+    documents.set(essayPath, {essayQuestionId: "essay-question", syllabusId: "math", topicId: "fractions",
+      assignedAt: new Date("2026-10-17"), completedAt: new Date("2026-10-18"), essayText: "My essay", timeTakenSeconds: 60});
+    const results = await Promise.all([api.awardAssessmentLevelUp(input), api.awardAssessmentLevelUp(input)]);
+    assert.equal(results.reduce((sum, result) => sum + result.coinsAwarded, 0), 30);
+    assert.equal(await api.getStudentRewardTotal(studentScope), 30);
+    const before = writes.length;
+    assert.equal((await api.awardAssessmentLevelUp(input)).alreadyAwarded, true);
+    assert.equal(writes.length, before);
+    assert.equal(reads.some(path => path.startsWith("studentPractices/student-1/completedPractices")), false);
+  });
+
+  test(layer + ": an essay assessment cannot use a normal completion or another topic to claim level rewards", async () => {
+    seedLevelConfig();
+    const input = seedLevelAssessment({practiceId: "essay-level", levelId: "bridge", reachedLevelIds: ["bridge"]});
+    const path = "studentAssessmentProgress/student-1/practiceAssessments/essay-level";
+    documents.set(path, {...documents.get(path), practiceType: "essay"});
+    await assert.rejects(() => api.awardAssessmentLevelUp(input), {code: "failed-precondition"});
+    documents.set("studentEssayPractices/student-1/completedEssayPractices/essay-level", {
+      essayQuestionId: "essay-question", syllabusId: "math", topicId: "wrong-topic", assignedAt: new Date("2026-10-17"),
+      completedAt: new Date("2026-10-18"), essayText: "My essay", timeTakenSeconds: 60});
+    await assert.rejects(() => api.awardAssessmentLevelUp(input), {code: "failed-precondition"});
+    assert.deepEqual(writes, []);
+  });
+
   test(layer + ": level jump awards both configured levels atomically and ignores caller amounts and context", async () => {
     seedLevelConfig();
     const input = seedLevelAssessment();
@@ -1855,3 +1886,25 @@ test("backend and web use the same bounded subject/day award identity", async ()
     assert.notEqual(await backendId({...context, missionDate: "2026-10-02"}), id);
   }
 });
+
+for (const [layer, api] of [["backend", backend], ["web", web]]) {
+  test(layer + ": an essay Daily Mission earns configured coins exactly once after submission, without a grade", async () => {
+    savedLoginConfig({dailyMissionCompletionCoins: 25});
+    const input = {studentId: studentScope.studentId, practiceId: "essay-attempt", practiceType: "essay"};
+    const day = "studentDailyMissions/" + input.studentId + "/days/2026-10-18";
+    documents.set(day, {});
+    documents.set(day + "/syllabuses/language", {coreMission: {practiceId: input.practiceId, topicId: "writing", practiceType: "essay"}});
+    documents.set("studentDailyMissions/" + input.studentId + "/acceptedDailyMissionEssays/" + input.practiceId,
+      {missionDate: "2026-10-18", syllabusId: "language", topicId: "writing", practiceType: "essay"});
+    await assert.rejects(api.awardDailyMissionCompletion(input), error => error.code === "failed-precondition");
+    documents.set("studentEssayPractices/" + input.studentId + "/completedEssayPractices/" + input.practiceId,
+      {essayQuestionId: "essay-question", syllabusId: "language", topicId: "writing", assignedAt: new Date("2026-10-17"),
+        completedAt: new Date("2026-10-18"), essayText: "My saved essay", timeTakenSeconds: 30, scoring: {status: "pending"}});
+    const first = await api.awardDailyMissionCompletion(input);
+    const retry = await api.awardDailyMissionCompletion(input);
+    assert.equal(first.award.coins, 25); assert.equal(first.alreadyAwarded, false);
+    assert.equal(retry.alreadyAwarded, true); assert.equal(retry.totalCoins, first.totalCoins);
+    assert.equal(first.award.details.practiceType, "essay");
+    assert.equal(await api.awardDailyMissionCompletion({...input, practiceType: "normal"}), null);
+  });
+}

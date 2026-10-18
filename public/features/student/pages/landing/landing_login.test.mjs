@@ -11,6 +11,7 @@ function fixture({dashboard = true, dashboardError = null, loginError = null, pe
   const errors = [];
   const statuses = [];
   const coinEvents = [];
+  const essayEvents = [];
   const scope = {
     authenticatedStudentId: null,
     INDEX_URL: "/index.html",
@@ -20,6 +21,10 @@ function fixture({dashboard = true, dashboardError = null, loginError = null, pe
     studentCoinBalanceController: {
       stop: () => coinEvents.push(["stop"]),
       start: ({studentId}) => coinEvents.push(["start", studentId]),
+    },
+    essayPracticeRefreshController: {
+      stop: () => essayEvents.push(["stop"]),
+      start: studentId => essayEvents.push(["start", studentId]),
     },
     completionProcessingRefreshController: {
       stop: () => events.push(["stop"]),
@@ -41,16 +46,17 @@ function fixture({dashboard = true, dashboardError = null, loginError = null, pe
     getPracticeById: async () => ({questions: [{syllabusId: "math", topicId: "fractions"}]}),
   };
   runInNewContext(handleAuth, scope);
-  return {scope, events, errors, statuses, coinEvents};
+  return {scope, events, errors, statuses, coinEvents, essayEvents};
 }
 
 test("a returning authenticated student watches coins and records login after the dashboard loads", async () => {
-  const {scope, events, coinEvents} = fixture();
+  const {scope, events, coinEvents, essayEvents} = fixture();
   await scope.handleAuthState({uid: "student-1"});
   assert.deepEqual(events, [["stop"], ["dashboard", "student-1"], ["login", "student-1"]]);
   await scope.handleAuthState({uid: "student-1"});
   assert.equal(events.filter(([action]) => action === "login").length, 1);
   assert.deepEqual(coinEvents, [["stop"], ["start", "student-1"]]);
+  assert.deepEqual(essayEvents, [["stop"], ["start", "student-1"]]);
 });
 
 test("signed-out users and missing student dashboards do not record logins", async () => {
@@ -89,12 +95,16 @@ test("dashboard refresh after a practice does not record another login", async (
   const loadDashboard = script.match(/async function loadAndRenderDashboard\([\s\S]*?\n}/)[0];
   let rendered = 0;
   const scope = {
+    authenticatedStudentId: "student-1",
     getStudentDashboard: async () => ({student: {id: "student-1"}}),
     renderDashboard: () => {rendered += 1;},
     recordStudentLogin: () => assert.fail("Dashboard refresh must not record login"),
   };
   runInNewContext(loadDashboard, scope);
   assert.equal(await scope.loadAndRenderDashboard("student-1"), true);
+  assert.equal(rendered, 1);
+  scope.authenticatedStudentId = "student-2";
+  assert.equal(await scope.loadAndRenderDashboard("student-1"), false);
   assert.equal(rendered, 1);
 });
 

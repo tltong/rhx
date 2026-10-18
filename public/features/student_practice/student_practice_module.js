@@ -18,7 +18,7 @@ import {
 } from "../practice/practice_module.js?v=20260816-practice-question-ids";
 import {
   AssignPracticeToStudent
-} from "./application/assign_practice_to_student.js?v=20260807-student-practice";
+} from "./application/assign_practice_to_student.js?v=20261018-topic-reset-v1";
 import {
   CompleteAssignedPractice
 } from "./application/complete_assigned_practice.js?v=20260810-completed-practice";
@@ -52,7 +52,7 @@ import {
 } from "./infrastructure/firestore_practice_completion_processing_repository.js?v=20261003-completion-processing-v1";
 import {
   FirestoreStudentPracticeRepository
-} from "./infrastructure/firestore_student_practice_repository.js?v=20260824-completed-practices";
+} from "./infrastructure/firestore_student_practice_repository.js?v=20261018-topic-reset-v1";
 
 /**
  * @typedef {import("./domain/student_practice_assignment.js").StudentPracticeAssignmentInput} StudentPracticeAssignmentInput
@@ -97,8 +97,8 @@ const watchPracticeCompletionProcessingUseCase =
  * @param {StudentPracticeAssignmentInput} input
  * @returns {Promise<StudentPracticeAssignment>}
  */
-async function assignPracticeToStudent(input) {
-  return assignPracticeToStudentUseCase.execute(input);
+async function assignPracticeToStudent(input, context) {
+  return assignPracticeToStudentUseCase.execute(input, context);
 }
 
 async function completeAssignedPractice(practiceResult) {

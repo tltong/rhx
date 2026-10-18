@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Essay Practice</title>
+  <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+  <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
+  <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+  <script defer src="/__/firebase/init.js"></script>
+  <script type="module" src="/init_fb.js"></script>
+  <style>
+    body {background:#eef3f8;color:#102a43;font-family:Arial,Helvetica,sans-serif;margin:0}
+    main {max-width:900px;margin:auto;padding:32px 20px}
+    h1 {margin-bottom:8px} h2 {font-size:21px}
+    a {color:#0369a1} .card {background:white;border:1px solid #cbd9e6;border-radius:8px;margin-top:24px;padding:24px}
+    .copy {white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65}
+    .muted {color:#52606d} .status {background:#e0f2fe;color:#075985;padding:14px;border-radius:6px;margin-top:24px}
+    .status.is-error {background:#fee2e2;color:#991b1b}
+    textarea {box-sizing:border-box;width:100%;min-height:340px;resize:vertical;font:inherit;line-height:1.6;padding:14px;border:1px solid #829ab1;border-radius:6px;margin-top:12px}
+    button {background:#0369a1;border:0;border-radius:6px;color:white;cursor:pointer;font:inherit;font-weight:bold;padding:12px 18px;margin-top:16px}
+    button:disabled {opacity:.55;cursor:not-allowed} :focus-visible {outline:3px solid #7dd3fc;outline-offset:2px}
+    .correction {border-top:1px solid #d5e1ec;margin-top:18px;padding-top:8px}
+    .score {font-size:28px;font-weight:bold}
+    [hidden] {display:none!important}
+    @media(max-width:600px) {.card {padding:18px} button {width:100%}}
+  </style>
+</head>
+<body>
+  <main>
+    <a href="/features/student/pages/landing/landing.html">Back to dashboard</a>
+    <h1>Essay Practice</h1>
+    <p id="essay-summary" class="muted">Loading your essay practice…</p>
+    <div id="essay-status" class="status" role="status" aria-live="polite">Loading…</div>
+    <section id="essay-question-section" class="card" hidden>
+      <h2>Question</h2>
+      <p id="essay-question" class="copy"></p>
+      <p id="essay-requirement" class="muted"></p>
+    </section>
+    <form id="essay-form" class="card" hidden>
+      <label for="essay-answer"><strong>Your essay</strong></label>
+      <textarea id="essay-answer" required aria-describedby="essay-word-count essay-submit-help" placeholder="Write your essay here…"></textarea>
+      <p id="essay-word-count" class="muted" role="status" aria-live="polite" aria-atomic="true">0 words</p>
+      <p id="essay-submit-help" class="muted">Submit when you are ready. Your submitted essay will be saved and scored.</p>
+      <button id="essay-submit" type="submit" disabled>Submit essay</button>
+    </form>
+    <section id="essay-submission" class="card" hidden>
+      <h2>Your submitted essay</h2>
+      <p id="essay-submitted-text" class="copy"></p>
+      <button id="essay-refresh" type="button">Refresh result</button>
+    </section>
+    <section id="essay-result" class="card" hidden>
+      <h2>Essay result</h2>
+      <p id="essay-score" class="score"></p>
+      <div id="essay-review" hidden>
+        <h3>Review</h3>
+        <p id="essay-review-comment" class="copy"></p>
+      </div>
+      <h3>Corrections</h3>
+      <div id="essay-corrections"></div>
+    </section>
+  </main>
+  <script type="module" src="./essay_practice.js?v=20261018-essay-reuse-v1"></script>
+</body>
+</html>

@@ -55,10 +55,10 @@ import {
 } from "./application/list_practice_results.js?v=20260807-practice-result";
 import {
   SubmitPracticeResult
-} from "./application/submit_practice_result.js?v=20260816-question-routing";
+} from "./application/submit_practice_result.js?v=20261018-topic-reset-v1";
 import {
   FirestorePracticeResultRepository
-} from "./infrastructure/firestore_practice_result_repository.js?v=20260807-practice-result";
+} from "./infrastructure/firestore_practice_result_repository.js?v=20261018-topic-reset-v1";
 
 /**
  * @typedef {import("./domain/practice_result.js").PracticeResult} PracticeResult

@@ -1,3 +1,4 @@
+const {missionPracticeType, missionTypeFields} = require("../domain/mission_practice_type");
 function requireFunction(value, name) {
   if (typeof value !== "function") {
     throw new Error(`${name} must be a function.`);
@@ -72,6 +73,8 @@ class AcceptCoreDailyMission {
   constructor({
     dailyMissionRepository,
     getNextCoreDailyMission,
+    getAssignedEssayPractice = async () => null,
+    getCompletedEssayPractice = async () => null,
     getPracticeById,
   } = {}) {
     if (
@@ -82,6 +85,7 @@ class AcceptCoreDailyMission {
     }
 
     this.dailyMissionRepository = dailyMissionRepository;
+    Object.assign(this, {getAssignedEssayPractice, getCompletedEssayPractice});
     this.getNextCoreDailyMission = requireFunction(
       getNextCoreDailyMission,
       "getNextCoreDailyMission",
@@ -92,10 +96,14 @@ class AcceptCoreDailyMission {
     );
   }
 
-  async execute({studentId, practiceId} = {}) {
+  async execute({studentId, practiceId, practiceType} = {}) {
     const normalizedStudentId = requireDocumentId(studentId, "studentId");
     const normalizedPracticeId = requireDocumentId(practiceId, "practiceId");
-    const practice = await this.getPracticeById(normalizedPracticeId);
+    const type = missionPracticeType(practiceType);
+    const essayReference = {studentId: normalizedStudentId, essayPracticeId: normalizedPracticeId};
+    const practice = type === "essay"
+      ? await this.getAssignedEssayPractice(essayReference) || await this.getCompletedEssayPractice(essayReference)
+      : await this.getPracticeById(normalizedPracticeId);
 
     if (!practice) {
       throw createCodedError(
@@ -104,7 +112,9 @@ class AcceptCoreDailyMission {
       );
     }
 
-    const {syllabusId, topicId} = practiceMissionRoute(practice);
+    const {syllabusId, topicId} = type === "essay"
+      ? {syllabusId: requireDocumentId(practice.syllabusId, "syllabusId"), topicId: requireDocumentId(practice.topicId, "topicId")}
+      : practiceMissionRoute(practice);
     const mission = await this.getNextCoreDailyMission({
       studentId: normalizedStudentId,
       syllabusId,
@@ -120,6 +130,7 @@ class AcceptCoreDailyMission {
     if (
       mission.practiceId !== normalizedPracticeId
       || mission.topicId !== topicId
+      || missionPracticeType(mission.practiceType) !== type
     ) {
       throw createCodedError(
         "failed-precondition",
@@ -133,6 +144,7 @@ class AcceptCoreDailyMission {
       topicId,
       practiceId: normalizedPracticeId,
       date: mission.date,
+      ...missionTypeFields(type),
     });
 
     if (typeof acceptance?.created !== "boolean") {
@@ -145,6 +157,7 @@ class AcceptCoreDailyMission {
       topicId,
       practiceId: normalizedPracticeId,
       date: mission.date,
+      ...missionTypeFields(type),
       isAccepted: true,
       created: acceptance.created,
     });

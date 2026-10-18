@@ -4,6 +4,7 @@
  * AssessmentFramework output:
  * {
  *   id: string,
+ *   frameworkType: "normal"|"essay",
  *   name: string,
  *   endLevelName: string,
  *   levels: Array<{
@@ -88,6 +89,7 @@
  *   The sentinel level ID used when the framework has been completed.
  */
 const {
+  assessmentFrameworkTypes,
   ASSESSMENT_FRAMEWORK_END_LEVEL_ID,
 } = require("../../schema/assessment_framework_schema");
 const {
@@ -145,6 +147,7 @@ async function calculateAssessmentProgression(input) {
 }
 
 module.exports = {
+  assessmentFrameworkTypes,
   ASSESSMENT_FRAMEWORK_END_LEVEL_ID,
   calculateAssessmentProgression,
   calculatePreAssessmentLevel,

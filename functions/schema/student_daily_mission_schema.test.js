@@ -16,6 +16,7 @@ test("daily mission schema defines the core mission transaction reference", () =
     fields: {
       topicId: "string",
       practiceId: "string",
+      practiceType: {type: "enum", values: ["normal", "essay"], default: "normal"},
     },
   });
 });

@@ -3,11 +3,11 @@ import {
   STUDENT_SUBMISSIONS_SUBCOLLECTION
 } from "../../../config/firebase/practice_results_schema.js";
 import {
-  createDocumentIfAbsent,
+  getFirestoreDb,
   readCollection,
-  readDocument,
-  writeDocument
+  readDocument
 } from "../../../utils/firebase/firebase_ops.js";
+import {guardStudentMaintenance} from "../../../utils/student_topic_reset_guard.js?v=20261018-topic-reset-v1";
 import {
   PracticeResult
 } from "../domain/practice_result.js?v=20260807-practice-result";
@@ -64,26 +64,33 @@ function toPracticeResult(data, practiceId, studentId) {
 
 export class FirestorePracticeResultRepository
   extends PracticeResultRepository {
-  async create(practiceResult) {
+  constructor({getFirestoreDbOperation = getFirestoreDb} = {}) {
+    super(); this.getFirestoreDb = getFirestoreDbOperation;
+  }
+  async create(practiceResult, {questionReferences = []} = {}) {
     const normalizedPracticeResult = practiceResult instanceof PracticeResult
       ? practiceResult
       : new PracticeResult(practiceResult);
 
-    await writeDocument(
-      PRACTICE_RESULTS_COLLECTION,
-      normalizedPracticeResult.practiceId,
-      {},
-      { merge: true }
-    );
-
     try {
-      await createDocumentIfAbsent(
-        studentSubmissionsCollectionPath(
-          normalizedPracticeResult.practiceId
-        ),
-        normalizedPracticeResult.studentId,
-        toPracticeResultRecord(normalizedPracticeResult)
-      );
+      const {studentId, practiceId} = normalizedPracticeResult, db = this.getFirestoreDb();
+      await db.runTransaction(async transaction => {
+        const reset = db.collection("studentPracticeResets").doc(studentId);
+        const state = await guardStudentMaintenance(transaction, reset);
+        const key = scope => encodeURIComponent(JSON.stringify([scope.syllabusId, scope.topicId]));
+        if (questionReferences.some(scope => state?.topics?.[key(scope)])) {
+          const student = db.collection("studentPractices").doc(studentId);
+          const [assigned, completed] = await Promise.all([
+            transaction.get(student.collection("assignedPractices").doc(practiceId)),
+            transaction.get(student.collection("completedPractices").doc(practiceId)),
+          ]);
+          if (!assigned.exists && !completed.exists) throw Object.assign(new Error("This practice was removed by a topic reset."), {code: "topic-practice-reset"});
+        }
+        const result = db.collection(studentSubmissionsCollectionPath(practiceId)).doc(studentId);
+        if ((await transaction.get(result)).exists) throw Object.assign(new Error("Result exists"), {code: "already-exists"});
+        transaction.set(db.collection(PRACTICE_RESULTS_COLLECTION).doc(practiceId), {}, {merge: true});
+        transaction.set(result, toPracticeResultRecord(normalizedPracticeResult));
+      });
     } catch (error) {
       if (error?.code === "already-exists") {
         const duplicateError = new Error(

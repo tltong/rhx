@@ -1,7 +1,18 @@
+const {AssessStudentEssayPractice} = require("./application/assess_student_essay_practice");
+const {getCompletedEssayPractice} = require("../student_essay_practice/student_essay_practice_module");
+const {getEssayQuestionById} = require("../essay_question_generator/essay_question_generator_module");
+const {getEssayResult} = require("../essay_scoring/essay_scoring_module");
+const {getStudentSyllabusSubscriptionLanguage} = require("../syllabus_subscription/syllabus_subscription_module");
 /**
  * assessStudentPractice({studentId: string, practiceId: string})
  *   -> Promise<AssessmentOutcome>
  *   Routes pre-assessment and normal assessment practices internally.
+ *
+ * assessStudentEssayPractice({studentId, essayPracticeId}) -> Promise<AssessmentOutcome>
+ * Uses the essay topic/language framework. Starts at its first level without pre-assessment.
+ * Each graded essay is counted at one level; qualifying scores and required essay count
+ * determine advancement. Saved outcomes and a topic revision make retries/concurrency safe.
+ * Missing/non-essay frameworks skip progression. Web writes require a verified site admin.
  *
  * getStudentPracticeAssessment({studentId, practiceId}) -> Promise<PracticeAssessment|null>
  * Read-only. Returns the original assessment and ordered reachedLevelIds.
@@ -26,9 +37,7 @@ const {
 const {
   getQuestionDifficulty,
 } = require("../question/question_module");
-const {
-  getSyllabusById,
-} = require("../syllabus/syllabus_module");
+const {getSyllabusById} = require("../syllabus/syllabus_module");
 const {
   listCompletedPracticeIds,
 } = require("../student_practice/student_practice_module");
@@ -60,11 +69,13 @@ const getStudentTopicLevelUseCase = new GetStudentTopicLevel(
 const assessPreAssessmentPracticeUseCase = new AssessPreAssessmentPractice({
   studentAssessmentProgressRepository,
   getSyllabusById,
+  getStudentSyllabusSubscriptionLanguage,
   calculatePreAssessmentLevel,
 });
 const assessNormalAssessmentPracticeUseCase = new AssessNormalAssessmentPractice({
   studentAssessmentProgressRepository,
   getSyllabusById,
+  getStudentSyllabusSubscriptionLanguage,
   getAssessmentLevelCriteria,
   calculateAssessmentProgression,
   listCompletedPracticeIds,
@@ -88,6 +99,22 @@ const assessStudentPracticeUseCase = new AssessStudentPractice({
   assessmentPracticeType: practiceTypes.ASSESSMENT,
 });
 
+const assessEssayPracticeUseCase = new AssessStudentEssayPractice({
+  studentAssessmentProgressRepository, getCompletedEssayPractice, getEssayQuestionById, getEssayResult,
+  getSyllabusById, getAssessmentLevelCriteria, calculateAssessmentProgression,
+});
+
+async function assessStudentEssayPractice(input) {
+  const {withTopicResetGuard, hasResetGuard} = require("../../utils/student_topic_reset_guard");
+  if (hasResetGuard()) return assessEssayPracticeUseCase.execute(input);
+  const {requirePracticeAssessmentScope} = require("./domain/practice_assessment");
+  const scope = requirePracticeAssessmentScope({studentId: input?.studentId, practiceId: input?.essayPracticeId});
+  const source = await getCompletedEssayPractice({studentId: scope.studentId, essayPracticeId: scope.practiceId});
+  if (!source) return assessEssayPracticeUseCase.execute(input);
+  return withTopicResetGuard({studentId: scope.studentId, createdAt: source.completedAt,
+    scopes: [{syllabusId: source.syllabusId, topicId: source.topicId}]}, () => assessEssayPracticeUseCase.execute(input));
+}
+
 async function assessStudentPractice(input) {
   return assessStudentPracticeUseCase.execute(input);
 }
@@ -102,6 +129,7 @@ async function getStudentTopicLevel(input) {
 
 module.exports = {
   assessStudentPractice,
+  assessStudentEssayPractice,
   getStudentPracticeAssessment,
   getStudentTopicLevel,
 };

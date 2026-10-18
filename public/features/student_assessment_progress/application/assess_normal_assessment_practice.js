@@ -1,6 +1,7 @@
+import {resolveTopicAssessmentFrameworkId} from "../../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
 import {
   StudentAssessmentTopicProgress
-} from "../domain/student_assessment_topic_progress.js?v=20260822-assessment-progression";
+} from "../domain/student_assessment_topic_progress.js?v=20261018-essay-progression-v1";
 import {
   getPracticeScope,
   practiceMatchesScope,
@@ -44,6 +45,7 @@ function skippedOutcome({
 export class AssessNormalAssessmentPractice {
   constructor({
     studentAssessmentProgressRepository,
+    getStudentSyllabusSubscriptionLanguage = async () => null,
     getSyllabusById,
     getAssessmentLevelCriteria,
     calculateAssessmentProgression,
@@ -57,6 +59,7 @@ export class AssessNormalAssessmentPractice {
       throw new Error("studentAssessmentProgressRepository is required.");
     }
 
+    this.getStudentSyllabusSubscriptionLanguage = getStudentSyllabusSubscriptionLanguage;
     this.studentAssessmentProgressRepository =
       studentAssessmentProgressRepository;
     this.getSyllabusById = requireFunction(
@@ -167,10 +170,11 @@ export class AssessNormalAssessmentPractice {
       syllabusId,
       topicId
     );
-    const assessmentFrameworkId = requireIdentifier(
-      syllabus.assessmentFrameworkId,
-      "syllabus.assessmentFrameworkId"
-    );
+    const questionLanguages = [...new Set(practice.questions.map(question => question.language).filter(Boolean))];
+    if (questionLanguages.length > 1) throw new Error("An assessed practice must use one language.");
+    const hasOverrides = Object.keys(syllabus.topics.find(topic => topic.id === topicId).assessmentFrameworkIds || {}).length > 0;
+    const language = questionLanguages[0] || (hasOverrides ? await this.getStudentSyllabusSubscriptionLanguage(normalizedStudentId, syllabusId) : null);
+    const assessmentFrameworkId = requireIdentifier(resolveTopicAssessmentFrameworkId(syllabus, {topicId, language}), "Topic assessment framework ID");
     const existingProgress =
       await this.studentAssessmentProgressRepository.getByTopic(
         normalizedStudentId,
@@ -208,6 +212,8 @@ export class AssessNormalAssessmentPractice {
       currentLevelId = baseline.previousLevelId;
       levelCriteria = baseline;
     }
+
+    if (levelCriteria.frameworkType === "essay") throw new Error("Essay frameworks require essay assessment.");
 
     const levelEnteredAt = existingProgress
       ? toDate(

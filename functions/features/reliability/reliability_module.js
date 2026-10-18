@@ -3,6 +3,7 @@
  * getReliabilityConfig() -> Promise<ReliabilityConfig|null>
  * saveReliabilityConfig({percentagePerPractice}) -> Promise<ReliabilityConfig>
  * calculateTopicReliabilityScore({studentId, syllabusId, topicId})
+ *   Counts both normal completions and submitted essays; grading is not required for reliability.
  *   -> Promise<{score: number, completedPracticeCount: number}>
  *   Counts distinct completed, topic-specific practices of any difficulty or type.
  *   Uses the saved percentage or the initial 10% rate; caps score at 100.
@@ -28,6 +29,7 @@ const {FirestoreReliabilityConfigRepository} = require("./infrastructure/firesto
 const {FirestoreReliabilityScoreRepository} = require("./infrastructure/firestore_reliability_score_repository");
 const {getSyllabusById} = require("../syllabus/syllabus_module");
 const {listCompletedPracticeIds} = require("../student_practice/student_practice_module");
+const {listCompletedEssayPractices} = require("../student_essay_practice/student_essay_practice_module");
 const {getPracticeById} = require("../practice/practice_module");
 const {GetReliabilityConfig} = require("./application/get_reliability_config");
 const {SaveReliabilityConfig} = require("./application/save_reliability_config");
@@ -47,7 +49,7 @@ const saveTopic = new SaveTopicReliabilityScore(scoreRepository);
 const getSubject = new GetSubjectReliabilityScore(scoreRepository);
 const saveSubject = new SaveSubjectReliabilityScore(scoreRepository);
 const calculateTopic = new CalculateTopicReliabilityScore({
-  getReliabilityConfig, getSyllabusById, listCompletedPracticeIds, getPracticeById,
+  getReliabilityConfig, getSyllabusById, listCompletedPracticeIds, getPracticeById, listCompletedEssayPractices,
 });
 const calculateSubject = new CalculateSubjectReliabilityScore({
   getSyllabusById, getTopicReliabilityScore,

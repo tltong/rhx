@@ -97,6 +97,7 @@ function createEmptyAvoidQuestionTexts() {
 class GenerateAssessmentPractice {
   constructor({
     getStudentTopicLevel,
+    getTopicAssessmentFrameworkId = null,
     getSyllabusAssessmentFrameworkId,
     getAssessmentLevelCriteria,
     getStudentSyllabusSubscriptionLanguage,
@@ -120,6 +121,7 @@ class GenerateAssessmentPractice {
       getStudentTopicLevel,
       "getStudentTopicLevel",
     );
+    this.getTopicAssessmentFrameworkId = getTopicAssessmentFrameworkId;
     this.getSyllabusAssessmentFrameworkId = requireFunction(
       getSyllabusAssessmentFrameworkId,
       "getSyllabusAssessmentFrameworkId",
@@ -471,6 +473,7 @@ class GenerateAssessmentPractice {
 
       return Object.freeze({practice, assignment});
     } catch (error) {
+      if (error.code === "topic-practice-reset" || error.code === "student-maintenance") throw error;
       try {
         await this.deletePractice(practice.id);
       } catch (cleanupError) {
@@ -497,7 +500,7 @@ class GenerateAssessmentPractice {
       diagramPercentage,
     ] = await Promise.all([
       this.getStudentTopicLevel({studentId, syllabusId, topicId}),
-      this.getSyllabusAssessmentFrameworkId(syllabusId),
+      this.getTopicAssessmentFrameworkId ? null : this.getSyllabusAssessmentFrameworkId(syllabusId),
       this.getStudentSyllabusSubscriptionLanguage(studentId, syllabusId),
       this.getTopicDiagramPercentage(syllabusId, topicId),
     ]);
@@ -513,8 +516,8 @@ class GenerateAssessmentPractice {
     }
 
     const assessmentFrameworkId = requireIdentifier(
-      storedAssessmentFrameworkId,
-      "Syllabus assessment framework ID",
+      this.getTopicAssessmentFrameworkId ? await this.getTopicAssessmentFrameworkId({syllabusId, topicId, language: storedLanguage}) : storedAssessmentFrameworkId,
+      "Topic assessment framework ID",
     );
     const language = requireIdentifier(
       storedLanguage,
@@ -527,6 +530,7 @@ class GenerateAssessmentPractice {
       }),
       "Assessment level criteria",
     );
+    if (levelCriteria.frameworkType === "essay") throw new Error("Use the essay practice generator for an essay framework.");
     const criteria = requireObject(
       levelCriteria.criteria,
       "Assessment level criteria.criteria",

@@ -5,7 +5,7 @@ import {
   DEFAULT_PRE_ASSESSMENT_WEIGHT,
   getReadinessConfig,
   saveReadinessConfig
-} from "../../readiness_module.js?v=20261007-readiness-completion-v1";
+} from "../../readiness_module.js?v=20261018-essay-reuse-v1";
 
 export function mountReadinessAdmin({
   root = document,

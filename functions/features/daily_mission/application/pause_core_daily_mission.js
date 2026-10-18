@@ -1,3 +1,4 @@
+const {missionPracticeType, missionTypeFields} = require("../domain/mission_practice_type");
 const {
   practiceMissionRoute,
 } = require("./accept_core_daily_mission");
@@ -59,6 +60,8 @@ function createCodedError(code, message) {
 class PauseCoreDailyMission {
   constructor({
     dailyMissionRepository,
+    getAssignedEssayPractice = async () => null,
+    getCompletedEssayPractice = async () => null,
     getPracticeById,
     isTopicPausable,
     getCurrentDate = currentUtcDate,
@@ -71,6 +74,7 @@ class PauseCoreDailyMission {
     }
 
     this.dailyMissionRepository = dailyMissionRepository;
+    Object.assign(this, {getAssignedEssayPractice, getCompletedEssayPractice});
     this.getPracticeById = requireFunction(
       getPracticeById,
       "getPracticeById",
@@ -79,10 +83,14 @@ class PauseCoreDailyMission {
     this.isTopicPausable = requireFunction(isTopicPausable, "isTopicPausable");
   }
 
-  async execute({studentId, practiceId} = {}) {
+  async execute({studentId, practiceId, practiceType} = {}) {
     const normalizedStudentId = requireDocumentId(studentId, "studentId");
     const normalizedPracticeId = requireDocumentId(practiceId, "practiceId");
-    const practice = await this.getPracticeById(normalizedPracticeId);
+    const type = missionPracticeType(practiceType);
+    const essayReference = {studentId: normalizedStudentId, essayPracticeId: normalizedPracticeId};
+    const practice = type === "essay"
+      ? await this.getAssignedEssayPractice(essayReference)
+      : await this.getPracticeById(normalizedPracticeId);
 
     if (!practice) {
       throw createCodedError(
@@ -91,7 +99,9 @@ class PauseCoreDailyMission {
       );
     }
 
-    const {syllabusId, topicId} = practiceMissionRoute(practice);
+    const {syllabusId, topicId} = type === "essay"
+      ? {syllabusId: requireDocumentId(practice.syllabusId, "syllabusId"), topicId: requireDocumentId(practice.topicId, "topicId")}
+      : practiceMissionRoute(practice);
     const pausable = await this.isTopicPausable(syllabusId, topicId);
 
     if (pausable !== true) {
@@ -120,6 +130,7 @@ class PauseCoreDailyMission {
       syllabusId,
       topicId,
       practiceId: normalizedPracticeId,
+      ...missionTypeFields(type),
       pausedDate: normalizeDateKey(pauseResult.pausedDate),
       isPaused: true,
       created: pauseResult.created,

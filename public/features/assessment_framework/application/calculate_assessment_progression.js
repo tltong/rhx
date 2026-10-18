@@ -88,6 +88,7 @@ export class CalculateAssessmentProgression {
     if (currentLevelId === ASSESSMENT_FRAMEWORK_END_LEVEL_ID) {
       return Object.freeze({
         assessmentFrameworkId: framework.id,
+        ...(framework.frameworkType === "essay" ? {frameworkType: "essay"} : {}),
         previousLevelId: ASSESSMENT_FRAMEWORK_END_LEVEL_ID,
         levelId: ASSESSMENT_FRAMEWORK_END_LEVEL_ID,
         levelName: framework.endLevelName,
@@ -126,6 +127,7 @@ export class CalculateAssessmentProgression {
     if (!levelChanged) {
       return Object.freeze({
         assessmentFrameworkId: framework.id,
+        ...(framework.frameworkType === "essay" ? {frameworkType: "essay"} : {}),
         previousLevelId: currentLevel.id,
         levelId: currentLevel.id,
         levelName: currentLevel.levelName,
@@ -141,6 +143,7 @@ export class CalculateAssessmentProgression {
 
     return Object.freeze({
       assessmentFrameworkId: framework.id,
+      ...(framework.frameworkType === "essay" ? {frameworkType: "essay"} : {}),
       previousLevelId: currentLevel.id,
       levelId: nextLevel?.id || ASSESSMENT_FRAMEWORK_END_LEVEL_ID,
       levelName: nextLevel?.levelName || framework.endLevelName,

@@ -34,6 +34,7 @@ function createUndeterminedSummary({
 export function summarizeTopicProgress({
   hasPreAssessment,
   preAssessmentCompleted,
+  requiresPreAssessment = true,
   currentLevelId,
   framework,
   endLevelId
@@ -46,13 +47,16 @@ export function summarizeTopicProgress({
       ? preAssessmentStates.COMPLETED
       : preAssessmentStates.NOT_COMPLETED;
 
-  if (!preAssessmentCompleted) {
+  if (requiresPreAssessment && !preAssessmentCompleted) {
     return createUndeterminedSummary({
       preAssessmentState,
       framework,
       totalLevelCount
     });
   }
+
+  // Essay frameworks begin at the first level; their initial essay is not a pre-assessment.
+  if (!requiresPreAssessment && !currentLevelId) currentLevelId = levels[0]?.id ?? null;
 
   if (!currentLevelId) {
     return {

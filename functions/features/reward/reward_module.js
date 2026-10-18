@@ -1,9 +1,12 @@
+const {getCompletedEssayPractice} = require("../student_essay_practice/student_essay_practice_module");
 /**
  * Feature APIs; none are Firebase callable endpoints.
  * awardAssessmentLevelUp({studentId, practiceId})
  *   -> Promise<{awards, coinsAwarded, totalCoins, categoryTotalCoins, alreadyAwarded}|null>
  * Reads the saved assessment transition and completion, then awards every newly
- * reached level using framework levelCoins. The first level is the initial baseline.
+ * reached level using framework levelCoins, for normal or essay practices.
+ * The saved assessment determines which completion collection to verify.
+ * The first level is the initial baseline.
  * Each student/syllabus/topic/framework/level is awarded once. Jumps commit all
  * eligible rewards together; retries retain the first amounts. Returns null when
  * no saved level-up exists. Missing regular-level configuration fails; endLevel
@@ -15,14 +18,14 @@
  * coins (unsaved default 1) and a bonus at 3, 7, 14 or 30 consecutive login days.
  * Missing login records fail with "not-found" unless a committed award plan exists.
  * Retries retain that plan, including after login history has been pruned.
- * awardAdditionalMissionCompletion({studentId, practiceId})
+ * awardAdditionalMissionCompletion({studentId, practiceId, practiceType?})
  *   -> Promise<{award, totalCoins, categoryTotalCoins, alreadyAwarded}|null>
  * Verifies accepted Additional Mission and saved completion, then awards
  * bonusMissionCompletionCoins (unsaved default 20), once per student/subject/topic/day.
  * Returns null when no accepted Additional Mission exists; incomplete missions
  * fail with "failed-precondition". Retries retain the original coin amount.
  *
- * awardDailyMissionCompletion({studentId, practiceId})
+ * awardDailyMissionCompletion({studentId, practiceId, practiceType?: "normal"|"essay"})
  *   -> Promise<{award, totalCoins, categoryTotalCoins, alreadyAwarded}|null>
  * Verifies accepted Daily Mission and saved practice completion, then awards
  * configured dailyMissionCompletionCoins (unsaved default 25).
@@ -96,7 +99,7 @@ const listHistory = new ListStudentRewardHistory(studentRepository);
 const listRecentActivities = new ListRecentStudentRewardActivities(studentRepository);
 const getConfig = new GetRewardConfig(repository);
 const awardLevelUp = new AwardAssessmentLevelUp({
-  studentRewardRepository: studentRepository, getStudentPracticeAssessment, listCompletedPracticeIds,
+  studentRewardRepository: studentRepository, getStudentPracticeAssessment, listCompletedPracticeIds, getCompletedEssayPractice,
   getAssessmentFrameworkRewardConfig,
 });
 const awardLogin = new AwardStudentLogin({
@@ -105,11 +108,11 @@ const awardLogin = new AwardStudentLogin({
 });
 const awardAdditionalMission = new AwardAdditionalMissionCompletion({
   studentRewardRepository: studentRepository, getAcceptedAdditionalMissionForPractice,
-  listCompletedPracticeIds, getRewardConfig,
+  listCompletedPracticeIds, getCompletedEssayPractice, getRewardConfig,
 });
 const awardDailyMission = new AwardDailyMissionCompletion({
   studentRewardRepository: studentRepository, getAcceptedDailyMissionForPractice,
-  listCompletedPracticeIds, getRewardConfig,
+  listCompletedPracticeIds, getCompletedEssayPractice, getRewardConfig,
 });
 const saveConfig = new SaveRewardConfig(repository, requireRewardAdministrator);
 const getFrameworkConfig = new GetAssessmentFrameworkRewardConfig(repository);

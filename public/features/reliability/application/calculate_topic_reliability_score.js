@@ -1,13 +1,15 @@
-import {DEFAULT_PERCENTAGE_PER_PRACTICE} from "../../../config/firebase/reliability_schema.js?v=20261008-reliability-v1";
-import {requirePercentagePerPractice} from "../domain/reliability_config.js?v=20261008-reliability-v1";
-import {requireIdentifier, requireTopicScope, requireReliabilityScore} from "../domain/reliability_score.js?v=20261008-reliability-v1";
+import {DEFAULT_PERCENTAGE_PER_PRACTICE} from "../../../config/firebase/reliability_schema.js?v=20261018-essay-completion-metrics-v1";
+import {requirePercentagePerPractice} from "../domain/reliability_config.js?v=20261018-essay-completion-metrics-v1";
+import {requireIdentifier, requireTopicScope, requireReliabilityScore} from "../domain/reliability_score.js?v=20261018-essay-completion-metrics-v1";
 
 class CalculateTopicReliabilityScore {
-  constructor({getReliabilityConfig, getSyllabusById, listCompletedPracticeIds, getPracticeById}) {
+  constructor({getReliabilityConfig, getSyllabusById, listCompletedPracticeIds, getPracticeById,
+    listCompletedEssayPractices = async () => ({practices: [], nextCursor: null})}) {
     this.getReliabilityConfig = getReliabilityConfig;
     this.getSyllabusById = getSyllabusById;
     this.listCompletedPracticeIds = listCompletedPracticeIds;
     this.getPracticeById = getPracticeById;
+    this.listCompletedEssayPractices = listCompletedEssayPractices;
   }
 
   async execute(input) {
@@ -28,12 +30,25 @@ class CalculateTopicReliabilityScore {
     const uniqueIds = [...new Set(completedIds.map((id) => requireIdentifier(id, "practiceId")))];
     const practices = await Promise.all(uniqueIds.map((id) => this.getPracticeById(id)));
     // Practices are topic-specific. Missing or mixed-topic definitions do not contribute.
-    const completedPracticeCount = practices.filter((practice) => (
+    const normalPracticeCount = practices.filter((practice) => (
       Array.isArray(practice?.questions) && practice.questions.length > 0
       && practice.questions.every((question) => (
         question?.syllabusId === scope.syllabusId && question?.topicId === scope.topicId
       ))
     )).length;
+    const essayIds = new Set();
+    let cursor = null;
+    do {
+      const page = await this.listCompletedEssayPractices({...scope, limit: 100, cursor});
+      for (const practice of page.practices) {
+        if (practice.syllabusId === scope.syllabusId && practice.topicId === scope.topicId) {
+          essayIds.add(requireIdentifier(practice.essayPracticeId, "essayPracticeId"));
+        }
+      }
+      cursor = page.nextCursor;
+    } while (cursor);
+    // Each submitted essay counts once, independently of whether grading has finished.
+    const completedPracticeCount = normalPracticeCount + essayIds.size;
 
     return Object.freeze({
       score: requireReliabilityScore(Math.min(100, completedPracticeCount * percentagePerPractice)),

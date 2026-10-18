@@ -1,6 +1,6 @@
 import {
   getPracticeResultReview
-} from "../../practice_result_module.js?v=20260824-practice-review";
+} from "../../practice_result_module.js?v=20261018-topic-reset-v1";
 import {
   onStudentAuthStateChanged
 } from "../../../student/student_module.js?v=20260716-no-eager-auth";

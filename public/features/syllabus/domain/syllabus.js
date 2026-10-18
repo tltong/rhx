@@ -1,3 +1,5 @@
+import {preAssessmentPracticeTypes} from "../../../config/firebase/syllabuses_schema.js?v=20261018-preassessment-essay-v1";
+
 function requireText(value, fieldName) {
   const text = String(value ?? "").trim();
 
@@ -19,10 +21,13 @@ export function createSyllabusLanguageKey(language) {
 export class SyllabusTopicPreAssessmentPractice {
   constructor({
     language,
-    practiceId
+    practiceId,
+    practiceType = preAssessmentPracticeTypes.NORMAL
   } = {}) {
     this.language = requireText(language, "language");
     this.practiceId = requireText(practiceId, "practiceId");
+    if (!Object.values(preAssessmentPracticeTypes).includes(practiceType)) throw new Error("practiceType must be normal or essay.");
+    this.practiceType = practiceType;
   }
 }
 
@@ -60,11 +65,13 @@ export class SyllabusTopic {
     topicName,
     pausable = true,
     subtopics = {},
+    assessmentFrameworkIds = {},
     preAssessmentPractices = {}
   }) {
     this.id = id;
     this.topicName = topicName;
     this.pausable = requireBoolean(pausable, "pausable");
+    this.assessmentFrameworkIds = normalizeTopicFrameworkIds(assessmentFrameworkIds);
     this.subtopics = subtopics;
     this.preAssessmentPractices = normalizePreAssessmentPractices(
       preAssessmentPractices
@@ -75,8 +82,10 @@ export class SyllabusTopic {
     topicName,
     pausable,
     subtopics,
+    assessmentFrameworkIds,
     preAssessmentPractices
   }) {
+    if (assessmentFrameworkIds !== undefined) this.assessmentFrameworkIds = normalizeTopicFrameworkIds(assessmentFrameworkIds);
     if (pausable !== undefined) {
       this.pausable = requireBoolean(pausable, "pausable");
     }
@@ -98,10 +107,11 @@ export class SyllabusTopic {
     return this;
   }
 
-  assignPreAssessmentPractice(language, practiceId) {
+  assignPreAssessmentPractice(language, practiceId, practiceType = preAssessmentPracticeTypes.NORMAL) {
     const assignment = new SyllabusTopicPreAssessmentPractice({
       language,
-      practiceId
+      practiceId,
+      practiceType
     });
     const languageKey = createSyllabusLanguageKey(assignment.language);
 
@@ -236,8 +246,36 @@ export class Syllabus {
     );
     this.topics.forEach((topic) => {
       topic.removePreAssessmentPractice(selectedLanguage);
+      const nextFrameworks = {...topic.assessmentFrameworkIds};
+      delete nextFrameworks[createSyllabusLanguageKey(selectedLanguage)];
+      topic.assessmentFrameworkIds = normalizeTopicFrameworkIds(nextFrameworks);
     });
 
     return this;
   }
 }
+
+function normalizeTopicFrameworkIds(input = {}) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("assessmentFrameworkIds must be a map.");
+  const result = {};
+  for (const [language, value] of Object.entries(input)) {
+    const key = createSyllabusLanguageKey(language);
+    if (typeof value !== "string" || !value.trim() || value.includes("/") || [".", ".."].includes(value.trim())) throw new Error("assessmentFrameworkIds must contain valid framework IDs.");
+    if (Object.hasOwn(result, key)) throw new Error("Duplicate framework language key.");
+    Object.defineProperty(result, key, {value: value.trim(), enumerable: true});
+  }
+  return Object.freeze(result);
+}
+
+function resolveTopicAssessmentFrameworkId(syllabus, {topicId, language} = {}) {
+  const topic = syllabus?.topics?.find(item => item.id === topicId);
+  if (!topic) throw new Error("Topic does not belong to the syllabus.");
+  const overrides = normalizeTopicFrameworkIds(topic.assessmentFrameworkIds);
+  if (language && syllabus.languages?.length && !syllabus.languages.some(value => createSyllabusLanguageKey(value) === createSyllabusLanguageKey(language))) throw new Error("Language is not available for the syllabus.");
+  if (!language && Object.keys(overrides).length) throw new Error("Language is required to resolve a topic framework override.");
+  const key = language ? createSyllabusLanguageKey(language) : null;
+  const id = (key && Object.hasOwn(overrides, key) ? overrides[key] : null) || syllabus.assessmentFrameworkId;
+  return id || null;
+}
+
+export {normalizeTopicFrameworkIds, resolveTopicAssessmentFrameworkId};

@@ -1,12 +1,16 @@
+import {generateEssayPractice, loadEssayPractice} from "../../../essay_practice_generator/essay_practice_generator_module.js?v=20261018-topic-framework-v1";
+import {createSyllabusLanguageKey} from "../../../syllabus/domain/syllabus.js?v=20261018-topic-framework-v1";
 import {
   generatePreAssessmentPractice,
   loadPreAssessmentGeneratorOptions,
   loadPreAssessmentPractice
-} from "../../practice_generator_module.js?v=20260822-previous-practice-variety";
+} from "../../practice_generator_module.js?v=20261018-essay-progression-v1";
 import {
   setMathText
 } from "../../../../utils/math/render_math.js?v=20260822-katex-math";
 
+const practiceTypeSelect = document.querySelector("#practice-type-select");
+const practiceTypeHelp = document.querySelector("#practice-type-help");
 const syllabusSelect = document.querySelector("#syllabus-select");
 const topicSelect = document.querySelector("#topic-select");
 const languageSelect = document.querySelector("#language-select");
@@ -77,6 +81,18 @@ function getExistingAssignment() {
   ) || null;
 }
 
+function selectedFramework() {
+  const syllabus = getSelectedSyllabus(), topic = getSelectedTopic();
+  const override = languageSelect.value && topic?.assessmentFrameworkIds?.[createSyllabusLanguageKey(languageSelect.value)];
+  const id = override || syllabus?.assessmentFrameworkId;
+  return {id, override, type: syllabus?.frameworkTypes?.[id] || "normal"};
+}
+
+function selectAttachedPracticeType() {
+  const framework = selectedFramework();
+  practiceTypeSelect.value = framework.override || framework.type === "essay" ? framework.type : getExistingAssignment()?.practiceType || (framework.id ? "normal" : "essay");
+}
+
 function updateGenerateButton() {
   const hasSelection = Boolean(
     syllabusSelect.value
@@ -84,13 +100,22 @@ function updateGenerateButton() {
     && languageSelect.value
   );
 
-  generateButton.disabled = pageBusy
-    || !hasSelection;
+  const essay = practiceTypeSelect.value === "essay";
+  const framework = selectedFramework();
+  const lacksFramework = !essay && getSelectedSyllabus() && !framework.id;
+  const wrongType = framework.override && ((essay ? "essay" : "normal") !== framework.type);
+  practiceTypeHelp.textContent = essay
+    ? "One medium-difficulty essay question, attached to this topic and language. Students receive it when they subscribe."
+    : lacksFramework
+      ? "Normal practice requires an assessment framework. Choose essay practice or configure a framework."
+      : "Normal practice uses the assessment framework's pre-assessment settings.";
+  if (wrongType) practiceTypeHelp.textContent = "Choose " + framework.type + " practice to match this topic framework.";
+  generateButton.disabled = pageBusy || !hasSelection || Boolean(lacksFramework) || Boolean(wrongType);
 
   if (!pageBusy) {
     generateButton.textContent = getExistingAssignment()
       ? "Regenerate and Replace"
-      : "Generate Pre-Assessment";
+      : essay ? "Generate Essay Practice" : "Generate Normal Pre-Assessment";
   }
 }
 
@@ -104,10 +129,13 @@ function updateAssignmentMessage() {
     return;
   }
 
+  const attachedType = assignment.practiceType || "normal";
+  const deletesPrevious = attachedType === "normal" && practiceTypeSelect.value === "normal";
   assignmentMessage.textContent =
-    `This topic already has a ${assignment.language} pre-assessment `
-    + `practice (${assignment.practiceId}). Regeneration will replace and `
-    + "delete the existing practice and its questions.";
+    `This topic has a ${assignment.language} ${attachedType} pre-assessment practice (${assignment.practiceId}). `
+    + (deletesPrevious
+      ? "Regeneration will replace and delete the existing normal practice and its questions."
+      : "Generation will replace this attachment. Previous practice records are retained for assigned students.");
   assignmentMessage.hidden = false;
   updateGenerateButton();
 }
@@ -115,6 +143,7 @@ function updateAssignmentMessage() {
 function setBusy(isBusy) {
   pageBusy = isBusy;
   syllabusSelect.disabled = isBusy;
+  practiceTypeSelect.disabled = isBusy;
   topicSelect.disabled = isBusy || !syllabusSelect.value;
   languageSelect.disabled = isBusy || !syllabusSelect.value;
   generateButton.textContent = isBusy ? "Generating..." : "";
@@ -211,6 +240,7 @@ function displaySelectedSyllabus() {
     renderLanguages();
     topicSelect.disabled = true;
     languageSelect.disabled = true;
+    selectAttachedPracticeType();
     updateAssignmentMessage();
     return;
   }
@@ -224,6 +254,7 @@ function displaySelectedSyllabus() {
   renderLanguages(syllabus.languages);
   topicSelect.disabled = false;
   languageSelect.disabled = false;
+  selectAttachedPracticeType();
   updateAssignmentMessage();
   displayExistingPractice();
 }
@@ -274,6 +305,26 @@ function renderQuestions(questions = []) {
   clearQuestions();
 
   questions.forEach((question, questionIndex) => {
+    if (!question.options) {
+      const item = document.createElement("article");
+      const heading = document.createElement("div");
+      const text = document.createElement("p");
+      item.className = "question-item";
+      heading.className = "question-heading";
+      heading.append(createBadge("Essay"), createBadge(question.difficulty),
+        createBadge(question.language), createBadge(question.questionId));
+      text.className = "question-text";
+      text.style.whiteSpace = "pre-wrap";
+      text.textContent = question.questionText;
+      item.append(heading, text);
+      if (question.wordCountRequirement?.minWords) {
+        const minimum = document.createElement("p");
+        minimum.textContent = `Minimum words: ${question.wordCountRequirement.minWords}`;
+        item.append(minimum);
+      }
+      questionsContainer.append(item);
+      return;
+    }
     const item = document.createElement("article");
     const heading = document.createElement("div");
     const number = document.createElement("strong");
@@ -341,6 +392,14 @@ function renderQuestions(questions = []) {
 
 function renderResult(result) {
   practiceId.textContent = result.practice.id;
+  if (result.practiceType === "essay") {
+    resultsSummary.textContent = [result.topicName, result.language, "Essay / Medium / 1 question",
+      result.replacement.replaced ? "Replaced previous attachment" : "New attachment"].join(" / ");
+    allocationSummary.hidden = true;
+    renderQuestions(result.questions);
+    resultsSection.hidden = false;
+    return;
+  }
   resultsSummary.textContent = [
     result.topicName,
     result.language,
@@ -357,7 +416,7 @@ function renderResult(result) {
 function renderExistingPractice(result) {
   practiceId.textContent = result.practice.id;
   resultsSummary.textContent = [
-    "Existing assigned practice",
+    result.practiceType === "essay" ? "Existing essay practice" : "Existing normal practice",
     `${result.questions.length} questions`
   ].join(" / ");
   allocationSummary.hidden = true;
@@ -386,7 +445,8 @@ async function displayExistingPractice() {
   resultsSection.hidden = false;
 
   try {
-    const result = await loadPreAssessmentPractice({
+    const loader = assignment.practiceType === "essay" ? loadEssayPractice : loadPreAssessmentPractice;
+    const result = await loader({
       syllabusId,
       topicId,
       language
@@ -421,10 +481,7 @@ function recordAssignment(result) {
 
   topic.preAssessmentPractices = {
     ...(topic.preAssessmentPractices || {}),
-    [result.language.toLowerCase()]: {
-      language: result.language,
-      practiceId: result.practice.id
-    }
+    [createSyllabusLanguageKey(result.language)]: {...result.assignment}
   };
 }
 
@@ -436,7 +493,9 @@ async function generatePractice() {
   resultsSection.hidden = true;
 
   try {
-    const result = await generatePreAssessmentPractice({
+    const essay = practiceTypeSelect.value === "essay";
+    const generator = essay ? generateEssayPractice : generatePreAssessmentPractice;
+    const result = await generator({
       syllabusId: syllabusSelect.value,
       topicId: topicSelect.value,
       language: languageSelect.value
@@ -446,9 +505,10 @@ async function generatePractice() {
     renderResult(result);
     updateAssignmentMessage();
     setStatus(
-      result.replacement.replaced
-        ? "Pre-assessment practice regenerated; the previous practice and questions were deleted."
-        : "Pre-assessment practice generated and assigned."
+      essay ? "Essay practice generated and attached to the syllabus topic."
+        : result.replacement.replaced
+          ? "Normal pre-assessment generated and attached, replacing the previous attachment."
+          : "Normal pre-assessment generated and attached to the syllabus topic."
     );
   } catch (error) {
     setStatus(
@@ -469,7 +529,7 @@ async function initPage() {
 
     if (syllabuses.length === 0) {
       setStatus(
-        "No syllabus has all required topics, languages, and an assessment framework.",
+        "No syllabus has the required topics and languages.",
         true
       );
     }
@@ -483,14 +543,17 @@ async function initPage() {
   }
 }
 
+practiceTypeSelect.addEventListener("change", updateAssignmentMessage);
 syllabusSelect.addEventListener("change", displaySelectedSyllabus);
 topicSelect.addEventListener("change", () => {
+  selectAttachedPracticeType();
   updateAssignmentMessage();
-  displayExistingPractice();
+  return displayExistingPractice();
 });
 languageSelect.addEventListener("change", () => {
+  selectAttachedPracticeType();
   updateAssignmentMessage();
-  displayExistingPractice();
+  return displayExistingPractice();
 });
 generateButton.addEventListener("click", generatePractice);
 

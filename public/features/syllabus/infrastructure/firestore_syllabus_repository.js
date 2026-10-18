@@ -1,9 +1,10 @@
+import * as frameworkFirebaseOps from "../../../utils/firebase/firebase_ops.js";
 import {
   createSyllabusLanguageKey,
   Syllabus,
   SyllabusTopic,
   SyllabusTopicPreAssessmentPractice
-} from "../domain/syllabus.js?v=20261004-topic-pausable-v1";
+} from "../domain/syllabus.js?v=20261018-topic-framework-v1";
 import { SyllabusRepository } from "../domain/syllabus_repository.js";
 import {
   SYLLABUSES_COLLECTION,
@@ -111,6 +112,7 @@ function normalizePreAssessmentPractices(preAssessmentPractices = {}) {
         record.language,
         "preAssessmentPractice.language"
       ),
+      practiceType: record.practiceType,
       practiceId: requireNonEmptyString(
         record.practiceId,
         "preAssessmentPractice.practiceId"
@@ -135,6 +137,7 @@ function normalizeTopic(topic) {
     id: optionalString(topic.id),
     topicName: requireNonEmptyString(topic.topicName, "topicName"),
     pausable: topic.pausable,
+    assessmentFrameworkIds: topic.assessmentFrameworkIds,
     subtopics: normalizeSubtopics(topic.subtopics || {}),
     preAssessmentPractices: normalizePreAssessmentPractices(
       topic.preAssessmentPractices || {}
@@ -202,6 +205,7 @@ function toSyllabusTopicRecord(topic) {
   return {
     topicName: requireNonEmptyString(topic.topicName, "topicName"),
     pausable: topic.pausable,
+    assessmentFrameworkIds: topic.assessmentFrameworkIds,
     subtopics: normalizeSubtopics(topic.subtopics || {}),
     preAssessmentPractices: Object.fromEntries(
       Object.entries(preAssessmentPractices).map(
@@ -209,7 +213,8 @@ function toSyllabusTopicRecord(topic) {
           languageKey,
           {
             language: assignment.language,
-            practiceId: assignment.practiceId
+            practiceId: assignment.practiceId,
+            practiceType: assignment.practiceType
           }
         ]
       )
@@ -226,6 +231,35 @@ function applyScopeFilter(query, fieldName, value) {
 }
 
 export class FirestoreSyllabusRepository extends SyllabusRepository {
+
+
+  async assignTopicAssessmentFramework({syllabusId, topicId, language, assessmentFrameworkId}, {assertAccess = () => {}} = {}) {
+    assertAccess();
+    const db = frameworkFirebaseOps.getFirestoreDb();
+    const ref = db.collection(getTopicsCollectionPath(syllabusId)).doc(topicId);
+    const {FieldPath, FieldValue} = frameworkFirebaseOps.getFirebaseNamespace().firestore;
+    await db.runTransaction(async transaction => {
+      assertAccess();
+      const snapshot = await transaction.get(ref);
+      assertAccess();
+      if (!snapshot.exists) throw new Error("Syllabus topic could not be found.");
+      transaction.update(ref, new FieldPath("assessmentFrameworkIds", createSyllabusLanguageKey(language)),
+        assessmentFrameworkId === null ? FieldValue.delete() : assessmentFrameworkId);
+    });
+  }
+
+  async assignPreAssessmentPractice(syllabusId, topicId, assignment) {
+    const languageKey = createSyllabusLanguageKey(assignment.language);
+    await writeDocument(
+      getTopicsCollectionPath(syllabusId), topicId,
+      {preAssessmentPractices: {[languageKey]: {
+        language: assignment.language, practiceId: assignment.practiceId, practiceType: assignment.practiceType,
+      }}},
+      {merge: true},
+    );
+    return assignment;
+  }
+
   async getById(syllabusId) {
     const data = await readDocument(SYLLABUSES_COLLECTION, syllabusId);
 

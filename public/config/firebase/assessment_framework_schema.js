@@ -1,3 +1,4 @@
+export const assessmentFrameworkTypes = Object.freeze({NORMAL: "normal", ESSAY: "essay"});
 export const ASSESSMENT_FRAMEWORKS_COLLECTION = "assessmentFrameworks";
 export const ASSESSMENT_FRAMEWORK_LEVELS_SUBCOLLECTION = "levels";
 export const ASSESSMENT_FRAMEWORK_PRE_ASSESSMENT_SUBCOLLECTION =
@@ -53,6 +54,7 @@ export const assessmentFrameworkSchema = {
   collection: ASSESSMENT_FRAMEWORKS_COLLECTION,
   documentId: assessmentFrameworkDocumentIdPattern,
   fields: {
+    frameworkType: {type: "string", enum: Object.values(assessmentFrameworkTypes), default: assessmentFrameworkTypes.NORMAL},
     name: "string",
     endLevelName: "string"
   },
@@ -166,6 +168,7 @@ export const assessmentFrameworkSchema = {
 };
 
 export default {
+  assessmentFrameworkTypes,
   ASSESSMENT_FRAMEWORKS_COLLECTION,
   ASSESSMENT_FRAMEWORK_LEVELS_SUBCOLLECTION,
   ASSESSMENT_FRAMEWORK_PRE_ASSESSMENT_SUBCOLLECTION,

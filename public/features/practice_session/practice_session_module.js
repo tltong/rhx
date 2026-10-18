@@ -20,7 +20,7 @@ import {
 import {
   getPracticeResult,
   submitPracticeResult
-} from "../practice_result/practice_result_module.js?v=20260808-practice-session";
+} from "../practice_result/practice_result_module.js?v=20261018-topic-reset-v1";
 import {
   getQuestionsForPractice
 } from "../question/question_module.js?v=20260822-question-routing";
@@ -31,7 +31,7 @@ import {
   completeAssignedPractice,
   getAssignedPractice,
   listAssignedPractices
-} from "../student_practice/student_practice_module.js?v=20260816-practice-id-lists";
+} from "../student_practice/student_practice_module.js?v=20261018-topic-reset-v1";
 import {
   requireCurrentStudentAuthUser
 } from "../student/student_module.js?v=20260716-no-eager-auth";

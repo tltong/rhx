@@ -1,15 +1,17 @@
 /**
  * Essay Scoring feature APIs, mirrored in backend and web.
  *
- * scoreEssay({questionId, answer}) -> Promise<{score, corrections}>
+ * scoreEssay({questionId, answer}) -> Promise<{score, reviewComment, corrections}>
  *   Loads the saved essay question and grades with the LLM. Does not write results.
- * saveEssayResult({studentId, questionId, answer, score, corrections}) -> Promise<EssayResult>
+ * saveEssayResult({studentId, questionId, answer, score, reviewComment, corrections}) -> Promise<EssayResult>
  *   Validates that the essay question exists and atomically replaces the current result.
  * getEssayResult({studentId, questionId}) -> Promise<EssayResult|null>
  *
  * Storage: essayResults/{studentId}/questions/{questionId}.
  * One result per student and question; saving again replaces the earlier result.
- * EssayResult: {studentId, questionId, answer, score, corrections, scoredAt}.
+ * EssayResult: {studentId, questionId, answer, score, reviewComment, corrections, scoredAt}.
+ * reviewComment: nonempty overall feedback on strengths and improvements, in the question's language.
+ * Required for new assessments and saves; legacy reads may omit reviewComment.
  * score: finite number 0-100. corrections: [{originalText, correctedText, explanation}].
  * originalText is an exact nonempty excerpt from answer; correctedText may be empty for deletion.
  * The exact submitted answer is retained. scoredAt is a server timestamp, returned as a Date.
@@ -38,8 +40,8 @@ async function scoreEssay(input) {
   return scoring.execute(input);
 }
 
-async function saveEssayResult(input) {
-  return saveResult.execute(input);
+async function saveEssayResult(input, context) {
+  return saveResult.execute(input, context);
 }
 
 async function getEssayResult(input) {

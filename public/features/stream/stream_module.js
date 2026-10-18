@@ -24,7 +24,7 @@ import {
 import {
   getSyllabusById,
   listSyllabuses
-} from "../syllabus/syllabus_module.js?v=20260823-stream-feature";
+} from "../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
 import {
   AttachSyllabusToYear
 } from "./application/attach_syllabus_to_year.js?v=20260823-stream-language-v1";

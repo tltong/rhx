@@ -26,7 +26,7 @@ export class AssignPracticeToStudent {
     );
   }
 
-  async execute(input) {
+  async execute(input, context) {
     const assignment = input instanceof StudentPracticeAssignment
       ? input
       : new StudentPracticeAssignment(input);
@@ -36,6 +36,6 @@ export class AssignPracticeToStudent {
       throw new Error(`Practice ${assignment.practiceId} was not found.`);
     }
 
-    return this.studentPracticeRepository.assign(assignment);
+    return context ? this.studentPracticeRepository.assign(assignment, context) : this.studentPracticeRepository.assign(assignment);
   }
 }

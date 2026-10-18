@@ -39,6 +39,7 @@ function checkRead(path) {
 function reference(path) {
   return {
     id: path.split("/").at(-1), path,
+    collection: name => collection(path + "/" + name),
     async get() { checkRead(path); return snapshot(path); },
     async set(data, options) {
       if (writeFailure) throw writeFailure;
@@ -50,14 +51,22 @@ function reference(path) {
   };
 }
 
-function collection(path) {
+function collection(path, criteria = {}) {
   return {
     doc(id) { return reference(path + "/" + id); },
+    where: (field, operator, value) => collection(path, {...criteria, filters: [...(criteria.filters ?? []), [field, value]]}),
+    orderBy: () => collection(path, {...criteria, ordered: true}),
+    startAfter: after => collection(path, {...criteria, after}),
+    limit: limit => collection(path, {...criteria, limit}),
     async get() {
       checkRead(path);
-      const paths = [...documents.keys()].filter((key) => (
+      let paths = [...documents.keys()].filter((key) => (
         key.startsWith(path + "/") && key.slice(path.length + 1).split("/").length === 1
       ));
+      paths = paths.filter(key => (criteria.filters ?? []).every(([field, value]) => documents.get(key)[field] === value));
+      if (criteria.ordered) paths.sort();
+      if (criteria.after) paths = paths.filter(key => key.split("/").at(-1) > criteria.after);
+      if (criteria.limit) paths = paths.slice(0, criteria.limit);
       return {docs: paths.map(snapshot)};
     }
   };
@@ -65,6 +74,7 @@ function collection(path) {
 
 const db = {collection};
 const firestore = () => db;
+firestore.FieldPath = {documentId: () => "__name__"};
 firestore.FieldValue = {serverTimestamp: () => "server-timestamp"};
 const app = {
   firestore: () => db,
@@ -96,6 +106,7 @@ backendOps.readCollection = async (path) => (
 );
 backendOps.readCollectionIds = async (path) => (await collection(path).get()).docs.map((record) => record.id);
 backendOps.writeDocument = (path, id, data, options) => reference(path + "/" + id).set(data, options);
+backendOps.getFirestoreDb = () => db;
 const backend = require("../../../functions/features/reliability/reliability_module.js");
 
 function seedSyllabus(id = "math", topicIds = ["fractions", "algebra", "geometry", "measurement"]) {
@@ -121,6 +132,14 @@ function seedPractice(id, {studentId = "student-1", syllabusId = "math", topicId
 function seedTopicScore(topicId, score, completedPracticeCount = 0, {studentId = "student-1", syllabusId = "math"} = {}) {
   documents.set("reliability/" + studentId + "/syllabuses/" + syllabusId + "/topics/" + topicId, {
     score, completedPracticeCount, updatedAt: {toDate: () => baseTime}
+  });
+}
+
+function seedEssay(id, {studentId = scope.studentId, syllabusId = scope.syllabusId, topicId = scope.topicId} = {}) {
+  documents.set("studentEssayPractices/" + studentId + "/completedEssayPractices/" + id, {
+    essayQuestionId: "essay-" + id, syllabusId, topicId,
+    assignedAt: baseTime, completedAt: baseTime, essayText: "My essay.", timeTakenSeconds: 10,
+    scoring: {status: "pending"},
   });
 }
 
@@ -156,6 +175,22 @@ test("backend and web use identical schemas and explicit topic/subject API names
 });
 
 for (const [layer, api] of [["backend", backend], ["web", web]]) {
+  test(layer + ": submitted essays and normal practices count separately even when IDs match, without requiring a grade", async () => {
+    seedPractice("same"); seedEssay("same"); seedEssay("second");
+    seedEssay("other-topic", {topicId: "algebra"}); seedEssay("other-student", {studentId: "another"});
+    assert.deepEqual(await api.calculateTopicReliabilityScore(scope), {score: 30, completedPracticeCount: 3});
+    assert.deepEqual(writes, []);
+  });
+
+  test(layer + ": essay reliability reads all pages, caps at 100 and includes untouched topics in the subject average", async () => {
+    for (let index = 0; index < 105; index++) seedEssay("attempt-" + String(index).padStart(3, "0"));
+    const topic = await api.calculateTopicReliabilityScore(scope);
+    assert.deepEqual(topic, {score: 100, completedPracticeCount: 105});
+    assert.equal(reads.filter(path => path === "studentEssayPractices/student-1/completedEssayPractices").length, 2);
+    await api.saveTopicReliabilityScore({...scope, ...topic});
+    assert.equal(await api.calculateSubjectReliabilityScore(scope), 25);
+  });
+
   test(layer + ": initial 10% rate works without persisting default configuration", async () => {
     assert.equal(await api.getReliabilityConfig(), null);
     seedPractice("assessment-1");

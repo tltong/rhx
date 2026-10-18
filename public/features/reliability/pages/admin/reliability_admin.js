@@ -2,7 +2,7 @@ import {
   DEFAULT_PERCENTAGE_PER_PRACTICE,
   getReliabilityConfig,
   saveReliabilityConfig
-} from "../../reliability_module.js?v=20261008-reliability-v1";
+} from "../../reliability_module.js?v=20261018-essay-reuse-v1";
 
 export function mountReliabilityAdmin({
   root = document,

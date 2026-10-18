@@ -7,7 +7,8 @@ function requireFunction(value, name) {
 }
 
 export class LoadPreAssessmentGeneratorOptions {
-  constructor(listSyllabuses) {
+  constructor(listSyllabuses, {getAssessmentFrameworkById} = {}) {
+    this.getAssessmentFrameworkById = getAssessmentFrameworkById;
     this.listSyllabuses = requireFunction(
       listSyllabuses,
       "listSyllabuses"
@@ -16,12 +17,14 @@ export class LoadPreAssessmentGeneratorOptions {
 
   async execute() {
     const syllabuses = await this.listSyllabuses();
+    const frameworkTypes = {};
+    const ids = new Set(syllabuses.flatMap(syllabus => [syllabus.assessmentFrameworkId, ...(syllabus.topics || []).flatMap(topic => Object.values(topic.assessmentFrameworkIds || {}))]).filter(Boolean));
+    if (this.getAssessmentFrameworkById) await Promise.all([...ids].map(async id => {const framework = await this.getAssessmentFrameworkById(id); if (framework) frameworkTypes[id] = framework.frameworkType || "normal";}));
 
     return {
       syllabuses: syllabuses
         .filter((syllabus) => (
           syllabus.id &&
-          syllabus.assessmentFrameworkId &&
           Array.isArray(syllabus.topics) &&
           syllabus.topics.length > 0 &&
           Array.isArray(syllabus.languages) &&
@@ -29,6 +32,8 @@ export class LoadPreAssessmentGeneratorOptions {
         ))
         .map((syllabus) => ({
           id: syllabus.id,
+          assessmentFrameworkId: syllabus.assessmentFrameworkId || null,
+          frameworkTypes,
           country: syllabus.country,
           level: syllabus.level,
           year: syllabus.year,
@@ -38,6 +43,7 @@ export class LoadPreAssessmentGeneratorOptions {
           topics: syllabus.topics.map((topic) => ({
             id: topic.id,
             topicName: topic.topicName,
+            assessmentFrameworkIds: {...(topic.assessmentFrameworkIds || {})},
             preAssessmentPractices: {
               ...(topic.preAssessmentPractices || {})
             }

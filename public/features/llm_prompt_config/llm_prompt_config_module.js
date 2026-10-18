@@ -22,7 +22,7 @@ import {
 import {
   getSyllabusById,
   listSyllabuses
-} from "../syllabus/syllabus_module.js?v=20260801-syllabus-topic-instructions";
+} from "../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
 import {
   FirestoreSyllabusPromptInstructionsRepository
 } from "./infrastructure/firestore_syllabus_prompt_instructions_repository.js?v=20260801-syllabus-topic-instructions";

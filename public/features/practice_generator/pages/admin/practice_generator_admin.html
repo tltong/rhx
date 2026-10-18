@@ -67,6 +67,15 @@
           </div>
         </dl>
 
+        <label class="field">
+          <span>Practice type</span>
+          <select id="practice-type-select">
+            <option value="normal">Normal pre-assessment practice</option>
+            <option value="essay">Essay pre-assessment practice</option>
+          </select>
+        </label>
+        <p id="practice-type-help" class="assignment-message"></p>
+
         <p id="assignment-message" class="assignment-message" hidden></p>
 
         <div class="actions">
@@ -136,7 +145,7 @@
       id="site-admin-page-loader"
       type="module"
       data-site-admin-page
-      data-page-module="./practice_generator_admin.js?v=20260822-previous-practice-variety"
+      data-page-module="./practice_generator_admin.js?v=20261018-essay-progression-v1"
       src="/features/site_admin/pages/common/site_admin_page_loader.js?v=20260827-site-admin-guard-v1"
     ></script>
   </body>

@@ -1,6 +1,7 @@
 export const STUDENT_ESSAY_PRACTICES_COLLECTION = "studentEssayPractices";
 export const ASSIGNED_ESSAY_PRACTICES_SUBCOLLECTION = "assignedEssayPractices";
 export const COMPLETED_ESSAY_PRACTICES_SUBCOLLECTION = "completedEssayPractices";
+export const ESSAY_QUESTION_USAGE_SUBCOLLECTION = "questionUsage";
 
 export const studentEssayPracticeDocumentIdPattern = "[student_id]";
 export const assignedEssayPracticeDocumentIdPattern = "[essay_practice_id]";
@@ -11,6 +12,11 @@ export const studentEssayPracticeSchema = {
   documentId: studentEssayPracticeDocumentIdPattern,
   fields: {},
   subcollections: {
+    questionUsage: {
+      collection: ESSAY_QUESTION_USAGE_SUBCOLLECTION,
+      documentId: "[essay_question_id]",
+      fields: {essayPracticeId: "string", syllabusId: "string", topicId: "string", assignedAt: "timestamp"}
+    },
     assignedEssayPractices: {
       collection: ASSIGNED_ESSAY_PRACTICES_SUBCOLLECTION,
       documentId: assignedEssayPracticeDocumentIdPattern,
@@ -31,7 +37,8 @@ export const studentEssayPracticeSchema = {
         assignedAt: "timestamp",
         completedAt: "timestamp",
         essayText: "string",
-        timeTakenSeconds: "number"
+        timeTakenSeconds: "number",
+        scoring: {type: "map", fields: {status: "pending|scoring|completed|failed|superseded", updatedAt: "timestamp", leaseUntil: {type: "timestamp", optional: true}}}
       }
     }
   }
@@ -41,6 +48,7 @@ export default {
   STUDENT_ESSAY_PRACTICES_COLLECTION,
   ASSIGNED_ESSAY_PRACTICES_SUBCOLLECTION,
   COMPLETED_ESSAY_PRACTICES_SUBCOLLECTION,
+  ESSAY_QUESTION_USAGE_SUBCOLLECTION,
   studentEssayPracticeDocumentIdPattern,
   assignedEssayPracticeDocumentIdPattern,
   completedEssayPracticeDocumentIdPattern,

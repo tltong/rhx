@@ -2,6 +2,8 @@ const {
   onDocumentCreated,
 } = require("firebase-functions/v2/firestore");
 const logger = require("firebase-functions/logger");
+const {withTopicResetGuard} = require("../utils/student_topic_reset_guard");
+const {getPracticeById} = require("../features/practice/practice_module");
 const {
   assessStudentPractice,
 } = require(
@@ -374,11 +376,19 @@ const onStudentPracticeCompleted = onDocumentCreated(
     secrets: [deepseekApiKey],
     timeoutSeconds: 540,
   },
-  async (event) => assessCompletedStudentPractice({
-    eventId: event.id,
-    studentId: event.params.studentId,
-    practiceId: event.params.practiceId,
-  }),
+  async (event) => {
+    const practice = await getPracticeById(event.params.practiceId);
+    const scopes = [...new Map((practice?.questions ?? []).map(question => [JSON.stringify([question.syllabusId, question.topicId]),
+      {syllabusId: question.syllabusId, topicId: question.topicId}])).values()];
+    try {
+      return await withTopicResetGuard({studentId: event.params.studentId, scopes, createdAt: event.data?.createTime},
+        () => assessCompletedStudentPractice({eventId: event.id, studentId: event.params.studentId, practiceId: event.params.practiceId}));
+    } catch (error) {
+      if (error.code !== "topic-practice-reset") throw error;
+      logger.info("Ignoring a completion cancelled by a topic reset.", event.params);
+      return null;
+    }
+  },
 );
 
 module.exports = {

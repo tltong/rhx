@@ -63,7 +63,7 @@ class GetAssessmentLevelCriteria {
       );
     }
 
-    return toAssessmentLevelCriteria(normalizedFrameworkId, level);
+    return Object.freeze({...toAssessmentLevelCriteria(normalizedFrameworkId, level), ...(assessmentFramework.frameworkType === "essay" ? {frameworkType: "essay"} : {})});
   }
 }
 

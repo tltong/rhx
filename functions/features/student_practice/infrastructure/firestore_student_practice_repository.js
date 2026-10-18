@@ -4,6 +4,7 @@ const {
   STUDENT_PRACTICES_COLLECTION,
 } = require("../../../schema/student_practice_schema");
 const firebaseOps = require("../../../utils/firebase/firebase_ops");
+const {guardResetTransaction, guardStudentMaintenance, hasResetGuard} = require("../../../utils/student_topic_reset_guard");
 const {
   StudentPracticeAssignment,
 } = require("../domain/student_practice_assignment");
@@ -100,6 +101,15 @@ class FirestoreStudentPracticeRepository extends StudentPracticeRepository {
       ? assignment
       : new StudentPracticeAssignment(assignment);
 
+    if (hasResetGuard()) {
+      await this.getFirestoreDb().runTransaction(async transaction => {
+        await guardResetTransaction(transaction, this.getFirestoreDb());
+        transaction.set(this.getDocumentRef(STUDENT_PRACTICES_COLLECTION, normalizedAssignment.studentId), {}, {merge: true});
+        transaction.set(this.getDocumentRef(assignedPracticesCollectionPath(normalizedAssignment.studentId), normalizedAssignment.practiceId), {});
+      });
+      return normalizedAssignment;
+    }
+
     await this.writeDocument(
       STUDENT_PRACTICES_COLLECTION,
       normalizedAssignment.studentId,
@@ -130,6 +140,8 @@ class FirestoreStudentPracticeRepository extends StudentPracticeRepository {
     );
 
     await this.getFirestoreDb().runTransaction(async (transaction) => {
+      await guardStudentMaintenance(transaction, this.getDocumentRef("studentPracticeResets", normalizedCompletion.studentId));
+      await guardResetTransaction(transaction, this.getFirestoreDb());
       const completedSnapshot = await transaction.get(completedDocument);
 
       if (completedSnapshot.exists) {

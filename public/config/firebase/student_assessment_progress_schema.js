@@ -42,6 +42,7 @@ export const studentAssessmentProgressSchema = {
                 setAt: "timestamp"
               }
             },
+            assessmentRevision: "integer (legacy default 0)",
             currentLevelId: "string",
             isFrameworkCompleted: "boolean",
             levelHistory: {

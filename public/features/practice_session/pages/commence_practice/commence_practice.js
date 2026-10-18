@@ -2,7 +2,7 @@ import {
   answerPracticeQuestion,
   startPracticeSession,
   submitPracticeSession
-} from "../../practice_session_module.js?v=20260822-question-routing";
+} from "../../practice_session_module.js?v=20261018-topic-reset-v1";
 import {
   onStudentAuthStateChanged
 } from "../../../student/student_module.js?v=20260716-no-eager-auth";

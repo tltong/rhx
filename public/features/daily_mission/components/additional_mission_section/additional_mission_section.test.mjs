@@ -93,6 +93,66 @@ function coreMission(isAccepted = true) {
   };
 }
 
+test("a completed essay daily mission unlocks a typed additional essay and opens its submission page", async () => {
+  const container = new FakeElement("div"), calls = [], navigations = [];
+  const subject = syllabus(); subject.topics[0].completedPractices = [{practiceId: "core-essay", practiceType: "essay"}];
+  const mission = {practiceId: "next-essay", practiceType: "essay", topicId: "topic-additional"};
+  const section = new AdditionalMissionSection({studentId: "student-1", syllabuses: [subject],
+    getNextCoreDailyMission: async () => ({...coreMission(), practiceId: "core-essay", practiceType: "essay"}),
+    listAdditionalMissions: async input => {calls.push(["list", input]); return [mission];},
+    getPracticeById: async () => assert.fail("Essay missions do not load normal shared practices"),
+    acceptAdditionalDailyMission: async input => {calls.push(["accept", input]); return input;},
+    pauseCoreDailyMission: async () => {}, isTopicPausable: async () => false,
+    navigate: url => navigations.push(url), documentRef: fakeDocument});
+  section.mount(container); await section.ready; await section.open();
+  await findByText(container, "Mathematics - English").click();
+  await findByText(container, "Get Next Mission").click();
+  assert.equal(findByText(container, "Not learned yet"), undefined);
+  await findByText(container, "Start Mission").click();
+  assert.deepEqual(calls.find(c => c[0] === "accept")[1], {studentId: "student-1", practiceId: "next-essay", practiceType: "essay"});
+  assert.deepEqual(navigations, ["/features/essay_practice_session/pages/essay_practice/essay_practice.html?essayPracticeId=next-essay"]);
+});
+
+test("essay completion checks distinguish a normal practice with the same ID", async () => {
+  const container = new FakeElement("div");
+  const section = new AdditionalMissionSection({studentId: "student-1", syllabuses: [syllabus(["core-practice"])],
+    getNextCoreDailyMission: async () => ({...coreMission(), practiceType: "essay"}),
+    listAdditionalMissions: async () => assert.fail("An essay daily mission is still incomplete"),
+    acceptAdditionalDailyMission: async () => {}, pauseCoreDailyMission: async () => {}, isTopicPausable: async () => false,
+    navigate() {}, documentRef: fakeDocument});
+  section.mount(container); await section.ready;
+  assert.equal(findByText(container, "Mathematics - English").disabled, true);
+});
+
+test("pending essay generation is shown up front and assignment refresh makes the mission available", async () => {
+  const container = new FakeElement("div"); let preparing = true;
+  const section = new AdditionalMissionSection({studentId: "student-1", syllabuses: [syllabus(["core-practice"])],
+    getNextCoreDailyMission: async () => coreMission(),
+    getAdditionalMissionAvailability: async () => preparing ? {missions: [], preparingEssay: true}
+      : {missions: [{practiceId: "next", practiceType: "essay", topicId: "topic-additional"}], preparingEssay: false},
+    acceptAdditionalDailyMission: async input => input, pauseCoreDailyMission: async () => {}, isTopicPausable: async () => false,
+    navigate() {}, documentRef: fakeDocument});
+  section.mount(container); await section.ready;
+  assert.ok(findByText(container, "Preparing your next essay…"));
+  assert.equal(findByText(container, "Mathematics - English — Preparing next essay").disabled, true);
+  assert.equal(findByText(container, "No more additional missions available today."), undefined);
+  preparing = false; await section.refreshAvailability();
+  assert.equal(findByText(container, "Mathematics - English").disabled, false);
+});
+
+test("pausing an additional essay passes its type through the existing pausing API", async () => {
+  const calls = [], container = new FakeElement("div"); let paused = false;
+  const section = new AdditionalMissionSection({studentId: "student-1", syllabuses: [syllabus(["core-practice"])],
+    getNextCoreDailyMission: async () => coreMission(),
+    listAdditionalMissions: async () => paused ? [] : [{practiceId: "essay", practiceType: "essay", topicId: "topic-additional"}],
+    acceptAdditionalDailyMission: async () => {}, pauseCoreDailyMission: async input => {calls.push(input); paused = true;},
+    isTopicPausable: async () => true, navigate() {}, documentRef: fakeDocument});
+  section.mount(container); await section.ready; await section.loadMission("syllabus-1");
+  await findByText(container, "Not learned yet").click();
+  assert.deepEqual(calls, [{studentId: "student-1", practiceId: "essay", practiceType: "essay"}]);
+  assert.ok(findByText(container, "No more additional missions available for this subject today."));
+});
+
 test("additional subject stays locked until its core mission is complete", async () => {
   let listCalls = 0;
   const container = new FakeElement("div");

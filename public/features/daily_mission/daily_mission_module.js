@@ -1,4 +1,17 @@
 /**
+ * listAdditionalMissions({studentId, syllabusId}) -> [{practiceId, practiceType: "normal"|"essay", topicId}]
+ * getAdditionalMissionAvailability({studentId, syllabusId}) -> {missions, preparingEssay}
+ * The legacy listAdditionalMissionPracticeIds API returns normal-practice IDs only.
+ * acceptAdditionalDailyMission accepts optional practiceType (default normal).
+ * One additional mission per topic per day is shared across both practice types.
+ */
+import {GetAdditionalMissionAvailability} from "./application/get_additional_mission_availability.js?v=20261018-additional-essay-v1";
+import {listAssignedEssayPractices, listCompletedEssayPractices, getAssignedEssayPractice, getCompletedEssayPractice} from "../student_essay_practice/student_essay_practice_module.js?v=20261018-essay-reuse-v1";
+import {ListAdditionalMissions} from "./application/list_additional_missions.js?v=20261018-additional-essay-v1";
+/**
+ * Essay core missions include practiceType: "essay"; practiceId is the student essay attempt ID.
+ * Omitted practiceType means a normal practice. Submission completes an essay mission before grading.
+ *
  * Feature API
  *
  * getAcceptedAdditionalMissionForPractice({studentId: string, practiceId: string})
@@ -8,7 +21,7 @@
  * Supports older records without a lookup and returns the latest acceptance.
  * Acceptance is independent of practice completion.
  *
- * getAcceptedDailyMissionForPractice({studentId: string, practiceId: string})
+ * getAcceptedDailyMissionForPractice({studentId: string, practiceId: string, practiceType?: "normal"|"essay"})
  *   -> Promise<{missionDate: string, syllabusId: string, topicId: string,
  *     practiceId: string}|null>
  * Read-only. Verifies the lookup against the accepted core mission record.
@@ -30,7 +43,7 @@
  * It does not store an unaccepted mission suggestion.
  * Each subject has at most one accepted Daily Mission per day.
  *
- * acceptCoreDailyMission({studentId: string, practiceId: string})
+ * acceptCoreDailyMission({studentId: string, practiceId: string, practiceType?: "normal"|"essay"})
  *   -> Promise<{
  *     studentId: string,
  *     syllabusId: string,
@@ -41,7 +54,7 @@
  *     created: boolean
  *   }>
  *
- * pauseCoreDailyMission({studentId: string, practiceId: string})
+ * pauseCoreDailyMission({studentId: string, practiceId: string, practiceType?: "normal"|"essay"})
  * Rejects topics whose syllabus pausable flag is false.
  *   -> Promise<{
  *     studentId: string,
@@ -90,41 +103,41 @@ import {
 } from "./application/accept_core_daily_mission.js";
 import {
   AcceptAdditionalDailyMission
-} from "./application/accept_additional_daily_mission.js?v=20261001-direct-additional-accept-v1";
+} from "./application/accept_additional_daily_mission.js?v=20261018-additional-essay-v1";
 import {
   CheckPausedTopicValidity
 } from "./application/check_paused_topic_validity.js";
 import {
   GetNextCoreDailyMission
-} from "./application/get_next_core_daily_mission.js?v=20261001-direct-core-v1";
-import {GetAcceptedAdditionalMissionForPractice} from "./application/get_accepted_additional_mission_for_practice.js?v=20261010-additional-mission-rewards-v1";
+} from "./application/get_next_core_daily_mission.js?v=20261018-essay-session-v1";
+import {GetAcceptedAdditionalMissionForPractice} from "./application/get_accepted_additional_mission_for_practice.js?v=20261018-essay-session-v1";
 import {
   GetAcceptedDailyMissionForPractice
-} from "./application/get_accepted_daily_mission_for_practice.js?v=20261010-accepted-daily-mission-v1";
+} from "./application/get_accepted_daily_mission_for_practice.js?v=20261018-essay-session-v1";
 import {
   IsTopicPaused
 } from "./application/is_topic_paused.js";
 import {
   ListAdditionalMissionPracticeIds
-} from "./application/list_additional_mission_practice_ids.js?v=20261004-subject-topic-missions-v1";
+} from "./application/list_additional_mission_practice_ids.js?v=20261018-additional-essay-v1";
 import {
   PauseCoreDailyMission
-} from "./application/pause_core_daily_mission.js?v=20261004-pausable-missions-v1";
+} from "./application/pause_core_daily_mission.js?v=20261018-essay-session-v1";
 import {
   UnpauseTopic
 } from "./application/unpause_topic.js";
 import {
   FirestoreDailyMissionRepository
-} from "./infrastructure/firestore_daily_mission_repository.js?v=20261010-additional-mission-rewards-v1";
+} from "./infrastructure/firestore_daily_mission_repository.js?v=20261018-essay-reuse-v1";
 import {
   getPracticeById
 } from "../practice/practice_module.js?v=20260824-completed-practices";
 import {
   listAssignedPracticeIds
-} from "../student_practice/student_practice_module.js?v=20260824-completed-practices";
+} from "../student_practice/student_practice_module.js?v=20261018-topic-reset-v1";
 import {
   isTopicPausable
-} from "../syllabus/syllabus_module.js?v=20261004-topic-pausable-v1";
+} from "../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
 
 const dailyMissionRepository = new FirestoreDailyMissionRepository();
 const getAcceptedAdditionalMissionForPracticeUseCase = new GetAcceptedAdditionalMissionForPractice({dailyMissionRepository});
@@ -141,6 +154,7 @@ const isTopicPausedUseCase = new IsTopicPaused({
 const getNextCoreDailyMissionUseCase = new GetNextCoreDailyMission({
   dailyMissionRepository,
   listAssignedPracticeIds,
+  listAssignedEssayPractices,
   getPracticeById,
   checkPausedTopicValidity: runPausedTopicValidityCheck
 });
@@ -149,12 +163,14 @@ const acceptCoreDailyMissionUseCase = new AcceptCoreDailyMission({
   getNextCoreDailyMission: (input) => (
     getNextCoreDailyMissionUseCase.execute(input)
   ),
-  getPracticeById
+  getPracticeById,
+  getAssignedEssayPractice, getCompletedEssayPractice
 });
 const pauseCoreDailyMissionUseCase = new PauseCoreDailyMission({
   dailyMissionRepository,
   getPracticeById,
-  isTopicPausable
+  isTopicPausable,
+  getAssignedEssayPractice
 });
 const listAdditionalMissionPracticeIdsUseCase =
   new ListAdditionalMissionPracticeIds({
@@ -166,8 +182,16 @@ const listAdditionalMissionPracticeIdsUseCase =
 const acceptAdditionalDailyMissionUseCase =
   new AcceptAdditionalDailyMission({
     dailyMissionRepository,
+    getAssignedEssayPractice, getCompletedEssayPractice,
     getPracticeById
   });
+const listAdditionalMissionsUseCase = new ListAdditionalMissions({dailyMissionRepository, listAssignedPracticeIds,
+  listAssignedEssayPractices, getPracticeById, checkPausedTopicValidity: runPausedTopicValidityCheck});
+async function listAdditionalMissions(input) {return listAdditionalMissionsUseCase.execute(input);}
+const additionalMissionAvailability = new GetAdditionalMissionAvailability({listAdditionalMissions,
+  dailyMissionRepository, listCompletedEssayPractices, checkPausedTopicValidity: runPausedTopicValidityCheck,
+  getCurrentDate: () => new Date().toISOString().slice(0, 10)});
+async function getAdditionalMissionAvailability(input) {return additionalMissionAvailability.execute(input);}
 const unpauseTopicUseCase = new UnpauseTopic({
   dailyMissionRepository
 });
@@ -209,6 +233,7 @@ async function unpauseTopic(input) {
 }
 
 export {
+  listAdditionalMissions, getAdditionalMissionAvailability,
   acceptAdditionalDailyMission,
   acceptCoreDailyMission,
   getAcceptedAdditionalMissionForPractice,

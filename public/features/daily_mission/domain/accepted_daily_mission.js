@@ -1,3 +1,4 @@
+import {missionTypeFields} from "./mission_practice_type.js?v=20261018-essay-session-v1";
 function requireDocumentId(value, name) {
   if (typeof value !== "string" || !value.trim() || value.includes("/")
       || [".", ".."].includes(value.trim()) || /^__.*__$/.test(value.trim())
@@ -14,6 +15,7 @@ function requireAcceptedDailyMissionScope(input) {
   return {
     studentId: requireDocumentId(input.studentId, "studentId"),
     practiceId: requireDocumentId(input.practiceId, "practiceId"),
+    ...missionTypeFields(input.practiceType),
   };
 }
 
@@ -29,6 +31,7 @@ function requireAcceptedDailyMissionContext(input) {
     syllabusId: requireDocumentId(input.syllabusId, "syllabusId"),
     topicId: requireDocumentId(input.topicId, "topicId"),
     practiceId: requireDocumentId(input.practiceId, "practiceId"),
+    ...missionTypeFields(input.practiceType),
   });
 }
 

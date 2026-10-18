@@ -221,7 +221,7 @@ class SubmitPracticeResult {
       answers: evaluatedAnswers,
     });
 
-    return this.practiceResultRepository.create(practiceResult);
+    return this.practiceResultRepository.create(practiceResult, {questionReferences: practice.questions});
   }
 }
 

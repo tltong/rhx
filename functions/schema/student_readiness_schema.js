@@ -26,8 +26,9 @@ const studentReadinessSchema = {
             practiceId: {
               type: "string",
               optional: true,
-              references: "practices/{practiceId}",
+              references: "practices/{practiceId} or studentEssayPractices/{studentId}/completedEssayPractices/{practiceId}",
             },
+            practiceType: {type: "string", enum: ["normal", "essay"], optional: true},
           },
         },
         topics: {
@@ -47,8 +48,9 @@ const studentReadinessSchema = {
                 practiceId: {
                   type: "string",
                   optional: true,
-                  references: "practices/{practiceId}",
+                  references: "practices/{practiceId} or studentEssayPractices/{studentId}/completedEssayPractices/{practiceId}",
                 },
+                practiceType: {type: "string", enum: ["normal", "essay"], optional: true},
               },
             },
           },

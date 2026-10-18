@@ -1,4 +1,4 @@
-import {requireSubjectScope, requireReadinessScore, normalizeSourcePracticeId} from "../domain/readiness_score.js?v=20261008-subject-readiness-v1";
+import {requireSubjectScope, requireReadinessScore, normalizeSourcePracticeId, normalizeSourcePracticeType} from "../domain/readiness_score.js?v=20261018-essay-completion-metrics-v1";
 
 class SaveSubjectReadinessScore {
   constructor(repository) {
@@ -9,7 +9,9 @@ class SaveSubjectReadinessScore {
     const scope = requireSubjectScope(input);
     const score = requireReadinessScore(input.score);
     const practiceId = normalizeSourcePracticeId(input.practiceId);
-    return this.repository.saveSubject({...scope, score, practiceId});
+    const practiceType = normalizeSourcePracticeType(input.practiceType);
+    if (practiceType !== null && practiceId === null) throw new Error("practiceId is required with practiceType.");
+    return this.repository.saveSubject({...scope, score, practiceId, ...(practiceType === null ? {} : {practiceType})});
   }
 }
 

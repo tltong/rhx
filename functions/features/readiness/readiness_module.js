@@ -11,27 +11,30 @@
  * calculateReadinessScore({studentId, syllabusId, topicId}) -> Promise<number|null>
  *   Averages score times weight for the latest configured N practices of this topic.
  *   Uses available practices when fewer than N; returns null when none exist.
+ *   Includes graded essay completions with the saved question's difficulty weight.
+ *   Pending grades and results for a different submitted answer do not contribute.
  *   Requires saved configuration. Does not persist or cap the result at 100.
  * calculateSubjectReadinessScore({studentId, syllabusId}) -> Promise<number|null>
  *   Equally averages the latest saved scores of current syllabus topics.
  *   Includes zero, excludes missing scores, and returns null when none exist.
  *   Throws not-found for an unknown syllabus. Does not recalculate topics or persist.
- * saveReadinessScore({studentId, syllabusId, topicId, score, practiceId?}) -> Promise<ReadinessScore>
+ * saveReadinessScore({studentId, syllabusId, topicId, score, practiceId?, practiceType?}) -> Promise<ReadinessScore>
  *   Atomically updates the latest score and appends history.
  *   Supplying practiceId retains one entry per completion; retries return the
  *   original saved score without changing the latest score or adding history.
  *   Without practiceId, every save appends a new history entry.
+ *   practiceType: normal|essay; omitted means normal. Essay sources have separate history keys.
  * getReadinessScore({studentId, syllabusId, topicId}) -> Promise<ReadinessScore|null>
  * getReadinessScoreHistory({studentId, syllabusId, topicId})
  *   -> Promise<ReadinessScoreHistoryEntry[]> sorted newest first.
- * saveSubjectReadinessScore({studentId, syllabusId, score, practiceId?}) -> Promise<ReadinessScore>
+ * saveSubjectReadinessScore({studentId, syllabusId, score, practiceId?, practiceType?}) -> Promise<ReadinessScore>
  *   Atomically updates the latest subject score and appends subject history.
  *   The same practiceId retry rules apply as for topic score saves.
  * getSubjectReadinessScore({studentId, syllabusId}) -> Promise<ReadinessScore|null>
  * getSubjectReadinessScoreHistory({studentId, syllabusId})
  *   -> Promise<ReadinessScoreHistoryEntry[]> sorted newest first.
  * ReadinessScore: {score: number, updatedAt: Date}
- * ReadinessScoreHistoryEntry: {id: string, score: number, savedAt: Date, practiceId?: string}
+ * ReadinessScoreHistoryEntry: {id: string, score: number, savedAt: Date, practiceId?: string, practiceType?: normal|essay}
  * DifficultyLevel: {EASY: "easy", MEDIUM: "medium", HARD: "hard"}
  * ReadinessConfig: {difficultyWeights, numberOfPractices, preAssessmentWeight, updatedAt: Date, updatedBy: string}
  */
@@ -55,6 +58,9 @@ const {GetSubjectReadinessScore} = require("./application/get_subject_readiness_
 const {GetSubjectReadinessScoreHistory} = require("./application/get_subject_readiness_score_history");
 const {FirestoreReadinessScoreRepository} = require("./infrastructure/firestore_readiness_score_repository");
 const {listCompletedPractices} = require("../student_practice/student_practice_module");
+const {listCompletedEssayPractices} = require("../student_essay_practice/student_essay_practice_module");
+const {getEssayResult} = require("../essay_scoring/essay_scoring_module");
+const {getEssayQuestionById} = require("../essay_question_generator/essay_question_generator_module");
 const {getPracticeById, practiceTypes} = require("../practice/practice_module");
 const {getQuestionDifficulty} = require("../question/question_module");
 const {getSyllabusById} = require("../syllabus/syllabus_module");
@@ -72,6 +78,7 @@ const scoreRepository = new FirestoreReadinessScoreRepository();
 const calculateScore = new CalculateReadinessScore({
   getReadinessConfig,
   listCompletedPractices,
+  listCompletedEssayPractices, getEssayResult, getEssayQuestionById,
   getPracticeById,
   getQuestionDifficulty,
   assessmentPracticeType: practiceTypes.ASSESSMENT,

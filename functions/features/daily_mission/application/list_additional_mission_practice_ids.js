@@ -107,6 +107,7 @@ class ListAdditionalMissionPracticeIds {
   constructor({
     dailyMissionRepository,
     listAssignedPracticeIds,
+    listAssignedEssayPractices = async () => ({practices: [], nextCursor: null}),
     getPracticeById,
     checkPausedTopicValidity,
     getCurrentDate = currentUtcDate,
@@ -124,6 +125,7 @@ class ListAdditionalMissionPracticeIds {
     }
 
     this.dailyMissionRepository = dailyMissionRepository;
+    this.listAssignedEssayPractices = listAssignedEssayPractices;
     this.listAssignedPracticeIds = requireFunction(
       listAssignedPracticeIds,
       "listAssignedPracticeIds",
@@ -139,7 +141,11 @@ class ListAdditionalMissionPracticeIds {
     this.getCurrentDate = requireFunction(getCurrentDate, "getCurrentDate");
   }
 
-  async execute({studentId, syllabusId} = {}) {
+  async execute(input) {
+    return Object.freeze((await this.listMissions(input)).map(mission => mission.practiceId));
+  }
+
+  async listMissions({studentId, syllabusId} = {}, {includeEssays = false} = {}) {
     const normalizedStudentId = requireDocumentId(studentId, "studentId");
     const normalizedSyllabusId = requireDocumentId(
       syllabusId,
@@ -158,6 +164,7 @@ class ListAdditionalMissionPracticeIds {
     if (!coreMission || !await this.dailyMissionRepository.isPracticeCompleted({
       studentId: normalizedStudentId,
       practiceId: coreMission.practiceId,
+        ...(coreMission.practiceType ? {practiceType: coreMission.practiceType} : {}),
     })) {
       return Object.freeze([]);
     }
@@ -197,13 +204,27 @@ class ListAdditionalMissionPracticeIds {
       if (
         !topicId
         || pausedTopics.has(topicId)
-        || practiceId === corePracticeId
+        || (coreMission.practiceType !== "essay" && practiceId === corePracticeId)
       ) {
         return [];
       }
 
-      return [{topicId, practiceId}];
+      return [{topicId, practiceId, practiceType: "normal"}];
     });
+
+    if (includeEssays) {
+      let cursor = null;
+      do {
+        const page = await this.listAssignedEssayPractices({...input, limit: 100, cursor});
+        for (const assignment of page.practices) {
+          if (assignment.syllabusId === normalizedSyllabusId && !pausedTopics.has(assignment.topicId)
+              && !(coreMission.practiceType === "essay" && assignment.essayPracticeId === corePracticeId)) {
+            candidates.push({topicId: assignment.topicId, practiceId: assignment.essayPracticeId, practiceType: "essay"});
+          }
+        }
+        cursor = page.nextCursor;
+      } while (cursor);
+    }
 
     if (candidates.length === 0) {
       return Object.freeze([]);
@@ -222,7 +243,8 @@ class ListAdditionalMissionPracticeIds {
     );
     const practicesByTopic = new Map();
 
-    candidates.forEach(({topicId, practiceId}) => {
+    candidates.forEach(candidate => {
+      const {topicId} = candidate;
       if (acceptedTopics.has(topicId)) {
         return;
       }
@@ -231,7 +253,7 @@ class ListAdditionalMissionPracticeIds {
         practicesByTopic.set(topicId, []);
       }
 
-      practicesByTopic.get(topicId).push(practiceId);
+      practicesByTopic.get(topicId).push(candidate);
     });
 
     if (practicesByTopic.size === 0) {
@@ -252,10 +274,10 @@ class ListAdditionalMissionPracticeIds {
       seed,
     ));
 
-    return Object.freeze(topics.map(({topicId, practiceIds}) => (
+    return Object.freeze(topics.map(({topicId, practiceIds}) => Object.freeze(
       [...practiceIds].sort((first, second) => compareStable(
-        first,
-        second,
+        first.practiceType === "essay" ? `essay|${first.practiceId}` : first.practiceId,
+        second.practiceType === "essay" ? `essay|${second.practiceId}` : second.practiceId,
         `${seed}|${topicId}|practice`,
       ))[0]
     )));

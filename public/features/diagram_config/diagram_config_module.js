@@ -1,7 +1,7 @@
 import {
   getSyllabusById,
   listSyllabuses
-} from "../syllabus/syllabus_module.js?v=20260724-diagram-config";
+} from "../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
 import {
   GetDiagramConfig
 } from "./application/get_diagram_config.js?v=20260724-diagram-config";

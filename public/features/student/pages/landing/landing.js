@@ -1,3 +1,5 @@
+import {watchStudentEssayPracticeUpdates} from "../../../student_essay_practice/student_essay_practice_module.js?v=20261018-essay-reuse-v1";
+import {EssayPracticeRefreshController} from "./essay_practice_refresh_controller.js?v=20261018-additional-essay-v1";
 import {
   clearCurrentStudent,
   onStudentAuthStateChanged,
@@ -5,7 +7,7 @@ import {
 } from "../../student_module.js?v=20260823-student-country-v1";
 import {
   getStudentDashboard
-} from "../../../student_dashboard/student_dashboard_module.js?v=20261009-reliability-landing-v1";
+} from "../../../student_dashboard/student_dashboard_module.js?v=20261019-essay-level-display-v1";
 import {
   recordStudentLogin
 } from "../../../student_login/student_login_module.js?v=20261010-login-rewards-v1";
@@ -14,33 +16,34 @@ import {
   getRewardConfig,
   listRecentStudentRewardActivities,
   watchStudentRewardTotal
-} from "../../../reward/reward_module.js?v=20261013-recent-reward-activities-v1";
+} from "../../../reward/reward_module.js?v=20261018-essay-progression-v1";
 import {
   completionProcessingStages,
   completionProcessingStatuses,
   watchPracticeCompletionProcessing
-} from "../../../student_practice/student_practice_module.js?v=20261003-completion-processing-v1";
+} from "../../../student_practice/student_practice_module.js?v=20261018-topic-reset-v1";
 import {
   acceptAdditionalDailyMission,
   acceptCoreDailyMission,
   getNextCoreDailyMission,
   isTopicPaused,
-  listAdditionalMissionPracticeIds,
+  listAdditionalMissions,
+  getAdditionalMissionAvailability,
   pauseCoreDailyMission,
   unpauseTopic
-} from "../../../daily_mission/daily_mission_module.js?v=20261010-additional-mission-rewards-v1";
+} from "../../../daily_mission/daily_mission_module.js?v=20261018-essay-reuse-v1";
 import {
   isTopicPausable
-} from "../../../syllabus/syllabus_module.js?v=20261004-topic-pausable-v1";
+} from "../../../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
 import {
   getPracticeById
 } from "../../../practice/practice_module.js?v=20260824-completed-practices";
 import {
   DailyMissionSection
-} from "../../../daily_mission/components/daily_mission_section/daily_mission_section.js?v=20261004-pausable-missions-v1";
+} from "../../../daily_mission/components/daily_mission_section/daily_mission_section.js?v=20261018-essay-session-v1";
 import {
   AdditionalMissionSection
-} from "../../../daily_mission/components/additional_mission_section/additional_mission_section.js?v=20261004-pausable-missions-v1";
+} from "../../../daily_mission/components/additional_mission_section/additional_mission_section.js?v=20261018-additional-essay-v1";
 import {
   CompletionProcessingRefreshController
 } from "./completion_processing_refresh_controller.js?v=20261009-reliability-landing-v1";
@@ -268,6 +271,7 @@ function createHistoryField(label, value) {
 }
 
 function getPracticeHistoryType(practice) {
+  if (practice.practiceType === "essay") return "Essay assessment";
   if (practice.practiceType === "pre assessment") {
     return "First assessment";
   }
@@ -314,14 +318,16 @@ function createCompletedPracticeHistory(
 
     item.className = "practice-history-item";
     action.className = "history-result-link";
-    action.href = createPracticeResultUrl(studentId, practice.practiceId);
+    action.href = practice.practiceType === "essay"
+      ? "/features/essay_practice_session/pages/essay_practice/essay_practice.html?essayPracticeId=" + encodeURIComponent(practice.practiceId)
+      : createPracticeResultUrl(studentId, practice.practiceId);
     action.textContent = "View result";
     item.append(
       createHistoryField("Date", formatCompletedDate(
         practice.dateCompleted
       )),
       createHistoryField("Type / difficulty", getPracticeHistoryType(practice)),
-      createHistoryField("Score", `${practice.score}%`),
+      createHistoryField("Score", practice.score === null ? "Scoring pending" : `${practice.score}%`),
       action
     );
     list.append(item);
@@ -472,9 +478,9 @@ function createTopicRow(topic, studentId, syllabusId) {
   progressLabel.className = "metric-label";
   progressLabel.textContent = "Progress to final level";
   progressCopy.className = "progress-copy";
-  progressValue.textContent = `${topic.progressPercentage}%`;
+  progressValue.textContent = topic.progressPercentage === null ? "Not applicable" : `${topic.progressPercentage}%`;
   progressDestination.textContent =
-    `${topic.totalLevelCount} levels / ${topic.finalLevelName}`;
+    topic.progressPercentage === null ? "" : `${topic.totalLevelCount} levels / ${topic.finalLevelName}`;
   progressCopy.append(progressValue, progressDestination);
   progressTrack.className = "progress-track";
   progressTrack.setAttribute("role", "progressbar");
@@ -489,7 +495,8 @@ function createTopicRow(topic, studentId, syllabusId) {
     `${topic.topicName} progress to ${topic.finalLevelName}`
   );
   progressFill.className = "progress-fill";
-  progressFill.style.width = `${topic.progressPercentage}%`;
+  progressFill.style.width = `${topic.progressPercentage ?? 0}%`;
+  progressTrack.hidden = topic.progressPercentage === null;
   progressTrack.append(progressFill);
   progressMetric.append(progressLabel, progressCopy, progressTrack);
 
@@ -623,7 +630,8 @@ function renderDashboard(dashboard) {
     studentId: student.id,
     syllabuses,
     getNextCoreDailyMission,
-    listAdditionalMissionPracticeIds,
+    listAdditionalMissions,
+    getAdditionalMissionAvailability,
     acceptAdditionalDailyMission,
     pauseCoreDailyMission,
     isTopicPausable,
@@ -654,6 +662,7 @@ function renderDashboard(dashboard) {
 
 async function loadAndRenderDashboard(studentId) {
   const dashboard = await getStudentDashboard(studentId);
+  if (authenticatedStudentId !== studentId) return false;
 
   if (!dashboard) {
     await signOutStudent();
@@ -682,10 +691,17 @@ const completionProcessingRefreshController =
     stages: completionProcessingStages
   });
 
+const essayPracticeRefreshController = new EssayPracticeRefreshController({
+  watchUpdates: watchStudentEssayPracticeUpdates,
+  refreshDashboard: loadAndRenderDashboard,
+  onError: error => console.error("Could not refresh essay mission availability.", error),
+});
+
 async function handleAuthState(authUser) {
   if (!authUser) {
     authenticatedStudentId = null;
     studentCoinBalanceController.stop();
+    essayPracticeRefreshController.stop();
     completionProcessingRefreshController.stop();
     window.location.replace(INDEX_URL);
     return;
@@ -696,6 +712,8 @@ async function handleAuthState(authUser) {
   }
 
   studentCoinBalanceController.stop();
+
+  essayPracticeRefreshController.stop();
   completionProcessingRefreshController.stop();
   authenticatedStudentId = authUser.uid;
   setStatus("Loading your dashboard...");
@@ -709,6 +727,7 @@ async function handleAuthState(authUser) {
       return;
     }
     studentCoinBalanceController.start({studentId: authUser.uid});
+    essayPracticeRefreshController.start(authUser.uid);
 
     void recordStudentLogin({studentId: authUser.uid}).catch((error) => {
       console.error("Could not record the student login.", error);
@@ -753,6 +772,7 @@ logOffButton.addEventListener("click", async () => {
     completionProcessingRefreshController.stop();
     await signOutStudent();
     studentCoinBalanceController.stop();
+    essayPracticeRefreshController.stop();
     clearCurrentStudent();
     window.location.replace(INDEX_URL);
   } catch (error) {
@@ -764,5 +784,6 @@ logOffButton.addEventListener("click", async () => {
 
 window.addEventListener("beforeunload", () => {
   studentCoinBalanceController.stop();
+  essayPracticeRefreshController.stop();
   completionProcessingRefreshController.stop();
 });

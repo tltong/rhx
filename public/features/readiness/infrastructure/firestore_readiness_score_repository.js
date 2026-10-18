@@ -1,7 +1,8 @@
+
 import * as firebaseOps from "../../../utils/firebase/firebase_ops.js";
-import {STUDENT_READINESS_COLLECTION, READINESS_SYLLABUSES_SUBCOLLECTION, READINESS_TOPICS_SUBCOLLECTION, READINESS_HISTORY_SUBCOLLECTION} from "../../../config/firebase/student_readiness_schema.js?v=20261008-subject-readiness-v2";
-import {requireSubjectScope, requireTopicScope, requireReadinessScore, normalizeSourcePracticeId, ReadinessScore, ReadinessScoreHistoryEntry} from "../domain/readiness_score.js?v=20261008-subject-readiness-v1";
-import {ReadinessScoreRepository} from "../domain/readiness_score_repository.js?v=20261008-subject-readiness-v2";
+import {STUDENT_READINESS_COLLECTION, READINESS_SYLLABUSES_SUBCOLLECTION, READINESS_TOPICS_SUBCOLLECTION, READINESS_HISTORY_SUBCOLLECTION} from "../../../config/firebase/student_readiness_schema.js?v=20261018-essay-completion-metrics-v1";
+import {requireSubjectScope, requireTopicScope, requireReadinessScore, normalizeSourcePracticeId, normalizeSourcePracticeType, ReadinessScore, ReadinessScoreHistoryEntry} from "../domain/readiness_score.js?v=20261018-essay-completion-metrics-v1";
+import {ReadinessScoreRepository} from "../domain/readiness_score_repository.js?v=20261018-essay-completion-metrics-v1";
 const defaultServerTimestamp = () => firebaseOps.getFirebaseNamespace().firestore.FieldValue.serverTimestamp();
 
 function subjectCollectionPath({studentId}) {
@@ -69,10 +70,12 @@ class FirestoreReadinessScoreRepository extends ReadinessScoreRepository {
   async saveRecord(input, collectionPath, documentId, historyPath) {
     const score = requireReadinessScore(input.score);
     const practiceId = normalizeSourcePracticeId(input.practiceId);
+    const practiceType = normalizeSourcePracticeType(input.practiceType);
+    if (practiceType !== null && practiceId === null) throw new Error("practiceId is required with practiceType.");
     const latestDocument = this.getDocumentRef(collectionPath, documentId);
     const historyCollection = this.getCollectionRef(historyPath);
     const historyDocument = practiceId === null
-      ? historyCollection.doc() : historyCollection.doc(`practice-${practiceId}`);
+      ? historyCollection.doc() : historyCollection.doc(`${practiceType === "essay" ? "essay" : "practice"}-${practiceId}`);
     const timestamp = this.serverTimestamp();
     const latestRecord = {score, updatedAt: timestamp};
 
@@ -85,7 +88,8 @@ class FirestoreReadinessScoreRepository extends ReadinessScoreRepository {
           return;
         }
         transaction.set(latestDocument, latestRecord, {merge: true});
-        transaction.set(historyDocument, {score, savedAt: timestamp, practiceId});
+        transaction.set(historyDocument, {score, savedAt: timestamp, practiceId,
+          ...(practiceType === null ? {} : {practiceType})});
       });
     } else {
       const batch = this.getFirestoreDb().batch();

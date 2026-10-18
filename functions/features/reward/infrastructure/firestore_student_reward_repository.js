@@ -1,5 +1,6 @@
 const {FieldValue, FieldPath} = require("firebase-admin/firestore");
 const firebaseOps = require("../../../utils/firebase/firebase_ops");
+const {guardResetTransaction} = require("../../../utils/student_topic_reset_guard");
 
 const {RewardCategory, REWARDS_COLLECTION, REWARD_CATEGORIES_SUBCOLLECTION, REWARD_HISTORY_SUBCOLLECTION} = require("../../../schema/reward_schema");
 const {requireCoinValue} = require("../domain/reward_config");
@@ -42,6 +43,7 @@ class FirestoreStudentRewardRepository extends StudentRewardRepository {
     const categoryDocument = this.getDocumentRef(categoryCollectionPath(award), award.categoryId);
     const historyDocument = this.getDocumentRef(historyCollectionPath(award), award.awardId);
     const totals = await this.getFirestoreDb().runTransaction(async (transaction) => {
+      await guardResetTransaction(transaction, this.getFirestoreDb());
       // Read before writing so retries and concurrent awards share the same totals.
       const [history, student, category] = await Promise.all([
         transaction.get(historyDocument), transaction.get(studentDocument), transaction.get(categoryDocument),
@@ -85,6 +87,7 @@ class FirestoreStudentRewardRepository extends StudentRewardRepository {
     const categoryDocument = this.getDocumentRef(categoryCollectionPath(scope), scope.categoryId);
     const histories = awards.map(award => this.getDocumentRef(historyCollectionPath(award), award.awardId));
     const totals = await this.getFirestoreDb().runTransaction(async transaction => {
+      await guardResetTransaction(transaction, this.getFirestoreDb());
       const [student, category, ...saved] = await Promise.all([
         transaction.get(studentDocument), transaction.get(categoryDocument),
         ...histories.map(ref => transaction.get(ref)),

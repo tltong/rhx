@@ -64,6 +64,7 @@ const {
 } = require("../syllabus_subscription/syllabus_subscription_module");
 const {
   getSyllabusAssessmentFrameworkId,
+  getTopicAssessmentFrameworkId,
 } = require("../syllabus/syllabus_module");
 const {
   GenerateAssessmentPractice,
@@ -75,6 +76,7 @@ const {
 const generateAssessmentPracticeUseCase = new GenerateAssessmentPractice({
   getStudentTopicLevel,
   getSyllabusAssessmentFrameworkId,
+  getTopicAssessmentFrameworkId,
   getAssessmentLevelCriteria,
   getStudentSyllabusSubscriptionLanguage,
   getTopicDiagramPercentage,
@@ -95,7 +97,10 @@ const generateAssessmentPracticeUseCase = new GenerateAssessmentPractice({
 });
 
 async function generateAssessmentPractice(input) {
-  return generateAssessmentPracticeUseCase.execute(input);
+  const {withTopicResetGuard} = require("../../utils/student_topic_reset_guard");
+  const {resetScope} = require("../student_topic_practice_reset/domain/reset_scope");
+  const scope = resetScope(input);
+  return withTopicResetGuard({studentId: scope.studentId, scopes: [scope]}, () => generateAssessmentPracticeUseCase.execute(input));
 }
 
 module.exports = {

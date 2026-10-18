@@ -55,6 +55,8 @@ export class LoadPreAssessmentPractice {
       return null;
     }
 
+    if (assignment.practiceType === "essay") throw new Error("The attached practice is an essay practice.");
+
     const practice = await this.getPracticeById(assignment.practiceId);
 
     if (!practice) {

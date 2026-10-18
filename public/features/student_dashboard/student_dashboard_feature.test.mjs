@@ -424,3 +424,74 @@ test("no saved reliability score is distinct from a failed read at both levels",
     }
   }
 });
+
+test("essay topics without an essay framework retain their grade and leave levels unavailable", async () => {
+  const completion = {essayPracticeId: "student-attempt", essayQuestionId: "essay-question", syllabusId: "language", topicId: "writing",
+    essayText: "Saved essay", completedAt: new Date("2026-10-18T08:00:00Z")};
+  const useCase = new GetStudentDashboard({
+    getStudentById: async () => ({id: "student", name: "Student", level: "primary", country: "Malaysia", yearOfRegistration: 2026, standardAtYearOfRegistration: 3}),
+    getStudentStreamSubscription: async () => null, getStreamById: async () => null,
+    listActiveStudentSyllabusSubscriptions: async () => [{syllabusId: "language", language: "English"}],
+    getSyllabusById: async () => ({id: "language", subject: "English", topics: [{id: "writing", topicName: "Writing",
+      preAssessmentPractices: {english: {practiceId: "shared-essay-practice", practiceType: "essay", language: "English"}}}]}),
+    listCompletedPractices: async () => [], getPracticeById: async () => assert.fail("No normal lookup"),
+    listCompletedEssayPractices: async ({cursor}) => cursor ? {practices: [completion], nextCursor: null} : {practices: [], nextCursor: "next"},
+    getEssayPracticeById: async id => {assert.equal(id, "shared-essay-practice"); return {id, essayQuestionId: "essay-question"};},
+    getEssayResult: async () => ({answer: "Saved essay", score: 85}),
+    getStudentTopicLevel: async () => assert.fail("Essay completion does not advance framework levels"),
+    getReadinessScore: async () => null, getSubjectReadinessScore: async () => null,
+    getTopicReliabilityScore: async () => null, getSubjectReliabilityScore: async () => null,
+    now: () => new Date("2026-10-18"), endLevelId: "endLevel",
+  });
+  const dashboard = await useCase.execute("student");
+  const topic = dashboard.syllabuses[0].topics[0];
+  assert.equal(topic.preAssessmentState, "completed"); assert.equal(topic.currentLevelName, "Not applicable");
+  assert.equal(dashboard.syllabuses[0].error, null);
+  assert.deepEqual(topic.completedPractices[0], {practiceId: "student-attempt", essayQuestionId: "essay-question", practiceType: "essay",
+    dateCompleted: completion.completedAt, difficulty: null, score: 85});
+  useCase.getEssayResult = async () => ({answer: "A different answer", score: 95});
+  assert.equal((await useCase.execute("student")).syllabuses[0].topics[0].completedPractices[0].score, null);
+});
+
+
+test("essay frameworks show their first level before any essay is completed, without pre-assessment", () => {
+  const summary = summarizeTopicProgress({hasPreAssessment: false, preAssessmentCompleted: false,
+    requiresPreAssessment: false, currentLevelId: null, framework: {...framework, frameworkType: "essay"}, endLevelId: "endLevel"});
+  assert.equal(summary.preAssessmentState, "not-configured");
+  assert.equal(summary.currentLevelId, "level-1"); assert.equal(summary.currentLevelName, "Starting");
+  assert.equal(summary.nextLevelName, "Developing"); assert.equal(summary.progressPercentage, 25);
+});
+
+for (const [savedLevel, expectedName, expectedPercentage] of [["level-1", "Starting", 25], ["level-2", "Developing", 50], ["endLevel", "Ready", 100]]) {
+  test("essay dashboard reads saved progression at " + savedLevel + " without requiring the attached first essay", async () => {
+    let attached = false, completed = false;
+    const levelReads = [];
+    const useCase = new GetStudentDashboard({
+      getStudentById: async () => ({id: "student", name: "Student", level: "primary", country: "Malaysia", yearOfRegistration: 2026, standardAtYearOfRegistration: 3}),
+      getStudentStreamSubscription: async () => null, getStreamById: async () => null,
+      listActiveStudentSyllabusSubscriptions: async () => [{syllabusId: "language", language: "English"}],
+      getSyllabusById: async () => ({id: "language", subject: "English", languages: ["English"], assessmentFrameworkId: "normal-parent",
+        topics: [{id: "writing", topicName: "Writing", assessmentFrameworkIds: {english: "essay-framework"},
+          preAssessmentPractices: attached ? {english: {practiceId: "initial-essay", practiceType: "essay", language: "English"}} : {}}]}),
+      getAssessmentFrameworkById: async id => id === "essay-framework" ? {...framework, id, frameworkType: "essay"} : framework,
+      listCompletedPractices: async () => [], getPracticeById: async () => assert.fail("No normal practice lookup"),
+      listCompletedEssayPractices: async () => ({practices: completed ? [{essayPracticeId: "attempt", essayQuestionId: "question",
+        syllabusId: "language", topicId: "writing", essayText: "My essay", completedAt: new Date("2026-10-18")}] : [], nextCursor: null}),
+      getEssayPracticeById: async () => ({essayQuestionId: "question"}), getEssayResult: async () => ({answer: "My essay", score: 85}),
+      getStudentTopicLevel: async scope => {levelReads.push(scope); return savedLevel;},
+      getReadinessScore: async () => null, getSubjectReadinessScore: async () => null,
+      getTopicReliabilityScore: async () => null, getSubjectReliabilityScore: async () => null,
+      now: () => new Date("2026-10-18"), endLevelId: "endLevel",
+    });
+    for (const [hasAttachment, hasCompletion] of [[false, false], [true, false], [true, true]]) {
+      attached = hasAttachment; completed = hasCompletion;
+      const topic = (await useCase.execute("student")).syllabuses[0].topics[0];
+      assert.equal(topic.currentLevelId, savedLevel); assert.equal(topic.currentLevelName, expectedName);
+      assert.equal(topic.progressPercentage, expectedPercentage); assert.equal(topic.isFinalLevel, savedLevel === "endLevel");
+      assert.equal(topic.assessmentFrameworkId, "essay-framework");
+      assert.notEqual(topic.nextLevelName, "Not applicable");
+    }
+    assert.equal(levelReads.length, 3);
+    assert.deepEqual(levelReads[0], {studentId: "student", syllabusId: "language", topicId: "writing"});
+  });
+}

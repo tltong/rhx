@@ -1,6 +1,7 @@
 import {
   practiceMissionRoute
 } from "./accept_core_daily_mission.js";
+import {missionPracticeType, missionTypeFields} from "../domain/mission_practice_type.js?v=20261018-additional-essay-v1";
 
 function requireFunction(value, name) {
   if (typeof value !== "function") {
@@ -60,6 +61,8 @@ export class AcceptAdditionalDailyMission {
   constructor({
     dailyMissionRepository,
     getPracticeById,
+    getAssignedEssayPractice = async () => null,
+    getCompletedEssayPractice = async () => null,
     getCurrentDate = currentUtcDate
   } = {}) {
     if (
@@ -70,6 +73,7 @@ export class AcceptAdditionalDailyMission {
     }
 
     this.dailyMissionRepository = dailyMissionRepository;
+    Object.assign(this, {getAssignedEssayPractice, getCompletedEssayPractice});
     this.getPracticeById = requireFunction(
       getPracticeById,
       "getPracticeById"
@@ -77,10 +81,14 @@ export class AcceptAdditionalDailyMission {
     this.getCurrentDate = requireFunction(getCurrentDate, "getCurrentDate");
   }
 
-  async execute({studentId, practiceId} = {}) {
+  async execute({studentId, practiceId, practiceType} = {}) {
     const normalizedStudentId = requireDocumentId(studentId, "studentId");
     const normalizedPracticeId = requireDocumentId(practiceId, "practiceId");
-    const practice = await this.getPracticeById(normalizedPracticeId);
+    const type = missionPracticeType(practiceType);
+    const reference = {studentId: normalizedStudentId, essayPracticeId: normalizedPracticeId};
+    const practice = type === "essay"
+      ? await this.getAssignedEssayPractice(reference) || await this.getCompletedEssayPractice(reference)
+      : await this.getPracticeById(normalizedPracticeId);
 
     if (!practice) {
       throw createCodedError(
@@ -89,7 +97,9 @@ export class AcceptAdditionalDailyMission {
       );
     }
 
-    const {syllabusId, topicId} = practiceMissionRoute(practice);
+    const {syllabusId, topicId} = type === "essay"
+      ? {syllabusId: requireDocumentId(practice.syllabusId, "syllabusId"), topicId: requireDocumentId(practice.topicId, "topicId")}
+      : practiceMissionRoute(practice);
     const date = normalizeDateKey(await this.getCurrentDate());
     const acceptance =
       await this.dailyMissionRepository.acceptAdditionalMission({
@@ -97,7 +107,8 @@ export class AcceptAdditionalDailyMission {
         syllabusId,
         topicId,
         practiceId: normalizedPracticeId,
-        date
+        date,
+        ...missionTypeFields(type)
       });
 
     if (typeof acceptance?.created !== "boolean") {
@@ -112,6 +123,7 @@ export class AcceptAdditionalDailyMission {
       topicId,
       practiceId: normalizedPracticeId,
       date,
+      ...missionTypeFields(type),
       isAccepted: true,
       created: acceptance.created
     });

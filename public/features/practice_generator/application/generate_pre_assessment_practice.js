@@ -77,7 +77,7 @@ export class GeneratePreAssessmentPractice {
   }
 
   async loadPreviousPractice(context) {
-    if (!context.existingAssignment) {
+    if (!context.existingAssignment || context.existingAssignment.practiceType === "essay") {
       return null;
     }
 

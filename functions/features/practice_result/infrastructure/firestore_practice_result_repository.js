@@ -3,6 +3,8 @@ const {
   STUDENT_SUBMISSIONS_SUBCOLLECTION,
 } = require("../../../schema/practice_results_schema");
 const firebaseOps = require("../../../utils/firebase/firebase_ops");
+const {guardResetTransaction, guardStudentMaintenance} = require("../../../utils/student_topic_reset_guard");
+const {topicKey, resetError} = require("../../student_topic_practice_reset/domain/reset_scope");
 const {
   PracticeResult,
 } = require("../domain/practice_result");
@@ -59,38 +61,42 @@ function toPracticeResult(data, practiceId, studentId) {
 
 class FirestorePracticeResultRepository extends PracticeResultRepository {
   constructor({
-    createDocumentIfAbsent = firebaseOps.createDocumentIfAbsent,
     readCollection = firebaseOps.readCollection,
     readDocument = firebaseOps.readDocument,
-    writeDocument = firebaseOps.writeDocument,
+    getFirestoreDb = firebaseOps.getFirestoreDb,
   } = {}) {
     super();
-    this.createDocumentIfAbsent = createDocumentIfAbsent;
     this.readCollection = readCollection;
     this.readDocument = readDocument;
-    this.writeDocument = writeDocument;
+    this.getFirestoreDb = getFirestoreDb;
   }
 
-  async create(practiceResult) {
+  async create(practiceResult, {questionReferences = []} = {}) {
     const normalizedPracticeResult = practiceResult instanceof PracticeResult
       ? practiceResult
       : new PracticeResult(practiceResult);
 
-    await this.writeDocument(
-      PRACTICE_RESULTS_COLLECTION,
-      normalizedPracticeResult.practiceId,
-      {},
-      {merge: true},
-    );
-
     try {
-      await this.createDocumentIfAbsent(
-        studentSubmissionsCollectionPath(
-          normalizedPracticeResult.practiceId,
-        ),
-        normalizedPracticeResult.studentId,
-        toPracticeResultRecord(normalizedPracticeResult),
-      );
+      const {studentId, practiceId} = normalizedPracticeResult, db = this.getFirestoreDb();
+      await db.runTransaction(async transaction => {
+        const reset = db.collection("studentPracticeResets").doc(studentId);
+        const state = await guardStudentMaintenance(transaction, reset);
+        await guardResetTransaction(transaction, db);
+        // A reset removes the assignment/completion as well as this result. Old
+        // browser sessions must not recreate it after maintenance has finished.
+        if (questionReferences.some(scope => state?.topics?.[topicKey(scope)])) {
+          const student = db.collection("studentPractices").doc(studentId);
+          const [assigned, completed] = await Promise.all([
+            transaction.get(student.collection("assignedPractices").doc(practiceId)),
+            transaction.get(student.collection("completedPractices").doc(practiceId)),
+          ]);
+          if (!assigned.exists && !completed.exists) throw resetError("topic-practice-reset", "This practice was removed by a topic reset.");
+        }
+        const result = db.collection(studentSubmissionsCollectionPath(practiceId)).doc(studentId);
+        if ((await transaction.get(result)).exists) throw Object.assign(new Error("Result exists"), {code: "already-exists"});
+        transaction.set(db.collection(PRACTICE_RESULTS_COLLECTION).doc(practiceId), {}, {merge: true});
+        transaction.set(result, toPracticeResultRecord(normalizedPracticeResult));
+      });
     } catch (error) {
       if (error?.code === "already-exists") {
         const duplicateError = new Error(

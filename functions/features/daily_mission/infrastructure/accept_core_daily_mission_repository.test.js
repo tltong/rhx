@@ -14,6 +14,7 @@ const ROUTE = Object.freeze({
 });
 
 const PATHS = Object.freeze({
+  reset: "studentPracticeResets/student-1",
   student: "studentDailyMissions/student-1",
   day: "studentDailyMissions/student-1/days/2026-09-27",
   syllabus: "studentDailyMissions/student-1/days/2026-09-27/"
@@ -83,6 +84,7 @@ test("acceptCoreMission atomically writes the accepted path and stats", async ()
     created: true,
   });
   assert.deepEqual(reads, [
+    PATHS.reset,
     PATHS.syllabus,
     PATHS.lookup,
     PATHS.assignedPractice,
@@ -135,7 +137,7 @@ test("acceptCoreMission is idempotent for the same daily mission", async () => {
   assert.deepEqual(await repository.acceptCoreMission(ROUTE), {
     created: false,
   });
-  assert.deepEqual(reads, [PATHS.syllabus, PATHS.lookup]);
+  assert.deepEqual(reads, [PATHS.reset, PATHS.syllabus, PATHS.lookup]);
   assert.deepEqual(writes, []);
 });
 

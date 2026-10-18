@@ -6,7 +6,7 @@ import {
 import {
   getSyllabusById,
   listSyllabuses
-} from "../syllabus/syllabus_module.js?v=20260719-question-topics";
+} from "../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
 import {
   getDiagramConfigForSyllabus,
   getTopicDiagramPercentage

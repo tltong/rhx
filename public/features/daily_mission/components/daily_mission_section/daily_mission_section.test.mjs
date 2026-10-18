@@ -459,3 +459,30 @@ test("accepted daily missions resume without a pause eligibility lookup", async 
   assert.ok(findByText(container, "Start Mission"));
   assert.equal(findByText(container, "Not learned yet"), undefined);
 });
+
+test("an essay mission preserves its type through acceptance and navigates to essay submission", async () => {
+  const mission = {studentId: "student-1", syllabusId: "syllabus-1", topicId: "topic-1", practiceId: "essay-attempt", practiceType: "essay", date: "2026-10-18", isAccepted: false};
+  const navigations = [], accepts = [], container = new FakeElement("div");
+  const section = new DailyMissionSection({studentId: "student-1", syllabuses: [syllabus()],
+    getNextCoreDailyMission: async () => mission,
+    acceptCoreDailyMission: async input => {accepts.push(input); return {...mission, isAccepted: true};},
+    pauseCoreDailyMission: async () => {}, isTopicPausable: async () => false,
+    navigate: url => navigations.push(url), documentRef: fakeDocument});
+  section.mount(container); await section.ready;
+  await section.loadMission("syllabus-1");
+  assert.ok(findByText(container, "Fractions — First essay assessment"));
+  assert.equal(findByText(container, "Not learned yet"), undefined);
+  await findByText(container, "Accept Mission").click();
+  assert.deepEqual(accepts, [{studentId: "student-1", practiceId: "essay-attempt", practiceType: "essay"}]);
+  assert.equal(navigations[0], "/features/essay_practice_session/pages/essay_practice/essay_practice.html?essayPracticeId=essay-attempt");
+});
+test("a submitted essay counts as a completed accepted mission before grading finishes", async () => {
+  const subject = syllabus(); subject.topics[0].completedPractices.push({practiceId: "essay-attempt", practiceType: "essay", score: null});
+  const container = new FakeElement("div");
+  const section = new DailyMissionSection({studentId: "student-1", syllabuses: [subject],
+    getNextCoreDailyMission: async () => ({practiceId: "essay-attempt", practiceType: "essay", topicId: "topic-1", isAccepted: true}),
+    acceptCoreDailyMission: async () => assert.fail("Already accepted"), pauseCoreDailyMission: async () => {},
+    isTopicPausable: async () => true, documentRef: fakeDocument});
+  section.mount(container); await section.ready;
+  assert.equal(section.availabilityBySyllabusId.get("syllabus-1").hasMission, false);
+});

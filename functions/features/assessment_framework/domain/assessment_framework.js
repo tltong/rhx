@@ -1,4 +1,5 @@
 const {
+  assessmentFrameworkTypes,
   ASSESSMENT_FRAMEWORK_END_LEVEL_ID,
   assessmentFrameworkPreAssessmentDifficultyLevels,
   assessmentFrameworkPreAssessmentScoreBands,
@@ -165,6 +166,7 @@ class AssessmentFramework {
   constructor({
     id,
     name,
+    frameworkType = assessmentFrameworkTypes.NORMAL,
     endLevelName,
     levels = [],
     preAssessment = null,
@@ -174,6 +176,8 @@ class AssessmentFramework {
     }
 
     this.id = requireNonEmptyString(id, "assessment framework id");
+    this.frameworkType = frameworkType;
+    if (!Object.values(assessmentFrameworkTypes).includes(frameworkType)) throw new Error("Unknown assessment framework type.");
     this.name = requireNonEmptyString(name, "name");
     this.endLevelName = requireNonEmptyString(
       endLevelName,
@@ -195,6 +199,15 @@ class AssessmentFramework {
       : preAssessment instanceof AssessmentFrameworkPreAssessment
         ? preAssessment
         : new AssessmentFrameworkPreAssessment(preAssessment);
+
+    if (this.frameworkType === assessmentFrameworkTypes.ESSAY) {
+      if (this.preAssessment) throw new Error("Essay frameworks do not use pre-assessment.");
+      for (const level of this.levels) {
+        if (level.criteria.questionsPerPractice !== 1 || level.criteria.difficultyLevel.toLowerCase() !== "medium") throw new Error("Essay levels require one medium-difficulty question per practice.");
+        requirePositiveInteger(level.criteria.requiredPracticeCount, "requiredPracticeCount");
+        normalizePercentage(level.criteria.minimumScore, "minimumScore");
+      }
+    }
 
     if (this.preAssessment) {
       const validLevelIds = new Set([

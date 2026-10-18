@@ -13,6 +13,7 @@ const INPUT = Object.freeze({
 });
 
 const PATHS = Object.freeze({
+  reset: "studentPracticeResets/student-1",
   student: "studentDailyMissions/student-1",
   pausedSyllabus: "studentDailyMissions/student-1/"
     + "pausedTopics/syllabus-1",
@@ -26,6 +27,7 @@ function createRepository(existingTopic = null) {
   const transaction = {
     async get(reference) {
       reads.push(reference.path);
+      if (reference.path === PATHS.reset) return {exists: false, data: () => null};
 
       return {
         exists: existingTopic !== null,
@@ -65,7 +67,7 @@ test("pauseTopic creates only the topic pause hierarchy", async () => {
     pausedDate: "2026-09-27",
     created: true,
   });
-  assert.deepEqual(reads, [PATHS.pausedTopic]);
+  assert.deepEqual(reads, [PATHS.reset, PATHS.pausedTopic]);
   assert.deepEqual(writes, [
     {
       path: PATHS.student,
@@ -94,6 +96,6 @@ test("pauseTopic preserves the first paused date on retry", async () => {
     pausedDate: "2026-09-20",
     created: false,
   });
-  assert.deepEqual(reads, [PATHS.pausedTopic]);
+  assert.deepEqual(reads, [PATHS.reset, PATHS.pausedTopic]);
   assert.deepEqual(writes, []);
 });

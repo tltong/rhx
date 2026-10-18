@@ -15,20 +15,23 @@
  * calculateReadinessScore({studentId, syllabusId, topicId}) -> Promise<number|null>
  *   Averages score times weight for the latest configured N practices of this topic.
  *   Uses available practices when fewer than N; returns null when none exist.
+ *   Includes graded essay completions with the saved question's difficulty weight.
+ *   Pending grades and results for a different submitted answer do not contribute.
  *   Requires saved configuration. Does not persist or cap the result at 100.
  * calculateSubjectReadinessScore({studentId, syllabusId}) -> Promise<number|null>
  *   Equally averages the latest saved scores of current syllabus topics.
  *   Includes zero, excludes missing scores, and returns null when none exist.
  *   Throws not-found for an unknown syllabus. Does not recalculate topics or persist.
- * saveReadinessScore({studentId, syllabusId, topicId, score, practiceId?}) -> Promise<ReadinessScore>
+ * saveReadinessScore({studentId, syllabusId, topicId, score, practiceId?, practiceType?}) -> Promise<ReadinessScore>
  *   Atomically updates the latest score and appends history.
  *   Supplying practiceId retains one entry per completion; retries return the
  *   original saved score without changing the latest score or adding history.
  *   Without practiceId, every save appends a new history entry.
+ *   practiceType: normal|essay; omitted means normal. Essay sources have separate history keys.
  * getReadinessScore({studentId, syllabusId, topicId}) -> Promise<ReadinessScore|null>
  * getReadinessScoreHistory({studentId, syllabusId, topicId})
  *   -> Promise<ReadinessScoreHistoryEntry[]> sorted newest first.
- * saveSubjectReadinessScore({studentId, syllabusId, score, practiceId?}) -> Promise<ReadinessScore>
+ * saveSubjectReadinessScore({studentId, syllabusId, score, practiceId?, practiceType?}) -> Promise<ReadinessScore>
  *   Atomically updates the latest subject score and appends subject history.
  *   The same practiceId retry rules apply as for topic score saves.
  * getSubjectReadinessScore({studentId, syllabusId}) -> Promise<ReadinessScore|null>
@@ -36,7 +39,7 @@
  *   -> Promise<ReadinessScoreHistoryEntry[]> sorted newest first.
  *   Score APIs require a signed-in user and use Firestore directly.
  * ReadinessScore: {score: number, updatedAt: Date}
- * ReadinessScoreHistoryEntry: {id: string, score: number, savedAt: Date, practiceId?: string}
+ * ReadinessScoreHistoryEntry: {id: string, score: number, savedAt: Date, practiceId?: string, practiceType?: normal|essay}
  */
 import {
   DifficultyLevel,
@@ -53,19 +56,22 @@ import {
 } from "./infrastructure/firestore_readiness_config_repository.js?v=20261006-readiness-feature-api-v1";
 import {requireCurrentSiteAdmin} from "../site_admin/site_admin_module.js?v=20260827-site-admin-guard-v1";
 import {requireCurrentFirebaseAuthUser} from "../../utils/firebase/firebase_auth.js";
-import {CalculateReadinessScore} from "./application/calculate_readiness_score.js?v=20261007-readiness-completion-v1";
+import {CalculateReadinessScore} from "./application/calculate_readiness_score.js?v=20261018-essay-completion-metrics-v1";
 import {CalculateSubjectReadinessScore} from "./application/calculate_subject_readiness_score.js?v=20261008-subject-readiness-v1";
-import {SaveReadinessScore} from "./application/save_readiness_score.js?v=20261007-readiness-completion-v1";
+import {SaveReadinessScore} from "./application/save_readiness_score.js?v=20261018-essay-completion-metrics-v1";
 import {GetReadinessScore} from "./application/get_readiness_score.js?v=20261007-readiness-completion-v1";
 import {GetReadinessScoreHistory} from "./application/get_readiness_score_history.js?v=20261007-readiness-completion-v1";
-import {SaveSubjectReadinessScore} from "./application/save_subject_readiness_score.js?v=20261008-subject-readiness-v2";
+import {SaveSubjectReadinessScore} from "./application/save_subject_readiness_score.js?v=20261018-essay-completion-metrics-v1";
 import {GetSubjectReadinessScore} from "./application/get_subject_readiness_score.js?v=20261008-subject-readiness-v2";
 import {GetSubjectReadinessScoreHistory} from "./application/get_subject_readiness_score_history.js?v=20261008-subject-readiness-v2";
-import {FirestoreReadinessScoreRepository} from "./infrastructure/firestore_readiness_score_repository.js?v=20261008-subject-readiness-v2";
-import {listCompletedPractices} from "../student_practice/student_practice_module.js?v=20261006-readiness-scores-v1";
+import {FirestoreReadinessScoreRepository} from "./infrastructure/firestore_readiness_score_repository.js?v=20261018-essay-completion-metrics-v1";
+import {listCompletedPractices} from "../student_practice/student_practice_module.js?v=20261018-topic-reset-v1";
+import {listCompletedEssayPractices} from "../student_essay_practice/student_essay_practice_module.js?v=20261018-essay-reuse-v1";
+import {getEssayResult} from "../essay_scoring/essay_scoring_module.js?v=20261018-essay-review-comment-v1";
+import {getEssayQuestionById} from "../essay_question_generator/essay_question_generator_module.js?v=20261017-essay-grade-min-words-v1";
 import {getPracticeById, practiceTypes} from "../practice/practice_module.js?v=20260816-practice-question-ids";
 import {getQuestionDifficulty} from "../question/question_module.js?v=20260822-assessment-progression";
-import {getSyllabusById} from "../syllabus/syllabus_module.js?v=20261004-topic-pausable-v1";
+import {getSyllabusById} from "../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
 
 const repository = new FirestoreReadinessConfigRepository();
 const getConfig = new GetReadinessConfig(repository);
@@ -77,6 +83,7 @@ const scoreRepository = new FirestoreReadinessScoreRepository();
 const calculateScore = new CalculateReadinessScore({
   getReadinessConfig,
   listCompletedPractices,
+  listCompletedEssayPractices, getEssayResult, getEssayQuestionById,
   getPracticeById,
   getQuestionDifficulty,
   assessmentPracticeType: practiceTypes.ASSESSMENT,

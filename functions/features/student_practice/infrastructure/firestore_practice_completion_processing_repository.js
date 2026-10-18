@@ -4,6 +4,7 @@ const {
   STUDENT_PRACTICES_COLLECTION,
 } = require("../../../schema/student_practice_schema");
 const firebaseOps = require("../../../utils/firebase/firebase_ops");
+const {guardResetTransaction} = require("../../../utils/student_topic_reset_guard");
 const {
   completionProcessingStages,
   completionProcessingStatuses,
@@ -52,6 +53,7 @@ class FirestorePracticeCompletionProcessingRepository
     const processingDocument = this.getProcessingDocument(identity);
 
     return this.getFirestoreDb().runTransaction(async (transaction) => {
+      await guardResetTransaction(transaction, this.getFirestoreDb());
       const snapshot = await transaction.get(processingDocument);
       const existing = snapshotData(snapshot);
 

@@ -7,6 +7,10 @@
  * assignEssayPracticeToStudent({studentId, essayQuestionId, syllabusId, topicId, essayPracticeId?})
  *   -> Promise<AssignedEssayPractice>. Allocates an attempt ID when omitted.
  *   Supply the same essayPracticeId to safely retry an identical assignment.
+ *   Optional second argument {preventQuestionReuse: true} atomically rejects a question already
+ *   assigned to this student under another attempt ID (code: essay-question-already-used).
+ *   questionUsage/{essayQuestionId} records the first assignment and persists after completion.
+ *   The follow-up essay generator enables this guard; initial syllabus attachments retain their existing behavior.
  * getAssignedEssayPractice({studentId, essayPracticeId}) -> Promise<AssignedEssayPractice|null>
  * listAssignedEssayPractices({studentId, syllabusId?, topicId?, limit, cursor?})
  * completeAssignedEssayPractice({studentId, essayPracticeId, essayText, timeTakenSeconds})
@@ -17,7 +21,8 @@
  *   Both lists -> Promise<{practices: object[], nextCursor: string|null}>.
  *   limit: integer 1-100. Stable ascending attempt-ID order; cursors require the same filters.
  * AssignedEssayPractice: {studentId, essayPracticeId, essayQuestionId, syllabusId, topicId, assignedAt}.
- * CompletedEssayPractice: assignment fields + {completedAt, essayText, timeTakenSeconds}.
+ * CompletedEssayPractice: assignment fields + {completedAt, essayText, timeTakenSeconds, scoring?: {status}}.
+ * Scoring status is managed by the backend completion trigger; submissions start pending.
  * Dates are returned as Date objects; timestamps are set by Firestore.
  * Web essay APIs require sign-in. No new Firebase callable endpoints.
  *
@@ -42,8 +47,8 @@ const getCompletedEssayPracticeUseCase = new GetCompletedEssayPractice(studentEs
 const listAssignedEssayPracticesUseCase = new ListAssignedEssayPractices(studentEssayPracticeRepository);
 const listCompletedEssayPracticesUseCase = new ListCompletedEssayPractices(studentEssayPracticeRepository);
 
-async function assignEssayPracticeToStudent(input) {
-  return assignEssayPracticeUseCase.execute(input);
+async function assignEssayPracticeToStudent(input, context) {
+  return assignEssayPracticeUseCase.execute(input, context);
 }
 
 async function completeAssignedEssayPractice(input) {
@@ -67,6 +72,9 @@ async function listCompletedEssayPractices(input) {
 }
 
 module.exports = {
+  // Trusted backend orchestration only. Browser APIs cannot set grading status.
+  claimEssayPracticeScoring: input => studentEssayPracticeRepository.claimScoring(input),
+  setEssayPracticeScoringStatus: input => studentEssayPracticeRepository.setScoringStatus(input),
   assignEssayPracticeToStudent,
   completeAssignedEssayPractice,
   getAssignedEssayPractice,

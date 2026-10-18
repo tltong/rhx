@@ -38,6 +38,7 @@ function snapshot(path) {
 function reference(path) {
   return {
     path, id: path.split("/").at(-1),
+    collection: name => collection(path + "/" + name),
     async get() {
       reads.push(path);
       if (readFailure && (!readFailurePath || readFailurePath === path)) throw readFailure;
@@ -46,22 +47,27 @@ function reference(path) {
   };
 }
 
-function collection(path, ordering = null) {
+function collection(path, ordering = null, filters = [], after = null, limit = Infinity) {
   return {
     doc(id = "entry-" + String(++sequence).padStart(4, "0")) {
       return reference(path + "/" + id);
     },
     orderBy(field, direction) {
       queries.push({path, field, direction});
-      return collection(path, {field, direction});
+      return collection(path, {field, direction}, filters, after, limit);
     },
+    where: (field, operator, value) => collection(path, ordering, [...filters, [field, value]], after, limit),
+    startAfter: id => collection(path, ordering, filters, id, limit),
+    limit: value => collection(path, ordering, filters, after, value),
     async get() {
       reads.push(path);
       if (readFailure && (!readFailurePath || readFailurePath === path)) throw readFailure;
       let paths = [...documents.keys()].filter((key) => (
         key.startsWith(path + "/") && key.slice(path.length + 1).split("/").length === 1
       ));
-      if (ordering) {
+      paths = paths.filter(key => filters.every(([field, value]) => documents.get(key)[field] === value));
+      if (ordering && (ordering.field === "__name__" || typeof ordering.field !== "string")) paths.sort();
+      else if (ordering) {
         paths = paths.sort((first, second) => {
           const a = documents.get(first)[ordering.field];
           const b = documents.get(second)[ordering.field];
@@ -70,6 +76,8 @@ function collection(path, ordering = null) {
           return ordering.direction === "desc" ? -difference : difference;
         });
       }
+      if (after) paths = paths.filter(key => key.split("/").at(-1) > after);
+      paths = paths.slice(0, limit);
       return {docs: paths.map(snapshot)};
     }
   };
@@ -77,6 +85,7 @@ function collection(path, ordering = null) {
 
 const db = {
   collection,
+  doc: reference,
   async runTransaction(operation) {
     for (let attempt = 0; attempt < 5; attempt++) {
       const observed = [];
@@ -123,6 +132,7 @@ const db = {
   }
 };
 const firestore = () => db;
+firestore.FieldPath = {documentId: () => "__name__"};
 firestore.FieldValue = {serverTimestamp: () => "server-timestamp"};
 const app = {
   firestore: () => db,
@@ -179,6 +189,21 @@ function seedTopicScore(topicId, score, {studentId = "student-1", syllabusId = "
   });
 }
 
+function seedEssay(id, {score = 80, difficulty = "medium", minute = 1, graded = true,
+  studentId = scope.studentId, syllabusId = scope.syllabusId, topicId = scope.topicId, resultAnswer = "My essay."} = {}) {
+  const questionId = "essay-question-" + id, date = new Date(baseTime.getTime() + minute * 60000);
+  documents.set("studentEssayPractices/" + studentId + "/completedEssayPractices/" + id, {
+    essayQuestionId: questionId, syllabusId, topicId, assignedAt: baseTime, completedAt: date,
+    essayText: "My essay.", timeTakenSeconds: 60,
+  });
+  const path = "essayQuestionGenerator/primary/standards/3/languages/English/questions/" + questionId;
+  documents.set("essayQuestionGenerator/questionIndex/entries/" + questionId, {documentPath: path});
+  documents.set(path, {questionText: "Write an essay.", difficulty, seedUsed: "Friendship", generatedAt: date});
+  if (graded) documents.set("essayResults/" + studentId + "/questions/" + questionId, {
+    answer: resultAnswer, score, reviewComment: "Your ideas are clear. Add examples.", corrections: [], scoredAt: date,
+  });
+}
+
 function seedPractice(id, {
   studentId = scope.studentId, syllabusId = scope.syllabusId, topicId = scope.topicId,
   difficulty = "Medium", type = "assessment", score = 80, minute = 1,
@@ -231,7 +256,8 @@ test("score schemas match in backend and web and keep latest and history records
   assert.deepEqual(topic.fields, {score: {type: "number", minimum: 0}, updatedAt: "timestamp"});
   assert.deepEqual(topic.subcollections.history.fields, {
     score: {type: "number", minimum: 0}, savedAt: "timestamp",
-    practiceId: {type: "string", optional: true, references: "practices/{practiceId}"}
+    practiceId: {type: "string", optional: true, references: "practices/{practiceId} or studentEssayPractices/{studentId}/completedEssayPractices/{practiceId}"},
+    practiceType: {type: "string", enum: ["normal", "essay"], optional: true},
   });
   const subject = webSchema.studentReadinessSchema.subcollections.syllabuses;
   assert.deepEqual(subject.fields, topic.fields);
@@ -240,6 +266,55 @@ test("score schemas match in backend and web and keep latest and history records
 });
 
 for (const [layer, api] of [["backend", backend], ["web", web]]) {
+  test(layer + ": readiness averages the latest graded normal and essay practices using configured difficulty weights", async () => {
+    seedConfig({numberOfPractices: 2});
+    seedPractice("normal", {score: 40, difficulty: "Easy", minute: 1});
+    seedEssay("older", {score: 80, minute: 2});
+    seedEssay("latest", {score: 60, difficulty: "hard", minute: 3});
+    seedEssay("wrong-answer", {score: 100, minute: 4, resultAnswer: "A different submission."});
+    seedEssay("pending", {minute: 5, graded: false});
+    seedEssay("other-topic", {topicId: "algebra", minute: 6});
+    seedEssay("other-student", {studentId: "another", minute: 7});
+    assert.equal(await api.calculateReadinessScore(scope), (60 * 1.75 + 80) / 2);
+    assert.deepEqual(batches, []);
+  });
+
+  test(layer + ": essay readiness reads every page and keeps zero scores", async () => {
+    seedConfig({numberOfPractices: 2});
+    for (let index = 0; index < 105; index++) seedEssay("attempt-" + String(index).padStart(3, "0"), {
+      score: index === 104 ? 0 : 80, minute: index,
+    });
+    assert.equal(await api.calculateReadinessScore(scope), 40);
+    assert.equal(reads.filter(path => path === "studentEssayPractices/student-1/completedEssayPractices").length, 2);
+  });
+
+  test(layer + ": essays use difficulty weights for the first essay as well as subsequent essays", async () => {
+    seedConfig({numberOfPractices: 5, preAssessmentWeight: 9, difficultyWeights: {easy: 0.75, medium: 1.25, hard: 1.75}});
+    seedEssay("first", {score: 80});
+    assert.equal(await api.calculateReadinessScore(scope), 100);
+  });
+
+  test(layer + ": normal and essay readiness histories with the same practice ID are independent and retry-safe", async () => {
+    for (const save of [api.saveReadinessScore, api.saveSubjectReadinessScore]) {
+      await save({...scope, score: 40, practiceId: "shared"});
+      await save({...scope, score: 80, practiceId: "shared", practiceType: "essay"});
+      await save({...scope, score: 0, practiceId: "shared", practiceType: "essay"});
+    }
+    for (const read of [api.getReadinessScoreHistory, api.getSubjectReadinessScoreHistory]) {
+      const history = await read(scope);
+      assert.equal(history.length, 2);
+      assert.deepEqual(history.map(entry => [entry.id, entry.score, entry.practiceType]), [
+        ["essay-shared", 80, "essay"], ["practice-shared", 40, undefined],
+      ]);
+    }
+    assert.equal((await api.getReadinessScore(scope)).score, 80);
+    assert.equal((await api.getSubjectReadinessScore(scope)).score, 80);
+    for (const save of [api.saveReadinessScore, api.saveSubjectReadinessScore]) {
+      await assert.rejects(() => save({...scope, score: 80, practiceId: "id", practiceType: "invalid"}), /practiceType/);
+      await assert.rejects(() => save({...scope, score: 80, practiceType: "essay"}), /practiceId/);
+    }
+  });
+
   test(layer + ": subject saves atomically retain all history entries including zero and unchanged scores", async () => {
     assert.equal(await api.getSubjectReadinessScore(scope), null);
     assert.deepEqual(await api.getSubjectReadinessScoreHistory(scope), []);

@@ -1,3 +1,6 @@
+import {guardStudentMaintenance} from "../../../utils/student_topic_reset_guard.js?v=20261018-topic-reset-v1";
+import {missionPracticeType, missionTypeFields} from "../domain/mission_practice_type.js?v=20261018-essay-session-v1";
+import {STUDENT_ESSAY_PRACTICES_COLLECTION, ASSIGNED_ESSAY_PRACTICES_SUBCOLLECTION, COMPLETED_ESSAY_PRACTICES_SUBCOLLECTION} from "../../../config/firebase/student_essay_practice_schema.js?v=20261018-essay-reuse-v1";
 import {
   STUDENT_DAILY_MISSION_ADDITIONAL_TOPICS_SUBCOLLECTION,
   STUDENT_DAILY_MISSION_CORE_TOPICS_SUBCOLLECTION,
@@ -10,7 +13,7 @@ import {
   STUDENT_DAILY_MISSION_TOPICS_SUBCOLLECTION,
   STUDENT_DAILY_MISSION_ACCEPTED_ADDITIONAL_PRACTICES_SUBCOLLECTION,
   STUDENT_DAILY_MISSION_ACCEPTED_PRACTICES_SUBCOLLECTION
-} from "../../../config/firebase/student_daily_mission_schema.js?v=20261010-additional-mission-rewards-v1";
+} from "../../../config/firebase/student_daily_mission_schema.js?v=20261018-additional-essay-v1";
 import {
   ASSIGNED_PRACTICES_SUBCOLLECTION,
   COMPLETED_PRACTICES_SUBCOLLECTION,
@@ -27,11 +30,19 @@ import {
 } from "../../../utils/firebase/firebase_ops.js";
 import {
   DailyMissionRepository
-} from "../domain/daily_mission_repository.js?v=20261010-additional-mission-rewards-v1";
+} from "../domain/daily_mission_repository.js?v=20261018-additional-essay-v1";
 import {
   isPausedTopicExpired
 } from "../domain/daily_mission_policy.js";
-import {requireAcceptedDailyMissionScope, requireAcceptedDailyMissionContext} from "../domain/accepted_daily_mission.js?v=20261010-accepted-daily-mission-v1";
+import {requireAcceptedDailyMissionScope, requireAcceptedDailyMissionContext} from "../domain/accepted_daily_mission.js?v=20261018-essay-session-v1";
+
+function coreLookupCollection(type) {
+  return missionPracticeType(type) === "essay" ? "acceptedDailyMissionEssays" : STUDENT_DAILY_MISSION_ACCEPTED_PRACTICES_SUBCOLLECTION;
+}
+
+function additionalLookupCollection(type) {
+  return missionPracticeType(type) === "essay" ? "acceptedAdditionalMissionEssays" : STUDENT_DAILY_MISSION_ACCEPTED_ADDITIONAL_PRACTICES_SUBCOLLECTION;
+}
 
 function requireDocumentId(value, fieldName) {
   const id = String(value ?? "").trim();
@@ -109,7 +120,8 @@ function additionalPracticesCollectionPath(
   studentId,
   date,
   syllabusId,
-  topicId
+  topicId,
+  practiceType,
 ) {
   return [
     additionalTopicsCollectionPath(
@@ -118,7 +130,7 @@ function additionalPracticesCollectionPath(
       syllabusId
     ),
     topicId,
-    STUDENT_DAILY_MISSION_PRACTICES_SUBCOLLECTION
+    missionPracticeType(practiceType) === "essay" ? "essays" : STUDENT_DAILY_MISSION_PRACTICES_SUBCOLLECTION
   ].join("/");
 }
 
@@ -190,6 +202,7 @@ export class FirestoreDailyMissionRepository
 
     return Object.freeze({
       topicId: requireDocumentId(coreMission.topicId, "coreMission.topicId"),
+      ...missionTypeFields(coreMission.practiceType),
       practiceId: requireDocumentId(
         coreMission.practiceId,
         "coreMission.practiceId"
@@ -200,17 +213,20 @@ export class FirestoreDailyMissionRepository
   async getAcceptedAdditionalMissionForPractice(input) {
     const scope = requireAcceptedDailyMissionScope(input);
     const lookup = await this.readDocument(
-      [studentDailyMissionPath(scope.studentId), STUDENT_DAILY_MISSION_ACCEPTED_ADDITIONAL_PRACTICES_SUBCOLLECTION].join("/"),
+      [studentDailyMissionPath(scope.studentId), additionalLookupCollection(scope.practiceType)].join("/"),
       scope.practiceId,
     );
     if (lookup !== null && lookup !== undefined) {
       const context = requireAcceptedDailyMissionContext({...lookup, practiceId: scope.practiceId});
+      if (missionPracticeType(context.practiceType) !== missionPracticeType(scope.practiceType)) throw new Error("The accepted mission type does not match.");
       const accepted = await this.readDocument(
-        additionalPracticesCollectionPath(scope.studentId, context.missionDate, context.syllabusId, context.topicId),
+        additionalPracticesCollectionPath(scope.studentId, context.missionDate, context.syllabusId, context.topicId, scope.practiceType),
         scope.practiceId,
       );
       return accepted !== null && accepted !== undefined ? context : null;
     }
+
+    if (scope.practiceType === "essay") return null;
 
     // Older accepted additional missions predate the lookup. Do not backfill on reads.
     const daysPath = [studentDailyMissionPath(scope.studentId), STUDENT_DAILY_MISSION_DAYS_SUBCOLLECTION].join("/");
@@ -243,7 +259,7 @@ export class FirestoreDailyMissionRepository
   async getAcceptedDailyMissionForPractice(input) {
     const scope = requireAcceptedDailyMissionScope(input);
     const lookup = await this.readDocument(
-      [studentDailyMissionPath(scope.studentId), STUDENT_DAILY_MISSION_ACCEPTED_PRACTICES_SUBCOLLECTION].join("/"),
+      [studentDailyMissionPath(scope.studentId), coreLookupCollection(scope.practiceType)].join("/"),
       scope.practiceId,
     );
     if (lookup !== null && lookup !== undefined) {
@@ -251,7 +267,7 @@ export class FirestoreDailyMissionRepository
       const accepted = await this.getCoreMission({
         studentId: scope.studentId, syllabusId: context.syllabusId, date: context.missionDate,
       });
-      return accepted?.practiceId === scope.practiceId && accepted.topicId === context.topicId ? context : null;
+      return accepted?.practiceId === scope.practiceId && accepted.topicId === context.topicId && missionPracticeType(accepted.practiceType) === missionPracticeType(scope.practiceType) ? context : null;
     }
 
     // Older accepted missions predate the lookup. Keep this fallback read-only.
@@ -261,26 +277,31 @@ export class FirestoreDailyMissionRepository
       const syllabuses = await this.readCollection(
         [daysPath, missionDate, STUDENT_DAILY_MISSION_SYLLABUSES_SUBCOLLECTION].join("/"),
       );
-      const matches = syllabuses.filter((syllabus) => syllabus.coreMission?.practiceId === scope.practiceId);
+      const matches = syllabuses.filter((syllabus) => syllabus.coreMission?.practiceId === scope.practiceId && missionPracticeType(syllabus.coreMission?.practiceType) === missionPracticeType(scope.practiceType));
       if (matches.length > 1) throw new Error("The practice has conflicting daily mission records.");
       if (matches.length === 1) {
         const syllabus = matches[0];
         return requireAcceptedDailyMissionContext({
-          missionDate, syllabusId: syllabus.id, topicId: syllabus.coreMission.topicId, practiceId: scope.practiceId,
+          missionDate, syllabusId: syllabus.id, topicId: syllabus.coreMission.topicId, practiceId: scope.practiceId, ...missionTypeFields(scope.practiceType),
         });
       }
     }
     return null;
   }
 
-  async isPracticeCompleted({studentId, practiceId} = {}) {
+  async getEssayGenerationStatus({studentId, essayPracticeId}) {
+    return this.readDocument("studentEssayPracticeGenerations/" + requireDocumentId(studentId, "studentId") + "/completions",
+      requireDocumentId(essayPracticeId, "essayPracticeId"));
+  }
+
+  async isPracticeCompleted({studentId, practiceId, practiceType} = {}) {
     const normalizedStudentId = requireDocumentId(studentId, "studentId");
     const normalizedPracticeId = requireDocumentId(practiceId, "practiceId");
     const completedPractice = await this.readDocument(
       [
-        STUDENT_PRACTICES_COLLECTION,
+        missionPracticeType(practiceType) === "essay" ? STUDENT_ESSAY_PRACTICES_COLLECTION : STUDENT_PRACTICES_COLLECTION,
         normalizedStudentId,
-        COMPLETED_PRACTICES_SUBCOLLECTION
+        missionPracticeType(practiceType) === "essay" ? COMPLETED_ESSAY_PRACTICES_SUBCOLLECTION : COMPLETED_PRACTICES_SUBCOLLECTION
       ].join("/"),
       normalizedPracticeId
     );
@@ -288,146 +309,70 @@ export class FirestoreDailyMissionRepository
     return completedPractice !== null && completedPractice !== undefined;
   }
 
-  async acceptAdditionalMission({
-    studentId,
-    syllabusId,
-    topicId,
-    practiceId,
-    date
-  } = {}) {
+  async acceptAdditionalMission({studentId, syllabusId, topicId, practiceId, practiceType, date} = {}) {
     const normalizedStudentId = requireDocumentId(studentId, "studentId");
-    const normalizedSyllabusId = requireDocumentId(
-      syllabusId,
-      "syllabusId"
-    );
+    const normalizedSyllabusId = requireDocumentId(syllabusId, "syllabusId");
     const normalizedTopicId = requireDocumentId(topicId, "topicId");
     const normalizedPracticeId = requireDocumentId(practiceId, "practiceId");
-    const normalizedDate = requireDateKey(date);
+    const normalizedDate = requireDateKey(date), type = missionPracticeType(practiceType);
     const studentPath = studentDailyMissionPath(normalizedStudentId);
-    const studentDocument = this.getDocumentRef(
-      STUDENT_DAILY_MISSIONS_COLLECTION,
-      normalizedStudentId
-    );
-    const dayDocument = this.getDocumentRef(
-      [studentPath, STUDENT_DAILY_MISSION_DAYS_SUBCOLLECTION].join("/"),
-      normalizedDate
-    );
-    const syllabusDocument = this.getDocumentRef(
-      [
-        studentPath,
-        STUDENT_DAILY_MISSION_DAYS_SUBCOLLECTION,
-        normalizedDate,
-        STUDENT_DAILY_MISSION_SYLLABUSES_SUBCOLLECTION
-      ].join("/"),
-      normalizedSyllabusId
-    );
-    const additionalTopicDocument = this.getDocumentRef(
-      additionalTopicsCollectionPath(
-        normalizedStudentId,
-        normalizedDate,
-        normalizedSyllabusId
-      ),
-      normalizedTopicId
-    );
+    const studentDocument = this.getDocumentRef(STUDENT_DAILY_MISSIONS_COLLECTION, normalizedStudentId);
+    const dayDocument = this.getDocumentRef(studentPath + "/days", normalizedDate);
+    const syllabusDocument = this.getDocumentRef(studentPath + "/days/" + normalizedDate + "/syllabuses", normalizedSyllabusId);
+    const topicPath = additionalTopicsCollectionPath(normalizedStudentId, normalizedDate, normalizedSyllabusId);
+    const additionalTopicDocument = this.getDocumentRef(topicPath, normalizedTopicId);
     const additionalPracticeDocument = this.getDocumentRef(
-      additionalPracticesCollectionPath(
-        normalizedStudentId,
-        normalizedDate,
-        normalizedSyllabusId,
-        normalizedTopicId
-      ),
-      normalizedPracticeId
-    );
+      additionalPracticesCollectionPath(normalizedStudentId, normalizedDate, normalizedSyllabusId, normalizedTopicId, type), normalizedPracticeId);
+    const lookupDocument = this.getDocumentRef(studentPath + "/" + additionalLookupCollection(type), normalizedPracticeId);
+    const context = requireAcceptedDailyMissionContext({missionDate: normalizedDate, syllabusId: normalizedSyllabusId,
+      topicId: normalizedTopicId, practiceId: normalizedPracticeId, ...missionTypeFields(type)});
+    const {practiceId: acceptedPracticeId, ...lookupData} = context;
 
-    const missionContext = requireAcceptedDailyMissionContext({
-      missionDate: normalizedDate, syllabusId: normalizedSyllabusId,
-      topicId: normalizedTopicId, practiceId: normalizedPracticeId,
-    });
-    const lookupData = {
-      missionDate: missionContext.missionDate, syllabusId: missionContext.syllabusId, topicId: missionContext.topicId,
-    };
-    const lookupDocument = this.getDocumentRef(
-      [studentPath, STUDENT_DAILY_MISSION_ACCEPTED_ADDITIONAL_PRACTICES_SUBCOLLECTION].join("/"),
-      normalizedPracticeId,
-    );
-
-    return this.getFirestoreDb().runTransaction(async (transaction) => {
-      const practiceSnapshot = await transaction.get(
-        additionalPracticeDocument
-      );
-
+    return this.getFirestoreDb().runTransaction(async transaction => {
+      await guardStudentMaintenance(transaction, this.getDocumentRef("studentPracticeResets", normalizedStudentId));
+      const practiceSnapshot = await transaction.get(additionalPracticeDocument);
       const lookupSnapshot = await transaction.get(lookupDocument);
-      const previousLookup = lookupSnapshot.exists
-        ? requireAcceptedDailyMissionContext({...lookupSnapshot.data(), practiceId: normalizedPracticeId}) : null;
-      if (previousLookup?.missionDate === normalizedDate
-          && (previousLookup.syllabusId !== normalizedSyllabusId || previousLookup.topicId !== normalizedTopicId)) {
+      const previous = lookupSnapshot.exists ? requireAcceptedDailyMissionContext({...lookupSnapshot.data(), practiceId: normalizedPracticeId}) : null;
+      if (previous && (missionPracticeType(previous.practiceType) !== type || previous.missionDate === normalizedDate
+          && (previous.syllabusId !== normalizedSyllabusId || previous.topicId !== normalizedTopicId))) {
         throw createCodedError("failed-precondition", "The additional mission lookup contains conflicting route data.");
       }
-      const updateLookup = previousLookup === null || previousLookup.missionDate < normalizedDate;
-
+      const updateLookup = previous === null || previous.missionDate < normalizedDate;
       if (practiceSnapshot.exists) {
         if (updateLookup) transaction.set(lookupDocument, lookupData);
         return Object.freeze({created: false});
       }
-
-      const topicSnapshot = await transaction.get(
-        additionalTopicDocument
-      );
-
-      if (topicSnapshot.exists) {
-        throw createCodedError(
-          "failed-precondition",
-          "An additional daily mission has already been accepted "
-            + `for topic ${normalizedTopicId}.`
-        );
+      if ((await transaction.get(additionalTopicDocument)).exists) {
+        throw createCodedError("failed-precondition", "An additional daily mission has already been accepted for topic " + normalizedTopicId + ".");
       }
-
-      const syllabusSnapshot = await transaction.get(syllabusDocument);
-      const coreMission = syllabusSnapshot.exists
-        ? syllabusSnapshot.data()?.coreMission
-        : null;
-
-      if (!coreMission) {
-        throw createCodedError(
-          "failed-precondition",
-          "Complete today's Daily Mission for this subject first."
-        );
+      const syllabusSnapshot = await transaction.get(syllabusDocument), coreMission = syllabusSnapshot.data()?.coreMission;
+      if (!coreMission) throw createCodedError("failed-precondition", "Complete today's Daily Mission for this subject first.");
+      const corePracticeId = requireDocumentId(coreMission.practiceId, "coreMission.practiceId");
+      const coreType = missionPracticeType(coreMission.practiceType);
+      const completedCore = await transaction.get(this.getDocumentRef([
+        coreType === "essay" ? STUDENT_ESSAY_PRACTICES_COLLECTION : STUDENT_PRACTICES_COLLECTION,
+        normalizedStudentId, coreType === "essay" ? COMPLETED_ESSAY_PRACTICES_SUBCOLLECTION : COMPLETED_PRACTICES_SUBCOLLECTION,
+      ].join("/"), corePracticeId));
+      if (!completedCore.exists) throw createCodedError("failed-precondition", "Complete today's Daily Mission for this subject first.");
+      if (coreType === type && normalizedPracticeId === corePracticeId) {
+        throw createCodedError("failed-precondition", "The Daily Mission practice cannot also be an Additional Mission.");
       }
-
-      const corePracticeId = requireDocumentId(
-        coreMission.practiceId,
-        "coreMission.practiceId"
-      );
-      const completedCorePractice = await transaction.get(this.getDocumentRef(
-        [
-          STUDENT_PRACTICES_COLLECTION,
-          normalizedStudentId,
-          COMPLETED_PRACTICES_SUBCOLLECTION
-        ].join("/"),
-        corePracticeId
-      ));
-
-      if (!completedCorePractice.exists) {
-        throw createCodedError(
-          "failed-precondition",
-          "Complete today's Daily Mission for this subject first."
-        );
+      const assigned = await transaction.get(this.getDocumentRef([
+        type === "essay" ? STUDENT_ESSAY_PRACTICES_COLLECTION : STUDENT_PRACTICES_COLLECTION, normalizedStudentId,
+        type === "essay" ? ASSIGNED_ESSAY_PRACTICES_SUBCOLLECTION : ASSIGNED_PRACTICES_SUBCOLLECTION,
+      ].join("/"), normalizedPracticeId));
+      if (!assigned.exists) throw createCodedError("failed-precondition", "The additional mission practice is no longer assigned.");
+      if (type === "essay" && (assigned.data()?.syllabusId !== normalizedSyllabusId || assigned.data()?.topicId !== normalizedTopicId)) {
+        throw createCodedError("failed-precondition", "The essay assignment does not match the mission topic.");
       }
-
-      if (normalizedPracticeId === corePracticeId) {
-        throw createCodedError(
-          "failed-precondition",
-          "The Daily Mission practice cannot also be an Additional Mission."
-        );
-      }
-
+      const paused = await transaction.get(this.getDocumentRef(pausedTopicsCollectionPath(normalizedStudentId, normalizedSyllabusId), normalizedTopicId));
+      if (paused.exists) throw createCodedError("failed-precondition", "This additional mission topic is paused.");
       transaction.set(studentDocument, {}, {merge: true});
       transaction.set(dayDocument, {}, {merge: true});
       transaction.set(syllabusDocument, {}, {merge: true});
       transaction.set(additionalTopicDocument, {}, {merge: true});
-      transaction.set(additionalPracticeDocument, {});
+      transaction.set(additionalPracticeDocument, {...missionTypeFields(type)});
       if (updateLookup) transaction.set(lookupDocument, lookupData);
-
       return Object.freeze({created: true});
     });
   }
@@ -437,6 +382,7 @@ export class FirestoreDailyMissionRepository
     syllabusId,
     topicId,
     practiceId,
+    practiceType,
     date
   } = {}) {
     const normalizedStudentId = requireDocumentId(studentId, "studentId");
@@ -446,6 +392,7 @@ export class FirestoreDailyMissionRepository
     );
     const normalizedTopicId = requireDocumentId(topicId, "topicId");
     const normalizedPracticeId = requireDocumentId(practiceId, "practiceId");
+    const type = missionPracticeType(practiceType);
     const normalizedDate = requireDateKey(date);
     const studentPath = studentDailyMissionPath(normalizedStudentId);
     const studentDocument = this.getDocumentRef(
@@ -495,9 +442,9 @@ export class FirestoreDailyMissionRepository
     );
     const assignedPracticeDocument = this.getDocumentRef(
       [
-        STUDENT_PRACTICES_COLLECTION,
+        type === "essay" ? STUDENT_ESSAY_PRACTICES_COLLECTION : STUDENT_PRACTICES_COLLECTION,
         normalizedStudentId,
-        ASSIGNED_PRACTICES_SUBCOLLECTION
+        type === "essay" ? ASSIGNED_ESSAY_PRACTICES_SUBCOLLECTION : ASSIGNED_PRACTICES_SUBCOLLECTION
       ].join("/"),
       normalizedPracticeId
     );
@@ -511,17 +458,18 @@ export class FirestoreDailyMissionRepository
 
     const missionContext = requireAcceptedDailyMissionContext({
       missionDate: normalizedDate, syllabusId: normalizedSyllabusId,
-      topicId: normalizedTopicId, practiceId: normalizedPracticeId,
+      topicId: normalizedTopicId, practiceId: normalizedPracticeId, ...missionTypeFields(type),
     });
     const lookupData = {
-      missionDate: missionContext.missionDate, syllabusId: missionContext.syllabusId, topicId: missionContext.topicId,
+      missionDate: missionContext.missionDate, syllabusId: missionContext.syllabusId, topicId: missionContext.topicId, ...missionTypeFields(type),
     };
     const lookupDocument = this.getDocumentRef(
-      [studentPath, STUDENT_DAILY_MISSION_ACCEPTED_PRACTICES_SUBCOLLECTION].join("/"),
+      [studentPath, coreLookupCollection(type)].join("/"),
       normalizedPracticeId,
     );
 
     return this.getFirestoreDb().runTransaction(async (transaction) => {
+      await guardStudentMaintenance(transaction, this.getDocumentRef("studentPracticeResets", normalizedStudentId));
       const syllabusSnapshot = await transaction.get(syllabusDocument);
       const lookupSnapshot = await transaction.get(lookupDocument);
       const previousLookup = lookupSnapshot.exists
@@ -548,6 +496,7 @@ export class FirestoreDailyMissionRepository
         if (
           existingTopicId === normalizedTopicId
           && existingPracticeId === normalizedPracticeId
+          && missionPracticeType(existingMission.practiceType) === type
         ) {
           if (updateLookup) transaction.set(lookupDocument, lookupData);
           return Object.freeze({created: false});
@@ -571,6 +520,10 @@ export class FirestoreDailyMissionRepository
         );
       }
 
+      if (type === "essay" && (assignedSnapshot.data()?.syllabusId !== normalizedSyllabusId || assignedSnapshot.data()?.topicId !== normalizedTopicId)) {
+        throw createCodedError("failed-precondition", "The essay assignment does not match the mission topic.");
+      }
+
       if (pausedSnapshot.exists) {
         throw createCodedError(
           "failed-precondition",
@@ -583,7 +536,8 @@ export class FirestoreDailyMissionRepository
       transaction.set(syllabusDocument, {
         coreMission: {
           topicId: normalizedTopicId,
-          practiceId: normalizedPracticeId
+          practiceId: normalizedPracticeId,
+          ...missionTypeFields(type)
         }
       }, {merge: true});
       transaction.set(coreTopicDocument, {}, {merge: true});
@@ -632,6 +586,7 @@ export class FirestoreDailyMissionRepository
     );
 
     return this.getFirestoreDb().runTransaction(async (transaction) => {
+      await guardStudentMaintenance(transaction, this.getDocumentRef("studentPracticeResets", normalizedStudentId));
       const pausedTopicSnapshot = await transaction.get(
         pausedTopicDocument
       );

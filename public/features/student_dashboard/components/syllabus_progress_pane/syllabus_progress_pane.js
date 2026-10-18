@@ -49,6 +49,7 @@ function formatCompletedDate(value) {
 }
 
 function formatScore(value) {
+  if (value === null || value === undefined) return "Scoring pending";
   const score = Number(value);
 
   return Number.isFinite(score) ? `${score}%` : "Score unavailable";
@@ -67,6 +68,7 @@ function getPreAssessmentPresentation(state) {
 }
 
 function getPracticeHistoryType(practice) {
+  if (practice.practiceType === "essay") return "Essay assessment";
   if (practice.practiceType === "pre assessment") {
     return "Pre-assessment";
   }
@@ -153,7 +155,9 @@ function createCompletedPracticeHistory({
 
     item.className = "student-dashboard-practice-history-item";
     action.className = "student-dashboard-history-result-link";
-    action.href = createPracticeResultUrl(
+    action.href = practice.practiceType === "essay"
+      ? "/features/essay_practice_session/pages/essay_practice/essay_practice.html?essayPracticeId=" + encodeURIComponent(practice.practiceId) + "&studentId=" + encodeURIComponent(studentId)
+      : createPracticeResultUrl(
       studentId,
       practice.practiceId,
       practiceResultUrl
@@ -197,9 +201,9 @@ function createProgressMetric(documentRef, topic) {
   label.className = "student-dashboard-progress-label";
   label.textContent = "Progress to final level";
   copy.className = "student-dashboard-progress-copy";
-  value.textContent = `${progress}%`;
+  value.textContent = topic.progressPercentage === null ? "Not applicable" : `${progress}%`;
   destination.textContent =
-    `${topic.totalLevelCount} levels / ${topic.finalLevelName}`;
+    topic.progressPercentage === null ? "" : `${topic.totalLevelCount} levels / ${topic.finalLevelName}`;
   copy.append(value, destination);
   track.className = "student-dashboard-progress-track";
   track.setAttribute("role", "progressbar");
@@ -212,6 +216,7 @@ function createProgressMetric(documentRef, topic) {
   );
   fill.className = "student-dashboard-progress-fill";
   fill.style.width = `${progress}%`;
+  track.hidden = topic.progressPercentage === null;
   track.append(fill);
   metric.append(label, copy, track);
 

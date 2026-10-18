@@ -1,4 +1,17 @@
 /**
+ * listAdditionalMissions({studentId, syllabusId}) -> [{practiceId, practiceType: "normal"|"essay", topicId}]
+ * getAdditionalMissionAvailability({studentId, syllabusId}) -> {missions, preparingEssay}
+ * The legacy listAdditionalMissionPracticeIds API returns normal-practice IDs only.
+ * acceptAdditionalDailyMission accepts optional practiceType (default normal).
+ * One additional mission per topic per day is shared across both practice types.
+ */
+const {GetAdditionalMissionAvailability} = require("./application/get_additional_mission_availability");
+const {listAssignedEssayPractices, listCompletedEssayPractices, getAssignedEssayPractice, getCompletedEssayPractice} = require("../student_essay_practice/student_essay_practice_module");
+const {ListAdditionalMissions} = require("./application/list_additional_missions");
+/**
+ * Essay core missions include practiceType: "essay"; practiceId is the student essay attempt ID.
+ * Omitted practiceType means a normal practice. Submission completes an essay mission before grading.
+ *
  * Feature API
  *
  * getAcceptedAdditionalMissionForPractice({studentId: string, practiceId: string})
@@ -8,7 +21,7 @@
  * Supports older records without a lookup and returns the latest acceptance.
  * Acceptance is independent of practice completion.
  *
- * getAcceptedDailyMissionForPractice({studentId: string, practiceId: string})
+ * getAcceptedDailyMissionForPractice({studentId: string, practiceId: string, practiceType?: "normal"|"essay"})
  *   -> Promise<{missionDate: string, syllabusId: string, topicId: string,
  *     practiceId: string}|null>
  * Read-only. Verifies the lookup against the accepted core mission record.
@@ -30,7 +43,7 @@
  * suggestion; a true value means today's accepted core mission already exists.
  * Each subject has at most one accepted Daily Mission per day.
  *
- * acceptCoreDailyMission({studentId: string, practiceId: string})
+ * acceptCoreDailyMission({studentId: string, practiceId: string, practiceType?: "normal"|"essay"})
  *   -> Promise<{
  *     studentId: string,
  *     syllabusId: string,
@@ -41,7 +54,7 @@
  *     created: boolean
  *   }>
  *
- * pauseCoreDailyMission({studentId: string, practiceId: string})
+ * pauseCoreDailyMission({studentId: string, practiceId: string, practiceType?: "normal"|"essay"})
  * Rejects topics whose syllabus pausable flag is false.
  *   -> Promise<{
  *     studentId: string,
@@ -148,6 +161,7 @@ const isTopicPausedUseCase = new IsTopicPaused({
 const getNextCoreDailyMissionUseCase = new GetNextCoreDailyMission({
   dailyMissionRepository,
   listAssignedPracticeIds,
+  listAssignedEssayPractices,
   getPracticeById,
   checkPausedTopicValidity: runPausedTopicValidityCheck,
 });
@@ -158,11 +172,13 @@ const acceptCoreDailyMissionUseCase = new AcceptCoreDailyMission({
     getNextCoreDailyMissionUseCase.execute(input)
   ),
   getPracticeById,
+  getAssignedEssayPractice, getCompletedEssayPractice,
 });
 const pauseCoreDailyMissionUseCase = new PauseCoreDailyMission({
   dailyMissionRepository,
   getPracticeById,
   isTopicPausable,
+  getAssignedEssayPractice,
 });
 const listAdditionalMissionPracticeIdsUseCase =
   new ListAdditionalMissionPracticeIds({
@@ -174,8 +190,16 @@ const listAdditionalMissionPracticeIdsUseCase =
 const acceptAdditionalDailyMissionUseCase =
   new AcceptAdditionalDailyMission({
     dailyMissionRepository,
+    getAssignedEssayPractice, getCompletedEssayPractice,
     getPracticeById,
   });
+const listAdditionalMissionsUseCase = new ListAdditionalMissions({dailyMissionRepository, listAssignedPracticeIds,
+  listAssignedEssayPractices, getPracticeById, checkPausedTopicValidity: runPausedTopicValidityCheck});
+async function listAdditionalMissions(input) {return listAdditionalMissionsUseCase.execute(input);}
+const additionalMissionAvailability = new GetAdditionalMissionAvailability({listAdditionalMissions,
+  dailyMissionRepository, listCompletedEssayPractices, checkPausedTopicValidity: runPausedTopicValidityCheck,
+  getCurrentDate: () => new Date().toISOString().slice(0, 10)});
+async function getAdditionalMissionAvailability(input) {return additionalMissionAvailability.execute(input);}
 const unpauseTopicUseCase = new UnpauseTopic({
   dailyMissionRepository,
 });
@@ -221,6 +245,7 @@ async function unpauseTopic(input) {
 }
 
 module.exports = {
+  listAdditionalMissions, getAdditionalMissionAvailability,
   acceptAdditionalDailyMission,
   acceptCoreDailyMission,
   checkPausedTopicValidity,

@@ -8,8 +8,9 @@ import {
   listAssessmentFrameworks,
   saveAssessmentFrameworkPreAssessment,
   updateAssessmentFrameworkRecord
-} from "../../assessment_framework_module.js?v=20260730-score-bands";
+} from "../../assessment_framework_module.js?v=20261018-topic-framework-v1";
 
+const frameworkTypeSelect = document.querySelector("#framework-type");
 const frameworkSelect = document.querySelector("#framework-select");
 const newFrameworkNameInput = document.querySelector("#new-framework-name");
 const useNewFrameworkButton = document.querySelector("#use-new-framework");
@@ -73,7 +74,9 @@ function hasSavedLevels() {
 
 function updatePreAssessmentControls() {
   const levelsAreReady = hasSavedLevels() && !frameworkLevelsDirty;
-  const canEdit = !pageBusy && levelsAreReady;
+  const essay = frameworkTypeSelect.value === "essay";
+  document.querySelector("#pre-assessment-section").hidden = essay;
+  const canEdit = !essay && !pageBusy && levelsAreReady;
 
   preAssessmentFields.disabled = !canEdit;
   savePreAssessmentButton.disabled = !canEdit;
@@ -100,6 +103,7 @@ function setBusy(isBusy) {
   newFrameworkNameInput.disabled = isBusy;
   useNewFrameworkButton.disabled = isBusy;
   frameworkNameInput.disabled = isBusy;
+  frameworkTypeSelect.disabled = isBusy || Boolean(loadedFramework);
   endLevelNameInput.disabled = isBusy;
   addLevelButton.disabled = isBusy;
   saveButton.disabled = isBusy;
@@ -148,6 +152,13 @@ function updateLevelControls() {
 
   rows.forEach((row, index) => {
     row.querySelector("[data-field='sequenceOrder']").value = index + 1;
+    const essay = frameworkTypeSelect.value === "essay";
+    row.querySelector("[data-label='practice-count']").textContent = essay ? "Essays" : "Practices";
+    for (const field of ["questionsPerPractice", "difficultyLevel"]) {
+      const input = row.querySelector("[data-field='" + field + "']");
+      if (essay) input.value = field === "questionsPerPractice" ? 1 : "Medium";
+      input.disabled = pageBusy || essay;
+    }
 
     const moveUpButton = row.querySelector("[data-action='move-up']");
     const moveDownButton = row.querySelector("[data-action='move-down']");
@@ -314,6 +325,8 @@ function resetPreAssessmentEditor() {
 
 function resetForm() {
   loadedFramework = null;
+  frameworkTypeSelect.disabled = false;
+  frameworkTypeSelect.value = "normal";
   frameworkLevelsDirty = false;
   frameworkSelect.value = "";
   frameworkNameInput.value = "";
@@ -336,6 +349,8 @@ function displayFramework(framework, message) {
     frameworkSelect.value = framework.id;
   }
 
+  frameworkTypeSelect.value = framework.frameworkType || "normal";
+  frameworkTypeSelect.disabled = true;
   frameworkNameInput.value = framework.name || "";
   endLevelNameInput.value = framework.endLevelName || "";
   renderLevels(framework.levels || []);
@@ -353,6 +368,8 @@ function prepareNewFramework() {
   }
 
   loadedFramework = null;
+  frameworkTypeSelect.disabled = false;
+  frameworkTypeSelect.value = "normal";
   frameworkLevelsDirty = true;
   frameworkSelect.value = "";
   confirmDeleteInput.checked = false;
@@ -375,7 +392,7 @@ function readLevelRow(row, index) {
   const questionsPerPractice = Number(
     row.querySelector("[data-field='questionsPerPractice']").value
   );
-  const difficultyLevel = row.querySelector("[data-field='difficultyLevel']").value;
+  const difficultyLevel = frameworkTypeSelect.value === "essay" ? "medium" : row.querySelector("[data-field='difficultyLevel']").value;
 
   if (!levelName) {
     throw new Error(`Level ${index + 1} name is required.`);
@@ -432,6 +449,7 @@ async function saveFramework() {
   try {
     const changes = {
       name,
+      frameworkType: frameworkTypeSelect.value,
       endLevelName,
       levels: readLevels()
     };
@@ -633,4 +651,5 @@ difficultyInputs.forEach((input) => {
 });
 savePreAssessmentButton.addEventListener("click", savePreAssessment);
 
+frameworkTypeSelect.addEventListener("change", () => {updateLevelControls(); updatePreAssessmentControls();});
 initPage();

@@ -1,7 +1,8 @@
+import {resolveTopicAssessmentFrameworkId} from "../../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
 import {
   preAssessmentStates,
   summarizeTopicProgress
-} from "../domain/topic_progress_summary.js?v=20260823-student-dashboard-v1";
+} from "../domain/topic_progress_summary.js?v=20261019-essay-level-display-v1";
 
 function requirePositiveInteger(value, fieldName) {
   const number = Number(value);
@@ -166,6 +167,9 @@ export class GetStudentDashboard {
     listActiveStudentSyllabusSubscriptions,
     getSyllabusById,
     listCompletedPractices,
+    listCompletedEssayPractices = async () => ({practices: [], nextCursor: null}),
+    getEssayPracticeById = async () => null,
+    getEssayResult = async () => null,
     getPracticeById,
     getQuestionDifficulty,
     preAssessmentPracticeType,
@@ -185,6 +189,7 @@ export class GetStudentDashboard {
       listActiveStudentSyllabusSubscriptions;
     this.getSyllabusById = getSyllabusById;
     this.listCompletedPractices = listCompletedPractices;
+    Object.assign(this, {listCompletedEssayPractices, getEssayPracticeById, getEssayResult});
     this.getPracticeById = getPracticeById;
     this.getQuestionDifficulty = getQuestionDifficulty;
     this.preAssessmentPracticeType = preAssessmentPracticeType;
@@ -279,6 +284,33 @@ export class GetStudentDashboard {
         preAssessmentPracticeType: this.preAssessmentPracticeType
       })
     ]);
+    const essayCompletions = [];
+    let essayCursor = null;
+    do {
+      const page = await this.listCompletedEssayPractices({studentId, limit: 100, cursor: essayCursor});
+      essayCompletions.push(...page.practices);
+      essayCursor = page.nextCursor;
+    } while (essayCursor);
+    const resultPromises = new Map();
+    const essayPracticePromises = new Map();
+    const getEssayResult = questionId => {
+      if (!resultPromises.has(questionId)) resultPromises.set(questionId, this.getEssayResult({studentId, questionId}).catch(() => null));
+      return resultPromises.get(questionId);
+    };
+    const getEssayPractice = practiceId => {
+      if (!essayPracticePromises.has(practiceId)) essayPracticePromises.set(practiceId, this.getEssayPracticeById(practiceId));
+      return essayPracticePromises.get(practiceId);
+    };
+    await Promise.all(essayCompletions.map(async completion => {
+      const key = createTopicKey(completion.syllabusId, completion.topicId);
+      const result = await getEssayResult(completion.essayQuestionId);
+      const history = completedPracticesByTopic.get(key) || [];
+      history.push({practiceId: completion.essayPracticeId, essayQuestionId: completion.essayQuestionId,
+        dateCompleted: completion.completedAt, practiceType: "essay", difficulty: null,
+        score: result?.answer === completion.essayText ? result.score : null});
+      history.sort(compareCompletedPracticeHistory);
+      completedPracticesByTopic.set(key, history);
+    }));
     const completedPracticeIdSet = new Set(
       completedPractices.map((completion) => completion.practiceId)
     );
@@ -318,21 +350,29 @@ export class GetStudentDashboard {
               topic,
               subscription.language
             );
-            const preAssessmentCompleted = Boolean(
+            const topicFrameworkId = resolveTopicAssessmentFrameworkId(syllabus, {topicId: topic.id, language: subscription.language});
+            const topicFramework = await getFramework(topicFrameworkId);
+            const hasEssayFramework = topicFramework?.frameworkType === "essay";
+            const isEssay = hasEssayFramework || preAssessment?.practiceType === "essay";
+            const attachedEssay = isEssay && preAssessment?.practiceId ? await getEssayPractice(preAssessment.practiceId) : null;
+            const essayCompleted = isEssay && attachedEssay && essayCompletions.some(completion =>
+              completion.syllabusId === syllabus.id && completion.topicId === topic.id && completion.essayQuestionId === attachedEssay.essayQuestionId);
+            const preAssessmentCompleted = isEssay ? Boolean(essayCompleted) : Boolean(
               preAssessment?.practiceId
               && completedPracticeIdSet.has(preAssessment.practiceId)
             );
             const scope = {studentId, syllabusId: syllabus.id, topicId: topic.id};
             const [currentLevelId, readiness, reliability] = await Promise.all([
-              preAssessmentCompleted ? this.getStudentTopicLevel(scope) : null,
+              hasEssayFramework || (preAssessmentCompleted && !isEssay) ? this.getStudentTopicLevel(scope) : null,
               this.getTopicReadiness(scope),
               this.getTopicReliability(scope)
             ]);
             const progress = summarizeTopicProgress({
               hasPreAssessment: Boolean(preAssessment?.practiceId),
               preAssessmentCompleted,
+              requiresPreAssessment: !hasEssayFramework,
               currentLevelId,
-              framework,
+              framework: topicFramework,
               endLevelId: this.endLevelId
             });
             const topicKey = createTopicKey(syllabus.id, topic.id);
@@ -340,12 +380,15 @@ export class GetStudentDashboard {
             return {
               topicId: topic.id,
               topicName: topic.topicName,
+              assessmentFrameworkId: topicFrameworkId,
+              frameworkName: topicFramework?.name || null,
               preAssessmentPracticeId: preAssessment?.practiceId || null,
               completedPractices:
                 completedPracticesByTopic.get(topicKey) || [],
               ...readiness,
               ...reliability,
-              ...progress
+              ...progress,
+              ...(isEssay && !hasEssayFramework ? {currentLevelName: "Not applicable", nextLevelName: "Not applicable", finalLevelName: "Not applicable", progressPercentage: null} : {})
             };
           }
         ));
@@ -361,7 +404,7 @@ export class GetStudentDashboard {
           topics: topics.sort((first, second) => (
             first.topicName.localeCompare(second.topicName)
           )),
-          error: framework ? null : "Assessment framework is not configured."
+          error: topics.every(topic => topic.assessmentFrameworkId || topic.currentLevelName === "Not applicable") ? null : "Assessment framework is not configured."
         };
       })
     );

@@ -21,6 +21,15 @@ const studentDailyMissionSchema = {
   documentId: studentDailyMissionDocumentIdPattern,
   fields: {},
   subcollections: {
+    acceptedAdditionalMissionEssays: {
+      collection: "acceptedAdditionalMissionEssays", documentId: "[student_essay_practice_id]",
+      fields: {missionDate: "string", syllabusId: "string", topicId: "string", practiceType: "essay"},
+    },
+    acceptedDailyMissionEssays: {
+      collection: "acceptedDailyMissionEssays",
+      documentId: "[student_essay_practice_id]",
+      fields: {missionDate: "string", syllabusId: "string", topicId: "string", practiceType: "essay"},
+    },
     acceptedDailyMissionPractices: {
       collection: STUDENT_DAILY_MISSION_ACCEPTED_PRACTICES_SUBCOLLECTION,
       documentId: studentDailyMissionPracticeDocumentIdPattern,
@@ -52,7 +61,8 @@ const studentDailyMissionSchema = {
               type: "map",
               fields: {
                 topicId: "string",
-                practiceId: "string"
+                practiceId: "string",
+                practiceType: {type: "enum", values: ["normal", "essay"], default: "normal"}
               }
             }
           },
@@ -74,6 +84,7 @@ const studentDailyMissionSchema = {
               documentId: studentDailyMissionTopicDocumentIdPattern,
               fields: {},
               subcollections: {
+                essays: {collection: "essays", documentId: "[student_essay_practice_id]", fields: {practiceType: "essay"}},
                 practices: {
                   collection: STUDENT_DAILY_MISSION_PRACTICES_SUBCOLLECTION,
                   documentId: studentDailyMissionPracticeDocumentIdPattern,

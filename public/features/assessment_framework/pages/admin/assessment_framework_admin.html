@@ -66,6 +66,8 @@
           </div>
         </section>
 
+        <label class="field"><span>Framework type</span><select id="framework-type"><option value="normal">Normal</option><option value="essay">Essay</option></select></label>
+        <p class="help">Essay levels contain one medium-difficulty question and do not use pre-assessment. Framework type is fixed after saving.</p>
         <section class="levels-section">
           <div class="levels-header">
             <h2>Levels</h2>
@@ -78,7 +80,7 @@
           <button id="save-framework" type="button">Save Framework</button>
         </div>
 
-        <section class="pre-assessment-section">
+        <section id="pre-assessment-section" class="pre-assessment-section">
           <div class="pre-assessment-header">
             <div>
               <h2>Pre-assessment</h2>
@@ -169,7 +171,7 @@
           <input data-field="sequenceOrder" type="number" min="1" step="1" readonly>
         </label>
         <label class="field small">
-          <span>Practices</span>
+          <span data-label="practice-count">Practices</span>
           <input data-field="requiredPracticeCount" type="number" min="0" step="1">
         </label>
         <label class="field small">
@@ -200,7 +202,7 @@
       id="site-admin-page-loader"
       type="module"
       data-site-admin-page
-      data-page-module="./assessment_framework_admin.js?v=20260730-score-bands"
+      data-page-module="./assessment_framework_admin.js?v=20261018-topic-framework-v1"
       src="/features/site_admin/pages/common/site_admin_page_loader.js?v=20260827-site-admin-guard-v1"
     ></script>
   </body>

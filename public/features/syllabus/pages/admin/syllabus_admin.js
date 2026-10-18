@@ -1,10 +1,12 @@
+import {fillFrameworkSelect} from "../../../assessment_framework/components/framework_select.js?v=20261018-topic-framework-v1";
+import {createSyllabusLanguageKey} from "../../domain/syllabus.js?v=20261018-topic-framework-v1";
 import {
   createSyllabusRecord,
   deleteSyllabusRecord,
   getSyllabusById,
   listSyllabuses,
   updateSyllabusRecord
-} from "../../syllabus_module.js?v=20261004-topic-pausable-v1";
+} from "../../syllabus_module.js?v=20261018-topic-framework-v1";
 
 import {
   listSyllabusScopes
@@ -12,7 +14,7 @@ import {
 
 import {
   listAssessmentFrameworks
-} from "../../../assessment_framework/assessment_framework_module.js?v=20260718-syllabus-languages";
+} from "../../../assessment_framework/assessment_framework_module.js?v=20261018-topic-framework-v1";
 
 const syllabusSelect = document.querySelector("#syllabus-select");
 const useNewSyllabusButton = document.querySelector("#use-new-syllabus");
@@ -36,6 +38,7 @@ const statusMessage = document.querySelector("#status-message");
 
 let loadedSyllabus = null;
 let syllabusScopes = [];
+let assessmentFrameworks = [];
 let subjects = [];
 let pageBusy = false;
 
@@ -86,6 +89,7 @@ function setBusy(isBusy) {
   languagesContainer.querySelectorAll("input[type='checkbox']").forEach((input) => {
     input.disabled = isBusy || input.dataset.unavailable === "true";
   });
+  topicsContainer.querySelectorAll("select[data-framework-language]").forEach(select => {select.disabled = isBusy;});
   updateScopeControls();
   updateDeleteControls();
 }
@@ -287,19 +291,9 @@ function renderYearOptions(selectedYear = "") {
 }
 
 function renderFrameworkOptions(frameworks, selectedFrameworkId = "") {
-  clearSelect(
-    assessmentFrameworkSelect,
-    frameworks.length ? "Select framework" : "No assessment frameworks"
-  );
+  assessmentFrameworks = frameworks;
+  fillFrameworkSelect(assessmentFrameworkSelect, frameworks, selectedFrameworkId, {placeholder: "No syllabus default"});
 
-  frameworks.forEach((framework) => {
-    const option = document.createElement("option");
-    option.value = framework.id;
-    option.textContent = framework.name;
-    assessmentFrameworkSelect.append(option);
-  });
-
-  assessmentFrameworkSelect.value = selectedFrameworkId || "";
 }
 
 function getSubjectsFromSyllabuses(syllabuses) {
@@ -381,6 +375,8 @@ function addTopicRow(topic = {}) {
     addSubtopicRow(subtopicsContainer, { id, name });
   });
 
+  row.frameworkIdsDraft = {...(topic.assessmentFrameworkIds || {})};
+  renderTopicFrameworks(row);
   topicsContainer.append(row);
 }
 
@@ -511,6 +507,7 @@ function readTopics() {
         topicName,
         pausable: topicRow.querySelector("[data-field='pausable']").checked,
         subtopics,
+        assessmentFrameworkIds: readTopicFrameworks(topicRow),
         preAssessmentPractices:
           existingTopic?.preAssessmentPractices || {}
       };
@@ -544,10 +541,7 @@ async function saveSyllabus() {
     return;
   }
 
-  if (!assessmentFrameworkId) {
-    setStatus("Assessment framework is required.", true);
-    return;
-  }
+
 
   setBusy(true);
   clearStatus();
@@ -564,6 +558,11 @@ async function saveSyllabus() {
       topics: readTopics()
     };
 
+    if (changes.active) {
+      for (const topic of changes.topics) for (const language of changes.languages) {
+        if (!topic.assessmentFrameworkIds[createSyllabusLanguageKey(language)] && !changes.assessmentFrameworkId) throw new Error("Select a framework for " + topic.topicName + " / " + language + " or configure a syllabus default.");
+      }
+    }
     loadedSyllabus = loadedSyllabus
       ? await updateSyllabusRecord(loadedSyllabus, changes)
       : await createSyllabusRecord(changes);
@@ -682,4 +681,32 @@ saveButton.addEventListener("click", saveSyllabus);
 deleteButton.addEventListener("click", deleteSyllabus);
 confirmDeleteInput.addEventListener("change", updateDeleteControls);
 
+function captureTopicFrameworks(row) {
+  row.frameworkIdsDraft ||= {};
+  row.querySelectorAll("select[data-framework-language]").forEach(select => {
+    if (select.value) row.frameworkIdsDraft[select.dataset.frameworkLanguage] = select.value;
+    else delete row.frameworkIdsDraft[select.dataset.frameworkLanguage];
+  });
+}
+function renderTopicFrameworks(row) {
+  captureTopicFrameworks(row);
+  const container = row.querySelector("[data-role='topic-frameworks']");
+  container.replaceChildren();
+  for (const language of readSelectedLanguages()) {
+    const key = createSyllabusLanguageKey(language);
+    const label = document.createElement("label"), text = document.createElement("span"), select = document.createElement("select");
+    label.className = "field"; text.textContent = language + " assessment framework";
+    select.dataset.frameworkLanguage = key;
+    fillFrameworkSelect(select, assessmentFrameworks, row.frameworkIdsDraft[key] || "");
+    select.disabled = pageBusy;
+    label.append(text, select); container.append(label);
+  }
+}
+function readTopicFrameworks(row) {
+  captureTopicFrameworks(row);
+  return Object.fromEntries(readSelectedLanguages().map(createSyllabusLanguageKey).filter(key => row.frameworkIdsDraft[key]).map(key => [key, row.frameworkIdsDraft[key]]));
+}
+function refreshTopicFrameworks() {topicsContainer.querySelectorAll(".topic-row").forEach(renderTopicFrameworks);}
+languagesContainer.addEventListener("change", refreshTopicFrameworks);
+countrySelect.addEventListener("change", refreshTopicFrameworks);
 initPage();
