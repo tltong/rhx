@@ -6,18 +6,32 @@ umask 077
 
 usage() {
   echo "Usage: $0 {hosting|functions|all}"
+  echo "       $0 function <exported-function-name>"
   echo "Requires FIREBASE_SERVICE_ACCOUNT_JSON; deploys to readyherox."
   echo "Optional RHX_FIREBASE_TOOLS_DIR selects a preinstalled npm package directory."
 }
 
+function_name=''
 case "${1:-}" in
-  hosting) targets=hosting ;;
-  functions) targets=functions ;;
-  all) targets=hosting,functions ;;
+  hosting|functions|all)
+    [[ $# -eq 1 ]] || { usage >&2; exit 2; }
+    case "$1" in
+      hosting) targets=hosting ;;
+      functions) targets=functions ;;
+      all) targets=hosting,functions ;;
+    esac
+    ;;
+  function)
+    [[ $# -eq 2 ]] || { usage >&2; exit 2; }
+    function_name="$2"
+    [[ "$function_name" =~ ^[A-Za-z][A-Za-z0-9_-]*$ ]] || {
+      echo 'Invalid function name; specify one exported function name.' >&2; exit 2;
+    }
+    targets="functions:$function_name"
+    ;;
   -h|--help) usage; exit 0 ;;
   *) usage >&2; exit 2 ;;
 esac
-[[ $# -eq 1 ]] || { usage >&2; exit 2; }
 
 repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 [[ -f "$repo_dir/firebase.json" ]] || { echo 'firebase.json is missing.' >&2; exit 1; }
@@ -33,6 +47,36 @@ repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 for executable in node npm; do
   command -v "$executable" >/dev/null || { echo "$executable is required." >&2; exit 1; }
 done
+
+if [[ -n "$function_name" ]]; then
+  # Fail before creating credentials if the name is not an actual function export.
+  node - "$repo_dir" "$function_name" <<'NODE'
+const fs = require('fs');
+const path = require('path');
+const [repo, name] = process.argv.slice(2);
+try {
+  const config = JSON.parse(fs.readFileSync(path.join(repo, 'firebase.json'), 'utf8'));
+  const codebases = [config.functions].flat().filter(Boolean);
+  // Firebase also accepts codebase names after "functions:". Avoid ambiguity.
+  if (codebases.some(c => (c.codebase || 'default') === name)) {
+    throw new Error('Function name conflicts with a configured codebase name.');
+  }
+  let matches = 0;
+  for (const codebase of codebases) {
+    const exported = require(path.resolve(repo, codebase.source));
+    if (Object.hasOwn(exported, name) && typeof exported[name] === 'function' &&
+        (exported[name].__endpoint || exported[name].__trigger)) matches++;
+  }
+  if (matches !== 1) {
+    throw new Error(matches ? 'Function is exported by multiple codebases.' :
+      'Function is not exported by a configured Functions source.');
+  }
+} catch (error) {
+  console.error(`Cannot deploy function ${name}: ${error.message}`);
+  process.exit(2);
+}
+NODE
+fi
 
 # Always outside the application repository, regardless of TMPDIR.
 deploy_tmp="$(mktemp -d /tmp/rhx-firebase-deploy.XXXXXXXX)"
@@ -132,7 +176,7 @@ unset FIREBASE_SERVICE_ACCOUNT_JSON FIREBASE_TOKEN
 
 # The current frontend is static public/ content and needs no build. If a root
 # frontend build script is introduced, run it before Hosting deployment.
-if [[ "$targets" != functions && -f "$repo_dir/package.json" ]]; then
+if [[ ( "$targets" == hosting || "$targets" == hosting,functions ) && -f "$repo_dir/package.json" ]]; then
   if node -e 'const p=require(process.argv[1]);process.exit(typeof p.scripts?.build === "string" ? 0 : 1)' "$repo_dir/package.json"; then
     echo 'Building frontend...'
     (cd "$repo_dir" && npm run build)
