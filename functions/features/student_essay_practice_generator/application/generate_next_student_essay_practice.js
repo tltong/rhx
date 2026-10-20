@@ -1,4 +1,4 @@
-const {THEME_SELECTION_ATTEMPT_LIMIT, QUESTION_SELECTION_ATTEMPT_LIMIT} = require("../config/student_essay_practice_generator_config");
+const {QUESTION_SELECTION_ATTEMPT_LIMIT} = require("../config/student_essay_practice_generator_config");
 const {normalizeGenerationRequest, requireIdentifier, themeKey, questionCriteria, normalizeDraft, generationError} = require("../domain/essay_generation");
 
 class GenerateNextStudentEssayPractice {
@@ -30,8 +30,22 @@ class GenerateNextStudentEssayPractice {
     return {questionIds, themes};
   }
 
-  async reusableQuestion(criteria, history, assertAccess) {
-    let cursor = null, selected = null, preferred = null, count = 0, preferredCount = 0;
+  async availableThemes(criteria, history, assertAccess) {
+    const entries = await this.getQuestionSeedEntries({vertical: "theme", level: criteria.level, grade: criteria.standard});
+    assertAccess();
+    const themes = new Map();
+    for (const entry of entries) {
+      const key = themeKey(entry.value);
+      if (!history.themes.has(key)) themes.set(key, entry.value);
+    }
+    if (themes.size) return {themes, useDefault: false};
+    const fallback = await this.getDefaultQuestionSeedTheme();
+    assertAccess();
+    return {themes: new Map([[themeKey(fallback), fallback]]), useDefault: true};
+  }
+
+  async reusableQuestion(criteria, history, themes, assertAccess) {
+    let cursor = null, selected = null, count = 0;
     const sample = total => {
       const draw = this.random();
       if (!Number.isFinite(draw) || draw < 0 || draw >= 1) throw new Error("Invalid random question selection.");
@@ -42,14 +56,13 @@ class GenerateNextStudentEssayPractice {
       const page = await this.listEssayQuestions({...criteria, limit: 100, cursor});
       assertAccess();
       for (const question of page.questions) {
-        if (history.questionIds.has(question.questionId)) continue;
+        if (history.questionIds.has(question.questionId) || !themes.has(themeKey(question.seedUsed))) continue;
         const candidate = normalizeDraft(question, criteria, question.seedUsed);
         if (sample(++count)) selected = candidate;
-        if (!history.themes.has(themeKey(candidate.seedUsed)) && sample(++preferredCount)) preferred = candidate;
       }
       cursor = page.nextCursor;
     } while (cursor);
-    return preferred ?? selected;
+    return selected;
   }
 
   async existingPractice(request, generation, source, assertAccess) {
@@ -97,19 +110,25 @@ class GenerateNextStudentEssayPractice {
           generation = await this.repository.clearSelection(request, generation.leaseToken, persistenceContext);
           continue;
         }
+        const {themes, useDefault} = await this.availableThemes(criteria, history, assertAccess);
+        if (selectedId) {
+          const selected = generation.draft ?? await this.getEssayQuestionById(selectedId);
+          assertAccess();
+          if (!selected) throw new Error("The selected essay question could not be found.");
+          if (!themes.has(themeKey(selected.seedUsed))) {
+            generation = await this.repository.clearSelection(request, generation.leaseToken, persistenceContext);
+            continue;
+          }
+        }
         let draft = generation.draft, question;
         if (!draft && !generation.reusedQuestionId) {
-          const reusable = await this.reusableQuestion(criteria, history, assertAccess);
+          const reusable = useDefault ? null : await this.reusableQuestion(criteria, history, themes, assertAccess);
           if (reusable) {
             generation = await this.repository.saveReusedQuestion(request, generation.leaseToken, reusable.questionId, persistenceContext);
           } else {
-            let seed;
-            for (let attempt = 0; attempt < THEME_SELECTION_ATTEMPT_LIMIT; attempt++) {
-              seed = await this.getRandomQuestionSeedEntry({vertical: "theme", level: criteria.level, grade: criteria.standard});
-              assertAccess();
-              if (!history.themes.has(themeKey(seed))) break;
-            }
-            // After the bounded search, the last selected theme is allowed to repeat.
+            const draw = this.random();
+            if (!Number.isFinite(draw) || draw < 0 || draw >= 1) throw new Error("Invalid random theme selection.");
+            const seed = [...themes.values()][Math.floor(draw * themes.size)];
             const generated = await this.generateEssayQuestion({...criteria, seed, save: false}, {updatedBy});
             assertAccess();
             draft = normalizeDraft(generated, criteria, seed);

@@ -6,6 +6,7 @@ import * as web from "./essay_scoring_module.js";
 import * as webSchema from "../../config/firebase/essay_scoring_schema.js";
 import * as webLlm from "../../utils/llm/llm_util.js?v=20261015-deepseek-deadline-v1";
 import {ESSAY_SCORING_PROMPT_TEMPLATE as webTemplate} from "./config/essay_scoring_prompt_template.js";
+import {buildEssayScoringInstructions as webInstructions} from "./application/build_essay_scoring_prompt.js";
 
 const require = createRequire(import.meta.url);
 const backendOps = require("../../../functions/utils/firebase/firebase_ops");
@@ -13,11 +14,13 @@ const backendLlm = require("../../../functions/utils/llm/llm_ops");
 const originalOps = {...backendOps}, originalLlm = backendLlm.generateLlmText;
 const originalAdapter = new webLlm.LlmUtil().getProviderAdapter("deepseek");
 const originalFirebase = globalThis.firebase;
-const documents = new Map(), reads = [], writes = [], llmCalls = [];
+const documents = new Map(), reads = [], writes = [], llmCalls = [], adminChecks = [];
+const configPath = "essayScoring/config";
 const initialTime = new Date("2026-10-18T09:00:00Z");
 const account = {uid: "parent-1", email: "parent@example.com", emailVerified: true};
+const administrator = {uid: "admin-1", email: "admin@example.com", emailVerified: true};
 const auth = {currentUser: {...account}};
-let now, response, onRead, onLlm, writeFailure;
+let now, response, onRead, onLlm, onAdminCheck, writeFailure;
 function put(path, data) {documents.set(path, structuredClone(data));}
 function snapshot(path) {
   const exists = documents.has(path), data = exists ? structuredClone(documents.get(path)) : undefined;
@@ -32,7 +35,7 @@ function reference(path) {
     collection: name => collection(path + "/" + name),
     async set(data, options) {
       if (writeFailure) throw writeFailure;
-      const resolved = {...data, scoredAt: now};
+      const resolved = path === configPath ? {...data, updatedAt: now} : {...data, scoredAt: now};
       writes.push({path, data: structuredClone(resolved), options});
       put(path, options?.merge ? {...documents.get(path), ...resolved} : resolved);
     },
@@ -48,7 +51,18 @@ const db = {collection, doc: reference};
 const firestore = () => db;
 firestore.FieldValue = {serverTimestamp: () => "server-timestamp"};
 const app = {firestore: () => db, auth: () => auth,
-  functions() {throw new Error("Essay scoring must not invoke new callable endpoints or require site administration");}};
+  functions(region) {
+    assert.equal(region, "us-central1");
+    return {httpsCallable(name) {
+      assert.equal(name, "isCurrentUserSiteAdmin");
+      return async () => {
+        adminChecks.push(name);
+        const user = auth.currentUser;
+        const data = {email: user?.email?.trim().toLowerCase(), emailVerified: user?.emailVerified === true, isAdmin: user?.uid === administrator.uid};
+        await onAdminCheck?.(); return {data};
+      };
+    }};
+  }};
 globalThis.firebase = {apps: [], firestore, initializeApp: () => app};
 backendOps.getFirestoreDb = () => db;
 async function generateLlmText(prompt, options) {
@@ -61,7 +75,10 @@ webLlm.registerLlmProvider("deepseek", {call() {throw new Error("Use generateLlm
 const backend = require("../../../functions/features/essay_scoring/essay_scoring_module");
 const backendSchema = require("../../../functions/schema/essay_scoring_schema");
 const {ESSAY_SCORING_PROMPT_TEMPLATE: backendTemplate} = require("../../../functions/features/essay_scoring/config/essay_scoring_prompt_template");
-const apis = ["scoreEssay", "saveEssayResult", "getEssayResult"];
+const {buildEssayScoringInstructions: backendInstructions} = require("../../../functions/features/essay_scoring/application/build_essay_scoring_prompt");
+const apis = ["scoreEssay", "saveEssayResult", "getEssayResult", "getEssayScoringConfig", "saveEssayScoringConfig"];
+const saveConfig = (api, input, context = {updatedBy: administrator.uid}) => api === backend
+  ? api.saveEssayScoringConfig(input, context) : api.saveEssayScoringConfig(input);
 const answer = "  He go to school.\n\nHe helps his friend.  ";
 const correction = {originalText: "He go", correctedText: "He goes", explanation: "Use the singular present-tense verb."};
 const reviewComment = "Your example shows how helping a friend matters. Develop the ending and check subject-verb agreement.";
@@ -83,8 +100,8 @@ function promptData() {
   return JSON.parse(llmCalls.at(-1).prompt.split("Essay reference data:\n").at(-1));
 }
 beforeEach(() => {
-  documents.clear(); reads.length = writes.length = llmCalls.length = 0;
-  now = new Date(initialTime); response = assessment(); onRead = onLlm = writeFailure = null;
+  documents.clear(); reads.length = writes.length = llmCalls.length = adminChecks.length = 0;
+  now = new Date(initialTime); response = assessment(); onRead = onLlm = onAdminCheck = writeFailure = null;
   auth.currentUser = {...account};
 });
 after(() => {
@@ -93,7 +110,7 @@ after(() => {
   if (originalFirebase === undefined) delete globalThis.firebase; else globalThis.firebase = originalFirebase;
 });
 
-test("backend and web expose matching schema, grading template and three independent feature APIs", async () => {
+test("backend and web expose matching schema, grading template and independent scoring/config APIs", async () => {
   for (const key of Object.keys(backendSchema)) assert.deepEqual(webSchema[key], backendSchema[key]);
   assert.equal(webSchema.essayResultsSchema.collection, "essayResults");
   assert.equal(webSchema.essayResultsSchema.documentId, "[studentId]");
@@ -133,7 +150,109 @@ for (const [layer, api] of [["backend", backend], ["web", web]]) {
     assert.equal(llmCalls[0].options.temperature, 0);
     assert.equal(llmCalls[0].options.useDirectFunction, layer === "web" ? true : undefined);
     assert.deepEqual(writes, []);
-    assert.ok(reads.every(path => path.startsWith("essayQuestionGenerator/")));
+    assert.ok(reads.every(path => path.startsWith("essayQuestionGenerator/") || path === configPath));
+    assert.deepEqual(adminChecks, []);
+  });
+
+  test(layer + ": missing config reads do not persist defaults and defaults retain the original rubric", async () => {
+    assert.equal(await api.getEssayScoringConfig(), null);
+    assert.deepEqual(reads, [configPath]); assert.deepEqual(writes, []);
+    const config = api.createDefaultConfiguration();
+    assert.match(config.markingInstructions, /Evaluate the submitted answer/);
+    assert.equal(config.additionalLlmInstructions, "");
+    assert.deepEqual(Object.keys(config.gradeInstructions), ["primary", "secondary"]);
+    assert.equal(Object.values(config.gradeInstructions.primary).length, 6);
+    assert.equal(Object.values(config.gradeInstructions.secondary).length, 6);
+  });
+
+  test(layer + ": saved instructions round-trip all grades with trusted metadata and can clear additional guidance", async () => {
+    auth.currentUser = {...administrator};
+    const input = api.createDefaultConfiguration();
+    input.markingInstructions = " Custom rubric "; input.additionalLlmInstructions = " Global ";
+    for (const level of api.ESSAY_SCORING_LEVELS) for (const grade of api.ESSAY_SCORING_GRADES) input.gradeInstructions[level][grade] = level + " " + grade;
+    const saved = await saveConfig(api, {...input, updatedBy: "spoofed", updatedAt: new Date(0), extra: "discard"});
+    assert.equal(saved.markingInstructions, "Custom rubric"); assert.equal(saved.additionalLlmInstructions, "Global");
+    assert.equal(saved.gradeInstructions.primary[6], "primary 6"); assert.equal(saved.gradeInstructions.secondary[6], "secondary 6");
+    assert.equal(saved.updatedBy, administrator.uid); assert.deepEqual(saved.updatedAt, now);
+    assert.ok(Object.isFrozen(saved) && Object.isFrozen(saved.gradeInstructions.primary));
+    assert.deepEqual(await api.getEssayScoringConfig(), saved);
+    assert.deepEqual(Object.keys(documents.get(configPath)).sort(), ["additionalLlmInstructions", "gradeInstructions", "markingInstructions", "updatedAt", "updatedBy"]);
+    input.additionalLlmInstructions = " "; input.gradeInstructions.primary[3] = " ";
+    const cleared = await saveConfig(api, input);
+    assert.equal(cleared.additionalLlmInstructions, ""); assert.equal(cleared.gradeInstructions.primary[3], "");
+    assert.ok(writes.every(write => write.path === configPath && write.options.merge === false));
+    assert.deepEqual(llmCalls, []);
+  });
+
+  test(layer + ": marking composes saved base, global and the saved question's grade before mandatory response rules", async () => {
+    auth.currentUser = {...administrator};
+    const config = api.createDefaultConfiguration();
+    config.markingInstructions = "BASE_RUBRIC"; config.additionalLlmInstructions = "GLOBAL_GUIDANCE";
+    config.gradeInstructions.primary[3] = "PRIMARY_THREE";
+    config.gradeInstructions.primary[4] = "PRIMARY_FOUR"; config.gradeInstructions.secondary[3] = "SECONDARY_THREE";
+    await saveConfig(api, config); seedQuestion(); writes.length = 0;
+    auth.currentUser = {...account};
+    await api.scoreEssay(scoreInput({standard: 4, level: "secondary", markingInstructions: "SPOOFED_RUBRIC"}));
+    const prompt = llmCalls.at(-1).prompt;
+    assert.ok(prompt.indexOf("BASE_RUBRIC") < prompt.indexOf("GLOBAL_GUIDANCE"));
+    assert.ok(prompt.indexOf("GLOBAL_GUIDANCE") < prompt.indexOf("PRIMARY_THREE"));
+    assert.ok(prompt.indexOf("PRIMARY_THREE") < prompt.indexOf("Required response rules:"));
+    assert.doesNotMatch(prompt, /PRIMARY_FOUR|SECONDARY_THREE|SPOOFED_RUBRIC/);
+    assert.match(prompt, /Return only valid JSON/); assert.match(prompt, /finite number from 0 to 100/);
+    assert.deepEqual(writes, []);
+    seedQuestion("secondary", {level: "secondary", standard: 3});
+    await api.scoreEssay(scoreInput({questionId: "secondary"}));
+    assert.match(llmCalls.at(-1).prompt, /SECONDARY_THREE/); assert.doesNotMatch(llmCalls.at(-1).prompt, /PRIMARY_THREE/);
+  });
+
+  test(layer + ": saved config changes apply on the next marking and leave existing results untouched", async () => {
+    seedQuestion(); await api.saveEssayResult(saveInput());
+    const existing = structuredClone(documents.get(resultPath())); auth.currentUser = {...administrator};
+    await saveConfig(api, {markingInstructions: "FIRST_RUBRIC"});
+    await api.scoreEssay(scoreInput()); assert.match(llmCalls.at(-1).prompt, /FIRST_RUBRIC/);
+    await saveConfig(api, {markingInstructions: "SECOND_RUBRIC"});
+    await api.scoreEssay(scoreInput()); assert.match(llmCalls.at(-1).prompt, /SECOND_RUBRIC/);
+    assert.doesNotMatch(llmCalls.at(-1).prompt, /FIRST_RUBRIC/);
+    assert.deepEqual(documents.get(resultPath()), existing);
+  });
+
+  test(layer + ": corrupt config and config-read failures stop grading instead of silently marking with defaults", async () => {
+    seedQuestion();
+    for (const config of [{markingInstructions: null}, {markingInstructions: " "}, {gradeInstructions: {college: {}}},
+      {gradeInstructions: {primary: {7: "invalid"}}}, {updatedAt: new Date(NaN)}]) {
+      put(configPath, {...api.createDefaultConfiguration(), updatedAt: now, updatedBy: administrator.uid, ...config});
+      await assert.rejects(() => api.scoreEssay(scoreInput()));
+      await assert.rejects(() => api.getEssayScoringConfig());
+    }
+    documents.delete(configPath);
+    onRead = path => {if (path === configPath) throw new Error("Config read unavailable");};
+    await assert.rejects(() => api.scoreEssay(scoreInput()), /Config read unavailable/);
+    assert.deepEqual(llmCalls, []); assert.deepEqual(writes, []);
+  });
+
+  test(layer + ": invalid configuration never overwrites saved settings and save failures retain the previous config", async () => {
+    auth.currentUser = {...administrator};
+    await saveConfig(api, {markingInstructions: "Keep rubric"}); const original = structuredClone(documents.get(configPath));
+    writes.length = reads.length = adminChecks.length = 0;
+    for (const config of [null, [], {markingInstructions: " "}, {markingInstructions: 1}, {additionalLlmInstructions: null},
+      {gradeInstructions: {primary: {0: "invalid"}}}, {gradeInstructions: {secondary: {1: false}}}, {gradeInstructions: {college: {}}}]) {
+      await assert.rejects(() => saveConfig(api, config));
+    }
+    assert.deepEqual(reads, []); assert.deepEqual(adminChecks, []); assert.deepEqual(writes, []);
+    writeFailure = new Error("Config write unavailable");
+    await assert.rejects(() => saveConfig(api, {markingInstructions: "New rubric"}), /Config write unavailable/);
+    assert.deepEqual(documents.get(configPath), original);
+  });
+
+  test(layer + ": literal prompt markers in administrator instructions and submitted essays remain literal", async () => {
+    auth.currentUser = {...administrator};
+    await saveConfig(api, {markingInstructions: "Rubric {{essayDataJson}} $& $$", additionalLlmInstructions: "{{scoringInstructions}}"});
+    seedQuestion(); response = assessment({corrections: []});
+    await api.scoreEssay(scoreInput({answer: "Essay {{scoringInstructions}} {{essayDataJson}} $& $$"}));
+    const prompt = llmCalls.at(-1).prompt;
+    assert.match(prompt, /Rubric \{\{essayDataJson\}\} \$& \$\$/);
+    assert.match(prompt, /Global additional instructions:\n\{\{scoringInstructions\}\}/);
+    assert.equal(promptData().answer, "Essay {{scoringInstructions}} {{essayDataJson}} $& $$");
   });
 
   test(layer + ": scoring accepts JSON and zero/full scores with no corrections", async () => {
@@ -336,5 +455,53 @@ test("web account changes during result reads prevent returning another account'
   onRead = path => {if (path === resultPath()) auth.currentUser = {...account, uid: "other"};};
   await assert.rejects(() => web.getEssayResult(referenceInput()), /account changed/);
   assert.deepEqual(writes, []);
+});
+
+test("config writes require trusted backend context or a verified site administrator on the web", async () => {
+  for (const actor of [undefined, {}, {updatedBy: ""}, {updatedBy: 1}]) {
+    await assert.rejects(() => backend.saveEssayScoringConfig({markingInstructions: "Rubric"}, actor), /administrator UID/);
+  }
+  for (const user of [account, {...administrator, emailVerified: false}]) {
+    auth.currentUser = {...user};
+    await assert.rejects(() => web.saveEssayScoringConfig({markingInstructions: "Rubric"}), /administrator|Verify/);
+    assert.equal(await web.getEssayScoringConfig(), null);
+  }
+  assert.deepEqual(writes, []);
+});
+
+test("web identity changes during configuration authorization or reads prevent saving and returning settings", async () => {
+  for (const changed of [null, {...administrator, uid: "other"}, {...administrator, email: "other@example.com"}, {...administrator, emailVerified: false}]) {
+    auth.currentUser = {...administrator}; onAdminCheck = () => {auth.currentUser = changed;};
+    await assert.rejects(() => web.saveEssayScoringConfig({markingInstructions: "Rubric"}), /authenticated|account changed/);
+  }
+  onAdminCheck = null;
+  auth.currentUser = {...administrator}; onRead = path => {if (path === configPath) auth.currentUser = null;};
+  await assert.rejects(() => web.getEssayScoringConfig(), /authenticated/);
+  auth.currentUser = {...administrator}; seedQuestion();
+  await assert.rejects(() => web.scoreEssay(scoreInput()), /authenticated/);
+  assert.deepEqual(writes, []); assert.deepEqual(llmCalls, []);
+});
+
+test("input mutation during asynchronous admin authorization cannot alter saved scoring instructions", async () => {
+  auth.currentUser = {...administrator};
+  const input = web.createDefaultConfiguration(); input.markingInstructions = "Original rubric";
+  input.gradeInstructions.primary[3] = "Original grade";
+  onAdminCheck = () => {input.markingInstructions = "Changed rubric"; input.gradeInstructions.primary[3] = "Changed grade";};
+  const saved = await web.saveEssayScoringConfig(input);
+  assert.equal(saved.markingInstructions, "Original rubric"); assert.equal(saved.gradeInstructions.primary[3], "Original grade");
+});
+
+test("backend and web share the same effective-instruction preview and reject invalid grade selections", () => {
+  const config = web.createDefaultConfiguration(); config.gradeInstructions.secondary[6] = "SECONDARY_SIX";
+  for (const level of ["primary", "secondary"]) for (const grade of [1, 2, 3, 4, 5, 6]) {
+    assert.equal(webInstructions({level, grade}, config), backendInstructions({level, grade}, config));
+  }
+  for (const build of [webInstructions, backendInstructions]) {
+    assert.match(build({level: "secondary", grade: 6}, config), /SECONDARY_SIX/);
+    assert.doesNotMatch(build({level: "primary", grade: 6}, config), /SECONDARY_SIX/);
+    for (const selection of [{level: "college", grade: 1}, {level: "primary", grade: 0}, {level: "primary", grade: "3"}]) {
+      assert.throws(() => build(selection, config), /valid level and grade/);
+    }
+  }
 });
 

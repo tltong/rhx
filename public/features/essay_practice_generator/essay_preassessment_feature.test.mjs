@@ -171,7 +171,9 @@ for (const [layer, firstEssayApi, nextEssayApi] of [["backend", backend, backend
     assert.notEqual(next.essayQuestionId, first.question.questionId);
     assert.equal(next.syllabusId, "syllabus-1"); assert.equal(next.topicId, "topic-1");
     assert.equal(docs.get("studentEssayPractices/student/assignedEssayPractices/" + next.essayPracticeId).essayQuestionId, next.essayQuestionId);
-    assert.equal(reads.filter(path => path === "questionSeedGenerator/theme").length, 10, "A single previously used theme is allowed after 10 attempts");
+    assert.equal(reads.filter(path => path === "questionSeedGenerator/theme").length, 1, "The full eligible theme pool is read once");
+    const questionPath = docs.get("essayQuestionGenerator/questionIndex/entries/" + next.essayQuestionId).documentPath;
+    assert.equal(docs.get(questionPath).seedUsed, "latest news", "Exhausted eligible themes use the question-seed default");
     assert.equal(llmCalls.length, 2);
     assert.deepEqual(docs.get(topicPath), originalAttachment);
     assert.equal([...docs.keys()].filter(path => path.startsWith("essayPractices/")).length, 1);

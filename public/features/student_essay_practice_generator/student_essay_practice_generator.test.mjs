@@ -52,7 +52,7 @@ function fakeFirestore() {
 function harness(Generator, Repository) {
   const store = fakeFirestore();
   store.documents.set("studentEssayPractices/student/completedEssayPractices/source", structuredClone(source));
-  let clock = Date.parse("2026-10-18T09:00:00Z"), pageSize = 2, seedIndex = 0, access = true;
+  let clock = Date.parse("2026-10-18T09:00:00Z"), pageSize = 2, access = true;
   const calls = [], questions = new Map([["original", {...originalQuestion}]]);
   const completed = new Map([["source", {...source}]]), assigned = new Map();
   const controls = {seeds: ["Space exploration"], saveFailure: null, assignFailure: null,
@@ -91,13 +91,15 @@ function harness(Generator, Repository) {
       return {questions: page, nextCursor: offset + page.length < all.length ? String(offset + page.length) : null};
     },
     getEssayQuestionById: async id => {calls.push(["question", id]); return questions.get(id) ?? null;},
-    getRandomQuestionSeedEntry: async input => {
+    getQuestionSeedEntries: async input => {
       calls.push(["seed", {...input}]);
-      const seed = controls.seeds[Math.min(seedIndex++, controls.seeds.length - 1)];
       await controls.afterSeed?.();
-      if (seed instanceof Error) throw seed;
-      return seed;
+      return controls.seeds.map(value => {
+        if (value instanceof Error) throw value;
+        return {value, associations: {[input.level]: [input.grade]}};
+      });
     },
+    getDefaultQuestionSeedTheme: async () => {calls.push(["defaultTheme"]); return "latest news";},
     generateEssayQuestion: async (input, context) => {
       calls.push(["generate", {...input}, context]);
       if (controls.generateFailure) throw controls.generateFailure;
@@ -140,7 +142,7 @@ function harness(Generator, Repository) {
 test("matching backend/web schema, limits and internal API without Firebase endpoint exports", async () => {
   for (const key of Object.keys(backendSchema)) assert.deepEqual(webSchema[key], backendSchema[key]);
   for (const key of Object.keys(backendConfig)) assert.equal(webConfig[key], backendConfig[key]);
-  assert.equal(webConfig.THEME_SELECTION_ATTEMPT_LIMIT, 10);
+  assert.equal(webConfig.QUESTION_SELECTION_ATTEMPT_LIMIT, 10);
   assert.deepEqual(Object.keys(backendApi), ["generateNextStudentEssayPractice"]);
   assert.deepEqual(Object.keys(webApi), ["generateNextStudentEssayPractice"]);
   await assert.rejects(() => backendApi.generateNextStudentEssayPractice(request), /updatedBy/);
@@ -151,21 +153,24 @@ test("matching backend/web schema, limits and internal API without Firebase endp
 for (const [layer, Generator, Repository] of [["backend", BackendGenerator, BackendRepository], ["web", WebGenerator, WebRepository]]) {
   const make = () => harness(Generator, Repository);
 
-  test(layer + ": reuses a stored matching question before calling seeds or the LLM", async () => {
+  test(layer + ": reuses a stored question from the full eligible unused theme pool without calling the LLM", async () => {
     const h = make();
+    h.controls.seeds = ["Adventure"];
     h.questions.set("bank", {...originalQuestion, questionId: "bank", difficulty: "medium", seedUsed: "Adventure"});
     const next = await h.run();
     assert.equal(next.essayQuestionId, "bank");
-    for (const name of ["seed", "generate", "save"]) assert.equal(h.count(name), 0);
+    for (const name of ["defaultTheme", "generate", "save"]) assert.equal(h.count(name), 0);
+    assert.deepEqual(h.calls.find(c => c[0] === "seed")[1], {vertical: "theme", level: "primary", grade: 3});
     assert.equal(h.calls.find(c => c[0] === "assign")[2].preventQuestionReuse, true);
     assert.equal(h.documents.get(generationPath).essayQuestionId, "bank");
   });
 
   test(layer + ": scans every bank and history page and never reuses assigned or completed questions across topics", async () => {
     const h = make(); h.setPageSize(1);
+    h.controls.seeds = Array.from({length: 5}, (_, index) => "Theme " + index);
     for (let index = 0; index < 5; index++) {
       const id = "bank" + index;
-      h.questions.set(id, {...originalQuestion, questionId: id, difficulty: "medium"});
+      h.questions.set(id, {...originalQuestion, questionId: id, difficulty: "medium", seedUsed: "Theme " + index});
       if (index < 4) (index % 2 ? h.assigned : h.completed).set(id, {...source, essayPracticeId: id, essayQuestionId: id,
         syllabusId: "another-subject", topicId: "another-topic"});
     }
@@ -174,20 +179,22 @@ for (const [layer, Generator, Repository] of [["backend", BackendGenerator, Back
     assert.equal(h.count("generate"), 0);
   });
 
-  test(layer + ": prefers an unused theme, but reuses an unseen question even when all themes repeat", async () => {
+  test(layer + ": uses an unused bank theme, then generates the default instead of another used-theme question", async () => {
     const h = make();
+    h.controls.seeds = ["Friendship", "Space"];
     h.questions.set("new-theme", {...originalQuestion, questionId: "new-theme", difficulty: "medium", seedUsed: "Space"});
     h.questions.set("old-theme", {...originalQuestion, questionId: "old-theme", difficulty: "medium"});
     assert.equal((await h.run()).essayQuestionId, "new-theme");
     h.completed.set("next-source", {...source, essayPracticeId: "next-source", essayQuestionId: "new-theme"});
     h.documents.set("studentEssayPractices/student/completedEssayPractices/next-source", h.completed.get("next-source"));
-    assert.equal((await h.run({...request, completedEssayPracticeId: "next-source"})).essayQuestionId, "old-theme");
-    assert.equal(h.count("generate"), 0); assert.equal(h.count("seed"), 0);
+    assert.equal((await h.run({...request, completedEssayPracticeId: "next-source"})).essayQuestionId, "generated-question");
+    assert.equal(h.count("generate"), 1); assert.equal(h.count("defaultTheme"), 1);
+    assert.equal(h.calls.find(c => c[0] === "generate")[1].seed, "latest news");
   });
 
   test(layer + ": other students can reuse the same stored question", async () => {
     const h = make();
-    h.questions.set("shared", {...originalQuestion, questionId: "shared", difficulty: "medium"});
+    h.questions.set("shared", {...originalQuestion, questionId: "shared", difficulty: "medium", seedUsed: "Space exploration"});
     h.completed.set("other", {...source, studentId: "other-student", essayPracticeId: "other", essayQuestionId: "shared"});
     assert.equal((await h.run()).essayQuestionId, "shared"); assert.equal(h.count("generate"), 0);
   });
@@ -203,7 +210,7 @@ for (const [layer, Generator, Repository] of [["backend", BackendGenerator, Back
 
   test(layer + ": resumes a saved reuse selection after assignment failure without saving or generating a question", async () => {
     const h = make();
-    h.questions.set("bank", {...originalQuestion, questionId: "bank", difficulty: "medium"});
+    h.questions.set("bank", {...originalQuestion, questionId: "bank", difficulty: "medium", seedUsed: "Space exploration"});
     h.controls.assignFailure = new Error("Assignment unavailable");
     await assert.rejects(h.run(), /Assignment unavailable/);
     const state = h.documents.get(generationPath);
@@ -216,7 +223,8 @@ for (const [layer, Generator, Repository] of [["backend", BackendGenerator, Back
 
   test(layer + ": reselects when another assignment claims a question concurrently", async () => {
     const h = make();
-    for (const id of ["first", "second"]) h.questions.set(id, {...originalQuestion, questionId: id, difficulty: "medium"});
+    h.controls.seeds = ["first", "second"];
+    for (const id of ["first", "second"]) h.questions.set(id, {...originalQuestion, questionId: id, difficulty: "medium", seedUsed: id});
     let collided = false;
     h.controls.beforeAssign = input => {
       if (!collided) {
@@ -231,7 +239,7 @@ for (const [layer, Generator, Repository] of [["backend", BackendGenerator, Back
 
   test(layer + ": skips a usage conflict even if its assignment is absent from the history scan", async () => {
     const h = make();
-    h.questions.set("bank", {...originalQuestion, questionId: "bank", difficulty: "medium"});
+    h.questions.set("bank", {...originalQuestion, questionId: "bank", difficulty: "medium", seedUsed: "Space exploration"});
     h.controls.usedQuestionIds = new Set(["bank"]);
     const next = await h.run();
     assert.equal(next.essayQuestionId, "generated-question");
@@ -240,7 +248,8 @@ for (const [layer, Generator, Repository] of [["backend", BackendGenerator, Back
 
   test(layer + ": rechecks a resumed selection against legacy student history", async () => {
     const h = make();
-    for (const id of ["first", "second"]) h.questions.set(id, {...originalQuestion, questionId: id, difficulty: "medium"});
+    h.controls.seeds = ["first", "second"];
+    for (const id of ["first", "second"]) h.questions.set(id, {...originalQuestion, questionId: id, difficulty: "medium", seedUsed: id});
     h.controls.assignFailure = new Error("Assignment unavailable");
     await assert.rejects(h.run(), /Assignment unavailable/);
     const selected = h.documents.get(generationPath).reusedQuestionId;
@@ -260,7 +269,7 @@ for (const [layer, Generator, Repository] of [["backend", BackendGenerator, Back
     h.assigned.set("pending-attempt", {...source, essayPracticeId: "pending-attempt", essayQuestionId: "pending", syllabusId: "third-subject"});
     h.controls.seeds = [" FRIENDSHIP ", "  environment  ", "Kindness", "Space exploration"];
     const next = await h.run({...request, level: "secondary", standard: 6, language: "Spoofed", difficulty: "hard", seed: "Spoofed"});
-    assert.equal(h.count("seed"), 4); assert.equal(h.count("generate"), 1); assert.equal(h.count("assign"), 1);
+    assert.equal(h.count("seed"), 1); assert.equal(h.count("defaultTheme"), 0); assert.equal(h.count("generate"), 1); assert.equal(h.count("assign"), 1);
     const generated = h.calls.find(c => c[0] === "generate");
     assert.deepEqual(generated.slice(1), [{level: "primary", standard: 3, language: "English", difficulty: "medium", seed: "Space exploration", save: false}, actor]);
     assert.deepEqual(h.calls.find(c => c[0] === "save")[2], actor);
@@ -273,22 +282,99 @@ for (const [layer, Generator, Repository] of [["backend", BackendGenerator, Back
       essayQuestionId: next.essayQuestionId, updatedAt: new Date("2026-10-18T09:00:00Z")});
   });
 
-  test(layer + ": theme comparison ignores Unicode case and whitespace and the final repeated draw is allowed", async () => {
+  test(layer + ": full-pool comparison ignores Unicode case and whitespace before using the default", async () => {
     const h = make(); h.questions.get("original").seedUsed = "Helping   Others";
     h.controls.seeds = ["  ＨＥＬＰＩＮＧ others  "];
     await h.run();
-    assert.equal(h.count("seed"), 10);
-    assert.equal(h.calls.find(c => c[0] === "generate")[1].seed, "  ＨＥＬＰＩＮＧ others  ");
+    assert.equal(h.count("seed"), 1); assert.equal(h.count("defaultTheme"), 1);
+    assert.equal(h.calls.find(c => c[0] === "generate")[1].seed, "latest news");
     assert.equal(h.count("generate"), 1); assert.equal(h.assigned.size, 1);
   });
 
-  test(layer + ": uses the tenth selected theme after every candidate was used before", async () => {
+  test(layer + ": uses the default API after all themes are used, regardless of pool size", async () => {
     const h = make(); h.questions.set("older", {...originalQuestion, seedUsed: "Environment"});
     h.completed.set("older", {...source, essayPracticeId: "older", essayQuestionId: "older"});
     h.controls.seeds = Array.from({length: 10}, (_, index) => index % 2 ? "Environment" : "Friendship");
     await h.run();
-    assert.equal(h.count("seed"), 10);
-    assert.equal(h.calls.find(c => c[0] === "generate")[1].seed, "Environment");
+    assert.equal(h.count("seed"), 1); assert.equal(h.count("defaultTheme"), 1);
+    assert.equal(h.calls.find(c => c[0] === "generate")[1].seed, "latest news");
+  });
+
+  test(layer + ": Food then Games cannot select a different stored Food question while an unused theme remains", async () => {
+    const h = make(); h.questions.get("original").seedUsed = "food";
+    h.questions.set("games", {...originalQuestion, questionId: "games", seedUsed: "Games"});
+    h.completed.set("games", {...source, essayPracticeId: "games", essayQuestionId: "games"});
+    h.questions.set("other-food", {...originalQuestion, questionId: "other-food", difficulty: "medium", seedUsed: " FOOD "});
+    h.controls.seeds = ["Food", "Games", "Adventure"];
+    const next = await h.run();
+    assert.equal(next.essayQuestionId, "generated-question");
+    assert.equal(h.calls.find(c => c[0] === "generate")[1].seed, "Adventure");
+    assert.equal(h.count("defaultTheme"), 0);
+  });
+
+  test(layer + ": inspects beyond ten used themes before selecting the last unused theme", async () => {
+    const h = make(); h.controls.seeds = ["Friendship"];
+    for (let index = 0; index < 12; index++) {
+      const id = "history" + index, theme = "Used theme " + index;
+      h.controls.seeds.push(theme);
+      h.questions.set(id, {...originalQuestion, questionId: id, seedUsed: theme});
+      h.completed.set(id, {...source, essayPracticeId: id, essayQuestionId: id});
+    }
+    h.controls.seeds.push("Unused theme");
+    await h.run();
+    assert.equal(h.calls.find(c => c[0] === "generate")[1].seed, "Unused theme");
+    assert.equal(h.count("seed"), 1); assert.equal(h.count("defaultTheme"), 0);
+  });
+
+  test(layer + ": an empty eligible theme pool uses the default API", async () => {
+    const h = make(); h.controls.seeds = [];
+    await h.run();
+    assert.equal(h.count("defaultTheme"), 1);
+    assert.equal(h.calls.find(c => c[0] === "generate")[1].seed, "latest news");
+  });
+
+  test(layer + ": exhausted themes generate a fresh default question even when that theme has appeared before", async () => {
+    const h = make(); h.controls.seeds = ["Friendship"];
+    h.questions.set("past-news", {...originalQuestion, questionId: "past-news", seedUsed: "latest news"});
+    h.completed.set("past-news", {...source, essayPracticeId: "past-news", essayQuestionId: "past-news"});
+    h.questions.set("bank-news", {...originalQuestion, questionId: "bank-news", difficulty: "medium", seedUsed: "latest news"});
+    const next = await h.run();
+    assert.equal(next.essayQuestionId, "generated-question");
+    assert.equal(h.calls.find(c => c[0] === "generate")[1].seed, "latest news");
+    assert.equal(h.count("defaultTheme"), 1);
+  });
+
+  test(layer + ": stored bank themes outside the eligible level-grade pool are not reused", async () => {
+    const h = make(); h.controls.seeds = ["Eligible theme"];
+    h.questions.set("unconfigured", {...originalQuestion, questionId: "unconfigured", difficulty: "medium", seedUsed: "Unconfigured"});
+    await h.run();
+    assert.equal(h.calls.find(c => c[0] === "generate")[1].seed, "Eligible theme");
+    assert.equal(h.count("defaultTheme"), 0);
+  });
+
+  test(layer + ": a saved bank selection is cleared when its theme has since been attempted under another question ID", async () => {
+    const h = make(); h.controls.seeds = ["Space exploration", "Adventure"];
+    h.questions.set("bank", {...originalQuestion, questionId: "bank", difficulty: "medium", seedUsed: "Space exploration"});
+    h.controls.assignFailure = new Error("Assignment unavailable");
+    await assert.rejects(h.run(), /Assignment unavailable/);
+    h.questions.set("same-theme", {...originalQuestion, questionId: "same-theme", seedUsed: "Space exploration"});
+    h.completed.set("same-theme", {...source, essayPracticeId: "same-theme", essayQuestionId: "same-theme"});
+    h.controls.assignFailure = null;
+    assert.equal((await h.run()).essayQuestionId, "generated-question");
+    assert.equal(h.calls.find(c => c[0] === "generate")[1].seed, "Adventure");
+    assert.equal(h.count("defaultTheme"), 0);
+  });
+
+  test(layer + ": a saved draft from a now-used theme is replaced instead of resuming the repeated theme", async () => {
+    const h = make(); h.controls.seeds = ["Space exploration", "Adventure"];
+    h.controls.saveFailure = new Error("Save unavailable");
+    await assert.rejects(h.run(), /Save unavailable/);
+    h.questions.set("same-theme", {...originalQuestion, questionId: "same-theme", seedUsed: "Space exploration"});
+    h.assigned.set("same-theme", {...source, essayPracticeId: "same-theme", essayQuestionId: "same-theme"});
+    h.controls.saveFailure = null;
+    await h.run();
+    const generated = h.calls.filter(c => c[0] === "generate");
+    assert.deepEqual(generated.map(c => c[1].seed), ["Space exploration", "Adventure"]);
   });
 
   test(layer + ": a different student's essays do not exclude a theme", async () => {
@@ -305,7 +391,7 @@ for (const [layer, Generator, Repository] of [["backend", BackendGenerator, Back
     assert.equal(h.assigned.size, 0);
     h.controls.saveFailure = null;
     const next = await h.run();
-    assert.equal(h.count("generate"), 1); assert.equal(h.count("seed"), 1);
+    assert.equal(h.count("generate"), 1); assert.equal(h.count("seed"), 2);
     assert.equal(next.essayPracticeId, state.nextEssayPracticeId);
     assert.equal(h.documents.get(generationPath).draft, undefined);
   });
@@ -372,9 +458,9 @@ for (const [layer, Generator, Repository] of [["backend", BackendGenerator, Back
     h.controls.generateFailure = null; await h.run(); assert.equal(h.assigned.size, 1);
   });
 
-  test(layer + ": empty theme pools and missing history questions fail without inventing a theme", async () => {
+  test(layer + ": seed read failures and missing history questions fail without silently using the default", async () => {
     const h = make(); h.controls.seeds = [new Error("No question seed entries are available")];
-    await assert.rejects(h.run(), /No question seed entries/); assert.equal(h.count("generate"), 0);
+    await assert.rejects(h.run(), /No question seed entries/); assert.equal(h.count("generate"), 0); assert.equal(h.count("defaultTheme"), 0);
     const broken = make(); broken.completed.set("missing", {...source, essayPracticeId: "missing", essayQuestionId: "missing"});
     await assert.rejects(broken.run(), /history could not be found/); assert.equal(broken.count("seed"), 0);
   });

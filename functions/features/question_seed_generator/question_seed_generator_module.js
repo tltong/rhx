@@ -9,6 +9,8 @@
  *   -> Promise<QuestionSeedGeneratorConfig>
  * getQuestionSeedEntries({vertical, level?, grade?}) -> Promise<Entry[]>
  *   Supply level/grade together, or omit both to list all entries for administration.
+ * getDefaultQuestionSeedTheme() -> Promise<string>
+ *   Returns "latest news" without reading configuration, writing or calling an LLM.
  * saveQuestionSeedEntry({vertical, entry}, context) -> Promise<Entry>
  *   Atomic upsert by normalized value; replaces that entry's associations and
  *   preserves its existing display value and all other entries.
@@ -64,6 +66,7 @@ const getCombinedSeed = new GetCombinedQuestionSeed(repository);
 async function getQuestionSeedGeneratorConfig() { return getConfig.execute(); }
 async function saveQuestionSeedGeneratorConfig(input, context) { return saveConfig.execute(input, context); }
 async function getQuestionSeedEntries(input) { return getEntries.execute(input); }
+async function getDefaultQuestionSeedTheme() { return DEFAULT_QUESTION_GENERATION_SEED; }
 async function saveQuestionSeedEntries(input, context) { return saveEntries.execute(input, context); }
 async function saveQuestionSeedEntry(input, context) { return saveEntry.execute(input, context); }
 async function removeQuestionSeedEntries(input, context) { return removeEntries.execute(input, context); }
@@ -75,5 +78,5 @@ module.exports = {
   DEFAULT_QUESTION_GENERATION_SEED, QUESTION_SEED_VERTICALS, QUESTION_SEED_LEVELS, QUESTION_SEED_GRADES,
   getQuestionSeedGeneratorConfig, saveQuestionSeedGeneratorConfig,
   getQuestionSeedEntries, saveQuestionSeedEntries, saveQuestionSeedEntry, removeQuestionSeedEntries, generateQuestionSeedEntry,
-  getRandomQuestionSeedEntry, getCombinedQuestionSeed,
+  getRandomQuestionSeedEntry, getCombinedQuestionSeed, getDefaultQuestionSeedTheme,
 };

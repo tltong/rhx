@@ -40,7 +40,7 @@ import {
 } from "../../../practice/practice_module.js?v=20260824-completed-practices";
 import {
   DailyMissionSection
-} from "../../../daily_mission/components/daily_mission_section/daily_mission_section.js?v=20261018-essay-session-v1";
+} from "../../../daily_mission/components/daily_mission_section/daily_mission_section.js?v=20261020-essay-mission-label-v1";
 import {
   AdditionalMissionSection
 } from "../../../daily_mission/components/additional_mission_section/additional_mission_section.js?v=20261018-additional-essay-v1";

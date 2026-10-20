@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Essay Marking Configuration</title>
+    <script>document.documentElement.hidden = true;</script>
+    <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script type="module" src="/init_fb.js"></script>
+    <link rel="stylesheet" href="./essay_scoring_admin.css?v=20261020-scoring-config-v1">
+  </head>
+  <body>
+    <main class="page-shell" id="essay-scoring-admin">
+      <a class="back-link" href="/features/site_admin/pages/site_admin/site_admin.html">Back to Site Admin</a>
+      <header>
+        <h1>Essay marking</h1>
+        <p class="subtitle">Configure the guidance used to mark student essays.</p>
+      </header>
+      <p id="scoring-status" class="status" role="status" aria-live="polite" hidden></p>
+      <button id="scoring-retry-load" class="secondary" type="button" hidden>Retry loading</button>
+
+      <form id="scoring-config-form">
+        <section class="panel" aria-labelledby="scoring-base-heading">
+          <div class="panel-heading">
+            <h2 id="scoring-base-heading">Base marking instructions</h2>
+            <span id="scoring-updated-at" class="updated-at">Not yet saved</span>
+          </div>
+          <p class="help-text" id="scoring-base-help">The marking rubric applied to every essay. The current default is shown until you save your own settings.</p>
+          <label for="scoring-base-instructions">Marking rubric</label>
+          <textarea id="scoring-base-instructions" rows="12" required dir="auto" aria-describedby="scoring-base-help" disabled></textarea>
+        </section>
+
+        <section class="panel" aria-labelledby="scoring-additional-heading">
+          <h2 id="scoring-additional-heading">Additional instructions</h2>
+          <p class="help-text" id="scoring-additional-help">Add guidance that applies to every level and grade. Leave blank to use only the rubric and grade instructions.</p>
+          <label for="scoring-additional-instructions">Global additional LLM instructions</label>
+          <textarea id="scoring-additional-instructions" rows="4" dir="auto" aria-describedby="scoring-additional-help" disabled></textarea>
+        </section>
+
+        <div class="section-heading">
+          <h2>Grade instructions</h2>
+          <p class="help-text">Add guidance for each grade. Marking uses the level and grade saved with the essay question.</p>
+        </div>
+        <div class="grade-grid">
+          <section class="panel" aria-labelledby="scoring-primary-heading">
+            <h3 id="scoring-primary-heading">Primary</h3>
+            <div id="scoring-primary-instructions" class="instruction-list"></div>
+          </section>
+          <section class="panel" aria-labelledby="scoring-secondary-heading">
+            <h3 id="scoring-secondary-heading">Secondary</h3>
+            <div id="scoring-secondary-instructions" class="instruction-list"></div>
+          </section>
+        </div>
+        <div class="save-bar">
+          <p class="help-text">Saved changes apply to future marking. Existing results remain unchanged.</p>
+          <button id="scoring-save-config" type="submit" disabled>Save settings</button>
+        </div>
+      </form>
+
+      <section class="panel preview-panel" aria-labelledby="scoring-preview-heading">
+        <h2 id="scoring-preview-heading">Effective instructions preview</h2>
+        <p class="help-text" id="scoring-preview-help">Preview includes your current edits. The question and student essay are supplied separately when marking.</p>
+        <div class="preview-controls">
+          <div>
+            <label for="scoring-preview-level">Level</label>
+            <select id="scoring-preview-level" disabled>
+              <option value="primary">Primary</option>
+              <option value="secondary">Secondary</option>
+            </select>
+          </div>
+          <div>
+            <label for="scoring-preview-grade">Grade</label>
+            <select id="scoring-preview-grade" disabled>
+              <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+              <option value="4">4</option><option value="5">5</option><option value="6">6</option>
+            </select>
+          </div>
+        </div>
+        <p id="scoring-preview-status" class="help-text" role="status" aria-live="polite"></p>
+        <label for="scoring-preview">Combined marking instructions</label>
+        <textarea id="scoring-preview" rows="18" dir="auto" readonly aria-describedby="scoring-preview-help"></textarea>
+      </section>
+    </main>
+    <script id="site-admin-page-loader" type="module" data-site-admin-page
+      data-page-module="./essay_scoring_admin.js?v=20261020-scoring-config-v1"
+      src="/features/site_admin/pages/common/site_admin_page_loader.js?v=20260827-site-admin-guard-v1"></script>
+  </body>
+</html>

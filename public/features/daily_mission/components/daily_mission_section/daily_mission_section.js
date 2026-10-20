@@ -386,7 +386,7 @@ export class DailyMissionSection {
       : "Suggested core mission";
     heading.textContent = syllabusLabel(syllabus);
     details.className = "daily-mission-topic";
-    details.textContent = findTopicName(syllabus, mission.topicId) + (mission.practiceType === "essay" ? " — First essay assessment" : "");
+    details.textContent = findTopicName(syllabus, mission.topicId) + (mission.practiceType === "essay" ? " — Essay assessment" : "");
     card.append(eyebrow, heading, details);
     this.actionButtons = [];
 

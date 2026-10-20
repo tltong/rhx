@@ -1,0 +1,43 @@
+:root {font-family: Arial, Helvetica, sans-serif; color: #102a43; background: #eef3f8;}
+* {box-sizing: border-box;}
+body {margin: 0;}
+.page-shell {max-width: 1120px; margin: 0 auto; padding: 28px 20px 48px;}
+.back-link {color: #0369a1; display: inline-block; font-weight: 700; margin-bottom: 16px; text-decoration: none;}
+h1 {font-size: 30px; margin: 0 0 10px;}
+h2 {font-size: 21px; margin: 0;}
+h3 {font-size: 20px; margin: 0 0 18px;}
+.subtitle, .help-text {color: #52606d; line-height: 1.5;}
+.subtitle {margin: 0 0 24px;}
+.help-text {font-size: 14px; margin: 10px 0 16px;}
+.panel {background: #fff; border: 1px solid #cbd9e6; border-radius: 8px; padding: 22px; min-width: 0;}
+form > .panel + .panel {margin-top: 22px;}
+.panel-heading {display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 10px;}
+.updated-at {color: #52606d; font-size: 13px; overflow-wrap: anywhere;}
+.section-heading {margin: 26px 0 14px;}
+.grade-grid {display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px;}
+.instruction-list {display: grid; gap: 18px;}
+label {display: block; font-size: 14px; font-weight: 700; margin-bottom: 8px;}
+textarea, select {width: 100%; padding: 10px 12px; border: 1px solid #a8bccd; border-radius: 6px; background: #fff; color: #102a43; font: inherit; font-size: 14px; line-height: 1.5;}
+textarea {resize: vertical; display: block;}
+select {min-height: 44px;}
+textarea:disabled, select:disabled {background: #f1f5f9; color: #64748b;}
+textarea:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible {outline: 3px solid #38bdf8; outline-offset: 3px;}
+.save-bar {display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding-top: 18px;}
+.save-bar .help-text {margin: 0;}
+button {border: 1px solid #0369a1; border-radius: 6px; background: #0369a1; color: #fff; font: inherit; font-size: 14px; font-weight: 700; padding: 11px 18px; min-height: 44px; cursor: pointer;}
+button:hover:not(:disabled) {background: #075985;}
+button.secondary {background: #fff; color: #075985; margin-bottom: 18px;}
+button:disabled {opacity: 0.55; cursor: default;}
+.status {padding: 12px 14px; border: 1px solid #a7d7f2; border-radius: 6px; background: #eff9ff; line-height: 1.5; overflow-wrap: anywhere;}
+.status.is-error {background: #fff1f2; border-color: #fecdd3; color: #9f1239;}
+.help-text.is-error {color: #9f1239;}
+.preview-panel {margin-top: 30px;}
+.preview-controls {display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; max-width: 520px;}
+#scoring-preview {background: #f8fbfd;}
+[hidden] {display: none !important;}
+@media (max-width: 720px) {
+  .page-shell {padding: 20px 14px 32px;}
+  .grade-grid {grid-template-columns: 1fr;}
+  .panel {padding: 18px;}
+  h1 {font-size: 27px;}
+}

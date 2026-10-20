@@ -141,7 +141,7 @@ const {GetCombinedQuestionSeed: BackendCombined} = require("../../../functions/f
 const apiNames = [
   "getQuestionSeedGeneratorConfig", "saveQuestionSeedGeneratorConfig", "getQuestionSeedEntries",
   "saveQuestionSeedEntries", "saveQuestionSeedEntry", "removeQuestionSeedEntries",
-  "generateQuestionSeedEntry", "getRandomQuestionSeedEntry", "getCombinedQuestionSeed",
+  "generateQuestionSeedEntry", "getRandomQuestionSeedEntry", "getCombinedQuestionSeed", "getDefaultQuestionSeedTheme",
 ];
 const context = {updatedBy: administrator.uid};
 const scope = {level: "primary", grade: 1};
@@ -175,7 +175,7 @@ after(() => {
   if (originalFirebase === undefined) delete globalThis.firebase; else globalThis.firebase = originalFirebase;
 });
 
-test("backend and web expose matching schemas, nine APIs, level enums and grade bounds", () => {
+test("backend and web expose matching schemas, ten APIs, level enums and grade bounds", () => {
   for (const name of apiNames) for (const api of [backend, web]) assert.equal(typeof api[name], "function");
   for (const key of Object.keys(webSchema)) assert.deepEqual(webSchema[key], backendSchema[key]);
   assert.deepEqual(web.QUESTION_SEED_LEVELS, {PRIMARY: "primary", SECONDARY: "secondary"});
@@ -187,6 +187,13 @@ test("backend and web expose matching schemas, nine APIs, level enums and grade 
 for (const [layer, api, Random, Combined] of [
   ["backend", backend, BackendRandom, BackendCombined], ["web", web, WebRandom, WebCombined],
 ]) {
+  test(layer + ": default theme is latest news independently of seed pools and configured generation seed", async () => {
+    assert.equal(await api.getDefaultQuestionSeedTheme(), "latest news");
+    put(configPath, savedConfiguration({generationSeed: "Oceans"}));
+    seedPools();
+    assert.equal(await api.getDefaultQuestionSeedTheme(), "latest news");
+    assert.deepEqual(reads, []); assert.deepEqual(writes, []); assert.deepEqual(llmCalls, []);
+  });
   test(layer + ": missing configuration and pools never persist defaults", async () => {
     assert.equal(await api.getQuestionSeedGeneratorConfig(), null);
     assert.deepEqual(await list(api), []);
@@ -493,7 +500,7 @@ const mutationInputs = [
 test("all web APIs require sign-in", async () => {
   auth.currentUser = null;
   for (const [name, input] of [...mutationInputs,
-    ["getQuestionSeedGeneratorConfig", undefined], ["getQuestionSeedEntries", {vertical: "theme"}],
+    ["getQuestionSeedGeneratorConfig", undefined], ["getDefaultQuestionSeedTheme", undefined], ["getQuestionSeedEntries", {vertical: "theme"}],
     ["getRandomQuestionSeedEntry", {vertical: "theme", ...scope}], ["getCombinedQuestionSeed", scope],
   ]) await assert.rejects(() => web[name](input), /signed in/);
   assert.deepEqual(reads, []); assert.deepEqual(writes, []); assert.deepEqual(llmCalls, []);

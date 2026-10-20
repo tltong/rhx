@@ -3,14 +3,16 @@
  *   -> Promise<AssignedEssayPractice|CompletedEssayPractice>
  *
  * Reuses and assigns an unseen medium essay following a completed student essay attempt.
- * Searches the shared bank by level/grade/language/difficulty, preferring an unused theme.
+ * Reads the full theme pool for the source question's level/grade, excluding themes from
+ * all the student's completed AND assigned essays across subjects/topics (case/spacing ignored).
+ * Reuses an unseen matching question only from an eligible unused theme; otherwise generates one.
+ * When no unused eligible themes remain (including an empty pool), calls Question Seed Generator's
+ * getDefaultQuestionSeedTheme() and generates a fresh question using that default ("latest news").
+ * This theme label does not itself retrieve current news. Seed read failures propagate.
  * Excludes all questions assigned to or completed by this student across topics/subjects.
- * Generates and saves a new shared question only when no unseen matching question remains.
- * Assignment atomically guards against concurrent reuse by the same student.
+ * Assignment atomically guards against concurrent question reuse by the same student.
  * Syllabus/topic come from the completion; level/grade/language from its saved question.
- * Tries up to 10 existing random-theme selections, excluding themes from all the student's
- * completed AND assigned essays across subjects/topics. Comparisons ignore case and spacing.
- * After 10 repeated selections, uses the last selected theme. Empty seed pools still fail.
+ * Saved retry selections are rechecked against the current pool and student history.
  * Calls Essay Question Generator to create/save the question, and Student Essay Practice to assign it.
  * Does not modify the syllabus's initial essay attachment or create normal student practices.
  *
@@ -24,11 +26,11 @@
 import {getCompletedEssayPractice, getAssignedEssayPractice, listCompletedEssayPractices,
   listAssignedEssayPractices, assignEssayPracticeToStudent} from "../student_essay_practice/student_essay_practice_module.js?v=20261018-essay-reuse-v1";
 import {getEssayQuestionById, listEssayQuestions, generateEssayQuestion, saveEssayQuestion} from "../essay_question_generator/essay_question_generator_module.js?v=20261017-essay-grade-min-words-v1";
-import {getRandomQuestionSeedEntry} from "../question_seed_generator/question_seed_generator_module.js?v=20261017-seed-association-order-v1";
+import {getQuestionSeedEntries, getDefaultQuestionSeedTheme} from "../question_seed_generator/question_seed_generator_module.js?v=20261020-default-theme-v1";
 import {requireCurrentFirebaseAuthUser} from "../../utils/firebase/firebase_auth.js";
 import {requireCurrentSiteAdmin} from "../site_admin/site_admin_module.js?v=20260827-site-admin-guard-v1";
 import {FirestoreEssayGenerationRepository} from "./infrastructure/firestore_essay_generation_repository.js?v=20261018-essay-reuse-v1";
-import {GenerateNextStudentEssayPractice} from "./application/generate_next_student_essay_practice.js?v=20261018-essay-reuse-v1";
+import {GenerateNextStudentEssayPractice} from "./application/generate_next_student_essay_practice.js?v=20261020-theme-pool-v1";
 
 async function administratorAccess() {
   const user = requireCurrentFirebaseAuthUser();
@@ -50,7 +52,7 @@ const generator = new GenerateNextStudentEssayPractice({
   repository: new FirestoreEssayGenerationRepository(), requireAdministrator: administratorAccess,
   getCompletedEssayPractice, getAssignedEssayPractice, listCompletedEssayPractices,
   listAssignedEssayPractices, assignEssayPracticeToStudent,
-  getEssayQuestionById, listEssayQuestions, generateEssayQuestion, saveEssayQuestion, getRandomQuestionSeedEntry,
+  getEssayQuestionById, listEssayQuestions, generateEssayQuestion, saveEssayQuestion, getQuestionSeedEntries, getDefaultQuestionSeedTheme,
 });
 
 async function generateNextStudentEssayPractice(input) {return generator.execute(input);}

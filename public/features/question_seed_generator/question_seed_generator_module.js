@@ -9,6 +9,8 @@
  *   -> Promise<QuestionSeedGeneratorConfig>
  * getQuestionSeedEntries({vertical, level?, grade?}) -> Promise<Entry[]>
  *   Supply level/grade together, or omit both to list all entries for administration.
+ * getDefaultQuestionSeedTheme() -> Promise<string>
+ *   Returns "latest news" without reading configuration, writing or calling an LLM.
  * saveQuestionSeedEntry({vertical, entry}) -> Promise<Entry>
  *   Atomic upsert by normalized value; replaces that entry's associations and
  *   preserves its existing display value and all other entries.
@@ -102,6 +104,7 @@ async function saveQuestionSeedGeneratorConfig(input) {
   return saveConfig.execute(input);
 }
 async function getQuestionSeedEntries(input) { return readWithAccess(() => getEntries.execute(input)); }
+async function getDefaultQuestionSeedTheme() { return readWithAccess(() => DEFAULT_QUESTION_GENERATION_SEED); }
 async function saveQuestionSeedEntries(input) {
   requireCurrentFirebaseAuthUser();
   return saveEntries.execute(input);
@@ -125,5 +128,5 @@ export {
   DEFAULT_QUESTION_GENERATION_SEED, QUESTION_SEED_VERTICALS, QUESTION_SEED_LEVELS, QUESTION_SEED_GRADES,
   getQuestionSeedGeneratorConfig, saveQuestionSeedGeneratorConfig,
   getQuestionSeedEntries, saveQuestionSeedEntries, saveQuestionSeedEntry, removeQuestionSeedEntries, generateQuestionSeedEntry,
-  getRandomQuestionSeedEntry, getCombinedQuestionSeed,
+  getRandomQuestionSeedEntry, getCombinedQuestionSeed, getDefaultQuestionSeedTheme,
 };

@@ -470,7 +470,7 @@ test("an essay mission preserves its type through acceptance and navigates to es
     navigate: url => navigations.push(url), documentRef: fakeDocument});
   section.mount(container); await section.ready;
   await section.loadMission("syllabus-1");
-  assert.ok(findByText(container, "Fractions — First essay assessment"));
+  assert.ok(findByText(container, "Fractions — Essay assessment"));
   assert.equal(findByText(container, "Not learned yet"), undefined);
   await findByText(container, "Accept Mission").click();
   assert.deepEqual(accepts, [{studentId: "student-1", practiceId: "essay-attempt", practiceType: "essay"}]);

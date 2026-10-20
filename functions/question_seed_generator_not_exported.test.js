@@ -8,7 +8,7 @@ test("question seed generator APIs are feature exports without Firebase endpoint
     "getQuestionSeedGeneratorConfig", "saveQuestionSeedGeneratorConfig",
     "getQuestionSeedEntries", "saveQuestionSeedEntries", "saveQuestionSeedEntry", "generateQuestionSeedEntry",
     "removeQuestionSeedEntries",
-    "getRandomQuestionSeedEntry", "getCombinedQuestionSeed",
+    "getRandomQuestionSeedEntry", "getCombinedQuestionSeed", "getDefaultQuestionSeedTheme",
   ]) {
     assert.equal(typeof feature[name], "function");
     assert.equal(Object.hasOwn(functions, name), false);
