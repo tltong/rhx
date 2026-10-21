@@ -39,6 +39,7 @@ const {
 } = require("./triggers/student_login_reward_trigger");
 
 exports.generateDeepseekText = generateDeepseekText;
+exports.generateLlmImage = require("./image_generation_http").generateLlmImage;
 exports.createPaymentCustomer = createPaymentCustomer;
 exports.deleteCustomer = deleteCustomer;
 exports.createStripeSetupIntent = createStripeSetupIntent;

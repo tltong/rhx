@@ -2,9 +2,11 @@ import deepseekUtil, {
   callDeepseek,
   generateDeepseekText
 } from "./deepseek_util.js?v=20261015-deepseek-deadline-v1";
+import openaiUtil, {generateOpenAIImage} from "./openai_util.js?v=20261021-image-generation-v1";
 
 export const LLM_PROVIDERS = Object.freeze({
-  DEEPSEEK: "deepseek"
+  DEEPSEEK: "deepseek",
+  OPENAI: "openai"
 });
 
 export const DEFAULT_LLM_PROVIDER = LLM_PROVIDERS.DEEPSEEK;
@@ -18,7 +20,8 @@ const providerRegistry = new Map([
       call: callDeepseek,
       generateText: generateDeepseekText
     }
-  ]
+  ],
+  [LLM_PROVIDERS.OPENAI, {name: LLM_PROVIDERS.OPENAI, client: openaiUtil, generateImage: generateOpenAIImage}]
 ]);
 
 let defaultProvider = DEFAULT_LLM_PROVIDER;
@@ -73,11 +76,11 @@ export function registerLlmProvider(provider, adapter) {
     throw new Error("adapter must be a non-null object.");
   }
 
-  if (typeof adapter.call !== "function") {
+  if (typeof adapter.call !== "function" && typeof adapter.generateImage !== "function") {
     throw new Error("adapter.call must be a function.");
   }
 
-  if (typeof adapter.generateText !== "function") {
+  if (typeof adapter.generateText !== "function" && typeof adapter.generateImage !== "function") {
     throw new Error("adapter.generateText must be a function.");
   }
 
@@ -110,14 +113,20 @@ export class LlmUtil {
 
   call(input, options = {}) {
     const providerAdapter = this.getProviderAdapter(options.provider || this.provider);
-
+    if (typeof providerAdapter.call !== "function") throw new Error(`LLM provider ${providerAdapter.name} does not support call.`);
     return providerAdapter.call(input, stripProviderOptions(options));
   }
 
   generateText(input, options = {}) {
     const providerAdapter = this.getProviderAdapter(options.provider || this.provider);
-
+    if (typeof providerAdapter.generateText !== "function") throw new Error(`LLM provider ${providerAdapter.name} does not support generateText.`);
     return providerAdapter.generateText(input, stripProviderOptions(options));
+  }
+
+  generateImage(input, options = {}) {
+    const providerAdapter = this.getProviderAdapter(options.provider || LLM_PROVIDERS.OPENAI);
+    if (typeof providerAdapter.generateImage !== "function") throw new Error(`LLM provider ${providerAdapter.name} does not support generateImage.`);
+    return providerAdapter.generateImage(input, stripProviderOptions(options));
   }
 }
 
@@ -130,5 +139,7 @@ export function callLlm(input, options = {}) {
 export function generateLlmText(input, options = {}) {
   return defaultLlmUtil.generateText(input, options);
 }
+
+export function generateLlmImage(input, options = {}) {return defaultLlmUtil.generateImage(input, options);}
 
 export default defaultLlmUtil;

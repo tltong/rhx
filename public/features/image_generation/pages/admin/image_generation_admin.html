@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Image Generation Configuration</title>
+    <script>document.documentElement.hidden = true;</script>
+    <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script type="module" src="/init_fb.js"></script>
+    <link rel="stylesheet" href="./image_generation_admin.css?v=20261021-image-generation-v1">
+  </head>
+  <body>
+    <main id="image-generation-admin" class="page-shell">
+      <a class="back-link" href="/features/site_admin/pages/site_admin/site_admin.html">Back to Site Admin</a>
+      <header><h1>Image generation</h1><p>Set the defaults used when a caller omits an image setting.</p></header>
+      <p id="image-config-status" class="status" role="status" aria-live="polite" hidden></p>
+      <button id="image-retry-load" type="button" class="secondary" hidden>Retry loading</button>
+      <form id="image-config-form" class="panel">
+        <div class="panel-heading"><h2>Default settings</h2><span id="image-updated-at" class="help">Not yet saved</span></div>
+        <div class="field-grid">
+          <div><label for="image-model">Model</label><select id="image-model" disabled>
+            <option value="gpt-image-2.5-flare">GPT Image 2.5 Flare</option>
+            <option value="gpt-image-2.5-sunburst">GPT Image 2.5 Sunburst</option>
+          </select></div>
+          <div><label for="image-quality">Quality</label><select id="image-quality" disabled>
+            <option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option>
+          </select></div>
+          <div><label for="image-size">Size</label><select id="image-size" disabled>
+            <option value="816x816">816 × 816 · Square</option>
+            <option value="960x720">960 × 720 · Landscape</option>
+            <option value="720x960">720 × 960 · Portrait</option>
+            <option value="1024x1024" selected>1024 × 1024 · Square</option>
+            <option value="1536x1024">1536 × 1024 · Landscape</option>
+            <option value="1024x1536">1024 × 1536 · Portrait</option>
+            <option value="2048x2048">2048 × 2048 · Square</option>
+            <option value="custom">Custom dimensions</option>
+          </select></div>
+          <div id="image-custom-dimensions" hidden>
+            <label for="image-custom-size">Custom size (width × height)</label>
+            <input id="image-custom-size" type="text" placeholder="1280x1024" aria-describedby="image-size-help" disabled>
+          </div>
+        </div>
+        <p id="image-size-help" class="help">Native output sizes. Custom dimensions must be multiples of 16, each up to 3840, with 655,360–8,294,400 total pixels and an aspect ratio from 1:3 to 3:1.</p>
+        <label class="checkbox"><input id="image-transparent" type="checkbox" disabled> Transparent background</label>
+        <p class="help">Off by default. Images are returned as PNG files.</p>
+        <div class="save-bar"><span id="image-draft-status" class="help">Current default settings</span><button id="image-save" type="submit" disabled>Save settings</button></div>
+      </form>
+      <section id="image-test-panel" class="panel" aria-labelledby="image-test-heading">
+        <h2 id="image-test-heading">Test image generation</h2>
+        <p class="help">Uses the settings currently shown above, including unsaved changes. Each test makes a paid API request. Testing does not save settings or upload the image.</p>
+        <label for="image-prompt">Image prompt</label>
+        <textarea id="image-prompt" rows="5" maxlength="32000" placeholder="A friendly cartoon student with a backpack, simple shapes and bright colours" disabled></textarea>
+        <button id="image-generate" type="button" disabled>Generate test image</button>
+        <p id="image-test-status" class="status" role="status" aria-live="polite" hidden></p>
+        <div id="image-result" hidden>
+          <div class="image-preview"><img id="image-preview" alt="Generated test image"></div>
+          <p id="image-result-settings" class="help"></p>
+          <a id="image-download" class="download" download="readyherox-generated.png">Download PNG</a>
+        </div>
+      </section>
+    </main>
+    <script id="site-admin-page-loader" type="module" data-site-admin-page
+      data-page-module="./image_generation_admin.js?v=20261021-image-generation-v1"
+      src="/features/site_admin/pages/common/site_admin_page_loader.js?v=20260827-site-admin-guard-v1"></script>
+  </body>
+</html>

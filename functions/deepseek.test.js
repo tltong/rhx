@@ -19,7 +19,7 @@ const originalLoad = Module._load;
 let deepseek;
 try {
   Module._load = function(id, parent, ...args) {
-    if (parent?.filename === require.resolve("./deepseek")) {
+    if ([require.resolve("./deepseek"), require.resolve("./utils/llm/deepseek_util")].includes(parent?.filename)) {
       if (id === "openai") return FakeOpenAI;
       if (id === "firebase-functions/v2/https") return {onRequest: (options, handler) => {
         handler.configuration = options;

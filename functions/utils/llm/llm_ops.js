@@ -1,6 +1,4 @@
-const {
-  generateDeepseekJson,
-} = require("../../deepseek");
+const {generateLlmText, generateLlmImage, callLlm, LlmUtil} = require("./llm_util");
 
 const DEEPSEEK_REQUEST_PROFILES = Object.freeze({
   STANDARD_PRO: Object.freeze({
@@ -15,13 +13,10 @@ const DEEPSEEK_REQUEST_PROFILES = Object.freeze({
   }),
 });
 
-async function generateLlmText(input, options = {}) {
-  const result = await generateDeepseekJson(input, options);
-
-  return result.json;
-}
-
 module.exports = {
   DEEPSEEK_REQUEST_PROFILES,
   generateLlmText,
+  generateLlmImage,
+  callLlm,
+  LlmUtil,
 };
