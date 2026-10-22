@@ -158,3 +158,15 @@ test("preflight and invalid input never invoke the LLM", async () => {
   assert.equal(requests.length, 0);
   assert.equal(deepseek.generateDeepseekText.configuration.timeoutSeconds, 600);
 });
+
+test("OCR uses Flash with image blocks while subsequent text requests retain Pro and SDK retries stay disabled", async () => {
+  const {extractLlmImageText} = require("./utils/llm/llm_util");
+  complete = async () => completion('{"text":"Hello 学生","warnings":[]}');
+  await extractLlmImageText({image: {mimeType: "image/png", base64: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg=="},
+    model: "deepseek-flash", detail: "original", instructions: "Return JSON.", maxTokens: 8192});
+  assert.equal(requests[0].body.model, "deepseek-flash"); assert.equal(requests[0].body.messages[1].content[1].type, "image_url");
+  assert.equal(clients[0].maxRetries, 0); assert.equal(clients[0].timeout, 240000);
+  complete = async () => completion('{"answer":1}');
+  assert.deepEqual((await deepseek.generateDeepseekJson("Return JSON.")).json, {answer: 1});
+  assert.equal(requests[1].body.model, "deepseek-v4-pro");
+});

@@ -1,5 +1,6 @@
 const {defineSecret} = require("firebase-functions/params");
 const OpenAI = require("openai");
+const {extractDeepseekImageText} = require("./deepseek_ocr");
 const deepseekApiKey = defineSecret("DEEPSEEK_API_KEY");
 const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
 const DEFAULT_MODEL = "deepseek-v4-pro";
@@ -436,8 +437,10 @@ async function generateDeepseekJsonWithinDeadline(input, options) {
 }
 
 class DeepseekUtil {
+  constructor({createOcrClient = getDeepseekClient} = {}) {this.createOcrClient = createOcrClient;}
   call(input, options = {}) {return generateDeepseekJson(input, options);}
   async generateText(input, options = {}) {return (await this.call(input, options)).json;}
+  extractTextFromImage(input, options = {}) {return extractDeepseekImageText(input, {...options, createClient: this.createOcrClient});}
 }
 const deepseekUtil = new DeepseekUtil();
 module.exports = {DeepseekUtil, deepseekUtil, deepseekApiKey, normalizeMessages,

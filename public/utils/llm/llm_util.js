@@ -1,8 +1,9 @@
 import deepseekUtil, {
   callDeepseek,
-  generateDeepseekText
-} from "./deepseek_util.js?v=20261015-deepseek-deadline-v1";
-import openaiUtil, {generateOpenAIImage} from "./openai_util.js?v=20261021-image-generation-v1";
+  generateDeepseekText,
+  extractDeepseekImageText
+} from "./deepseek_util.js?v=20261021-ocr-canvas-v1";
+import openaiUtil, {generateOpenAIImage, extractOpenAIImageText} from "./openai_util.js?v=20261021-ocr-openai-v1";
 
 export const LLM_PROVIDERS = Object.freeze({
   DEEPSEEK: "deepseek",
@@ -18,10 +19,11 @@ const providerRegistry = new Map([
       name: LLM_PROVIDERS.DEEPSEEK,
       client: deepseekUtil,
       call: callDeepseek,
-      generateText: generateDeepseekText
+      generateText: generateDeepseekText,
+      extractTextFromImage: extractDeepseekImageText
     }
   ],
-  [LLM_PROVIDERS.OPENAI, {name: LLM_PROVIDERS.OPENAI, client: openaiUtil, generateImage: generateOpenAIImage}]
+  [LLM_PROVIDERS.OPENAI, {name: LLM_PROVIDERS.OPENAI, client: openaiUtil, generateImage: generateOpenAIImage, extractTextFromImage: extractOpenAIImageText}]
 ]);
 
 let defaultProvider = DEFAULT_LLM_PROVIDER;
@@ -76,11 +78,11 @@ export function registerLlmProvider(provider, adapter) {
     throw new Error("adapter must be a non-null object.");
   }
 
-  if (typeof adapter.call !== "function" && typeof adapter.generateImage !== "function") {
+  if (typeof adapter.call !== "function" && typeof adapter.generateImage !== "function" && typeof adapter.extractTextFromImage !== "function") {
     throw new Error("adapter.call must be a function.");
   }
 
-  if (typeof adapter.generateText !== "function" && typeof adapter.generateImage !== "function") {
+  if (typeof adapter.generateText !== "function" && typeof adapter.generateImage !== "function" && typeof adapter.extractTextFromImage !== "function") {
     throw new Error("adapter.generateText must be a function.");
   }
 
@@ -128,6 +130,12 @@ export class LlmUtil {
     if (typeof providerAdapter.generateImage !== "function") throw new Error(`LLM provider ${providerAdapter.name} does not support generateImage.`);
     return providerAdapter.generateImage(input, stripProviderOptions(options));
   }
+
+  extractTextFromImage(input, options = {}) {
+    const adapter = this.getProviderAdapter(options.provider || LLM_PROVIDERS.DEEPSEEK);
+    if (typeof adapter.extractTextFromImage !== "function") throw new Error(`LLM provider ${adapter.name} does not support extractTextFromImage.`);
+    return adapter.extractTextFromImage(input, stripProviderOptions(options));
+  }
 }
 
 const defaultLlmUtil = new LlmUtil();
@@ -141,5 +149,6 @@ export function generateLlmText(input, options = {}) {
 }
 
 export function generateLlmImage(input, options = {}) {return defaultLlmUtil.generateImage(input, options);}
+export function extractLlmImageText(input, options = {}) {return defaultLlmUtil.extractTextFromImage(input, options);}
 
 export default defaultLlmUtil;

@@ -1,4 +1,5 @@
 import { firebaseConfig } from "../../config/firebase/firebase_config.js";
+import {ImageOcrClient} from "./image_ocr_client.js?v=20261021-ocr-canvas-v1";
 
 export const DEEPSEEK_FUNCTION_NAME = "generateDeepseekText";
 export const DEFAULT_DEEPSEEK_REGION = "us-central1";
@@ -240,6 +241,7 @@ export class DeepseekUtil {
   constructor(options = {}) {
     this.endpointUrl = options.endpointUrl || getDeepseekFunctionUrl(options);
     this.fetchImpl = options.fetchImpl || globalThis.fetch?.bind(globalThis);
+    this.ocrClient = options.ocrClient || new ImageOcrClient({...options, endpointUrl: options.ocrEndpointUrl});
 
     if (typeof this.fetchImpl !== "function") {
       throw new Error("fetch is not available in this browser.");
@@ -327,6 +329,11 @@ export class DeepseekUtil {
 
     return payload?.json || null;
   }
+
+  extractTextFromImage(input, {operation = "extract", ...options} = {}) {
+    if (!["extract", "test"].includes(operation)) throw new Error("Unsupported OCR operation.");
+    return this.ocrClient.request(operation, input, options);
+  }
 }
 
 const defaultDeepseekUtil = new DeepseekUtil();
@@ -338,5 +345,7 @@ export function callDeepseek(input, options = {}) {
 export function generateDeepseekText(input, options = {}) {
   return defaultDeepseekUtil.generateText(input, options);
 }
+
+export function extractDeepseekImageText(input, options = {}) {return defaultDeepseekUtil.extractTextFromImage(input, options);}
 
 export default defaultDeepseekUtil;

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Image OCR Configuration</title>
+    <script>document.documentElement.hidden = true;</script>
+    <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script type="module" src="/init_fb.js"></script>
+    <link rel="stylesheet" href="./image_ocr_admin.css?v=20261021-ocr-crop-pen-v1">
+  </head>
+  <body>
+    <main id="image-ocr-admin" class="page-shell">
+      <a class="back-link" href="/features/site_admin/pages/site_admin/site_admin.html">Back to Site Admin</a>
+      <header><div><p class="eyebrow">AI Configuration</p><h1>Image OCR</h1><p>Configure text extraction and try it with your own handwriting.</p></div><a class="jump-link" href="#ocr-test-panel">Go to handwriting test ↓</a></header>
+      <p id="ocr-config-status" class="status" role="status" aria-live="polite" hidden></p>
+      <button id="ocr-retry-load" type="button" class="secondary" hidden>Retry loading</button>
+      <div class="workspace">
+        <form id="ocr-config-form" class="panel">
+          <h2>Default settings</h2>
+          <p id="ocr-updated-at" class="help">Not yet saved</p>
+          <div class="field-grid">
+            <div><label for="ocr-provider">OCR provider</label><select id="ocr-provider" disabled><option value="deepseek">DeepSeek</option><option value="openai">OpenAI</option></select></div>
+            <div><label for="ocr-model">Model</label><select id="ocr-model" disabled><option value="deepseek-flash">DeepSeek Flash · Vision</option></select></div>
+          </div>
+          <div class="field-grid">
+            <div><label for="ocr-detail">Image detail</label><select id="ocr-detail" disabled><option value="original">Original</option><option value="high">High</option><option value="auto">Auto</option><option value="low">Low</option></select></div>
+            <div><label for="ocr-language">Language hint</label><input id="ocr-language" type="text" value="auto" maxlength="200" aria-describedby="ocr-language-help" disabled></div>
+          </div>
+          <p id="ocr-language-help" class="help">Use “auto” to detect languages, or enter a hint such as “English and Chinese”. Text stays in its original language.</p>
+          <label for="ocr-instructions">Base OCR instructions</label><textarea id="ocr-instructions" rows="7" maxlength="16000" dir="auto" required disabled></textarea>
+          <label for="ocr-additional">Additional LLM instructions</label><textarea id="ocr-additional" rows="3" maxlength="8000" dir="auto" disabled></textarea>
+          <details class="limits"><summary>Output and request limits</summary>
+            <label for="ocr-max-tokens">Maximum output tokens</label><input id="ocr-max-tokens" type="number" min="256" max="32768" step="1" required disabled>
+            <label for="ocr-max-size">Maximum image size (MiB)</label><input id="ocr-max-size" type="number" min="1" max="8" step="1" required disabled>
+            <label for="ocr-timeout">Request timeout (seconds)</label><input id="ocr-timeout" type="number" min="10" max="240" step="1" required disabled>
+            <p class="help">Limits apply to future requests. A truncated extraction is reported as an error.</p>
+          </details>
+          <p id="ocr-draft-status" class="help">Current default settings</p>
+          <button id="ocr-save" type="submit" disabled>Save settings</button>
+        </form>
+        <section id="ocr-test-panel" class="panel test-panel" aria-labelledby="ocr-test-heading">
+          <div class="test-heading"><div><h2 id="ocr-test-heading">Write &amp; test</h2><p id="ocr-canvas-help" class="help">Write on the paper with your mouse, finger, or pen. You can mix languages.</p></div><span class="paper-label">Handwriting canvas</span></div>
+          <label for="ocr-test-language">Language hint for this test</label>
+          <input id="ocr-test-language" type="text" maxlength="200" placeholder="e.g. Chinese, English and Chinese, or auto" aria-describedby="ocr-test-language-help" disabled>
+          <p id="ocr-test-language-help" class="help">Leave blank to use the current default language hint. Enter “auto” for automatic language detection. This applies only to this test.</p>
+          <div class="canvas-pen"><label for="ocr-pen-width">Pen thickness</label><select id="ocr-pen-width" aria-describedby="ocr-pen-help" disabled><option value="2">Thin</option><option value="3" selected>Medium</option><option value="5">Thick</option></select></div>
+          <p id="ocr-pen-help" class="help">Thickness applies to new strokes. Write large, with space between characters.</p>
+          <div class="canvas-toolbar"><span class="canvas-status"><span class="help status-space" aria-hidden="true">Your handwriting is ready to test.</span><span id="ocr-ink-status" class="help" role="status" aria-live="polite">Your paper is blank.</span></span><div class="canvas-actions"><button id="ocr-undo" type="button" class="secondary" disabled>Undo</button><button id="ocr-clear" type="button" class="secondary" disabled>Clear</button></div></div>
+          <div class="paper-frame"><canvas id="ocr-canvas" width="1200" height="1600" aria-label="Handwriting canvas" aria-describedby="ocr-canvas-help">A browser with canvas support is required to write a test image.</canvas></div>
+          <p class="help">Testing crops blank space around your handwriting, keeps a white margin, and sends a PNG using the current settings, including unsaved edits. Each test makes a paid API request.</p>
+          <button id="ocr-extract" type="button" disabled>Test OCR</button>
+          <p id="ocr-test-status" class="status" role="status" aria-live="polite" hidden></p>
+          <div id="ocr-result" hidden>
+            <div class="result-heading"><h3>Extracted text</h3><span id="ocr-result-model" class="help"></span></div>
+            <label for="ocr-result-text" class="sr-only">Extracted handwriting</label><textarea id="ocr-result-text" rows="8" dir="auto" readonly></textarea>
+            <ul id="ocr-warnings" class="warnings" aria-label="OCR warnings" hidden></ul>
+            <details class="sent-image"><summary>Image sent to OCR</summary><img id="ocr-sent-image" alt="PNG snapshot of the handwriting sent for OCR"><a id="ocr-download" download="readyherox-ocr-handwriting.png">Download PNG</a></details>
+          </div>
+        </section>
+      </div>
+    </main>
+    <script id="site-admin-page-loader" type="module" data-site-admin-page
+      data-page-module="./image_ocr_admin.js?v=20261021-ocr-openai-v1"
+      src="/features/site_admin/pages/common/site_admin_page_loader.js?v=20260827-site-admin-guard-v1"></script>
+  </body>
+</html>

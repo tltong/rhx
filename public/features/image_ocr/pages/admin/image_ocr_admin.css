@@ -1,0 +1,55 @@
+:root {color-scheme: light; font: 16px/1.5 system-ui, sans-serif; color: #18243b; background: #f3f6fb;}
+* {box-sizing: border-box;}
+body {margin: 0;}
+.page-shell {max-width: 1320px; margin: auto; padding: 30px 28px 60px;}
+a {color: #2453c4;}
+.back-link {font-weight: 600;}
+header {display: flex; align-items: center; justify-content: space-between; gap: 20px; margin: 24px 0;}
+.eyebrow {font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; color: #5b6d88; margin: 0 0 5px;}
+h1 {font-size: clamp(1.9rem, 4vw, 2.4rem); margin: 0;}
+header p:last-child {color: #52627b; margin: 8px 0 0;}
+.jump-link {font-size: .9rem; white-space: nowrap;}
+.workspace {display: grid; grid-template-columns: minmax(300px, .85fr) minmax(0, 1.35fr); align-items: start; gap: 24px; margin-top: 20px;}
+.panel {padding: 24px; background: #fff; border: 1px solid #dbe3ef; border-radius: 16px; box-shadow: 0 3px 12px #15243a06; min-width: 0;}
+h2 {font-size: 1.2rem; margin: 0 0 10px;}
+h3 {font-size: 1.05rem; margin: 0;}
+.help {font-size: .86rem; color: #52627b; overflow-wrap: anywhere;}
+.field-grid {display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px;}
+label {display: block; font-size: .9rem; font-weight: 650; margin: 15px 0 6px;}
+input, select, textarea {width: 100%; font: inherit; color: inherit; border: 1px solid #b8c6da; border-radius: 8px; padding: 10px; background: #fff;}
+textarea {resize: vertical;}
+button {font: inherit; font-weight: 600; border-radius: 8px; padding: 11px 18px; border: 0; color: #fff; background: #2453c4; cursor: pointer;}
+button:disabled {opacity: .45; cursor: default;}
+.secondary {background: #edf2fa; color: #2b456a; padding: 8px 13px;}
+summary {cursor: pointer; font-size: .9rem; font-weight: 600; color: #2b456a;}
+.limits {margin-top: 22px; padding-top: 16px; border-top: 1px solid #e4eaf3;}
+.status {padding: 12px 16px; background: #e9f1ff; border-radius: 8px; overflow-wrap: anywhere;}
+.status.is-error {color: #9b1c1c; background: #fff0ef;}
+.test-heading, .result-heading, .canvas-toolbar {display: flex; justify-content: space-between; align-items: center; gap: 12px;}
+.test-heading {align-items: start; flex-wrap: wrap;}
+.test-heading p {margin: 0;}
+.paper-label {font-size: .74rem; color: #426083; border: 1px solid #dbe3ef; border-radius: 20px; padding: 5px 10px; white-space: nowrap;}
+.canvas-pen {display: flex; align-items: center; gap: 12px; margin-top: 18px; flex-wrap: wrap;}
+.canvas-pen label {margin: 0;}
+.canvas-pen select {width: auto; min-width: 120px; flex: 1;}
+.canvas-toolbar {margin: 18px 0 10px;}
+.canvas-toolbar .help {margin: 0;}
+.canvas-status {display: grid; min-width: 0;}
+.canvas-status > .help {grid-area: 1 / 1;}
+/* Reserve the longest status message so starting a stroke cannot move the paper. */
+.canvas-status .status-space {visibility: hidden;}
+.canvas-actions {display: flex; gap: 8px;}
+.paper-frame {background: #eaf0f8; border: 1px solid #cdd9e9; border-radius: 10px; padding: 10px;}
+canvas {display: block; width: 100%; height: auto; aspect-ratio: 3 / 4; background: #fff; border-radius: 3px; box-shadow: 0 1px 5px #1b365418; touch-action: none; cursor: crosshair;}
+canvas[aria-disabled="true"] {cursor: default;}
+.result-heading {margin: 24px 0 12px; flex-wrap: wrap;}
+#ocr-result-text {background: #f8faff;}
+.warnings {font-size: .9rem; color: #835c08; background: #fff8e6; padding: 14px 14px 14px 30px; border-radius: 8px;}
+.sent-image {margin-top: 16px;}
+.sent-image img {display: block; max-width: 100%; max-height: 320px; border: 1px solid #dbe3ef; margin: 12px 0;}
+.sent-image a {font-size: .9rem; font-weight: 600;}
+.sr-only {position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;}
+:focus-visible {outline: 3px solid #7aa8ff; outline-offset: 3px;}
+[hidden] {display: none !important;}
+@media (max-width: 850px) {.workspace {grid-template-columns: 1fr;} header {align-items: start; flex-direction: column;} .page-shell {padding: 24px 16px 40px;}}
+@media (max-width: 450px) {.panel {padding: 20px 16px;} .field-grid {gap: 12px;} .test-panel {scroll-margin-top: 12px;} .paper-frame {padding: 6px;} .canvas-toolbar {flex-wrap: wrap;}}

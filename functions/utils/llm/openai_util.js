@@ -1,12 +1,14 @@
 const OpenAI = require("openai");
 const {defineSecret} = require("firebase-functions/params");
 const {normalizeImageSettings} = require("./image_generation_settings");
+const {extractOpenAIImageText} = require("./openai_ocr");
 const openaiApiKey = defineSecret("OPENAI_API_KEY");
 const IMAGE_GENERATION_TIMEOUT_MS = 240000;
 
 class OpenAIUtil {
   constructor({createClient = () => new OpenAI({apiKey: openaiApiKey.value(),
     timeout: IMAGE_GENERATION_TIMEOUT_MS, maxRetries: 0})} = {}) {this.createClient = createClient;}
+  extractTextFromImage(input, options = {}) {return extractOpenAIImageText(input, {...options, createClient: this.createClient});}
   // Settings are resolved by the image_generation feature before this call.
   async generateImage(input, {timeoutMs = IMAGE_GENERATION_TIMEOUT_MS, signal} = {}) {
     const settings = normalizeImageSettings(input);

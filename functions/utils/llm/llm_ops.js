@@ -1,4 +1,4 @@
-const {generateLlmText, generateLlmImage, callLlm, LlmUtil} = require("./llm_util");
+const {generateLlmText, generateLlmImage, extractLlmImageText, callLlm, LlmUtil} = require("./llm_util");
 
 const DEEPSEEK_REQUEST_PROFILES = Object.freeze({
   STANDARD_PRO: Object.freeze({
@@ -17,6 +17,7 @@ module.exports = {
   DEEPSEEK_REQUEST_PROFILES,
   generateLlmText,
   generateLlmImage,
+  extractLlmImageText,
   callLlm,
   LlmUtil,
 };

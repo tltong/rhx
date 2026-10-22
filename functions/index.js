@@ -40,6 +40,7 @@ const {
 
 exports.generateDeepseekText = generateDeepseekText;
 exports.generateLlmImage = require("./image_generation_http").generateLlmImage;
+exports.extractLlmImageText = require("./image_ocr_http").extractLlmImageText;
 exports.createPaymentCustomer = createPaymentCustomer;
 exports.deleteCustomer = deleteCustomer;
 exports.createStripeSetupIntent = createStripeSetupIntent;
