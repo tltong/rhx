@@ -11,7 +11,34 @@
         ".cache",
         ".cache/**",
         "**/.cache/**",
+        "paddleocr",
+        "paddleocr/**",
         "*.local"
+      ]
+    },
+    {
+      "source": "functions/paddleocr",
+      "codebase": "paddleocr",
+      "runtime": "python312",
+      "ignore": [
+        "venv",
+        "venv/**",
+        ".venv",
+        ".venv/**",
+        "__pycache__",
+        "**/__pycache__/**",
+        "*.pyc",
+        "tests",
+        "tests/**",
+        ".cache",
+        "**/.cache/**",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "predeploy": [
+        "python3 \"$RESOURCE_DIR/scripts/prepare_models.py\" --verify"
       ]
     }
   ],

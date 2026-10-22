@@ -7,11 +7,13 @@ umask 077
 usage() {
   echo "Usage: $0 {hosting|functions|all}"
   echo "       $0 function <exported-function-name>"
+  echo "       $0 codebase <configured-codebase-name>"
   echo "Requires FIREBASE_SERVICE_ACCOUNT_JSON; deploys to readyherox."
   echo "Optional RHX_FIREBASE_TOOLS_DIR selects a preinstalled npm package directory."
 }
 
 function_name=''
+codebase_name=''
 case "${1:-}" in
   hosting|functions|all)
     [[ $# -eq 1 ]] || { usage >&2; exit 2; }
@@ -28,6 +30,14 @@ case "${1:-}" in
       echo 'Invalid function name; specify one exported function name.' >&2; exit 2;
     }
     targets="functions:$function_name"
+    ;;
+  codebase)
+    [[ $# -eq 2 ]] || { usage >&2; exit 2; }
+    codebase_name="$2"
+    [[ "$codebase_name" =~ ^[a-z0-9_-]{1,63}$ ]] || {
+      echo 'Invalid codebase name; specify one configured Functions codebase.' >&2; exit 2;
+    }
+    targets="functions:$codebase_name"
     ;;
   -h|--help) usage; exit 0 ;;
   *) usage >&2; exit 2 ;;
@@ -48,34 +58,87 @@ for executable in node npm; do
   command -v "$executable" >/dev/null || { echo "$executable is required." >&2; exit 1; }
 done
 
-if [[ -n "$function_name" ]]; then
-  # Fail before creating credentials if the name is not an actual function export.
-  node - "$repo_dir" "$function_name" <<'NODE'
+if [[ -n "$function_name" || -n "$codebase_name" ]]; then
+  # Validate the target before creating credentials. Python exports are inspected
+  # without importing PaddleOCR or initializing its models during this check.
+  resolved_codebase="$(node - "$repo_dir" "$function_name" "$codebase_name" <<'NODE'
 const fs = require('fs');
 const path = require('path');
-const [repo, name] = process.argv.slice(2);
+const {spawnSync} = require('child_process');
+const [repo, name, codebaseName] = process.argv.slice(2);
 try {
   const config = JSON.parse(fs.readFileSync(path.join(repo, 'firebase.json'), 'utf8'));
   const codebases = [config.functions].flat().filter(Boolean);
+  if (codebaseName) {
+    if (codebases.filter(c => (c.codebase || 'default') === codebaseName).length !== 1) {
+      throw new Error('Codebase is not uniquely configured in firebase.json.');
+    }
+    process.stdout.write(codebaseName);
+    process.exit(0);
+  }
   // Firebase also accepts codebase names after "functions:". Avoid ambiguity.
   if (codebases.some(c => (c.codebase || 'default') === name)) {
     throw new Error('Function name conflicts with a configured codebase name.');
   }
-  let matches = 0;
+  const matches = [];
   for (const codebase of codebases) {
-    const exported = require(path.resolve(repo, codebase.source));
+    const source = path.resolve(repo, codebase.source);
+    const python = codebase.runtime?.startsWith('python') ||
+      (!fs.existsSync(path.join(source, 'package.json')) && fs.existsSync(path.join(source, 'main.py')));
+    if (python) {
+      const inspected = spawnSync('python3', ['-c', `
+import ast, json, pathlib, sys
+tree = ast.parse(pathlib.Path(sys.argv[1]).read_text())
+modules = set()
+decorators = set()
+for node in tree.body:
+    if isinstance(node, ast.ImportFrom) and node.module == 'firebase_functions':
+        modules.update(item.asname or item.name for item in node.names)
+    elif isinstance(node, ast.ImportFrom) and (node.module or '').startswith('firebase_functions.'):
+        decorators.update(item.asname or item.name for item in node.names if item.name.startswith('on_'))
+    elif isinstance(node, ast.Import):
+        modules.update(item.asname for item in node.names
+                       if item.name.startswith('firebase_functions.') and item.asname)
+exports = []
+for node in tree.body:
+    if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        continue
+    for decorator in node.decorator_list:
+        target = decorator.func if isinstance(decorator, ast.Call) else decorator
+        if ((isinstance(target, ast.Name) and target.id in decorators) or
+            (isinstance(target, ast.Attribute) and target.attr.startswith('on_') and
+             isinstance(target.value, ast.Name) and target.value.id in modules)):
+            exports.append(node.name)
+            break
+print(json.dumps(exports))
+`, path.join(source, 'main.py')], {encoding: 'utf8'});
+      if (inspected.error || inspected.status !== 0) {
+        throw new Error(`Cannot inspect Python functions in ${codebase.source}; check python3 and main.py.`);
+      }
+      if (JSON.parse(inspected.stdout).includes(name)) matches.push(codebase.codebase || 'default');
+      continue;
+    }
+    const exported = require(source);
     if (Object.hasOwn(exported, name) && typeof exported[name] === 'function' &&
-        (exported[name].__endpoint || exported[name].__trigger)) matches++;
+        (exported[name].__endpoint || exported[name].__trigger)) matches.push(codebase.codebase || 'default');
   }
-  if (matches !== 1) {
-    throw new Error(matches ? 'Function is exported by multiple codebases.' :
+  if (matches.length !== 1) {
+    throw new Error(matches.length ? 'Function is exported by multiple codebases.' :
       'Function is not exported by a configured Functions source.');
   }
+  process.stdout.write(matches[0]);
 } catch (error) {
-  console.error(`Cannot deploy function ${name}: ${error.message}`);
+  console.error(`Cannot deploy ${codebaseName ? 'codebase ' + codebaseName : 'function ' + name}: ${error.message}`);
   process.exit(2);
 }
 NODE
+  )"
+  [[ "$resolved_codebase" =~ ^[a-z0-9_-]{1,63}$ ]] || {
+    echo 'Cannot resolve a unique Functions codebase for this target.' >&2; exit 2;
+  }
+  if [[ -n "$function_name" ]]; then
+    targets="functions:$resolved_codebase:$function_name"
+  fi
 fi
 
 # Always outside the application repository, regardless of TMPDIR.

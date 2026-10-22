@@ -1,0 +1,10 @@
+# Direct dependencies. requirements.txt pins the complete resolved environment.
+firebase-functions==0.6.0
+firebase-admin==7.7.0
+paddleocr==3.7.0
+paddlepaddle==3.3.1
+paddlex==3.7.2
+numpy==2.3.5
+Pillow==13.0.0
+opencv-contrib-python==4.10.0.84
+setuptools==84.2.1
