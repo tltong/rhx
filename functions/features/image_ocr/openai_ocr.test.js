@@ -141,7 +141,7 @@ test("LlmUtil routes OpenAI OCR to its registered adapter without affecting text
   finally {registerLlmProvider("openai", registered);}
 });
 test("existing HTTPS endpoint binds both keys and carries OpenAI extraction with authentication and safe logs", async () => {
-  assert.deepEqual(extractLlmImageText.__endpoint.secretEnvironmentVariables.map(item => item.key).sort(), ["DEEPSEEK_API_KEY", "OPENAI_API_KEY"]);
+  assert.deepEqual(extractLlmImageText.__endpoint.secretEnvironmentVariables.map(item => item.key).sort(), ["DEEPSEEK_API_KEY", "OPENAI_API_KEY", "SARVAM_API_KEY"]);
   const h = harness({...configuration, model: "gpt-6-astra"}), logs = [];
   const handler = createImageOcrHandler({apis: h.feature, verifyToken: async () => ({uid: "student"}), log: {info: (...args) => logs.push(args), error: (...args) => logs.push(args)}});
   const invoke = async (input, headers = {authorization: "Bearer token"}) => {

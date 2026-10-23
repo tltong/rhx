@@ -6,6 +6,7 @@ const {DeepseekUtil} = require("../../utils/llm/deepseek_util");
 const {LlmUtil, registerLlmProvider} = require("../../utils/llm/llm_util");
 const {createImageOcrHandler} = require("../../image_ocr_http");
 const {FirestoreImageOcrConfigRepository} = require("./infrastructure/firestore_image_ocr_config_repository");
+const {EventEmitter} = require("node:events");
 const image = {mimeType: "image/png", base64: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg=="};
 const transcription = {text: "Hello 学生\nالسلام عليكم", warnings: []};
 function harness(options = {}) {
@@ -119,4 +120,47 @@ test("HTTP hides provider secrets and preserves an actionable truncation error",
   };
   const hidden = await invoke(new Error("secret-key private-text")); assert.equal(hidden.statusCode, 502); assert.ok(hidden.payload.requestId); assert.equal(JSON.stringify(hidden).includes("secret-key"), false);
   const truncated = await invoke(Object.assign(new Error("Increase output limit"), {code: "ocr-output-truncated"})); assert.equal(truncated.payload.error.message, "Increase output limit");
+});
+test("Sarvam routing passes the selected language and converted-image budget for saved and draft requests", async () => {
+  const h = harness();
+  const configuration = {...defaults, languageProviders: {Tamil: "sarvam"}, languageHint: "Chinese", maxImageSizeMiB: 1};
+  h.setSettings(configuration);
+  const result = await h.feature.extractTextFromImage({image, language: " Tamil "});
+  assert.equal(result.provider, "sarvam"); assert.equal(result.model, "sarvam-vision-v1");
+  assert.equal(h.calls[0].input.language, "Tamil"); assert.equal(h.calls[0].input.languageHint, "Chinese");
+  assert.equal(h.calls[0].input.maxImageBytes, 1024 * 1024);
+  await h.feature.testImageOcr({image, language: "English", configuration: {...configuration, languageProviders: {english: "sarvam"}}}, {updatedBy: "admin"});
+  assert.equal(h.calls[1].options.provider, "sarvam"); assert.equal(h.calls[1].input.language, "English");
+  await h.feature.extractTextFromImage({image, language: "Malay"});
+  assert.equal(h.calls[2].options.provider, "openai"); assert.deepEqual(h.saves, []);
+  await assert.rejects(() => h.feature.saveImageOcrConfig({...configuration, languageProviders: {malay: "sarvam"}}, {updatedBy: "admin"}), {code: "invalid-argument"});
+});
+test("HTTP passes cancellation separately from administrator identity and stops on browser disconnect", async () => {
+  for (const action of ["extract", "test"]) {
+    let ready, received;
+    const started = new Promise(resolve => {ready = resolve;});
+    const apis = {async extractTextFromImage(input, options) {return run(options);},
+      async testImageOcr(input, context, options) {assert.deepEqual(context, {updatedBy: "admin"}); return run(options);}};
+    function run(options) {
+      received = options; ready();
+      return new Promise((resolve, reject) => options.signal.addEventListener("abort", () => reject(options.signal.reason), {once: true}));
+    }
+    const handler = createImageOcrHandler({apis, verifyToken: async () => ({uid: "admin"}), log: {info() {}, error() {}}});
+    const req = Object.assign(new EventEmitter(), {method: "POST", headers: {authorization: "Bearer token"}, body: {action, input: {image, language: "Tamil"}}});
+    const res = Object.assign(new EventEmitter(), response(), {writableEnded: false});
+    const pending = handler(req, res);
+    await started; assert.ok(received.signal instanceof AbortSignal); res.emit("close");
+    await pending;
+    assert.equal(received.signal.aborted, true); assert.equal(res.payload, undefined);
+    assert.equal(req.listenerCount("aborted"), 0); assert.equal(res.listenerCount("close"), 0);
+  }
+});
+test("HTTP links safe provider job IDs to request logs without exposing upstream response data", async () => {
+  const logs = [], error = Object.assign(new Error("private-key"), {code: "ocr-unavailable", providerJobId: "sarvam_job-1", body: "private body"});
+  const handler = createImageOcrHandler({verifyToken: async () => ({uid: "admin"}), apis: {extractTextFromImage: async () => {throw error;}},
+    log: {info() {}, error: (message, data) => logs.push(data)}});
+  const res = response();
+  await handler({method: "POST", headers: {authorization: "Bearer token"}, body: {input: {image, language: "Tamil"}}}, res);
+  assert.equal(logs[0].providerJobId, "sarvam_job-1"); assert.equal(logs[0].requestId, res.payload.requestId);
+  assert.equal(JSON.stringify(logs).includes("private"), false); assert.equal(JSON.stringify(res.payload).includes("private"), false);
 });

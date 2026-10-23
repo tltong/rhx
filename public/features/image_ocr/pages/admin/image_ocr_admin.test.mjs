@@ -72,6 +72,23 @@ test("language selection previews draft routing without changing recognition hin
   await h.get("ocr-config-form").submit();
   assert.deepEqual(h.saves[0].languageProviders, {}); assert.equal(h.get("ocr-test-language").value, "Chinese");
 });
+test("Sarvam is selectable for supported languages and draft tests and saves preserve that routing", async () => {
+  const h = harness({listLanguages: async () => ["English", "Tamil", "Malay", "Chinese"],
+    testOcr: async () => ({text: "தமிழ்", warnings: [], provider: "sarvam", model: "sarvam-vision-v1"})});
+  await h.page.ready;
+  for (const language of ["English", "Tamil", "Malay", "Chinese"]) {
+    const option = h.provider(language).children.find(child => child.value === "sarvam");
+    assert.equal(option.disabled, ["Malay", "Chinese"].includes(language));
+  }
+  h.provider("Tamil").change("sarvam"); h.get("ocr-test-language").change("Tamil"); h.draw();
+  assert.match(h.get("ocr-test-provider").textContent, /Sarvam.*Sarvam Vision/);
+  await h.get("ocr-extract").click();
+  assert.equal(h.calls[0].input.language, "Tamil"); assert.deepEqual(h.calls[0].input.configuration.languageProviders, {tamil: "sarvam"});
+  assert.equal(h.get("ocr-result-text").value, "தமிழ்"); assert.equal(h.get("ocr-result-model").textContent, "Sarvam · Sarvam Vision");
+  assert.deepEqual(h.saves, []);
+  await h.get("ocr-config-form").submit();
+  assert.deepEqual(h.saves[0].languageProviders, {tamil: "sarvam"});
+});
 test("the OpenAI fallback model is configurable and legacy global DeepSeek settings migrate on read", async () => {
   const h = harness(); await h.page.ready;
   assert.equal(h.get("ocr-provider").value, "openai"); assert.equal(h.get("ocr-provider").disabled, true);

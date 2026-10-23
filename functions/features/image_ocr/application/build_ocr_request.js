@@ -10,6 +10,7 @@ function buildOcrRequest(input, configuration) {
   ].filter(Boolean).join("\n\n");
   return {...resolveOcrTarget(input, settings), image: normalizeOcrImage(input.image, settings.maxImageSizeMiB * 1024 * 1024),
     detail: input.detail ?? settings.detail,
-    languageHint, maxTokens: settings.maxTokens, instructions};
+    language: input.language, languageHint, maxTokens: settings.maxTokens,
+    maxImageBytes: settings.maxImageSizeMiB * 1024 * 1024, instructions};
 }
 module.exports = {buildOcrRequest};

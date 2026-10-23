@@ -1,7 +1,7 @@
 import {imageOcrClient} from "../../utils/llm/image_ocr_client.js?v=20261021-ocr-canvas-v1";
-import {normalizeOcrImage, normalizeOcrInput, normalizeOcrSettings, normalizeOcrLanguage, OCR_MAX_IMAGE_BYTES} from "../../utils/llm/image_ocr_settings.js?v=20261023-ocr-language-v1";
+import {normalizeOcrImage, normalizeOcrInput, normalizeOcrSettings, normalizeOcrLanguage, OCR_MAX_IMAGE_BYTES} from "../../utils/llm/image_ocr_settings.js?v=20261023-ocr-sarvam-v1";
 import {getCurrentFirebaseAuthRawUser} from "../../utils/firebase/firebase_auth.js";
-export {DEFAULT_OCR_SETTINGS, OCR_PROVIDERS, OCR_MODELS_BY_PROVIDER, OCR_DEFAULT_MODELS, OCR_MODELS, OCR_DETAILS} from "../../utils/llm/image_ocr_settings.js?v=20261023-ocr-language-v1";
+export {DEFAULT_OCR_SETTINGS, OCR_PROVIDERS, OCR_MODELS_BY_PROVIDER, OCR_DEFAULT_MODELS, OCR_MODELS, OCR_DETAILS} from "../../utils/llm/image_ocr_settings.js?v=20261023-ocr-sarvam-v1";
 
 export async function toOcrImage(image, maxBytes = OCR_MAX_IMAGE_BYTES) {
   if (typeof Blob !== "undefined" && image instanceof Blob) {

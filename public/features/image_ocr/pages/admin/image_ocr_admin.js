@@ -1,11 +1,11 @@
-import {DEFAULT_OCR_SETTINGS, OCR_MODELS_BY_PROVIDER, getImageOcrConfig, saveImageOcrConfig, testImageOcr} from "../../image_ocr_module.js?v=20261023-ocr-language-v1";
-import {normalizeOcrSettings, normalizeOcrLanguage, ocrLanguageKey, resolveOcrTarget} from "../../../../utils/llm/image_ocr_settings.js?v=20261023-ocr-language-v1";
+import {DEFAULT_OCR_SETTINGS, OCR_MODELS_BY_PROVIDER, getImageOcrConfig, saveImageOcrConfig, testImageOcr} from "../../image_ocr_module.js?v=20261023-ocr-sarvam-v1";
+import {normalizeOcrSettings, normalizeOcrLanguage, ocrLanguageKey, resolveOcrTarget, getSarvamLanguageCode} from "../../../../utils/llm/image_ocr_settings.js?v=20261023-ocr-sarvam-v1";
 import {listSyllabusScopeLanguages} from "../../../syllabusscope/syllabusscope_module.js?v=20261014-scope-languages-v1";
 import {mountHandwritingCanvas} from "../../components/handwriting_canvas.js?v=20261021-ocr-crop-pen-v1";
 import {getCurrentFirebaseAuthRawUser, onFirebaseAuthStateChanged} from "../../../../utils/firebase/firebase_auth.js";
 
-const providerLabels = {openai: "OpenAI", deepseek: "DeepSeek", paddleocr: "PaddleOCR"};
-const modelLabels = {"gpt-6.1-sol": "GPT-6.1 Sol", "gpt-6-astra": "GPT-6 Astra", "deepseek-flash": "DeepSeek Flash", "PP-OCRv6_medium": "PP-OCRv6 medium"};
+const providerLabels = {openai: "OpenAI", deepseek: "DeepSeek", paddleocr: "PaddleOCR", sarvam: "Sarvam"};
+const modelLabels = {"gpt-6.1-sol": "GPT-6.1 Sol", "gpt-6-astra": "GPT-6 Astra", "deepseek-flash": "DeepSeek Flash", "PP-OCRv6_medium": "PP-OCRv6 medium", "sarvam-vision-v1": "Sarvam Vision"};
 
 export function mountImageOcrAdmin({root = document, getConfig = getImageOcrConfig, saveConfig = saveImageOcrConfig,
   listLanguages = listSyllabusScopeLanguages, testOcr = testImageOcr, mountCanvas = mountHandwritingCanvas,
@@ -66,7 +66,11 @@ export function mountImageOcrAdmin({root = document, getConfig = getImageOcrConf
       const key = ocrLanguageKey(language), row = root.createElement("div"), label = root.createElement("label"), select = root.createElement("select");
       row.className = "language-provider-row"; select.id = `ocr-language-provider-${index}`;
       select.setAttribute("data-language", key); label.setAttribute("for", select.id); label.textContent = language;
-      for (const [value, title] of [["", "Default (OpenAI)"], ...Object.entries(providerLabels)]) select.append(option(value, title));
+      for (const [value, title] of [["", "Default (OpenAI)"], ...Object.entries(providerLabels)]) {
+        const choice = option(value, title);
+        if (value === "sarvam" && !getSarvamLanguageCode(language)) {choice.disabled = true; choice.textContent = "Sarvam (language not supported)";}
+        select.append(choice);
+      }
       select.value = overrides[key] || "";
       listen(select, "change", () => {
         if (disposed || busy || !loaded) return;

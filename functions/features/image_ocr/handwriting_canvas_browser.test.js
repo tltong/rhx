@@ -10,6 +10,7 @@ const {OpenAIUtil} = require("../../utils/llm/openai_util");
 const {DeepseekUtil} = require("../../utils/llm/deepseek_util");
 const {registerLlmProvider} = require("../../utils/llm/llm_util");
 const {PaddleOcrUtil} = require("../../utils/llm/paddleocr");
+const {SarvamOcrUtil, SARVAM_OCR_MODEL} = require("../../utils/llm/sarvam_ocr");
 
 const publicRoot = path.resolve(__dirname, "../../../public");
 let server, browser, origin;
@@ -31,6 +32,22 @@ before(async () => {
       return {data: {...transcription, provider: "paddleocr", model: "PP-OCRv6_medium"}};
     }},
   })}));
+  registerLlmProvider("sarvam", new SarvamOcrUtil({pollIntervalMs: 1, createClient: () => ({docAi: {
+    digitise: async (input, options) => {
+      assert.equal(options.maxRetries, 0);
+      assert.equal(input.file[0].contentType, "image/png");
+      integration.providerCalls.push({provider: "sarvam", input});
+      return {job_id: "browser-sarvam-job", status: "pending"};
+    },
+    getStatus: async id => {assert.equal(id, "browser-sarvam-job"); return {job_id: id, pipeline: "digitise", status: "completed"};},
+    getResults: async (id, request) => {
+      assert.deepEqual(request, {format: "json"});
+      return {type: "digitise", job_id: id, status: "completed", usage: {pages_succeeded: 1},
+        documents: [{pages: [{page_num: 1, status: "completed", blocks: [
+          {text: "தமிழ்", layout_tag: "text", reading_order: 0}, {text: "Hello studant", layout_tag: "text", reading_order: 1},
+        ]}]}]};
+    },
+  }})}));
   const feature = createImageOcrFeature({repository: {getConfig: async () => integration.configuration, saveConfig: async (settings, uid) => {
     integration.saves++; return integration.configuration = {...settings, updatedBy: uid};
   }}, getUser: async uid => ({uid, email: "admin@example.com", emailVerified: true}), checkAdmin: async () => true});
@@ -78,15 +95,15 @@ async function openPage(width, textScale = 1, fullFlow = false) {
     window.ocrRequests = [];
     let controller;
     if (fullFlow) {
-      const version = "?v=20261023-ocr-language-v1";
+      const version = "?v=20261023-ocr-sarvam-v1";
       const {ImageOcrClient} = await import("/utils/llm/image_ocr_client.js?v=20261021-ocr-canvas-v1");
       const {createImageOcrFeature} = await import("/features/image_ocr/image_ocr_module.js" + version);
       const user = {uid: "admin", getIdToken: async () => "browser-test-token"};
       const client = new ImageOcrClient({endpointUrl: "/mock-ocr-api", getUser: () => user});
       const feature = createImageOcrFeature({client, getUser: () => user});
       window.ocrFeature = feature;
-      controller = mountImageOcrAdmin({listLanguages: async () => ["English", "Chinese", "Malay"], getConfig: feature.getImageOcrConfig, saveConfig: feature.saveImageOcrConfig, testOcr: feature.testImageOcr});
-    } else controller = mountImageOcrAdmin({listLanguages: async () => ["English", "Chinese", "Malay"], getConfig: async () => null, testOcr: async input => {
+      controller = mountImageOcrAdmin({listLanguages: async () => ["English", "Chinese", "Malay", "Tamil"], getConfig: feature.getImageOcrConfig, saveConfig: feature.saveImageOcrConfig, testOcr: feature.testImageOcr});
+    } else controller = mountImageOcrAdmin({listLanguages: async () => ["English", "Chinese", "Malay", "Tamil"], getConfig: async () => null, testOcr: async input => {
       window.ocrRequests.push(input);
       return {text: "Test transcription", warnings: [], provider: input.configuration.provider, model: input.configuration.model};
     }});
@@ -308,5 +325,45 @@ test("language provider drafts and saved routing reach all three adapters throug
     assert.equal(result.provider, "paddleocr"); assert.equal(integration.providerCalls[3].provider, "paddleocr");
     assert.equal(integration.saves, 1);
     if (process.env.RHX_OCR_SCREENSHOT_DIR) await page.screenshot({path: path.join(process.env.RHX_OCR_SCREENSHOT_DIR, "image-ocr-languages-mobile.png"), fullPage: true});
+  } finally {await page.close();}
+});
+test("Sarvam handwriting draft tests and saved extraction use the existing HTTP endpoint on mobile and desktop", async () => {
+  integration.configuration = null; integration.saves = 0; integration.requests.length = 0; integration.providerCalls.length = 0;
+  let page = await openPage(390, 1, true);
+  try {
+    for (const language of ["malay", "chinese"]) {
+      assert.equal(await page.$eval(`[data-language="${language}"] option[value="sarvam"]`, option => option.disabled), true);
+    }
+    assert.equal(await page.$eval('[data-language="tamil"] option[value="sarvam"]', option => option.disabled), false);
+    await page.select('[data-language="tamil"]', "sarvam"); await page.select("#ocr-test-language", "Tamil");
+    await page.$eval("#ocr-language", input => {input.value = "English"; input.dispatchEvent(new Event("input"));});
+    assert.match(await page.$eval("#ocr-test-provider", element => element.textContent), /Sarvam Vision/);
+    await page.$eval("#ocr-canvas", canvas => canvas.scrollIntoView({block: "center"}));
+    const box = await canvasBox(page);
+    await page.mouse.move(box.x + 30, box.y + 40); await page.mouse.down();
+    await page.mouse.move(box.x + 100, box.y + 60); await page.mouse.up();
+    await page.$eval("#ocr-extract", button => button.click());
+    await page.waitForFunction(() => !document.getElementById("ocr-result").hidden, {timeout: 5000});
+    assert.equal(await page.$eval("#ocr-result-text", input => input.value), "தமிழ்\n\nHello studant");
+    assert.equal(await page.$eval("#ocr-result-model", element => element.textContent), "Sarvam · Sarvam Vision");
+    assert.equal(integration.saves, 0); assert.equal(integration.configuration, null);
+    assert.equal(integration.providerCalls.length, 1); assert.equal(integration.providerCalls[0].provider, "sarvam");
+    assert.equal(integration.providerCalls[0].input.language, "ta-IN"); assert.equal(integration.providerCalls[0].input.model, SARVAM_OCR_MODEL);
+    const request = integration.requests.find(value => value.action === "test");
+    assert.equal(request.input.language, "Tamil"); assert.equal(request.input.image.mimeType, "image/png");
+    assert.equal(JSON.stringify(integration.requests).includes("apiSubscriptionKey"), false);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    await page.$eval("#ocr-save", button => button.click());
+    await page.waitForFunction(() => document.getElementById("ocr-config-status").textContent === "OCR settings saved.", {timeout: 5000});
+    assert.deepEqual(integration.configuration.languageProviders, {tamil: "sarvam"});
+    await page.close(); page = await openPage(1360, 1, true);
+    assert.equal(await page.$eval('[data-language="tamil"]', select => select.value), "sarvam");
+    const result = await page.evaluate(async () => {
+      const image = await new Promise(resolve => document.getElementById("ocr-canvas").toBlob(resolve, "image/png"));
+      return window.ocrFeature.extractTextFromImage({image, language: "Tamil"});
+    });
+    assert.equal(result.provider, "sarvam"); assert.equal(result.model, SARVAM_OCR_MODEL);
+    assert.equal(result.text, "தமிழ்\n\nHello studant"); assert.equal(integration.providerCalls.length, 2);
+    assert.equal(integration.saves, 1);
   } finally {await page.close();}
 });

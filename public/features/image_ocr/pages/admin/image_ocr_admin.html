@@ -11,7 +11,7 @@
     <script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script>
     <script defer src="/__/firebase/init.js"></script>
     <script type="module" src="/init_fb.js"></script>
-    <link rel="stylesheet" href="./image_ocr_admin.css?v=20261023-ocr-language-v1">
+    <link rel="stylesheet" href="./image_ocr_admin.css?v=20261023-ocr-sarvam-v1">
   </head>
   <body>
     <main id="image-ocr-admin" class="page-shell">
@@ -23,6 +23,7 @@
         <form id="ocr-config-form" class="panel">
           <h2>Providers by language</h2>
           <p class="help">Languages come from syllabus scope. A language without an override uses OpenAI.</p>
+          <p class="help">Sarvam supports English and 22 Indian languages, including Tamil. It reads printed and handwritten text in the selected language. Malay and Chinese are not supported by Sarvam.</p>
           <div id="ocr-language-providers" class="language-providers"></div>
           <p id="ocr-no-languages" class="help" hidden>Add languages in Syllabus Scope Admin to configure their providers.</p>
           <h2 class="settings-heading">Shared settings</h2>
@@ -38,7 +39,7 @@
           <p id="ocr-language-help" class="help">Use “auto” to detect languages, or enter a hint such as “English and Chinese”. Text stays in its original language.</p>
           <label for="ocr-instructions">Base OCR instructions</label><textarea id="ocr-instructions" rows="7" maxlength="16000" dir="auto" required disabled></textarea>
           <label for="ocr-additional">Additional LLM instructions</label><textarea id="ocr-additional" rows="3" maxlength="8000" dir="auto" disabled></textarea>
-          <p class="help">Instructions and output token limits apply to OpenAI and DeepSeek. Image size and timeout limits apply to all providers.</p>
+          <p class="help">Image detail, language hints, instructions, and output token limits apply to OpenAI and DeepSeek. Sarvam uses the selected language. Image size and timeout limits apply to all providers.</p>
           <details class="limits"><summary>Output and request limits</summary>
             <label for="ocr-max-tokens">Maximum output tokens</label><input id="ocr-max-tokens" type="number" min="256" max="32768" step="1" required disabled>
             <label for="ocr-max-size">Maximum image size (MiB)</label><input id="ocr-max-size" type="number" min="1" max="8" step="1" required disabled>
@@ -71,7 +72,7 @@
       </div>
     </main>
     <script id="site-admin-page-loader" type="module" data-site-admin-page
-      data-page-module="./image_ocr_admin.js?v=20261023-ocr-language-v1"
+      data-page-module="./image_ocr_admin.js?v=20261023-ocr-sarvam-v1"
       src="/features/site_admin/pages/common/site_admin_page_loader.js?v=20260827-site-admin-guard-v1"></script>
   </body>
 </html>

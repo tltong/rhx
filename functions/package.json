@@ -12,9 +12,12 @@
     "firebase-admin": "^10.3.0",
     "firebase-functions": "^4.9.0",
     "google-auth-library": "7.14.1",
+    "htmlparser2": "12.0.0",
     "openai": "^6.46.0",
     "puppeteer": "^25.8.0",
     "sanitize-html": "^2.17.0",
+    "sarvamai": "1.1.12",
+    "sharp": "0.35.5",
     "stripe": "^22.6.0"
   }
 }

@@ -3,7 +3,19 @@ const OCR_MODELS_BY_PROVIDER = Object.freeze({
   deepseek: Object.freeze(["deepseek-flash"]),
   openai: Object.freeze(["gpt-6.1-sol", "gpt-6-astra"]),
   paddleocr: Object.freeze(["PP-OCRv6_medium"]),
+  sarvam: Object.freeze(["sarvam-vision-v1"]),
 });
+const SARVAM_OCR_LANGUAGES = Object.freeze({
+  assamese: "as-IN", bengali: "bn-IN", bodo: "brx-IN", dogri: "doi-IN", english: "en-IN",
+  gujarati: "gu-IN", hindi: "hi-IN", kannada: "kn-IN", kashmiri: "ks-IN", konkani: "kok-IN",
+  maithili: "mai-IN", malayalam: "ml-IN", manipuri: "mni-IN", marathi: "mr-IN", nepali: "ne-IN",
+  odia: "od-IN", punjabi: "pa-IN", sanskrit: "sa-IN", santali: "sat-IN", sindhi: "sd-IN",
+  tamil: "ta-IN", telugu: "te-IN", urdu: "ur-IN",
+});
+const sarvamLanguages = new Map(Object.entries(SARVAM_OCR_LANGUAGES).flatMap(([name, code]) =>
+  [[name, code], [code.toLowerCase(), code], [code.split("-")[0], code]]));
+sarvamLanguages.set("தமிழ்", "ta-IN");
+sarvamLanguages.set("oriya", "od-IN");
 const OCR_PROVIDERS = Object.freeze(Object.keys(OCR_MODELS_BY_PROVIDER));
 const OCR_DEFAULT_MODELS = Object.freeze(Object.fromEntries(OCR_PROVIDERS.map(provider => [provider, OCR_MODELS_BY_PROVIDER[provider][0]])));
 const OCR_MODELS = Object.freeze(Object.values(OCR_MODELS_BY_PROVIDER).flat());
@@ -29,7 +41,7 @@ function integer(value, name, min, max) {
   return value;
 }
 function normalizeOcrTarget(provider, model) {
-  if (!OCR_PROVIDERS.includes(provider)) throw invalid("OCR provider must be openai, deepseek, or paddleocr.");
+  if (!OCR_PROVIDERS.includes(provider)) throw invalid("OCR provider must be openai, deepseek, paddleocr, or sarvam.");
   if (!OCR_MODELS_BY_PROVIDER[provider].includes(model)) throw invalid(`Choose an OCR model for ${provider}: ${OCR_MODELS_BY_PROVIDER[provider].join(", ")}.`);
   return {provider, model};
 }
@@ -37,6 +49,7 @@ function normalizeOcrLanguage(value) {
   return text(value, "Language", 200).normalize("NFKC").replace(/\s+/g, " ");
 }
 function ocrLanguageKey(value) {return normalizeOcrLanguage(value).toLowerCase();}
+function getSarvamLanguageCode(value) {return sarvamLanguages.get(ocrLanguageKey(value)) || null;}
 function normalizeLanguageProviders(input = {}) {
   record(input, "Language providers");
   const entries = new Map();
@@ -44,7 +57,8 @@ function normalizeLanguageProviders(input = {}) {
     const key = ocrLanguageKey(language);
     if (["__proto__", "constructor", "prototype"].includes(key)) throw invalid("Invalid language key.");
     if (provider === "" || provider === null) continue;
-    if (!OCR_PROVIDERS.includes(provider)) throw invalid("Choose OpenAI, DeepSeek, or PaddleOCR for each language.");
+    if (!OCR_PROVIDERS.includes(provider)) throw invalid("Choose OpenAI, DeepSeek, PaddleOCR, or Sarvam for each language.");
+    if (provider === "sarvam" && !getSarvamLanguageCode(language)) throw invalid(`Sarvam does not support ${normalizeOcrLanguage(language)}. Choose another OCR provider for this language.`);
     if (entries.has(key) && entries.get(key) !== provider) throw invalid("A language cannot have conflicting OCR providers.");
     entries.set(key, provider);
   }
@@ -135,4 +149,4 @@ function normalizeOcrInput(input) {
 }
 module.exports = {OCR_PROVIDERS, OCR_MODELS_BY_PROVIDER, OCR_DEFAULT_MODELS, OCR_MODELS, OCR_DETAILS, OCR_MIME_TYPES, OCR_MAX_IMAGE_BYTES, DEFAULT_OCR_SETTINGS,
   normalizeOcrTarget, resolveOcrTarget, normalizeOcrSettings, normalizeOcrImage, normalizeOcrInput,
-  normalizeOcrLanguage, ocrLanguageKey, normalizeLanguageProviders};
+  normalizeOcrLanguage, ocrLanguageKey, normalizeLanguageProviders, SARVAM_OCR_LANGUAGES, getSarvamLanguageCode};

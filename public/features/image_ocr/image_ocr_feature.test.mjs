@@ -31,7 +31,7 @@ test("Web draft tests transmit language and draft routes without saving", async 
 });
 test("both layers share routing validation and reject caller overrides before HTTP", async () => {
   const backend = createRequire(import.meta.url)("../../../functions/utils/llm/image_ocr_settings");
-  for (const key of ["OCR_PROVIDERS", "OCR_MODELS_BY_PROVIDER", "OCR_DEFAULT_MODELS", "OCR_MODELS", "OCR_DETAILS", "OCR_MIME_TYPES", "DEFAULT_OCR_SETTINGS"]) assert.deepEqual(settings[key], backend[key]);
+  for (const key of ["OCR_PROVIDERS", "OCR_MODELS_BY_PROVIDER", "OCR_DEFAULT_MODELS", "OCR_MODELS", "OCR_DETAILS", "OCR_MIME_TYPES", "DEFAULT_OCR_SETTINGS", "SARVAM_OCR_LANGUAGES"]) assert.deepEqual(settings[key], backend[key]);
   const configuration = {...defaults, languageProviders: {" English ": "paddleocr"}};
   assert.deepEqual(settings.normalizeOcrSettings(configuration), backend.normalizeOcrSettings(configuration));
   const calls = [], feature = createImageOcrFeature({getUser: () => user, client: {request: async input => calls.push(input)}});
@@ -41,6 +41,18 @@ test("both layers share routing validation and reject caller overrides before HT
   }
   await assert.rejects(() => toOcrImage(new Blob([], {type: "image/png"})), {code: "invalid-argument"});
   assert.deepEqual(calls, []);
+});
+test("Sarvam draft routing crosses the existing Web transport and unsupported language assignments fail locally", async () => {
+  const calls = [];
+  const feature = createImageOcrFeature({getUser: () => user, client: {request: async (...args) => {calls.push(args); return {text: "தமிழ்", warnings: [], provider: "sarvam", model: "sarvam-vision-v1"};}}});
+  const configuration = {...defaults, languageProviders: {tamil: "sarvam"}};
+  const result = await feature.testImageOcr({image: blob(), language: "Tamil", configuration});
+  assert.equal(result.provider, "sarvam");
+  assert.deepEqual(calls[0], ["test", {image, language: "Tamil", configuration}, {}]);
+  for (const language of ["Malay", "Chinese"]) assert.throws(() => feature.saveImageOcrConfig({...defaults, languageProviders: {[language]: "sarvam"}}), {code: "invalid-argument"});
+  assert.equal(calls.length, 1);
+  assert.equal(settings.getSarvamLanguageCode("Tamil"), "ta-IN");
+  assert.equal(settings.getSarvamLanguageCode("Malay"), null);
 });
 test("the existing browser LlmUtil supports OCR-only adapters", async () => {
   registerLlmProvider("fake-ocr", {extractTextFromImage: async input => input});

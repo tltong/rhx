@@ -27,7 +27,8 @@ The routing portion of the configuration is:
 {
   "languageProviders": {
     "english": "paddleocr",
-    "chinese": "deepseek"
+    "chinese": "deepseek",
+    "tamil": "sarvam"
   }
 }
 ```
@@ -39,8 +40,8 @@ Normal extraction rejects caller `provider` and `model` overrides. `languageHint
 is recognition guidance and does not select the provider.
 
 The available adapters are OpenAI (`gpt-6.1-sol` or `gpt-6-astra`), DeepSeek
-(`deepseek-flash`), and PaddleOCR (`PP-OCRv6_medium`). The shared OpenAI model setting
-selects the fallback model; DeepSeek and PaddleOCR use their listed models.
+(`deepseek-flash`), PaddleOCR (`PP-OCRv6_medium`), and Sarvam (`sarvam-vision-v1`). The shared OpenAI model setting
+selects the fallback model; the other providers use their listed models.
 The retained `provider` configuration field is always `openai`.
 
 Old global DeepSeek settings are normalized to the OpenAI fallback when read,
@@ -63,8 +64,9 @@ the actor from the verified user; caller-supplied actor IDs are ignored.
 Functions callers supply `{updatedBy: administratorUid}` as the administrator
 context for saves and tests.
 
-The existing HTTPS function binds `DEEPSEEK_API_KEY` and `OPENAI_API_KEY` for its
-LLM adapters. PaddleOCR uses Google service identity rather than either key.
+The existing HTTPS function binds `DEEPSEEK_API_KEY`, `OPENAI_API_KEY`, and
+`SARVAM_API_KEY`. PaddleOCR uses Google service identity. Browser credentials and
+endpoints stay the same; all provider authentication runs on the backend.
 
 ## PaddleOCR adapter
 
@@ -87,11 +89,72 @@ The Python package, models, and HTTP contract are documented in
 `../../paddleocr/README.md`. A generated image checks basic integration; handwriting
 accuracy and cold-start performance still need evaluation with representative inputs.
 
+## Sarvam adapter
+
+`functions/utils/llm/sarvam_ocr.js` exports `SarvamOcrUtil` and its registered
+singleton. It uses the pinned `sarvamai@1.1.12` Node SDK and the current Document
+AI `docAi` API, not the legacy `documentIntelligence` API. No new public function,
+Python service, upload URL endpoint, or browser polling is introduced.
+
+The adapter decodes each PNG/JPEG/WebP using `sharp`, checks for a single frame
+and at most 16 megapixels, applies EXIF orientation, flattens transparency onto
+white, and sends a lossless PNG. The configured image-byte limit and 8192-pixel
+dimension limit apply again after conversion. A converted image that exceeds
+those limits is rejected before submission.
+
+Language routing uses the selected syllabus/question language, independently of
+free-form `languageHint`. Shared Functions/Web settings map the 23 documented
+languages to BCP-47 codes, including `Tamil` → `ta-IN` and `English` → `en-IN`.
+Names, base codes, and full codes are accepted. Malay and Chinese are unsupported;
+Malay is never mapped to Malayalam. Unsupported Sarvam assignments fail before
+save or provider execution. Sarvam uses `content_type: "mixed"` for printed and
+handwritten content; LLM instructions, token limits, image detail, and language
+hints do not apply to this provider.
+
+All outbound traffic goes to `https://api.sarvam.ai`:
+
+1. `POST /doc-ai/v1/job/digitise` submits one multipart image with the pinned model.
+2. `GET /doc-ai/v1/job/{job_id}/status` polls every two seconds until terminal.
+3. `GET /doc-ai/v1/job/{job_id}/results?format=json` retrieves completed output.
+
+One configurable deadline (at most 240 seconds) bounds conversion, submission,
+polling, and result reads. SDK retries and HTTP redirects are disabled. Provider
+responses are capped at 4 MiB. Job IDs, states, and result shapes are validated.
+The live JSON schema contains `documents[].pages[].blocks[]`, with `text`,
+`layout_tag`, and `reading_order`. Text blocks retain literal characters and
+line breaks, and are joined in reading order. HTML inside table blocks is parsed
+to text with entities decoded and cells separated by tabs; scripts, styles, and
+remote resources are not executed or fetched. Partial completion and blank output
+produce warnings. The HTML result format returns a raw document, which this SDK
+does not decode into its documented JSON wrapper, so the adapter requests JSON.
+Errors retain the existing safe error codes, request IDs, and rate-limit handling.
+
+Browser disconnects abort backend polling and SDK requests. Sarvam does not expose
+a cancellation endpoint in this SDK: a submitted remote job may keep processing
+after cancellation or timeout. The adapter never automatically resubmits it.
+On failure, a validated `providerJobId` is recorded alongside the HTTP request ID
+in function logs. Keys, images, raw provider error bodies, and transcriptions are
+excluded from logs. Successful results keep `{text, warnings, provider, model}`.
+
+Before deploying, provision `SARVAM_API_KEY` in the Firebase project's Secret
+Manager using the normal Firebase secret workflow. Do not put it in shared OCR
+configuration or browser code. Redeploy `extractLlmImageText` and hosting, then
+test Sarvam through an unsaved Tamil/English admin draft before changing saved
+language routes. The adapter uses the endpoint-documented `sarvam-vision-v1`
+model ID. Deployment verification confirmed API access and this model ID using a
+generated English image; handwriting accuracy and representative-image latency
+still need evaluation.
+
+References: [Digitise](https://docs.sarvam.ai/api-reference/doc-ai/job/digitise),
+[results](https://docs.sarvam.ai/api-reference/doc-ai/job/results), and
+[supported languages/formats](https://docs.sarvam.ai/api/api-guides-tutorials/document-intelligence/overview).
+
 ## Admin page
 
 Site Admin → AI Configuration → Image OCR Configuration lists the unique languages
 from `listSyllabusScopeLanguages()`. Each language offers Default (OpenAI), OpenAI,
-DeepSeek, or PaddleOCR. Only explicit overrides are stored. Overrides for languages
+DeepSeek, PaddleOCR, or Sarvam. Sarvam is disabled for unsupported languages.
+Only explicit overrides are stored. Overrides for languages
 removed from scope are preserved when other settings are saved.
 
 The handwriting canvas offers Undo, Clear, and pen widths. A test requires a
@@ -114,13 +177,16 @@ its decoded image and pixel limits in the Python service.
 Run from the repository root:
 
 ```sh
-node --test functions/utils/llm/paddleocr.test.js functions/features/image_ocr/image_ocr_feature.test.js functions/features/image_ocr/openai_ocr.test.js
+node --test functions/utils/llm/sarvam_ocr.test.js functions/utils/llm/paddleocr.test.js functions/features/image_ocr/image_ocr_feature.test.js functions/features/image_ocr/openai_ocr.test.js
 node --test public/features/image_ocr/image_ocr_feature.test.mjs public/features/image_ocr/pages/admin/image_ocr_admin.test.mjs
 node --test functions/features/image_ocr/handwriting_canvas_browser.test.js
 ```
 
 The tests use mocked provider execution, including real browser-to-HTTP-to-feature
-routing for all three adapters. The browser tests need Chromium or a Puppeteer
+routing for all four adapters. Sarvam tests also exercise the real SDK's multipart
+and job request serialization against an in-memory fetch implementation, plus
+real PNG/JPEG/WebP decoding. No API key or paid provider calls are used in tests.
+The browser tests need Chromium or a Puppeteer
 browser. They check language controls, draft/save behavior, provider dispatch,
 normal extraction using saved routing, mobile layout, and canvas exports.
 
