@@ -9,6 +9,7 @@ const {createImageOcrHandler} = require("../../image_ocr_http");
 const {OpenAIUtil} = require("../../utils/llm/openai_util");
 const {DeepseekUtil} = require("../../utils/llm/deepseek_util");
 const {registerLlmProvider} = require("../../utils/llm/llm_util");
+const {PaddleOcrUtil} = require("../../utils/llm/paddleocr");
 
 const publicRoot = path.resolve(__dirname, "../../../public");
 let server, browser, origin;
@@ -23,6 +24,13 @@ before(async () => {
     integration.providerCalls.push({provider: "deepseek", input});
     return {choices: [{finish_reason: "stop", message: {content: JSON.stringify(transcription)}}]};
   }}}})}));
+  registerLlmProvider("paddleocr", new PaddleOcrUtil({getEndpoint: () => "https://paddleocr-test-uc.a.run.app", createClient: async () => ({
+    getRequestHeaders: async () => ({Authorization: "Bearer test-service-identity"}), transporter: {request: async options => {
+      assert.equal(options.retry, false); assert.equal(options.headers.Authorization, "Bearer test-service-identity");
+      integration.providerCalls.push({provider: "paddleocr", input: options.data});
+      return {data: {...transcription, provider: "paddleocr", model: "PP-OCRv6_medium"}};
+    }},
+  })}));
   const feature = createImageOcrFeature({repository: {getConfig: async () => integration.configuration, saveConfig: async (settings, uid) => {
     integration.saves++; return integration.configuration = {...settings, updatedBy: uid};
   }}, getUser: async uid => ({uid, email: "admin@example.com", emailVerified: true}), checkAdmin: async () => true});
@@ -70,24 +78,20 @@ async function openPage(width, textScale = 1, fullFlow = false) {
     window.ocrRequests = [];
     let controller;
     if (fullFlow) {
-      const version = "?v=20261021-ocr-openai-v1";
+      const version = "?v=20261023-ocr-language-v1";
       const {ImageOcrClient} = await import("/utils/llm/image_ocr_client.js?v=20261021-ocr-canvas-v1");
-      const {OpenAIUtil} = await import("/utils/llm/openai_util.js" + version);
-      const {DeepseekUtil} = await import("/utils/llm/deepseek_util.js?v=20261021-ocr-canvas-v1");
-      const {registerLlmProvider} = await import("/utils/llm/llm_util.js" + version);
       const {createImageOcrFeature} = await import("/features/image_ocr/image_ocr_module.js" + version);
       const user = {uid: "admin", getIdToken: async () => "browser-test-token"};
       const client = new ImageOcrClient({endpointUrl: "/mock-ocr-api", getUser: () => user});
-      const openai = new OpenAIUtil({ocrClient: client}), deepseek = new DeepseekUtil({ocrClient: client});
-      registerLlmProvider("openai", {extractTextFromImage: (input, options) => openai.extractTextFromImage(input, options)});
-      registerLlmProvider("deepseek", {extractTextFromImage: (input, options) => deepseek.extractTextFromImage(input, options)});
       const feature = createImageOcrFeature({client, getUser: () => user});
-      controller = mountImageOcrAdmin({getConfig: feature.getImageOcrConfig, saveConfig: feature.saveImageOcrConfig, testOcr: feature.testImageOcr});
-    } else controller = mountImageOcrAdmin({getConfig: async () => null, testOcr: async input => {
+      window.ocrFeature = feature;
+      controller = mountImageOcrAdmin({listLanguages: async () => ["English", "Chinese", "Malay"], getConfig: feature.getImageOcrConfig, saveConfig: feature.saveImageOcrConfig, testOcr: feature.testImageOcr});
+    } else controller = mountImageOcrAdmin({listLanguages: async () => ["English", "Chinese", "Malay"], getConfig: async () => null, testOcr: async input => {
       window.ocrRequests.push(input);
       return {text: "Test transcription", warnings: [], provider: input.configuration.provider, model: input.configuration.model};
     }});
     await controller.ready;
+    const language = document.getElementById("ocr-test-language"); language.value = "English"; language.dispatchEvent(new Event("change"));
     const context = document.getElementById("ocr-canvas").getContext("2d");
     window.paintPoints = [];
     for (const name of ["arc", "lineTo"]) {
@@ -255,13 +259,14 @@ test("cropping preserves single dots and ink at every canvas edge, and Undo and 
   } finally {await page.close();}
 });
 
-test("OpenAI selection reaches the real Web and Functions flow, persists only on Save, and still allows DeepSeek tests", async () => {
+test("language provider drafts and saved routing reach all three adapters through the real web-to-backend flow", async () => {
   let page = await openPage(1360, 1, true);
   try {
-    await page.select("#ocr-provider", "openai");
-    assert.deepEqual(await page.$$eval("#ocr-model option", options => options.map(option => option.value)), ["gpt-6.1-sol", "gpt-6-astra"]);
+    assert.equal(await page.$eval("#ocr-provider", input => input.value), "openai");
+    assert.equal(await page.$eval("#ocr-provider", input => input.disabled), true);
     await page.select("#ocr-model", "gpt-6-astra");
-    await page.$eval("#ocr-test-language", input => {input.value = "Chinese and English";});
+    await page.select('[data-language="english"]', "paddleocr");
+    assert.match(await page.$eval("#ocr-test-provider", element => element.textContent), /PaddleOCR/);
     await page.$eval("#ocr-canvas", canvas => canvas.scrollIntoView({block: "center"}));
     const box = await canvasBox(page);
     await page.mouse.move(box.x + 50, box.y + 80); await page.mouse.down();
@@ -269,33 +274,39 @@ test("OpenAI selection reaches the real Web and Functions flow, persists only on
     await page.$eval("#ocr-extract", button => button.click());
     await page.waitForFunction(() => !document.getElementById("ocr-result").hidden, {timeout: 5000});
     assert.equal(integration.saves, 0); assert.equal(integration.configuration, null);
-    assert.equal(integration.providerCalls.length, 1);
-    const first = integration.providerCalls[0]; assert.equal(first.provider, "openai"); assert.equal(first.input.model, "gpt-6-astra");
-    assert.match(first.input.instructions, /Language hint: Chinese and English/);
-    const png = Buffer.from(first.input.input[0].content[1].image_url.split(",")[1], "base64");
-    assert.ok(png.readUInt32BE(16) < 1200); assert.ok(png.readUInt32BE(20) < 1600);
-    assert.equal(await page.$eval("#ocr-result-text", input => input.value), "Hello studant\n學生的原文");
-    assert.equal(await page.$eval("#ocr-result-model", element => element.textContent), "openai · gpt-6-astra");
+    assert.equal(integration.providerCalls.length, 1); assert.equal(integration.providerCalls[0].provider, "paddleocr");
+    assert.equal(integration.providerCalls[0].input.model, "PP-OCRv6_medium");
+    assert.match(await page.$eval("#ocr-result-model", element => element.textContent), /PaddleOCR/);
     await page.$eval("#ocr-save", button => button.click());
     await page.waitForFunction(() => document.getElementById("ocr-config-status").textContent === "OCR settings saved.", {timeout: 5000});
-    assert.equal(integration.saves, 1); assert.equal(integration.configuration.provider, "openai"); assert.equal(integration.configuration.model, "gpt-6-astra");
-    assert.equal(integration.configuration.languageHint, "auto");
+    assert.equal(integration.saves, 1); assert.deepEqual(integration.configuration.languageProviders, {english: "paddleocr"});
+    assert.equal(integration.configuration.model, "gpt-6-astra");
     if (process.env.RHX_OCR_SCREENSHOT_DIR) {
       await fs.mkdir(process.env.RHX_OCR_SCREENSHOT_DIR, {recursive: true});
-      await page.screenshot({path: path.join(process.env.RHX_OCR_SCREENSHOT_DIR, "image-ocr-openai-desktop.png"), fullPage: true});
+      await page.screenshot({path: path.join(process.env.RHX_OCR_SCREENSHOT_DIR, "image-ocr-languages-desktop.png"), fullPage: true});
     }
     await page.close(); page = await openPage(390, 1, true);
-    assert.equal(await page.$eval("#ocr-provider", select => select.value), "openai"); assert.equal(await page.$eval("#ocr-model", select => select.value), "gpt-6-astra");
+    assert.equal(await page.$eval('[data-language="english"]', select => select.value), "paddleocr");
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-    await page.select("#ocr-provider", "deepseek"); assert.equal(await page.$eval("#ocr-model", select => select.value), "deepseek-flash");
+    await page.select('[data-language="english"]', "deepseek");
     await page.$eval("#ocr-canvas", canvas => canvas.scrollIntoView({block: "center"}));
     const mobile = await canvasBox(page);
     await page.mouse.move(mobile.x + 30, mobile.y + 40); await page.mouse.down(); await page.mouse.move(mobile.x + 100, mobile.y + 60); await page.mouse.up();
     await page.$eval("#ocr-extract", button => button.click());
     await page.waitForFunction(() => !document.getElementById("ocr-result").hidden, {timeout: 5000});
-    assert.equal(integration.providerCalls.length, 2); assert.equal(integration.providerCalls[1].provider, "deepseek");
-    assert.equal(integration.providerCalls[1].input.model, "deepseek-flash"); assert.equal(integration.saves, 1);
-    assert.equal(integration.configuration.provider, "openai");
-    if (process.env.RHX_OCR_SCREENSHOT_DIR) await page.screenshot({path: path.join(process.env.RHX_OCR_SCREENSHOT_DIR, "image-ocr-openai-mobile.png"), fullPage: true});
+    assert.equal(integration.providerCalls[1].provider, "deepseek"); assert.equal(integration.saves, 1);
+    assert.equal(integration.configuration.languageProviders.english, "paddleocr");
+    await page.select("#ocr-test-language", "Malay");
+    assert.match(await page.$eval("#ocr-test-provider", element => element.textContent), /OpenAI/);
+    await page.$eval("#ocr-extract", button => button.click());
+    await page.waitForFunction(() => !document.getElementById("ocr-result").hidden, {timeout: 5000});
+    assert.equal(integration.providerCalls[2].provider, "openai"); assert.equal(integration.providerCalls[2].input.model, "gpt-6-astra");
+    const result = await page.evaluate(async () => {
+      const image = await new Promise(resolve => document.getElementById("ocr-canvas").toBlob(resolve, "image/png"));
+      return window.ocrFeature.extractTextFromImage({image, language: "English"});
+    });
+    assert.equal(result.provider, "paddleocr"); assert.equal(integration.providerCalls[3].provider, "paddleocr");
+    assert.equal(integration.saves, 1);
+    if (process.env.RHX_OCR_SCREENSHOT_DIR) await page.screenshot({path: path.join(process.env.RHX_OCR_SCREENSHOT_DIR, "image-ocr-languages-mobile.png"), fullPage: true});
   } finally {await page.close();}
 });

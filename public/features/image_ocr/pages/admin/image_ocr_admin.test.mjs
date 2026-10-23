@@ -16,7 +16,7 @@ class Element {
   edit(value) {this.value = value; this.listeners.get("input")?.();}
   change(value) {this.value = value; this.listeners.get("change")?.();}
 }
-const ids = ["ocr-config-form", "ocr-save", "ocr-retry-load", "ocr-extract", "ocr-provider", "ocr-model", "ocr-detail", "ocr-language", "ocr-test-language", "ocr-pen-width", "ocr-instructions", "ocr-additional", "ocr-max-tokens", "ocr-max-size", "ocr-timeout", "ocr-result", "ocr-result-text", "ocr-warnings", "ocr-sent-image", "ocr-download", "ocr-canvas", "ocr-undo", "ocr-clear", "ocr-ink-status", "ocr-test-status", "ocr-test-panel", "ocr-updated-at", "ocr-draft-status", "ocr-config-status", "ocr-result-model"];
+const ids = ["ocr-config-form", "ocr-save", "ocr-retry-load", "ocr-extract", "ocr-provider", "ocr-model", "ocr-detail", "ocr-language", "ocr-test-language", "ocr-pen-width", "ocr-instructions", "ocr-additional", "ocr-max-tokens", "ocr-max-size", "ocr-timeout", "ocr-result", "ocr-result-text", "ocr-warnings", "ocr-sent-image", "ocr-download", "ocr-canvas", "ocr-undo", "ocr-clear", "ocr-ink-status", "ocr-test-status", "ocr-test-panel", "ocr-updated-at", "ocr-draft-status", "ocr-config-status", "ocr-result-model", "ocr-language-providers", "ocr-no-languages", "ocr-test-provider"];
 const deferred = () => {let resolve, reject; const promise = new Promise((a,b) => {resolve = a; reject = b;}); return {promise, resolve, reject};};
 function harness(options = {}) {
   const elements = new Map(ids.map(id => [id, new Element()])), get = id => elements.get(id);
@@ -24,12 +24,12 @@ function harness(options = {}) {
   const calls = [], saves = [], revocations = [], penWidths = [], canvasImage = new Blob(["canvas image"], {type: "image/png"});
   let ink = false, onChange, enabled = false, disposed = false, exports = 0;
   const page = mountImageOcrAdmin({root: {getElementById: get, createElement: () => new Element()},
-    getConfig: options.getConfig || (async () => null), saveConfig: async input => {saves.push(input); return options.saveConfig ? options.saveConfig(input) : {...input, updatedBy: "admin", updatedAt: "2026-10-21T10:00:00Z"};},
+    getConfig: options.getConfig || (async () => null), listLanguages: options.listLanguages || (async () => ["Chinese", "English", "Malay"]), saveConfig: async input => {saves.push(input); return options.saveConfig ? options.saveConfig(input) : {...input, updatedBy: "admin", updatedAt: "2026-10-21T10:00:00Z"};},
     testOcr: async (input, config) => {calls.push({input, options: config}); return options.testOcr ? options.testOcr(input) : {text: "Hello 学生", warnings: [], model: "deepseek-flash", provider: "deepseek"};},
     mountCanvas: configuration => {onChange = configuration.onChange; return {hasInk: () => ink, isDrawing: () => false, setEnabled: value => {enabled = value;}, setPenWidth: value => penWidths.push(value),
       toBlob: async () => {exports++; return options.exportImage ? options.exportImage() : canvasImage;}, dispose: () => {disposed = true; ink = false;}};},
     createUrl: () => "blob:canvas", revokeUrl: url => revocations.push(url)});
-  return {page, get, calls, saves, revocations, penWidths, canvasImage, draw() {assert.equal(enabled, true); ink = true; onChange(true);}, clear() {ink = false; onChange(false);}, exports: () => exports, disposed: () => disposed};
+  return {page, get, calls, saves, revocations, penWidths, canvasImage, provider(language) {return get("ocr-language-providers").children.find(row => row.children[0].textContent === language).children[1];}, draw() {assert.equal(enabled, true); if (!get("ocr-test-language").value) get("ocr-test-language").change("English"); ink = true; onChange(true);}, clear() {ink = false; onChange(false);}, exports: () => exports, disposed: () => disposed};
 }
 test("defaults and failed loads cannot save or test until configuration has loaded", async () => {
   const h = harness(); assert.equal(h.get("ocr-save").disabled, true); await h.page.ready;
@@ -56,32 +56,46 @@ test("invalid configuration and canvas export errors never call the OCR API", as
   const failed = harness({exportImage: async () => {throw new Error("PNG export failed");}}); await failed.page.ready; failed.draw(); await failed.get("ocr-extract").click();
   assert.deepEqual(failed.calls, []); assert.match(failed.get("ocr-test-status").textContent, /PNG export failed/); assert.equal(failed.get("ocr-extract").disabled, false);
   const longHint = harness(); await longHint.page.ready; longHint.draw(); longHint.get("ocr-test-language").edit("a".repeat(201));
-  await longHint.get("ocr-extract").click(); assert.equal(longHint.exports(), 0); assert.deepEqual(longHint.calls, []); assert.match(longHint.get("ocr-test-status").textContent, /Language hint/);
+  await longHint.get("ocr-extract").click(); assert.equal(longHint.exports(), 0); assert.deepEqual(longHint.calls, []); assert.match(longHint.get("ocr-test-status").textContent, /Language/);
 });
-test("test-only language hints override defaults without altering saved settings and blank hints inherit current defaults", async () => {
+test("language selection previews draft routing without changing recognition hints or saving", async () => {
   const h = harness({getConfig: async () => ({...defaults, languageHint: "English"})}); await h.page.ready; h.draw();
-  h.get("ocr-test-language").edit(" Chinese ");
-  await h.get("ocr-extract").click(); assert.equal(h.calls[0].input.configuration.languageHint, "Chinese");
-  assert.equal(h.get("ocr-language").value, "English"); assert.deepEqual(h.saves, []);
-  assert.equal(h.get("ocr-draft-status").textContent, "Current default settings");
-  await h.get("ocr-config-form").submit(); assert.equal(h.saves[0].languageHint, "English"); assert.equal(h.get("ocr-test-language").value, " Chinese ");
-  h.get("ocr-test-language").edit("auto"); await h.get("ocr-extract").click(); assert.equal(h.calls[1].input.configuration.languageHint, "auto");
-  h.get("ocr-test-language").edit("English and Chinese"); await h.get("ocr-extract").click(); assert.equal(h.calls[2].input.configuration.languageHint, "English and Chinese");
-  h.get("ocr-language").edit("Malay"); h.get("ocr-test-language").edit("   "); await h.get("ocr-extract").click(); assert.equal(h.calls[3].input.configuration.languageHint, "Malay");
-  assert.equal(h.saves.length, 1);
+  h.provider("Chinese").change("paddleocr"); h.get("ocr-test-language").change("Chinese");
+  assert.match(h.get("ocr-test-provider").textContent, /PaddleOCR/);
+  await h.get("ocr-extract").click();
+  assert.equal(h.calls[0].input.language, "Chinese");
+  assert.equal(h.calls[0].input.configuration.languageHint, "English");
+  assert.deepEqual(h.calls[0].input.configuration.languageProviders, {chinese: "paddleocr"});
+  assert.deepEqual(h.saves, []);
+  h.provider("Chinese").change("");
+  assert.match(h.get("ocr-test-provider").textContent, /OpenAI/);
+  await h.get("ocr-config-form").submit();
+  assert.deepEqual(h.saves[0].languageProviders, {}); assert.equal(h.get("ocr-test-language").value, "Chinese");
 });
-test("provider changes offer compatible models, test unsaved selections, and load saved OpenAI settings", async () => {
+test("the OpenAI fallback model is configurable and legacy global DeepSeek settings migrate on read", async () => {
   const h = harness(); await h.page.ready;
-  assert.equal(h.get("ocr-provider").value, "deepseek"); assert.deepEqual(h.get("ocr-model").children.map(option => option.value), ["deepseek-flash"]);
-  h.get("ocr-provider").change("openai");
+  assert.equal(h.get("ocr-provider").value, "openai"); assert.equal(h.get("ocr-provider").disabled, true);
   assert.deepEqual(h.get("ocr-model").children.map(option => option.value), ["gpt-6.1-sol", "gpt-6-astra"]);
-  assert.equal(h.get("ocr-model").value, "gpt-6.1-sol"); assert.match(h.get("ocr-draft-status").textContent, /Unsaved/);
-  h.get("ocr-model").edit("gpt-6-astra"); h.draw(); await h.get("ocr-extract").click();
-  assert.equal(h.calls[0].input.configuration.provider, "openai"); assert.equal(h.calls[0].input.configuration.model, "gpt-6-astra"); assert.deepEqual(h.saves, []);
-  await h.get("ocr-config-form").submit(); assert.equal(h.saves[0].provider, "openai"); assert.equal(h.saves[0].model, "gpt-6-astra");
-  h.get("ocr-provider").change("deepseek"); assert.equal(h.get("ocr-model").value, "deepseek-flash");
-  const saved = harness({getConfig: async () => ({...defaults, provider: "openai", model: "gpt-6-astra"})}); await saved.page.ready;
-  assert.equal(saved.get("ocr-provider").value, "openai"); assert.equal(saved.get("ocr-model").value, "gpt-6-astra");
+  h.get("ocr-model").edit("gpt-6-astra"); h.draw();
+  assert.match(h.get("ocr-test-provider").textContent, /GPT-6 Astra/);
+  await h.get("ocr-extract").click();
+  assert.equal(h.calls[0].input.configuration.model, "gpt-6-astra");
+  await h.get("ocr-config-form").submit(); assert.equal(h.saves[0].model, "gpt-6-astra");
+  const legacy = harness({getConfig: async () => ({...defaults, provider: "deepseek", model: "deepseek-flash"})}); await legacy.page.ready;
+  assert.equal(legacy.get("ocr-provider").value, "openai"); assert.equal(legacy.get("ocr-model").value, "gpt-6.1-sol");
+});
+test("syllabus languages are deduplicated and language-load failures cannot overwrite settings", async () => {
+  const h = harness({listLanguages: async () => ["English", " english ", "Chinese", "Tamil"],
+    getConfig: async () => ({...defaults, languageProviders: {chinese: "paddleocr", removed: "deepseek"}})});
+  await h.page.ready;
+  assert.equal(h.get("ocr-language-providers").children.length, 3);
+  assert.equal(h.provider("Chinese").value, "paddleocr");
+  assert.equal(h.provider("Tamil").value, "");
+  await h.get("ocr-config-form").submit();
+  assert.deepEqual(h.saves[0].languageProviders, {chinese: "paddleocr", removed: "deepseek"});
+  const failed = harness({listLanguages: async () => {throw new Error("Languages unavailable");}}); await failed.page.ready;
+  assert.equal(failed.get("ocr-save").disabled, true); assert.equal(failed.get("ocr-retry-load").hidden, false);
+  assert.deepEqual(failed.saves, []);
 });
 test("pen choices affect drawing only and are disabled while loading, testing, and after disposal", async () => {
   const pending = deferred(), h = harness({testOcr: () => pending.promise});
@@ -119,6 +133,6 @@ test("disposal aborts pending extraction, clears handwriting/results, and ignore
 test("protected page supplies a handwriting canvas, labels, PNG download, and Site Admin navigation", async () => {
   const html = await readFile(new URL("./image_ocr_admin.html", import.meta.url), "utf8");
   for (const id of ids) assert.ok(html.includes(`id="${id}"`), id);
-  assert.match(html, /data-site-admin-page/); assert.match(html, /<canvas[^>]*width="1200"[^>]*height="1600"/); assert.match(html, /paid API request/); assert.match(html, /download="readyherox-ocr-handwriting.png"/);
+  assert.match(html, /data-site-admin-page/); assert.match(html, /<canvas[^>]*width="1200"[^>]*height="1600"/); assert.match(html, /usage charges/); assert.match(html, /download="readyherox-ocr-handwriting.png"/);
   const navigation = await readFile(new URL("../../../site_admin/pages/site_admin/site_admin.html", import.meta.url), "utf8"); assert.match(navigation, /image_ocr_admin.html/);
 });

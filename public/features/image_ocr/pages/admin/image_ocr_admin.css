@@ -53,3 +53,8 @@ canvas[aria-disabled="true"] {cursor: default;}
 [hidden] {display: none !important;}
 @media (max-width: 850px) {.workspace {grid-template-columns: 1fr;} header {align-items: start; flex-direction: column;} .page-shell {padding: 24px 16px 40px;}}
 @media (max-width: 450px) {.panel {padding: 20px 16px;} .field-grid {gap: 12px;} .test-panel {scroll-margin-top: 12px;} .paper-frame {padding: 6px;} .canvas-toolbar {flex-wrap: wrap;}}
+
+.language-providers {display: grid; gap: 10px; margin: 18px 0 24px;}
+.language-provider-row {display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); align-items: center; gap: 12px;}
+.language-provider-row label {margin: 0; overflow-wrap: anywhere;}
+.settings-heading {padding-top: 20px; border-top: 1px solid #e4eaf3;}

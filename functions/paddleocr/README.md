@@ -8,7 +8,9 @@ Node.js is not involved in recognition.
 The exported HTTP function is `extractPaddleOcrText`. It is private by default
 (`invoker="private"`) and intended for an IAM-authorized backend. Firebase user
 authentication and provider selection remain the existing backend's job. This
-package does not yet add a provider adapter or change the browser's OCR flow.
+package is called by `functions/utils/llm/paddleocr.js`, registered with the backend
+`LlmUtil`. The Image OCR feature selects providers by language. See
+`../features/image_ocr/README.md` for configuration, request routing, and IAM setup.
 
 ## Prepare locally
 
@@ -110,11 +112,8 @@ to the second-generation function and use an audience-bound Google ID token.
 The local test client does not test IAM; deployed unauthenticated rejection must
 also be verified.
 
-Deployment compatibility is not yet proven. In particular, PaddleX requires
-`opencv-contrib-python`, whose native libraries need system GL/GLib libraries.
-Local availability does not establish their availability in Firebase's managed
-runtime. A deployed test must check imports, model loading, cold/warm requests,
-memory, deadlines, and real images before enabling this provider in the app.
-Installing a second, headless OpenCV distribution alongside it is not a validated
-fix. If the managed runtime cannot supply the required native libraries, a custom
-Cloud Run runtime remains the alternative.
+Deployment and a generated-image OCR request have been verified in Firebase's
+managed runtime. Continue measuring cold and warm requests, memory, deadlines,
+and representative handwriting before enabling this provider for a language.
+The pinned OpenCV/PaddleX environment is kept together; installing a second,
+headless OpenCV distribution alongside it is not a validated replacement.

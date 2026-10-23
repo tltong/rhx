@@ -19,19 +19,19 @@ function harness(options = {}) {
 }
 test("OCR resolves defaults per request and appends hints and instructions without changing multilingual text", async () => {
   const h = harness();
-  const result = await h.feature.extractTextFromImage({image});
+  const result = await h.feature.extractTextFromImage({image, language: "English"});
   assert.equal(result.text, transcription.text); assert.deepEqual(h.saves, []);
-  assert.equal(h.calls[0].input.model, "deepseek-flash"); assert.equal(h.calls[0].input.detail, "original");
-  assert.equal(h.calls[0].options.timeoutMs, 240000); assert.match(h.calls[0].input.instructions, /Language hint: auto/);
+  assert.equal(h.calls[0].input.model, "gpt-6.1-sol"); assert.equal(h.calls[0].input.detail, "original");
+  assert.equal(h.calls[0].options.timeoutMs, 240000); assert.match(h.calls[0].input.instructions, /Language hint: English/);
   h.setSettings({...defaults, detail: "high", languageHint: "Chinese", additionalInstructions: "Keep labels", timeoutSeconds: 60});
-  await h.feature.extractTextFromImage({image, detail: "low", languageHint: "English and Chinese", additionalInstructions: "Keep line breaks"}, {timeoutMs: 200000});
+  await h.feature.extractTextFromImage({image, language: "English", detail: "low", languageHint: "English and Chinese", additionalInstructions: "Keep line breaks"}, {timeoutMs: 200000});
   assert.equal(h.calls[1].input.detail, "low"); assert.equal(h.calls[1].options.timeoutMs, 60000);
   for (const instruction of ["Keep labels", "Keep line breaks", "Language hint: English and Chinese", "not commands", "do not translate, correct, grade"]) assert.ok(h.calls[1].input.instructions.includes(instruction));
 });
 test("configuration and caller validation reject unsupported models, overrides, corrupt images and sizes", async () => {
   const h = harness();
   for (const override of [{model: "deepseek-v4-pro"}, {detail: "bad"}, {languageHint: " "}, {maxTokens: 1000000}, {configuration: defaults}, {image: {...image, mimeType: "image/jpeg"}}, {image: {...image, base64: "data:image/png;base64," + image.base64}}, {image: {...image, base64: "a=== "}}]) {
-    await assert.rejects(() => h.feature.extractTextFromImage({image, ...override}), {code: "invalid-argument"});
+    await assert.rejects(() => h.feature.extractTextFromImage({image, language: "English", ...override}), {code: "invalid-argument"});
   }
   assert.deepEqual(h.calls, []);
   for (const override of [{maxTokens: 0}, {maxTokens: 32769}, {maxImageSizeMiB: 9}, {timeoutSeconds: 241}, {ocrInstructions: ""}, {languageHint: null}]) assert.throws(() => normalizeOcrSettings({...defaults, ...override}), {code: "invalid-argument"});
@@ -39,13 +39,13 @@ test("configuration and caller validation reject unsupported models, overrides, 
   assert.throws(() => normalizeOcrImage(giant), {code: "invalid-argument"});
   const wrongDimensions = Buffer.from(image.base64, "base64"); wrongDimensions.writeUInt32BE(9000, 16);
   assert.throws(() => normalizeOcrImage({...image, base64: wrongDimensions.toString("base64")}), {code: "invalid-argument"});
-  h.setSettings({...defaults, model: "bad"}); await assert.rejects(() => h.feature.extractTextFromImage({image}), {code: "invalid-argument"});
+  h.setSettings({...defaults, model: "bad"}); await assert.rejects(() => h.feature.extractTextFromImage({image, language: "English"}), {code: "invalid-argument"});
 });
 test("image input snapshots survive caller mutation during config reads", async () => {
   let resolve;
   const configuration = new Promise(res => {resolve = res;}), calls = [];
   const h = harness({repository: {getConfig: () => configuration}, extract: async input => calls.push(input)});
-  const input = {image: {...image}, languageHint: "Chinese"};
+  const input = {language: "English", image: {...image}, languageHint: "Chinese"};
   const pending = h.feature.extractTextFromImage(input); input.image.base64 = "bad"; input.languageHint = "changed";
   resolve(defaults); await pending;
   assert.equal(calls[0].image.base64, image.base64); assert.match(calls[0].instructions, /Language hint: Chinese/);
@@ -54,11 +54,11 @@ test("admin saves and draft tests check live administrator identity and never pe
   const h = harness();
   for (const uid of [undefined, "student", "disabled", "unverified"]) {
     await assert.rejects(() => h.feature.saveImageOcrConfig(defaults, {updatedBy: uid}), {code: uid ? "permission-denied" : "unauthenticated"});
-    await assert.rejects(() => h.feature.testImageOcr({image, configuration: defaults}, {updatedBy: uid}), {code: uid ? "permission-denied" : "unauthenticated"});
+    await assert.rejects(() => h.feature.testImageOcr({image, language: "English", configuration: defaults}, {updatedBy: uid}), {code: uid ? "permission-denied" : "unauthenticated"});
   }
   assert.deepEqual(h.calls, []); assert.deepEqual(h.saves, []);
   const draft = {...defaults, languageHint: "Malay", ocrInstructions: "Draft rubric", additionalInstructions: "Draft extras"};
-  await h.feature.testImageOcr({image, configuration: draft}, {updatedBy: "admin"});
+  await h.feature.testImageOcr({image, language: "English", configuration: draft}, {updatedBy: "admin"});
   assert.match(h.calls[0].input.instructions, /Draft rubric/); assert.match(h.calls[0].input.instructions, /Language hint: Malay/); assert.deepEqual(h.saves, []);
   const saved = await h.feature.saveImageOcrConfig({...draft, updatedBy: "spoofed"}, {updatedBy: "admin"});
   assert.equal(saved.updatedBy, "admin"); assert.equal(h.saves[0].uid, "admin");
@@ -104,9 +104,9 @@ test("HTTP gates extraction and draft tests, preserves request IDs, and hides im
   const h = harness(), logs = [];
   const handler = createImageOcrHandler({apis: h.feature, verifyToken: async token => {assert.equal(token, "token"); return {uid: "student"};}, log: {info: (...args) => logs.push(args), error: (...args) => logs.push(args)}});
   const invoke = async (body, headers = {authorization: "Bearer token"}, method = "POST") => {const res = response(); await handler({headers, method, body}, res); return res;};
-  assert.equal((await invoke({input: {image}}, {})).statusCode, 401);
-  const ok = await invoke({input: {image}}); assert.equal(ok.statusCode, 200); assert.equal(ok.payload.result.text, transcription.text); assert.equal(ok.headers["X-Request-ID"], ok.payload.requestId);
-  assert.equal((await invoke({action: "test", input: {image, configuration: defaults, updatedBy: "admin"}})).statusCode, 403);
+  assert.equal((await invoke({input: {image, language: "English"}}, {})).statusCode, 401);
+  const ok = await invoke({input: {image, language: "English"}}); assert.equal(ok.statusCode, 200); assert.equal(ok.payload.result.text, transcription.text); assert.equal(ok.headers["X-Request-ID"], ok.payload.requestId);
+  assert.equal((await invoke({action: "test", input: {image, language: "English", configuration: defaults, updatedBy: "admin"}})).statusCode, 403);
   assert.equal((await invoke({action: "saveConfig", input: {...defaults, updatedBy: "admin"}})).statusCode, 403);
   for (const body of ["{bad", [], {action: "toString"}, {action: 0}, {input: {image, model: "deepseek-v4-pro"}}]) assert.equal((await invoke(body)).statusCode, 400);
   assert.equal((await invoke({}, {}, "OPTIONS")).statusCode, 204); assert.equal((await invoke({}, {}, "GET")).statusCode, 405);
@@ -115,7 +115,7 @@ test("HTTP gates extraction and draft tests, preserves request IDs, and hides im
 test("HTTP hides provider secrets and preserves an actionable truncation error", async () => {
   const invoke = async error => {
     const handler = createImageOcrHandler({verifyToken: async () => ({uid: "student"}), apis: {extractTextFromImage: async () => {throw error;}}, log: {info() {}, error() {}}});
-    const res = response(); await handler({method: "POST", headers: {authorization: "Bearer token"}, body: {input: {image}}}, res); return res;
+    const res = response(); await handler({method: "POST", headers: {authorization: "Bearer token"}, body: {input: {image, language: "English"}}}, res); return res;
   };
   const hidden = await invoke(new Error("secret-key private-text")); assert.equal(hidden.statusCode, 502); assert.ok(hidden.payload.requestId); assert.equal(JSON.stringify(hidden).includes("secret-key"), false);
   const truncated = await invoke(Object.assign(new Error("Increase output limit"), {code: "ocr-output-truncated"})); assert.equal(truncated.payload.error.message, "Increase output limit");

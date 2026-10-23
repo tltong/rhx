@@ -1,7 +1,7 @@
 const {getAuth} = require("firebase-admin/auth");
 const {getFirebaseApp} = require("../../utils/firebase/firebase_ops");
 const {extractLlmImageText} = require("../../utils/llm/llm_util");
-const {DEFAULT_OCR_SETTINGS, normalizeOcrSettings, normalizeOcrInput, normalizeOcrImage} = require("../../utils/llm/image_ocr_settings");
+const {DEFAULT_OCR_SETTINGS, normalizeOcrSettings, normalizeOcrInput} = require("../../utils/llm/image_ocr_settings");
 const {isSiteAdmin} = require("../site_admin/site_admin_module");
 const {FirestoreImageOcrConfigRepository} = require("./infrastructure/firestore_image_ocr_config_repository");
 const {buildOcrRequest} = require("./application/build_ocr_request");
@@ -33,9 +33,9 @@ function createImageOcrFeature({repository = new FirestoreImageOcrConfigReposito
     },
     async testImageOcr(input, context, options = {}) {
       const settings = normalizeOcrSettings(input?.configuration);
-      const image = normalizeOcrImage(input?.image, settings.maxImageSizeMiB * 1024 * 1024);
+      const snapshot = normalizeOcrInput({image: input?.image, language: input?.language});
       await requireAdministrator(context);
-      return run({image}, settings, options);
+      return run(snapshot, settings, options);
     },
   };
 }

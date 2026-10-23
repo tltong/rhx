@@ -11,7 +11,7 @@
     <script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script>
     <script defer src="/__/firebase/init.js"></script>
     <script type="module" src="/init_fb.js"></script>
-    <link rel="stylesheet" href="./image_ocr_admin.css?v=20261021-ocr-crop-pen-v1">
+    <link rel="stylesheet" href="./image_ocr_admin.css?v=20261023-ocr-language-v1">
   </head>
   <body>
     <main id="image-ocr-admin" class="page-shell">
@@ -21,11 +21,15 @@
       <button id="ocr-retry-load" type="button" class="secondary" hidden>Retry loading</button>
       <div class="workspace">
         <form id="ocr-config-form" class="panel">
-          <h2>Default settings</h2>
+          <h2>Providers by language</h2>
+          <p class="help">Languages come from syllabus scope. A language without an override uses OpenAI.</p>
+          <div id="ocr-language-providers" class="language-providers"></div>
+          <p id="ocr-no-languages" class="help" hidden>Add languages in Syllabus Scope Admin to configure their providers.</p>
+          <h2 class="settings-heading">Shared settings</h2>
           <p id="ocr-updated-at" class="help">Not yet saved</p>
           <div class="field-grid">
-            <div><label for="ocr-provider">OCR provider</label><select id="ocr-provider" disabled><option value="deepseek">DeepSeek</option><option value="openai">OpenAI</option></select></div>
-            <div><label for="ocr-model">Model</label><select id="ocr-model" disabled><option value="deepseek-flash">DeepSeek Flash · Vision</option></select></div>
+            <div><label for="ocr-provider">Default provider</label><select id="ocr-provider" disabled><option value="openai">OpenAI</option></select></div>
+            <div><label for="ocr-model">OpenAI model</label><select id="ocr-model" disabled><option value="gpt-6.1-sol">GPT-6.1 Sol</option></select></div>
           </div>
           <div class="field-grid">
             <div><label for="ocr-detail">Image detail</label><select id="ocr-detail" disabled><option value="original">Original</option><option value="high">High</option><option value="auto">Auto</option><option value="low">Low</option></select></div>
@@ -34,6 +38,7 @@
           <p id="ocr-language-help" class="help">Use “auto” to detect languages, or enter a hint such as “English and Chinese”. Text stays in its original language.</p>
           <label for="ocr-instructions">Base OCR instructions</label><textarea id="ocr-instructions" rows="7" maxlength="16000" dir="auto" required disabled></textarea>
           <label for="ocr-additional">Additional LLM instructions</label><textarea id="ocr-additional" rows="3" maxlength="8000" dir="auto" disabled></textarea>
+          <p class="help">Instructions and output token limits apply to OpenAI and DeepSeek. Image size and timeout limits apply to all providers.</p>
           <details class="limits"><summary>Output and request limits</summary>
             <label for="ocr-max-tokens">Maximum output tokens</label><input id="ocr-max-tokens" type="number" min="256" max="32768" step="1" required disabled>
             <label for="ocr-max-size">Maximum image size (MiB)</label><input id="ocr-max-size" type="number" min="1" max="8" step="1" required disabled>
@@ -45,14 +50,15 @@
         </form>
         <section id="ocr-test-panel" class="panel test-panel" aria-labelledby="ocr-test-heading">
           <div class="test-heading"><div><h2 id="ocr-test-heading">Write &amp; test</h2><p id="ocr-canvas-help" class="help">Write on the paper with your mouse, finger, or pen. You can mix languages.</p></div><span class="paper-label">Handwriting canvas</span></div>
-          <label for="ocr-test-language">Language hint for this test</label>
-          <input id="ocr-test-language" type="text" maxlength="200" placeholder="e.g. Chinese, English and Chinese, or auto" aria-describedby="ocr-test-language-help" disabled>
-          <p id="ocr-test-language-help" class="help">Leave blank to use the current default language hint. Enter “auto” for automatic language detection. This applies only to this test.</p>
+          <label for="ocr-test-language">Language for this test</label>
+          <select id="ocr-test-language" aria-describedby="ocr-test-language-help ocr-test-provider" disabled><option value="">Select a language</option></select>
+          <p id="ocr-test-language-help" class="help">Uses the provider configured above for this language, including unsaved changes.</p>
+          <p id="ocr-test-provider" class="help" role="status">Select a language to see its OCR provider.</p>
           <div class="canvas-pen"><label for="ocr-pen-width">Pen thickness</label><select id="ocr-pen-width" aria-describedby="ocr-pen-help" disabled><option value="2">Thin</option><option value="3" selected>Medium</option><option value="5">Thick</option></select></div>
           <p id="ocr-pen-help" class="help">Thickness applies to new strokes. Write large, with space between characters.</p>
           <div class="canvas-toolbar"><span class="canvas-status"><span class="help status-space" aria-hidden="true">Your handwriting is ready to test.</span><span id="ocr-ink-status" class="help" role="status" aria-live="polite">Your paper is blank.</span></span><div class="canvas-actions"><button id="ocr-undo" type="button" class="secondary" disabled>Undo</button><button id="ocr-clear" type="button" class="secondary" disabled>Clear</button></div></div>
           <div class="paper-frame"><canvas id="ocr-canvas" width="1200" height="1600" aria-label="Handwriting canvas" aria-describedby="ocr-canvas-help">A browser with canvas support is required to write a test image.</canvas></div>
-          <p class="help">Testing crops blank space around your handwriting, keeps a white margin, and sends a PNG using the current settings, including unsaved edits. Each test makes a paid API request.</p>
+          <p class="help">Testing crops blank space around your handwriting, keeps a white margin, and sends a PNG using the current settings, including unsaved edits. Each test runs the selected provider and may incur usage charges.</p>
           <button id="ocr-extract" type="button" disabled>Test OCR</button>
           <p id="ocr-test-status" class="status" role="status" aria-live="polite" hidden></p>
           <div id="ocr-result" hidden>
@@ -65,7 +71,7 @@
       </div>
     </main>
     <script id="site-admin-page-loader" type="module" data-site-admin-page
-      data-page-module="./image_ocr_admin.js?v=20261021-ocr-openai-v1"
+      data-page-module="./image_ocr_admin.js?v=20261023-ocr-language-v1"
       src="/features/site_admin/pages/common/site_admin_page_loader.js?v=20260827-site-admin-guard-v1"></script>
   </body>
 </html>

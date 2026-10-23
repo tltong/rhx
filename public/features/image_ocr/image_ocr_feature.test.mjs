@@ -11,60 +11,42 @@ const image = {mimeType: "image/png", base64: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABC
 const user = {uid: "admin", getIdToken: async () => "token"};
 const response = (payload, status = 200) => ({ok: status === 200, status, json: async () => payload});
 const blob = () => new Blob([Buffer.from(image.base64, "base64")], {type: "image/png"});
-test("Web accepts a canvas Blob or normalized image while retaining omissions for Functions defaults", async () => {
+test("Web sends image and normalized language through the shared authenticated client", async () => {
   const calls = [];
-  const feature = createImageOcrFeature({getUser: () => user, extract: async (...args) => {calls.push(args); return {text: "你好", warnings: []};}});
-  const result = await feature.extractTextFromImage({image: blob(), languageHint: "auto"});
-  assert.equal(result.text, "你好"); assert.deepEqual(calls[0], [{image, languageHint: "auto"}, {provider: "deepseek", operation: "extract"}]);
-  await feature.extractTextFromImage({image, detail: "high", additionalInstructions: "Keep lines"});
-  assert.deepEqual(calls[1][0], {image, detail: "high", additionalInstructions: "Keep lines"});
-  assert.equal(Object.hasOwn(calls[1][0], "model"), false);
+  const feature = createImageOcrFeature({getUser: () => user, client: {request: async (...args) => {calls.push(args); return {text: "你好", warnings: [], provider: "paddleocr"};}}});
+  const result = await feature.extractTextFromImage({image: blob(), language: " English ", languageHint: "auto"});
+  assert.equal(result.provider, "paddleocr");
+  assert.deepEqual(calls[0], ["extract", {image, language: "English", languageHint: "auto"}, {}]);
+  await feature.extractTextFromImage({image, language: "Chinese", detail: "high"});
+  assert.deepEqual(calls[1], ["extract", {image, language: "Chinese", detail: "high"}, {}]);
 });
-test("Web admin tests transmit draft settings without saving and use the provider utility", async () => {
-  const calls = [], requests = [];
-  const feature = createImageOcrFeature({getUser: () => user, client: {request: async (...args) => requests.push(args)}, extract: async (...args) => calls.push(args)});
-  const configuration = {...defaults, languageHint: "Tamil", ocrInstructions: "Draft OCR instructions"};
-  await feature.testImageOcr({image: blob(), configuration});
-  assert.deepEqual(calls[0], [{image, configuration}, {provider: "deepseek", operation: "test"}]); assert.deepEqual(requests, []);
+test("Web draft tests transmit language and draft routes without saving", async () => {
+  const requests = [];
+  const feature = createImageOcrFeature({getUser: () => user, client: {request: async (...args) => requests.push(args)}});
+  const configuration = {...defaults, languageProviders: {tamil: "paddleocr"}};
+  await feature.testImageOcr({image: blob(), language: "Tamil", configuration});
+  assert.deepEqual(requests[0], ["test", {image, language: "Tamil", configuration}, {}]);
   await feature.getImageOcrConfig(); await feature.saveImageOcrConfig(configuration);
-  assert.deepEqual(requests, [["getConfig"], ["saveConfig", configuration]]);
+  assert.deepEqual(requests.slice(1), [["getConfig"], ["saveConfig", configuration]]);
 });
-test("both layers share settings and validation and invalid images never reach the provider", async () => {
+test("both layers share routing validation and reject caller overrides before HTTP", async () => {
   const backend = createRequire(import.meta.url)("../../../functions/utils/llm/image_ocr_settings");
   for (const key of ["OCR_PROVIDERS", "OCR_MODELS_BY_PROVIDER", "OCR_DEFAULT_MODELS", "OCR_MODELS", "OCR_DETAILS", "OCR_MIME_TYPES", "DEFAULT_OCR_SETTINGS"]) assert.deepEqual(settings[key], backend[key]);
-  assert.deepEqual(settings.normalizeOcrSettings(defaults), backend.normalizeOcrSettings(defaults));
-  const openai = {...defaults, provider: "openai", model: "gpt-6.1-sol"};
-  assert.deepEqual(settings.normalizeOcrSettings(openai), backend.normalizeOcrSettings(openai));
-  const {provider: omitted, ...legacy} = defaults;
-  assert.deepEqual(settings.normalizeOcrSettings(legacy), defaults);
-  const calls = [], feature = createImageOcrFeature({getUser: () => user, extract: async input => calls.push(input)});
-  for (const input of [{image, model: "deepseek-v4-pro"}, {image: {...image, mimeType: "image/jpeg"}}, {image, detail: "bad"}, {image, timeoutSeconds: 500}]) await assert.rejects(() => feature.extractTextFromImage(input), {code: "invalid-argument"});
-  await assert.rejects(() => toOcrImage(new Blob([], {type: "image/png"})), {code: "invalid-argument"}); assert.deepEqual(calls, []);
+  const configuration = {...defaults, languageProviders: {" English ": "paddleocr"}};
+  assert.deepEqual(settings.normalizeOcrSettings(configuration), backend.normalizeOcrSettings(configuration));
+  const calls = [], feature = createImageOcrFeature({getUser: () => user, client: {request: async input => calls.push(input)}});
+  for (const input of [{image}, {image, language: " "}, {image, language: "English", provider: "paddleocr"},
+    {image, language: "English", model: "gpt-6-astra"}, {image: {...image, mimeType: "image/jpeg"}, language: "English"}]) {
+    await assert.rejects(() => feature.extractTextFromImage(input), {code: "invalid-argument"});
+  }
+  await assert.rejects(() => toOcrImage(new Blob([], {type: "image/png"})), {code: "invalid-argument"});
+  assert.deepEqual(calls, []);
 });
-test("OCR-only adapters work and both provider adapters proxy through the authenticated OCR client", async () => {
+test("the existing browser LlmUtil supports OCR-only adapters", async () => {
   registerLlmProvider("fake-ocr", {extractTextFromImage: async input => input});
   registerLlmProvider("fake-image-only", {generateImage: async input => input});
   const util = new LlmUtil(); assert.deepEqual(await util.extractTextFromImage({image}, {provider: "fake-ocr"}), {image});
   assert.throws(() => util.extractTextFromImage({image}, {provider: "fake-image-only"}), /does not support/);
-  assert.equal(typeof util.getProviderAdapter("openai").extractTextFromImage, "function");
-  const requests = [], adapter = new DeepseekUtil({ocrClient: {request: async (...args) => requests.push(args)}});
-  await adapter.extractTextFromImage({image}, {operation: "test"}); assert.deepEqual(requests[0], ["test", {image}, {}]);
-  const openai = new OpenAIUtil({ocrClient: {request: async (...args) => requests.push(args)}});
-  await openai.extractTextFromImage({image, provider: "openai"}); assert.deepEqual(requests[1], ["extract", {image, provider: "openai"}, {}]);
-});
-test("Web OpenAI extraction and draft tests preserve provider selection and leave omitted defaults to Functions", async () => {
-  const calls = [], feature = createImageOcrFeature({getUser: () => user, extract: async (...args) => calls.push(args)});
-  await feature.extractTextFromImage({image: blob(), provider: "openai", model: "gpt-6-astra", languageHint: "Chinese"});
-  assert.deepEqual(calls[0], [{image, provider: "openai", model: "gpt-6-astra", languageHint: "Chinese"}, {provider: "openai", operation: "extract"}]);
-  await feature.extractTextFromImage({image, provider: "openai"});
-  assert.equal(Object.hasOwn(calls[1][0], "model"), false);
-  const configuration = {...defaults, provider: "openai", model: "gpt-6.1-sol"};
-  await feature.testImageOcr({image: blob(), configuration});
-  assert.deepEqual(calls[2], [{image, configuration}, {provider: "openai", operation: "test"}]);
-  for (const input of [{image, provider: "openai", model: "deepseek-flash"}, {image, provider: "deepseek", model: "gpt-6-astra"}, {image, provider: "other"}]) {
-    await assert.rejects(() => feature.extractTextFromImage(input), {code: "invalid-argument"});
-  }
-  assert.equal(calls.length, 3);
 });
 test("transport enforces production HTTPS, bearer auth, local emulator and request IDs", async () => {
   const requests = [];
@@ -80,11 +62,11 @@ test("transport enforces production HTTPS, bearer auth, local emulator and reque
 });
 test("account changes during Blob conversion or after provider responses cannot send or expose OCR results", async () => {
   let current = null, calls = 0;
-  const feature = createImageOcrFeature({getUser: () => current, extract: async () => {calls++; current = null; return {text: "private"};}});
-  await assert.rejects(() => feature.extractTextFromImage({image}), {code: "unauthenticated"}); assert.equal(calls, 0);
+  const feature = createImageOcrFeature({getUser: () => current, client: {request: async () => {calls++; current = null; return {text: "private"};}}});
+  await assert.rejects(() => feature.extractTextFromImage({image, language: "English"}), {code: "unauthenticated"}); assert.equal(calls, 0);
   current = user; const original = blob(); original.arrayBuffer = async () => {current = {uid: "other"}; return Buffer.from(image.base64, "base64");};
-  await assert.rejects(() => feature.extractTextFromImage({image: original}), {code: "unauthenticated"}); assert.equal(calls, 0);
-  current = user; await assert.rejects(() => feature.extractTextFromImage({image}), {code: "unauthenticated"}); assert.equal(calls, 1);
+  await assert.rejects(() => feature.extractTextFromImage({image: original, language: "English"}), {code: "unauthenticated"}); assert.equal(calls, 0);
+  current = user; await assert.rejects(() => feature.extractTextFromImage({image, language: "English"}), {code: "unauthenticated"}); assert.equal(calls, 1);
 });
 test("transport detects authentication changes before sending and after body reads", async () => {
   let current = null, calls = 0;

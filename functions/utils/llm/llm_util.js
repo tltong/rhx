@@ -1,7 +1,8 @@
 const {deepseekUtil} = require("./deepseek_util");
 const {openaiUtil} = require("./openai_util");
+const {paddleOcrUtil} = require("./paddleocr");
 
-const LLM_PROVIDERS = Object.freeze({DEEPSEEK: "deepseek", OPENAI: "openai"});
+const LLM_PROVIDERS = Object.freeze({DEEPSEEK: "deepseek", OPENAI: "openai", PADDLEOCR: "paddleocr"});
 const DEFAULT_LLM_PROVIDER = LLM_PROVIDERS.DEEPSEEK;
 const providers = new Map();
 let defaultProvider = DEFAULT_LLM_PROVIDER;
@@ -20,6 +21,7 @@ function registerLlmProvider(name, adapter) {
 }
 registerLlmProvider("deepseek", deepseekUtil);
 registerLlmProvider("openai", openaiUtil);
+registerLlmProvider("paddleocr", paddleOcrUtil);
 function requireProvider(name) {
   const adapter = providers.get(providerName(name));
   if (!adapter) throw new Error(`Unsupported LLM provider: ${name}.`);

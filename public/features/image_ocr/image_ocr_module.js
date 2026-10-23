@@ -1,8 +1,7 @@
-import {extractLlmImageText} from "../../utils/llm/llm_util.js?v=20261021-ocr-openai-v1";
 import {imageOcrClient} from "../../utils/llm/image_ocr_client.js?v=20261021-ocr-canvas-v1";
-import {normalizeOcrImage, normalizeOcrInput, normalizeOcrSettings, OCR_MAX_IMAGE_BYTES} from "../../utils/llm/image_ocr_settings.js?v=20261021-ocr-openai-v1";
+import {normalizeOcrImage, normalizeOcrInput, normalizeOcrSettings, normalizeOcrLanguage, OCR_MAX_IMAGE_BYTES} from "../../utils/llm/image_ocr_settings.js?v=20261023-ocr-language-v1";
 import {getCurrentFirebaseAuthRawUser} from "../../utils/firebase/firebase_auth.js";
-export {DEFAULT_OCR_SETTINGS, OCR_PROVIDERS, OCR_MODELS_BY_PROVIDER, OCR_DEFAULT_MODELS, OCR_MODELS, OCR_DETAILS} from "../../utils/llm/image_ocr_settings.js?v=20261021-ocr-openai-v1";
+export {DEFAULT_OCR_SETTINGS, OCR_PROVIDERS, OCR_MODELS_BY_PROVIDER, OCR_DEFAULT_MODELS, OCR_MODELS, OCR_DETAILS} from "../../utils/llm/image_ocr_settings.js?v=20261023-ocr-language-v1";
 
 export async function toOcrImage(image, maxBytes = OCR_MAX_IMAGE_BYTES) {
   if (typeof Blob !== "undefined" && image instanceof Blob) {
@@ -14,7 +13,7 @@ export async function toOcrImage(image, maxBytes = OCR_MAX_IMAGE_BYTES) {
   }
   return normalizeOcrImage(image, maxBytes);
 }
-export function createImageOcrFeature({client = imageOcrClient, extract = extractLlmImageText, getUser = getCurrentFirebaseAuthRawUser} = {}) {
+export function createImageOcrFeature({client = imageOcrClient, getUser = getCurrentFirebaseAuthRawUser} = {}) {
   function accountGuard() {
     const uid = getUser()?.uid;
     if (!uid) throw Object.assign(new Error("Sign in before extracting image text."), {code: "unauthenticated"});
@@ -29,15 +28,16 @@ export function createImageOcrFeature({client = imageOcrClient, extract = extrac
       const image = await toOcrImage(snapshot.image);
       assertUser();
       const normalized = normalizeOcrInput({...snapshot, image});
-      const result = await extract(normalized, {...options, provider: normalized.provider ?? "deepseek", operation: "extract"});
+      const result = await client.request("extract", normalized, options);
       assertUser(); return result;
     },
     async testImageOcr(input, options = {}) {
       const assertUser = accountGuard();
       const configuration = normalizeOcrSettings(input?.configuration);
+      const language = normalizeOcrLanguage(input?.language);
       const image = await toOcrImage(input?.image, configuration.maxImageSizeMiB * 1024 * 1024);
       assertUser();
-      const result = await extract({image, configuration}, {...options, provider: configuration.provider, operation: "test"});
+      const result = await client.request("test", {image, language, configuration}, options);
       assertUser(); return result;
     },
   };

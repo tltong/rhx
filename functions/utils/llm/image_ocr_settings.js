@@ -2,6 +2,7 @@
 const OCR_MODELS_BY_PROVIDER = Object.freeze({
   deepseek: Object.freeze(["deepseek-flash"]),
   openai: Object.freeze(["gpt-6.1-sol", "gpt-6-astra"]),
+  paddleocr: Object.freeze(["PP-OCRv6_medium"]),
 });
 const OCR_PROVIDERS = Object.freeze(Object.keys(OCR_MODELS_BY_PROVIDER));
 const OCR_DEFAULT_MODELS = Object.freeze(Object.fromEntries(OCR_PROVIDERS.map(provider => [provider, OCR_MODELS_BY_PROVIDER[provider][0]])));
@@ -10,7 +11,7 @@ const OCR_DETAILS = Object.freeze(["original", "high", "auto", "low"]);
 const OCR_MIME_TYPES = Object.freeze(["image/png", "image/jpeg", "image/webp"]);
 const OCR_MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const DEFAULT_OCR_SETTINGS = Object.freeze({
-  provider: "deepseek", model: "deepseek-flash", detail: "original", languageHint: "auto",
+  provider: "openai", model: "gpt-6.1-sol", languageProviders: Object.freeze({}), detail: "original", languageHint: "auto",
   ocrInstructions: "Transcribe all legible text in reading order. Detect the language or languages automatically. Preserve the original script, wording, spelling, punctuation, and paragraphs. Keep mixed-language text as written. Mark unreadable passages as [illegible] instead of guessing.",
   additionalInstructions: "", maxTokens: 8192, maxImageSizeMiB: 8, timeoutSeconds: 240,
 });
@@ -28,23 +29,43 @@ function integer(value, name, min, max) {
   return value;
 }
 function normalizeOcrTarget(provider, model) {
-  if (!OCR_PROVIDERS.includes(provider)) throw invalid("OCR provider must be deepseek or openai.");
+  if (!OCR_PROVIDERS.includes(provider)) throw invalid("OCR provider must be openai, deepseek, or paddleocr.");
   if (!OCR_MODELS_BY_PROVIDER[provider].includes(model)) throw invalid(`Choose an OCR model for ${provider}: ${OCR_MODELS_BY_PROVIDER[provider].join(", ")}.`);
   return {provider, model};
 }
+function normalizeOcrLanguage(value) {
+  return text(value, "Language", 200).normalize("NFKC").replace(/\s+/g, " ");
+}
+function ocrLanguageKey(value) {return normalizeOcrLanguage(value).toLowerCase();}
+function normalizeLanguageProviders(input = {}) {
+  record(input, "Language providers");
+  const entries = new Map();
+  for (const [language, provider] of Object.entries(input)) {
+    const key = ocrLanguageKey(language);
+    if (["__proto__", "constructor", "prototype"].includes(key)) throw invalid("Invalid language key.");
+    if (provider === "" || provider === null) continue;
+    if (!OCR_PROVIDERS.includes(provider)) throw invalid("Choose OpenAI, DeepSeek, or PaddleOCR for each language.");
+    if (entries.has(key) && entries.get(key) !== provider) throw invalid("A language cannot have conflicting OCR providers.");
+    entries.set(key, provider);
+  }
+  return Object.fromEntries(entries);
+}
 function resolveOcrTarget(input, settings) {
-  const provider = input.provider === undefined ? settings.provider : input.provider;
-  const model = input.model === undefined
-    ? provider === settings.provider ? settings.model : OCR_DEFAULT_MODELS[provider]
-    : input.model;
-  return normalizeOcrTarget(provider, model);
+  const key = ocrLanguageKey(input.language);
+  const overrides = settings.languageProviders || {};
+  const provider = Object.hasOwn(overrides, key) ? overrides[key] : "openai";
+  return normalizeOcrTarget(provider, provider === "openai" ? settings.model : OCR_DEFAULT_MODELS[provider]);
 }
 function normalizeOcrSettings(input) {
   record(input, "OCR configuration");
-  // Saved configurations from before provider selection continue to use DeepSeek.
-  const target = normalizeOcrTarget(input.provider === undefined ? "deepseek" : input.provider, input.model);
+  // Read legacy global settings without writing a migration. Language routing
+  // always falls back to OpenAI; only explicit language overrides change it.
+  const legacyProvider = input.provider === undefined
+    ? (input.model === "deepseek-flash" ? "deepseek" : "openai") : input.provider;
+  const legacy = normalizeOcrTarget(legacyProvider, input.model ?? OCR_DEFAULT_MODELS[legacyProvider]);
+  const target = {provider: "openai", model: legacy.provider === "openai" ? legacy.model : OCR_DEFAULT_MODELS.openai};
   if (!OCR_DETAILS.includes(input.detail)) throw invalid("Image detail must be original, high, auto, or low.");
-  return {...target, detail: input.detail,
+  return {...target, languageProviders: normalizeLanguageProviders(input.languageProviders), detail: input.detail,
     languageHint: text(input.languageHint, "Language hint", 200),
     ocrInstructions: text(input.ocrInstructions, "Base OCR instructions", 16000),
     additionalInstructions: text(input.additionalInstructions, "Additional instructions", 8000, true),
@@ -101,18 +122,9 @@ function normalizeOcrImage(input, maxBytes = OCR_MAX_IMAGE_BYTES) {
 }
 function normalizeOcrInput(input) {
   record(input);
-  const allowed = ["image", "provider", "model", "detail", "languageHint", "additionalInstructions"];
+  const allowed = ["image", "language", "detail", "languageHint", "additionalInstructions"];
   if (Object.keys(input).some(key => !allowed.includes(key))) throw invalid("Unsupported OCR input parameter.");
-  const result = {image: normalizeOcrImage(input.image)};
-  if (input.provider !== undefined) {
-    if (!OCR_PROVIDERS.includes(input.provider)) throw invalid("OCR provider must be deepseek or openai.");
-    result.provider = input.provider;
-  }
-  if (input.model !== undefined) {
-    if (!OCR_MODELS.includes(input.model)) throw invalid("Choose a supported OCR model.");
-    result.model = input.model;
-  }
-  if (result.provider !== undefined && result.model !== undefined) normalizeOcrTarget(result.provider, result.model);
+  const result = {image: normalizeOcrImage(input.image), language: normalizeOcrLanguage(input.language)};
   if (input.detail !== undefined) {
     if (!OCR_DETAILS.includes(input.detail)) throw invalid("Image detail must be original, high, auto, or low.");
     result.detail = input.detail;
@@ -122,4 +134,5 @@ function normalizeOcrInput(input) {
   return result;
 }
 module.exports = {OCR_PROVIDERS, OCR_MODELS_BY_PROVIDER, OCR_DEFAULT_MODELS, OCR_MODELS, OCR_DETAILS, OCR_MIME_TYPES, OCR_MAX_IMAGE_BYTES, DEFAULT_OCR_SETTINGS,
-  normalizeOcrTarget, resolveOcrTarget, normalizeOcrSettings, normalizeOcrImage, normalizeOcrInput};
+  normalizeOcrTarget, resolveOcrTarget, normalizeOcrSettings, normalizeOcrImage, normalizeOcrInput,
+  normalizeOcrLanguage, ocrLanguageKey, normalizeLanguageProviders};

@@ -20,55 +20,52 @@ function harness(initial = null, overrides = {}) {
     getUser: async uid => ({uid, email: uid + "@example.com", emailVerified: true}), checkAdmin: async email => email === "admin@example.com", ...overrides});
   return {feature, calls, saves, setSettings(value) {settings = value;}};
 }
-test("legacy OCR configurations remain DeepSeek and provider/model combinations are validated", () => {
-  const {provider, ...legacy} = defaults;
-  assert.deepEqual(normalizeOcrSettings(legacy), defaults);
-  assert.deepEqual(normalizeOcrSettings(configuration), configuration);
-  for (const input of [{...legacy, model: "gpt-6.1-sol"}, {...configuration, provider: "deepseek"}, {...configuration, provider: null},
-    {...configuration, model: "deepseek-flash"}, {...configuration, model: "gpt-image-2.5-flare"}, {...configuration, provider: "toString"}]) {
-    assert.throws(() => normalizeOcrSettings(input), {code: "invalid-argument"});
+test("legacy settings retain limits and instructions while unconfigured languages default to OpenAI", () => {
+  const legacy = {...defaults, provider: "deepseek", model: "deepseek-flash", languageHint: "Chinese", timeoutSeconds: 60};
+  delete legacy.languageProviders;
+  const normalized = normalizeOcrSettings(legacy);
+  assert.equal(normalized.provider, "openai"); assert.equal(normalized.model, "gpt-6.1-sol");
+  assert.equal(normalized.languageHint, "Chinese"); assert.equal(normalized.timeoutSeconds, 60);
+  assert.deepEqual(normalized.languageProviders, {});
+  for (const override of [{provider: null}, {model: "bad"}, {languageProviders: []},
+    {languageProviders: {English: "bad"}}, {languageProviders: {English: "paddleocr", " english ": "deepseek"}}]) {
+    assert.throws(() => normalizeOcrSettings({...defaults, ...override}), {code: "invalid-argument"});
   }
 });
-test("configured provider/model defaults and explicit overrides resolve without mixing providers", async () => {
-  const h = harness({...configuration, languageHint: "Chinese and English", timeoutSeconds: 60});
-  assert.equal((await h.feature.extractTextFromImage({image})).provider, "openai");
-  assert.equal(h.calls[0].input.model, "gpt-6.1-sol"); assert.equal(h.calls[0].options.timeoutMs, 60000);
-  assert.match(h.calls[0].input.instructions, /Chinese and English/);
-  await h.feature.extractTextFromImage({image, model: "gpt-6-astra", additionalInstructions: "Keep headings"});
-  assert.equal(h.calls[1].input.model, "gpt-6-astra"); assert.match(h.calls[1].input.instructions, /Keep headings/);
-  assert.match(h.calls[1].input.instructions, /do not translate, correct, grade/);
-  await h.feature.extractTextFromImage({image, provider: "deepseek"});
-  assert.equal(h.calls[2].options.provider, "deepseek"); assert.equal(h.calls[2].input.model, "deepseek-flash");
-  h.setSettings(defaults);
-  await h.feature.extractTextFromImage({image, provider: "openai"});
-  assert.equal(h.calls[3].options.provider, "openai"); assert.equal(h.calls[3].input.model, "gpt-6.1-sol");
-  await h.feature.extractTextFromImage({image}); assert.equal(h.calls[4].options.provider, "deepseek");
-  assert.deepEqual(h.saves, []);
+test("language routing normalizes labels, supports all three providers, and defaults new languages to OpenAI", async () => {
+  const h = harness({...configuration, model: "gpt-6-astra", languageProviders: {" English ": "paddleocr", Chinese: "deepseek"}, timeoutSeconds: 60});
+  for (const language of [" ENGLISH ", "Chinese", "Malay", "New language"]) await h.feature.extractTextFromImage({image, language});
+  assert.deepEqual(h.calls.map(c => c.options.provider), ["paddleocr", "deepseek", "openai", "openai"]);
+  assert.deepEqual(h.calls.map(c => c.input.model), ["PP-OCRv6_medium", "deepseek-flash", "gpt-6-astra", "gpt-6-astra"]);
+  assert.ok(h.calls.every(c => c.options.timeoutMs === 60000)); assert.deepEqual(h.saves, []);
+  h.setSettings({...defaults, languageProviders: {english: "deepseek"}});
+  await h.feature.extractTextFromImage({image, language: "English", languageHint: "Chinese"});
+  assert.equal(h.calls[4].options.provider, "deepseek"); assert.match(h.calls[4].input.instructions, /Language hint: Chinese/);
 });
-test("invalid overrides and provider/model mismatches never invoke an adapter", async () => {
-  for (const settings of [defaults, configuration]) {
-    const h = harness(settings);
-    for (const input of [{provider: "bad"}, {provider: null}, {provider: "openai", model: "deepseek-flash"},
-      {provider: "deepseek", model: "gpt-6-astra"}, {model: settings.provider === "openai" ? "deepseek-flash" : "gpt-6-astra"},
-      {provider: "openai", maxTokens: 32768}]) await assert.rejects(() => h.feature.extractTextFromImage({image, ...input}), {code: "invalid-argument"});
-    assert.deepEqual(h.calls, []);
-  }
-});
-test("OpenAI draft tests remain admin-only, do not save, and retain trusted save metadata", async () => {
+test("missing language and caller provider/model overrides never invoke an adapter", async () => {
   const h = harness();
-  await assert.rejects(() => h.feature.testImageOcr({image, configuration}, {updatedBy: "student"}), {code: "permission-denied"});
-  await h.feature.testImageOcr({image, configuration}, {updatedBy: "admin"});
-  assert.equal(h.calls[0].options.provider, "openai"); assert.equal(h.calls[0].input.model, "gpt-6.1-sol"); assert.deepEqual(h.saves, []);
-  await h.feature.saveImageOcrConfig({...configuration, updatedBy: "spoofed"}, {updatedBy: "admin"});
-  assert.equal(h.saves[0].uid, "admin"); assert.deepEqual(h.saves[0].input, configuration);
+  for (const input of [{}, {language: " "}, {language: null}, {language: 12},
+    {language: "English", provider: "paddleocr"}, {language: "English", model: "gpt-6-astra"}]) {
+    await assert.rejects(() => h.feature.extractTextFromImage({image, ...input}), {code: "invalid-argument"});
+  }
+  assert.deepEqual(h.calls, []);
 });
-test("provider and model overrides are snapshotted before asynchronous config reads", async () => {
+test("draft language routing remains admin-only and does not save the draft", async () => {
+  const h = harness(), draft = {...defaults, languageProviders: {english: "paddleocr"}};
+  await assert.rejects(() => h.feature.testImageOcr({image, language: "English", configuration: draft}, {updatedBy: "student"}), {code: "permission-denied"});
+  await h.feature.testImageOcr({image, language: "English", configuration: draft}, {updatedBy: "admin"});
+  assert.equal(h.calls[0].options.provider, "paddleocr"); assert.equal(h.calls[0].input.model, "PP-OCRv6_medium");
+  assert.deepEqual(h.saves, []);
+  await h.feature.saveImageOcrConfig({...draft, updatedBy: "spoofed"}, {updatedBy: "admin"});
+  assert.equal(h.saves[0].uid, "admin"); assert.deepEqual(h.saves[0].input, draft);
+});
+test("language is snapshotted before asynchronous configuration reads", async () => {
   let resolve; const pendingConfig = new Promise(done => {resolve = done;});
   const h = harness(null, {repository: {getConfig: () => pendingConfig}});
-  const input = {image, provider: "openai", model: "gpt-6-astra"};
-  const pending = h.feature.extractTextFromImage(input); input.provider = "deepseek"; input.model = "deepseek-flash";
-  resolve(defaults); await pending;
-  assert.equal(h.calls[0].options.provider, "openai"); assert.equal(h.calls[0].input.model, "gpt-6-astra");
+  const input = {image, language: "Chinese"};
+  const pending = h.feature.extractTextFromImage(input); input.language = "English";
+  resolve({...defaults, languageProviders: {chinese: "paddleocr"}}); await pending;
+  assert.equal(h.calls[0].options.provider, "paddleocr"); assert.equal(h.calls[0].input.languageHint, "Chinese");
 });
 test("OpenAIUtil uses the installed SDK for base64 vision and strict JSON while preserving handwriting verbatim", async () => {
   const calls = [];
@@ -145,14 +142,14 @@ test("LlmUtil routes OpenAI OCR to its registered adapter without affecting text
 });
 test("existing HTTPS endpoint binds both keys and carries OpenAI extraction with authentication and safe logs", async () => {
   assert.deepEqual(extractLlmImageText.__endpoint.secretEnvironmentVariables.map(item => item.key).sort(), ["DEEPSEEK_API_KEY", "OPENAI_API_KEY"]);
-  const h = harness(configuration), logs = [];
+  const h = harness({...configuration, model: "gpt-6-astra"}), logs = [];
   const handler = createImageOcrHandler({apis: h.feature, verifyToken: async () => ({uid: "student"}), log: {info: (...args) => logs.push(args), error: (...args) => logs.push(args)}});
   const invoke = async (input, headers = {authorization: "Bearer token"}) => {
     const res = {headers: {}, set(key, value) {this.headers[key] = value;}, status(value) {this.statusCode = value; return this;}, json(value) {this.payload = value;}};
     await handler({method: "POST", headers, body: {action: "extract", input}}, res); return res;
   };
-  assert.equal((await invoke({image, provider: "openai"}, {})).statusCode, 401);
-  const result = await invoke({image, provider: "openai", model: "gpt-6-astra"});
+  assert.equal((await invoke({image, language: "English"}, {})).statusCode, 401);
+  const result = await invoke({image, language: "English"});
   assert.equal(result.statusCode, 200); assert.equal(result.payload.result.provider, "openai"); assert.equal(result.payload.result.model, "gpt-6-astra");
   assert.equal(result.headers["X-Request-ID"], result.payload.requestId);
   assert.equal((await invoke({image, provider: "openai", model: "deepseek-flash"})).statusCode, 400);
