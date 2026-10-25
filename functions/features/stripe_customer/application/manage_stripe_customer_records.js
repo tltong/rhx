@@ -32,6 +32,10 @@ class ManageStripeCustomerRecords {
     );
   }
 
+  async listCustomerRecords(input) {
+    return this.stripeCustomerRepository.listCustomers(input?.mode);
+  }
+
   async getCustomerRecordByInternalReference(input) {
     return this.stripeCustomerRepository.getCustomerByInternalReference(
       input?.mode,

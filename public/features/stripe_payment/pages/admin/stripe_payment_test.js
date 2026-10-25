@@ -6,9 +6,10 @@ import {
   createStripeSubscription,
   deleteCustomer,
   getStripeSubscriptionPaymentAction,
+  listStripeCustomers,
   mountSetupPaymentElement,
   retrieveSetupIntent
-} from "../../stripe_payment_module.js?v=20260919-redirect-toggle-v1";
+} from "../../stripe_payment_module.js?v=20261025-customer-select-v1";
 import {
   getPaymentConfig
 } from "../../../payment/payment_module.js?v=20260901-payment-config-simple-v1";
@@ -16,6 +17,12 @@ import {
   getCurrentFirebaseAuthUser,
   onFirebaseAuthStateChanged
 } from "../../../../utils/firebase/firebase_auth.js";
+import {
+  listStudents
+} from "../../../student/student_module.js?v=20260825-student-pin-v1";
+import {
+  getSubscriptionPlanCatalog
+} from "../../../syllabus_subscription/subscription_plan_module.js?v=20260912-stripe-product-name-v1";
 
 const CHECKOUT_STORAGE_KEY =
   "rhx.stripePaymentTest.checkoutState.v1";
@@ -43,6 +50,10 @@ const createdCustomerReference =
 const setupIntentForm = document.querySelector("#setup-intent-form");
 const setupCustomerReferenceEl =
   document.querySelector("#setup-customer-reference");
+const reloadStripeCustomersButton =
+  document.querySelector("#reload-stripe-customers");
+const stripeCustomerOptionsStatus =
+  document.querySelector("#stripe-customer-options-status");
 const createSetupIntentButton =
   document.querySelector("#create-setup-intent-button");
 const setupIntentStatus = document.querySelector("#setup-intent-status");
@@ -95,6 +106,10 @@ const subscriptionCountryEl =
   document.querySelector("#subscription-country");
 const subscriptionPlanIdEl =
   document.querySelector("#subscription-plan-id");
+const reloadSubscriptionOptionsButton =
+  document.querySelector("#reload-subscription-options");
+const subscriptionOptionsStatus =
+  document.querySelector("#subscription-options-status");
 const subscriptionIdempotencyReferenceEl =
   document.querySelector("#subscription-idempotency-reference");
 const newSubscriptionAttemptButton =
@@ -151,6 +166,18 @@ let isConfirmingSetup = false;
 let isCreatingSubscription = false;
 let isConfirmingSubscriptionPayment = false;
 let isDeleting = false;
+let isLoadingStudents = true;
+let isLoadingPlans = true;
+let studentsLoaded = false;
+let plansCountry = null;
+let planLoadVersion = 0;
+let studentsMessage = "Loading students...";
+let plansMessage = "Loading subscription plans...";
+let studentsLoadFailed = false;
+let plansLoadFailed = false;
+let isLoadingCustomers = true;
+let customersLoaded = false;
+let customerLoadVersion = 0;
 
 function setStatus(element, message, isError = false) {
   element.textContent = message;
@@ -261,18 +288,18 @@ function restoreCheckoutState() {
   ).trim();
 
   if (customerReference) {
-    setupCustomerReferenceEl.value = customerReference;
     subscriptionCustomerReferenceEl.value = customerReference;
   }
 
-  subscriptionStudentIdEl.value = String(state.studentId ?? "").trim();
   subscriptionCountryEl.value = String(state.country ?? "").trim();
-  subscriptionPlanIdEl.value = String(state.planId ?? "").trim();
   subscriptionIdempotencyReferenceEl.value = String(
     state.idempotencyReference ?? ""
   ).trim();
 
   return {
+    customerReference,
+    studentId: String(state.studentId ?? "").trim(),
+    planId: String(state.planId ?? "").trim(),
     subscriptionReference: normalizeSubscriptionReference(
       state.subscriptionReference
     )
@@ -377,14 +404,87 @@ function loadCurrentUserEmail() {
 }
 
 function updateSetupIntentControls() {
-  const isBusy = isCreatingSetupIntent
+  const isBusy = isCreating || isDeleting
+    || isCreatingSubscription || isConfirmingSubscriptionPayment
+    || isCreatingSetupIntent
     || isMountingPaymentElement
     || isConfirmingSetup;
 
-  setupCustomerReferenceEl.disabled = isBusy;
+  const contextMounted = Boolean(activeContextReference);
+  setupCustomerReferenceEl.disabled = isBusy || contextMounted
+    || isLoadingCustomers || !customersLoaded
+    || setupCustomerReferenceEl.options.length < 2;
+  reloadStripeCustomersButton.disabled = isBusy || contextMounted || isLoadingCustomers;
   createSetupIntentButton.disabled =
-    isBusy || Boolean(activeContextReference)
+    setupCustomerReferenceEl.disabled || !setupCustomerReferenceEl.value
     || !setupIntentForm.checkValidity();
+}
+
+async function loadStripeCustomerChoices(selectedReference = "") {
+  const version = ++customerLoadVersion;
+  const previousReference = setupCustomerReferenceEl.value;
+  isLoadingCustomers = true;
+  customersLoaded = false;
+  resetOptions(setupCustomerReferenceEl, "Loading Stripe customers...");
+  setStatus(stripeCustomerOptionsStatus, "Loading Stripe customers...");
+  updateSetupIntentControls();
+  try {
+    const result = await listStripeCustomers();
+    if (version !== customerLoadVersion) return;
+    resetOptions(setupCustomerReferenceEl, result.customers.length
+      ? `Select a ${result.mode.toUpperCase()} Stripe customer` : "No registered Stripe customers");
+    for (const customer of result.customers) {
+      appendOption(setupCustomerReferenceEl, customer.customerReference,
+        customer.email ? `${customer.email} (${customer.customerReference})` : customer.customerReference);
+    }
+    setupCustomerReferenceEl.value = result.customers.some(customer =>
+      customer.customerReference === selectedReference) ? selectedReference : "";
+    if (previousReference && previousReference !== setupCustomerReferenceEl.value) {
+      resetSetupCustomer(setupCustomerReferenceEl.value);
+    }
+    customersLoaded = true;
+    setStatus(stripeCustomerOptionsStatus, result.customers.length
+      ? `Showing registered Stripe customers in ${result.mode.toUpperCase()} mode.`
+      : `No Stripe customers are registered in ${result.mode.toUpperCase()} mode. Create one in Step 1.`);
+  } catch (error) {
+    if (version !== customerLoadVersion) return;
+    console.error("Could not load Stripe customer choices.", error);
+    resetOptions(setupCustomerReferenceEl, "Stripe customers unavailable");
+    setStatus(stripeCustomerOptionsStatus,
+      "Could not load Stripe customers. Use Reload customers to retry.", true);
+  } finally {
+    if (version === customerLoadVersion) {
+      isLoadingCustomers = false;
+      updateSetupIntentControls();
+    }
+  }
+}
+
+function selectSetupCustomer() {
+  if (setupCustomerReferenceEl.disabled) return;
+  resetSetupCustomer(setupCustomerReferenceEl.value);
+}
+
+function resetSetupCustomer(reference) {
+  activeContextReference = null;
+  subscriptionCustomerReferenceEl.value = reference;
+  subscriptionPaymentMethodReferenceEl.value = "";
+  subscriptionIdempotencyReferenceEl.value = createIdempotencyReference();
+  subscriptionResult.hidden = true;
+  clientSecretResult.hidden = true;
+  setupIntentClientSecret.textContent = "";
+  mountClientSecretEl.value = "";
+  confirmContextReferenceEl.value = "";
+  confirmSetupConsentEl.checked = false;
+  setupContextResult.hidden = true;
+  setupContextReference.textContent = "";
+  setupContextMode.textContent = "";
+  confirmedSetupResult.hidden = true;
+  setStatus(setupIntentStatus, "");
+  setStatus(confirmSetupStatus, "");
+  resetSubscriptionPaymentConfirmation();
+  saveCheckoutState();
+  updateStripeSetupControls();
 }
 
 function updateMountControls() {
@@ -421,16 +521,131 @@ function updateSubscriptionControls() {
     subscriptionCustomerReferenceEl,
     subscriptionPaymentMethodReferenceEl,
     subscriptionCountryEl,
-    subscriptionPlanIdEl,
     subscriptionIdempotencyReferenceEl
   ];
 
   fields.forEach((field) => {
     field.disabled = isBusy;
   });
+  subscriptionStudentIdEl.disabled = isBusy || isLoadingStudents
+    || !studentsLoaded || subscriptionStudentIdEl.options.length < 2;
+  subscriptionPlanIdEl.disabled = isBusy || isLoadingPlans
+    || plansCountry !== subscriptionCountryEl.value.trim()
+    || subscriptionPlanIdEl.options.length < 2;
+  reloadSubscriptionOptionsButton.disabled = isBusy
+    || isLoadingStudents || isLoadingPlans;
   newSubscriptionAttemptButton.disabled = isBusy;
   createSubscriptionButton.disabled =
-    isBusy || !createSubscriptionForm.checkValidity();
+    isBusy || subscriptionStudentIdEl.disabled
+    || subscriptionPlanIdEl.disabled
+    || !subscriptionStudentIdEl.value || !subscriptionPlanIdEl.value
+    || !createSubscriptionForm.checkValidity();
+}
+
+function renderSubscriptionOptionsStatus() {
+  setStatus(
+    subscriptionOptionsStatus,
+    [studentsMessage, plansMessage].filter(Boolean).join(" "),
+    studentsLoadFailed || plansLoadFailed
+  );
+  updateSubscriptionControls();
+}
+
+function resetOptions(select, placeholder) {
+  const option = document.createElement("option");
+  option.value = "";
+  option.textContent = placeholder;
+  select.replaceChildren(option);
+}
+
+function appendOption(select, value, label) {
+  const option = document.createElement("option");
+  option.value = value;
+  option.textContent = label;
+  select.append(option);
+}
+
+async function loadSubscriptionStudents(selectedId = "") {
+  isLoadingStudents = true;
+  studentsLoaded = false;
+  studentsLoadFailed = false;
+  studentsMessage = "Loading students...";
+  resetOptions(subscriptionStudentIdEl, "Loading students...");
+  renderSubscriptionOptionsStatus();
+  try {
+    const students = await listStudents();
+    if (!Array.isArray(students)) throw new Error("Invalid student list.");
+    resetOptions(subscriptionStudentIdEl, students.length
+      ? "Select a student" : "No students available");
+    for (const student of students) {
+      const label = student.name || student.username;
+      appendOption(subscriptionStudentIdEl, student.id,
+        label ? `${label} (${student.id})` : student.id);
+    }
+    subscriptionStudentIdEl.value = students.some(student => student.id === selectedId)
+      ? selectedId : "";
+    studentsLoaded = true;
+    studentsMessage = students.length ? "" : "No students are available.";
+  } catch (error) {
+    console.error("Could not load subscription students.", error);
+    resetOptions(subscriptionStudentIdEl, "Students unavailable");
+    studentsLoadFailed = true;
+    studentsMessage = "Could not load students. Use Reload students and plans to retry.";
+  } finally {
+    isLoadingStudents = false;
+    renderSubscriptionOptionsStatus();
+  }
+}
+
+async function loadSubscriptionPlans(selectedId = "") {
+  const version = ++planLoadVersion;
+  const country = subscriptionCountryEl.value.trim();
+  isLoadingPlans = Boolean(country);
+  plansCountry = null;
+  plansLoadFailed = false;
+  plansMessage = country ? "Loading subscription plans..."
+    : "Enter a country to load subscription plans.";
+  resetOptions(subscriptionPlanIdEl, country
+    ? "Loading subscription plans..." : "Enter a country first");
+  renderSubscriptionOptionsStatus();
+  if (!country) return;
+  try {
+    const catalog = await getSubscriptionPlanCatalog(country);
+    if (version !== planLoadVersion) return;
+    const plans = catalog?.plans || [];
+    if (!Array.isArray(plans)) throw new Error("Invalid subscription plan list.");
+    resetOptions(subscriptionPlanIdEl, plans.length
+      ? "Select a subscription plan" : "No plans available");
+    for (const plan of plans) {
+      const term = `${plan.months} month${plan.months === 1 ? "" : "s"}`;
+      const price = [catalog.currency, Number(plan.fee).toFixed(2)].join(" ");
+      appendOption(subscriptionPlanIdEl, plan.id,
+        `${plan.name} — ${term} — ${price} (${plan.id})`);
+    }
+    subscriptionPlanIdEl.value = plans.some(plan => plan.id === selectedId)
+      ? selectedId : "";
+    plansCountry = country;
+    plansMessage = plans.length ? ""
+      : `No subscription plans are configured for ${country}.`;
+  } catch (error) {
+    if (version !== planLoadVersion) return;
+    console.error("Could not load subscription plans.", error);
+    resetOptions(subscriptionPlanIdEl, "Plans unavailable");
+    plansLoadFailed = true;
+    plansMessage = "Could not load plans. Use Reload students and plans to retry.";
+  } finally {
+    if (version === planLoadVersion) {
+      isLoadingPlans = false;
+      renderSubscriptionOptionsStatus();
+    }
+  }
+}
+
+function loadSubscriptionChoices({studentId = "", planId = ""} = {}) {
+  return Promise.all([
+    loadSubscriptionStudents(studentId),
+    loadSubscriptionPlans(planId)
+  ]);
 }
 
 function updateSubscriptionPaymentConfirmationControls() {
@@ -657,6 +872,7 @@ createForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   isCreating = true;
   updateCreateControls();
+  updateSetupIntentControls();
   setStatus(createStatus, "Creating Stripe customer...");
   customerResult.hidden = true;
 
@@ -669,7 +885,6 @@ createForm.addEventListener("submit", async (event) => {
     createdCustomerReference.value = customerReference;
     customerResult.hidden = false;
     removeStoredCheckoutState();
-    setupCustomerReferenceEl.value = customerReference;
     subscriptionCustomerReferenceEl.value = customerReference;
     subscriptionPaymentMethodReferenceEl.value = "";
     subscriptionIdempotencyReferenceEl.value =
@@ -678,6 +893,7 @@ createForm.addEventListener("submit", async (event) => {
     resetSubscriptionPaymentConfirmation();
     customerReferenceEl.value = customerReference;
     confirmDeleteEl.checked = false;
+    await loadStripeCustomerChoices(customerReference);
     updateStripeSetupControls();
     updateDeleteControls();
     setStatus(createStatus, "Stripe customer created.");
@@ -691,13 +907,22 @@ createForm.addEventListener("submit", async (event) => {
   } finally {
     isCreating = false;
     updateCreateControls();
+    updateSetupIntentControls();
   }
 });
 
 setupIntentForm.addEventListener("input", updateSetupIntentControls);
+setupCustomerReferenceEl.addEventListener("change", selectSetupCustomer);
+reloadStripeCustomersButton.addEventListener("click", () => {
+  if (!reloadStripeCustomersButton.disabled) {
+    loadStripeCustomerChoices(setupCustomerReferenceEl.value);
+  }
+});
 
 setupIntentForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  updateSetupIntentControls();
+  if (createSetupIntentButton.disabled) return;
   isCreatingSetupIntent = true;
   updateStripeSetupControls();
   setStatus(setupIntentStatus, "Creating Stripe SetupIntent...");
@@ -825,6 +1050,25 @@ createSubscriptionForm.addEventListener(
   "input",
   updateSubscriptionControls
 );
+createSubscriptionForm.addEventListener("change", updateSubscriptionControls);
+
+subscriptionCountryEl.addEventListener("input", () => {
+  planLoadVersion++;
+  isLoadingPlans = false;
+  plansCountry = null;
+  plansLoadFailed = false;
+  plansMessage = "Finish entering the country to load its subscription plans.";
+  resetOptions(subscriptionPlanIdEl, "Enter a country first");
+  renderSubscriptionOptionsStatus();
+});
+subscriptionCountryEl.addEventListener("change", () => loadSubscriptionPlans());
+reloadSubscriptionOptionsButton.addEventListener("click", () => {
+  if (reloadSubscriptionOptionsButton.disabled) return;
+  loadSubscriptionChoices({
+    studentId: subscriptionStudentIdEl.value,
+    planId: subscriptionPlanIdEl.value
+  });
+});
 
 newSubscriptionAttemptButton.addEventListener("click", () => {
   subscriptionIdempotencyReferenceEl.value = createIdempotencyReference();
@@ -838,6 +1082,8 @@ newSubscriptionAttemptButton.addEventListener("click", () => {
 
 createSubscriptionForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  updateSubscriptionControls();
+  if (createSubscriptionButton.disabled) return;
   isCreatingSubscription = true;
   updateSubscriptionControls();
   setStatus(
@@ -963,6 +1209,7 @@ deleteForm.addEventListener("submit", async (event) => {
 
   isDeleting = true;
   updateDeleteControls();
+  updateSetupIntentControls();
   setStatus(deleteStatus, "Deleting Stripe customer...");
 
   try {
@@ -976,6 +1223,8 @@ deleteForm.addEventListener("submit", async (event) => {
     );
     customerReferenceEl.value = "";
     confirmDeleteEl.checked = false;
+    await loadStripeCustomerChoices(setupCustomerReferenceEl.value === deletedReference
+      ? "" : setupCustomerReferenceEl.value);
 
     if (createdCustomerReference.value === deletedReference) {
       customerResult.hidden = true;
@@ -1002,7 +1251,7 @@ deleteForm.addEventListener("submit", async (event) => {
   } finally {
     isDeleting = false;
     updateDeleteControls();
-    updateSubscriptionControls();
+    updateStripeSetupControls();
   }
 });
 
@@ -1026,5 +1275,12 @@ if (!subscriptionIdempotencyReferenceEl.value.trim()) {
 loadCurrentUserEmail();
 updateStripeSetupControls();
 updateDeleteControls();
+const subscriptionChoicesReady = loadSubscriptionChoices(
+  storedCheckoutState || {}
+);
+const stripeCustomersReady = loadStripeCustomerChoices(
+  storedCheckoutState?.customerReference || ""
+);
 await loadPaymentMode();
 await resumeStripeRedirect(stripeReturnState, storedCheckoutState);
+await Promise.all([subscriptionChoicesReady, stripeCustomersReady]);

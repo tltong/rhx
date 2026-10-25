@@ -1,4 +1,8 @@
 class StripeCustomerRepository {
+  async listCustomers(_mode) {
+    throw new Error("listCustomers() is not implemented.");
+  }
+
   async createCustomer(_record) {
     throw new Error("createCustomer() is not implemented.");
   }

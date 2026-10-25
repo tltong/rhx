@@ -3,6 +3,7 @@
  *
  * createPaymentCustomer(inputReference, email)
  *   -> Promise<string> Stripe customer reference
+ * listStripeCustomers() -> Promise<{mode, customers: {customerReference, email}[]}>
  * deleteCustomer(customerReference)
  *   -> Promise<string> deleted Stripe customer reference
  * createStripeSetupIntent(customerReference)
@@ -29,6 +30,9 @@
 import {
   CreatePaymentCustomer
 } from "./application/create_payment_customer.js?v=20260906-stripe-customer-email-v1";
+import {
+  ListStripeCustomers
+} from "./application/list_stripe_customers.js?v=20261025-customer-select-v1";
 import {
   DeletePaymentCustomer
 } from "./application/delete_payment_customer.js?v=20260903-stripe-customer-test-v1";
@@ -64,12 +68,13 @@ import {
 } from "./infrastructure/browser_stripe_payment_confirmation_gateway.js?v=20260919-redirect-toggle-v1";
 import {
   FirebaseCallableStripePaymentGateway
-} from "./infrastructure/firebase_callable_stripe_payment_gateway.js?v=20260914-complete-payment-v1";
+} from "./infrastructure/firebase_callable_stripe_payment_gateway.js?v=20261025-customer-select-v1";
 
 const stripePaymentGateway = new FirebaseCallableStripePaymentGateway();
 const createPaymentCustomerUseCase = new CreatePaymentCustomer(
   stripePaymentGateway
 );
+const listStripeCustomersUseCase = new ListStripeCustomers(stripePaymentGateway);
 const deletePaymentCustomerUseCase = new DeletePaymentCustomer(
   stripePaymentGateway
 );
@@ -109,6 +114,10 @@ const retrieveStripeSetupIntentUseCase =
 
 async function createPaymentCustomer(inputReference, email) {
   return createPaymentCustomerUseCase.execute(inputReference, email);
+}
+
+async function listStripeCustomers() {
+  return listStripeCustomersUseCase.execute();
 }
 
 async function deleteCustomer(customerReference) {
@@ -160,6 +169,7 @@ export {
   deleteCustomer,
   getStripeClientConfig,
   getStripeSubscriptionPaymentAction,
+  listStripeCustomers,
   mountSetupPaymentElement,
   retrieveSetupIntent
 };

@@ -129,6 +129,7 @@ test("stripe customer module exposes persistence APIs only", () => {
     "getPaymentMethodRecord",
     "getSetupIntentRecord",
     "getSubscriptionRecord",
+    "listCustomerRecords",
     "listPaymentMethodRecords",
     "listSetupIntentRecords",
     "listSubscriptionRecords",
@@ -482,4 +483,17 @@ test("deleting a customer removes child records and reverse lookup", async () =>
     "stripeCustomers/test/customers/cus_delete/" +
     "setupIntents/seti_delete",
   ), false);
+});
+
+test("customer choices list one mode and do not include child payment records", async () => {
+  const memory = makeMemoryFirestore();
+  const repository = new FirestoreStripeCustomerRepository(memory.dependencies);
+  const records = new ManageStripeCustomerRecords({stripeCustomerRepository: repository, now: () => NOW});
+  for (const [mode, customerReference] of [["test", "cus_test_b"], ["test", "cus_test_a"], ["prod", "cus_live_a"]]) {
+    await records.createCustomerRecord({mode, customerReference, internalReference: customerReference, email: "person@example.test"});
+  }
+  await records.writeSetupIntentRecord({mode: "test", customerReference: "cus_test_a", setupIntentReference: "seti_fixture", status: "succeeded", usage: "off_session"});
+  assert.deepEqual((await records.listCustomerRecords({mode: "test"})).map(c => c.customerReference), ["cus_test_a", "cus_test_b"]);
+  assert.deepEqual((await records.listCustomerRecords({mode: "prod"})).map(c => c.customerReference), ["cus_live_a"]);
+  await assert.rejects(() => records.listCustomerRecords({mode: "other"}), /mode must be/);
 });

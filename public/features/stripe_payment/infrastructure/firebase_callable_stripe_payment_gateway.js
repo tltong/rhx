@@ -46,6 +46,10 @@ export class FirebaseCallableStripePaymentGateway
     });
   }
 
+  async listCustomers() {
+    return this.call("listStripeCustomers", {});
+  }
+
   async deleteCustomer(customerReference) {
     return this.call("deleteCustomer", {
       customerReference

@@ -5,6 +5,7 @@
  *   -> Promise<StripeCustomerRecord>
  * getCustomerRecordByReference({mode, customerReference})
  *   -> Promise<StripeCustomerRecord|null>
+ * listCustomerRecords({mode}) -> Promise<StripeCustomerRecord[]>
  * getCustomerRecordByInternalReference({mode, internalReference})
  *   -> Promise<StripeCustomerRecord|null>
  * updateCustomerRecord({mode, customerReference,
@@ -62,6 +63,10 @@ async function createCustomerRecord(input) {
 
 async function getCustomerRecordByReference(input) {
   return stripeCustomerRecords.getCustomerRecordByReference(input);
+}
+
+async function listCustomerRecords(input) {
+  return stripeCustomerRecords.listCustomerRecords(input);
 }
 
 async function getCustomerRecordByInternalReference(input) {
@@ -132,6 +137,7 @@ module.exports = {
   stripeCustomerModes,
   createCustomerRecord,
   getCustomerRecordByReference,
+  listCustomerRecords,
   getCustomerRecordByInternalReference,
   updateCustomerRecord,
   replaceCustomerRecord,

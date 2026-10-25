@@ -16,7 +16,7 @@
 
     <link
       rel="stylesheet"
-      href="./stripe_payment_test.css?v=20260907-stripe-setup-context-test-v1"
+      href="./stripe_payment_test.css?v=20261025-subscription-selects-v1"
     >
   </head>
   <body>
@@ -116,18 +116,23 @@
               Stripe customer reference
             </label>
             <div class="action-row">
-              <input
+              <select
                 id="setup-customer-reference"
                 name="customerReference"
-                type="text"
-                autocomplete="off"
-                placeholder="cus_..."
+                disabled
                 required
               >
-              <button id="create-setup-intent-button" type="submit">
+                <option value="">Loading Stripe customers...</option>
+              </select>
+              <button id="create-setup-intent-button" type="submit" disabled>
                 Create SetupIntent
               </button>
             </div>
+            <button id="reload-stripe-customers" type="button" disabled>
+              Reload customers
+            </button>
+            <p id="stripe-customer-options-status" class="status" role="status"
+              aria-live="polite" hidden></p>
           </form>
 
           <p
@@ -301,14 +306,14 @@
 
           <form id="create-subscription-form">
             <label for="subscription-student-id">Student ID</label>
-            <input
+            <select
               id="subscription-student-id"
               name="studentId"
-              type="text"
-              autocomplete="off"
-              placeholder="Firebase student ID"
+              disabled
               required
             >
+              <option value="">Loading students...</option>
+            </select>
 
             <label for="subscription-customer-reference">
               Stripe customer reference
@@ -344,15 +349,24 @@
               required
             >
 
-            <label for="subscription-plan-id">Subscription plan ID</label>
-            <input
+            <label for="subscription-plan-id">Subscription plan</label>
+            <select
               id="subscription-plan-id"
               name="planId"
-              type="text"
-              autocomplete="off"
-              placeholder="plan_..."
+              aria-describedby="subscription-plan-help"
+              disabled
               required
             >
+              <option value="">Loading subscription plans...</option>
+            </select>
+            <p id="subscription-plan-help" class="field-help">
+              Plans are listed for the country entered above.
+            </p>
+            <button id="reload-subscription-options" type="button" disabled>
+              Reload students and plans
+            </button>
+            <p id="subscription-options-status" class="status" role="status"
+              aria-live="polite" hidden></p>
 
             <label for="subscription-idempotency-reference">
               Idempotency reference
@@ -373,7 +387,7 @@
             </div>
 
             <div class="form-action">
-              <button id="create-subscription-button" type="submit">
+              <button id="create-subscription-button" type="submit" disabled>
                 Create Subscription
               </button>
             </div>
@@ -538,7 +552,7 @@
       id="site-admin-page-loader"
       type="module"
       data-site-admin-page
-      data-page-module="./stripe_payment_test.js?v=20260919-redirect-toggle-v1"
+      data-page-module="./stripe_payment_test.js?v=20261025-customer-select-v1"
       src="/features/site_admin/pages/common/site_admin_page_loader.js?v=20260827-site-admin-guard-v1"
     ></script>
   </body>

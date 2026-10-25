@@ -280,6 +280,16 @@ class FirestoreStripeCustomerRepository extends StripeCustomerRepository {
     return toCustomerRecord(data, normalizedMode, reference);
   }
 
+  async listCustomers(mode) {
+    const normalizedMode = normalizeMode(mode);
+    const records = await this.readCollection(
+      customerCollectionPath(normalizedMode),
+    );
+    return records
+      .map(record => toCustomerRecord(record, normalizedMode, record.id))
+      .sort(compareReferences("customerReference"));
+  }
+
   async getCustomerByInternalReference(mode, internalReference) {
     const normalizedMode = normalizeMode(mode);
     const reference = requireText(internalReference, "internalReference");

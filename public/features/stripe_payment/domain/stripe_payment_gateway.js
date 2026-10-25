@@ -1,4 +1,8 @@
 export class StripePaymentGateway {
+  async listCustomers() {
+    throw new Error("listCustomers() is not implemented.");
+  }
+
   async createCustomer(inputReference, email) {
     throw new Error("createCustomer() is not implemented.");
   }

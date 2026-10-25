@@ -49,6 +49,8 @@ exports.createStripeSubscription = createStripeSubscription;
 exports.getStripeSubscriptionPaymentAction =
   getStripeSubscriptionPaymentAction;
 exports.getStripeClientConfig = getStripeClientConfig;
+exports.listStripeCustomers =
+  require("./stripe_customer_list").listStripeCustomers;
 exports.stripeTestWebhook = stripeTestWebhook;
 exports.stripeProdWebhook = stripeProdWebhook;
 exports.addSiteAdminEmail = addSiteAdminEmail;
