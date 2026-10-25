@@ -1,4 +1,4 @@
-import {imageOcrClient} from "../../utils/llm/image_ocr_client.js?v=20261021-ocr-canvas-v1";
+import {imageOcrClient} from "../../utils/llm/image_ocr_client.js?v=20261025-ocr-jobs-v1";
 import {normalizeOcrImage, normalizeOcrInput, normalizeOcrSettings, normalizeOcrLanguage, OCR_MAX_IMAGE_BYTES} from "../../utils/llm/image_ocr_settings.js?v=20261023-ocr-sarvam-v1";
 import {getCurrentFirebaseAuthRawUser} from "../../utils/firebase/firebase_auth.js";
 export {DEFAULT_OCR_SETTINGS, OCR_PROVIDERS, OCR_MODELS_BY_PROVIDER, OCR_DEFAULT_MODELS, OCR_MODELS, OCR_DETAILS} from "../../utils/llm/image_ocr_settings.js?v=20261023-ocr-sarvam-v1";
@@ -20,6 +20,8 @@ export function createImageOcrFeature({client = imageOcrClient, getUser = getCur
     return () => {if (getUser()?.uid !== uid) throw Object.assign(new Error("The signed-in account changed. Reload this page."), {code: "unauthenticated"});};
   }
   return {
+    getPendingImageOcrJob: () => client.getPendingJob(),
+    resumeImageOcrJob: (jobId, options) => client.resumeJob(jobId, options),
     getImageOcrConfig: () => client.request("getConfig"),
     saveImageOcrConfig: configuration => client.request("saveConfig", normalizeOcrSettings(configuration)),
     async extractTextFromImage(input, options = {}) {
@@ -28,7 +30,7 @@ export function createImageOcrFeature({client = imageOcrClient, getUser = getCur
       const image = await toOcrImage(snapshot.image);
       assertUser();
       const normalized = normalizeOcrInput({...snapshot, image});
-      const result = await client.request("extract", normalized, options);
+      const result = await client.requestJob("extract", normalized, options);
       assertUser(); return result;
     },
     async testImageOcr(input, options = {}) {
@@ -37,10 +39,10 @@ export function createImageOcrFeature({client = imageOcrClient, getUser = getCur
       const language = normalizeOcrLanguage(input?.language);
       const image = await toOcrImage(input?.image, configuration.maxImageSizeMiB * 1024 * 1024);
       assertUser();
-      const result = await client.request("test", {image, language, configuration}, options);
+      const result = await client.requestJob("test", {image, language, configuration}, options);
       assertUser(); return result;
     },
   };
 }
 const feature = createImageOcrFeature();
-export const {getImageOcrConfig, saveImageOcrConfig, extractTextFromImage, testImageOcr} = feature;
+export const {getImageOcrConfig, saveImageOcrConfig, extractTextFromImage, testImageOcr, getPendingImageOcrJob, resumeImageOcrJob} = feature;

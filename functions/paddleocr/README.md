@@ -107,6 +107,17 @@ The initial settings are `us-central1`, 4 GiB RAM, two CPUs, one request per
 instance, 0 minimum / 2 maximum instances, and a 240-second timeout. These are
 starting limits to measure, not established production requirements. The model
 is initialized lazily on the first OCR request and reused by subsequent requests.
+With zero minimum instances, an OCR request starts a worker on demand and waits
+for model initialization and recognition within that request's deadline. This
+avoids reserved idle-instance charges, but the caller still needs to keep its
+connection open until the response arrives. A first-call failure is consistent
+with a cold start, but does not by itself prove the cause of a browser network
+error.
+The Web Image OCR feature uses a separate background worker and short status
+checks, so the browser connection does not need to stay open for that complete
+startup/recognition wait. See the Image OCR feature README for job storage and
+deployment setup; the Python function itself still accepts the same synchronous,
+private HTTP contract.
 Before connecting the backend, grant its service account Cloud Run Invoker access
 to the second-generation function and use an audience-bound Google ID token.
 The local test client does not test IAM; deployed unauthenticated rejection must

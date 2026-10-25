@@ -19,7 +19,20 @@ function createImageOcrFeature({repository = new FirestoreImageOcrConfigReposito
     const {provider, ...request} = buildOcrRequest(input, configuration);
     return extract(request, {provider, signal: options.signal, timeoutMs});
   }
+  async function prepareImageOcr(input, context, {operation = "extract"} = {}) {
+    if (operation === "test") {
+      const settings = normalizeOcrSettings(input?.configuration);
+      const snapshot = normalizeOcrInput({image: input?.image, language: input?.language});
+      await requireAdministrator(context);
+      return {request: buildOcrRequest(snapshot, settings), timeoutMs: settings.timeoutSeconds * 1000};
+    }
+    if (operation !== "extract") throw Object.assign(new Error("Unknown OCR operation."), {code: "invalid-argument"});
+    const snapshot = normalizeOcrInput(input);
+    const settings = normalizeOcrSettings(await repository.getConfig() || DEFAULT_OCR_SETTINGS);
+    return {request: buildOcrRequest(snapshot, settings), timeoutMs: settings.timeoutSeconds * 1000};
+  }
   return {
+    prepareImageOcr,
     getImageOcrConfig: () => repository.getConfig(),
     async saveImageOcrConfig(input, context) {
       const settings = normalizeOcrSettings(input);

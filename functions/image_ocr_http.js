@@ -7,8 +7,10 @@ const {deepseekApiKey} = require("./utils/llm/deepseek_util");
 const {openaiApiKey} = require("./utils/llm/openai_util");
 const {sarvamApiKey} = require("./utils/llm/sarvam_ocr");
 const feature = require("./features/image_ocr/image_ocr_module");
+const {createOcrJobs} = require("./features/image_ocr/application/image_ocr_jobs");
 
-function createImageOcrHandler({verifyToken = token => getAuth(getFirebaseApp()).verifyIdToken(token, true), apis = feature, log = logger} = {}) {
+function createImageOcrHandler({verifyToken = token => getAuth(getFirebaseApp()).verifyIdToken(token, true), apis = feature,
+  jobs = createOcrJobs({prepare: (...args) => apis.prepareImageOcr(...args)}), log = logger} = {}) {
   return async (req, res) => {
     const requestId = randomUUID(), startedAt = Date.now();
     res.set("Cache-Control", "no-store"); res.set("X-Request-ID", requestId); res.set("Access-Control-Expose-Headers", "X-Request-ID");
@@ -26,12 +28,14 @@ function createImageOcrHandler({verifyToken = token => getAuth(getFirebaseApp())
       const user = await verifyToken(token);
       const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
       if (!body || typeof body !== "object" || Array.isArray(body)) throw Object.assign(new Error("Provide a JSON request object."), {code: "invalid-argument"});
-      const actions = {extract: "extractTextFromImage", getConfig: "getImageOcrConfig", saveConfig: "saveImageOcrConfig", test: "testImageOcr"};
+      const actions = {extract: "extractTextFromImage", getConfig: "getImageOcrConfig", saveConfig: "saveImageOcrConfig", test: "testImageOcr", startJob: "start", getJob: "status"};
       const action = body.action === undefined ? "extract" : body.action;
       if (typeof action !== "string" || !Object.hasOwn(actions, action)) throw Object.assign(new Error("Unknown OCR operation."), {code: "invalid-argument"});
       controller.signal.throwIfAborted();
       const context = {updatedBy: user.uid}, options = {signal: controller.signal};
-      const result = action === "extract" ? await apis.extractTextFromImage(body.input, options)
+      const result = action === "startJob" ? await jobs.start(body.input || {}, context)
+        : action === "getJob" ? await jobs.status(body.input || {}, context)
+        : action === "extract" ? await apis.extractTextFromImage(body.input, options)
         : action === "test" ? await apis.testImageOcr(body.input, context, options)
           : await apis[actions[action]](body.input, context);
       controller.signal.throwIfAborted();
@@ -41,9 +45,9 @@ function createImageOcrHandler({verifyToken = token => getAuth(getFirebaseApp())
       if (controller.signal.aborted) return;
       const code = String(error.code || "ocr-failed");
       const status = code === "unauthenticated" || code.startsWith("auth/") ? 401 : code === "permission-denied" ? 403
-        : code === "invalid-argument" || error instanceof SyntaxError ? 400 : error.status === 504 ? 504 : error.status === 429 ? 429 : 502;
+        : code === "invalid-argument" || error instanceof SyntaxError ? 400 : [404, 410, 504, 429].includes(error.status) ? error.status : 502;
       const safeCode = status === 401 ? "unauthenticated" : status === 400 ? "invalid-argument" : code;
-      const message = status === 401 ? "Sign in again before extracting image text." : [400, 403, 504].includes(status) || ["ocr-output-truncated", "ocr-refused"].includes(code) ? error.message
+      const message = status === 401 ? "Sign in again before extracting image text." : [400, 403, 404, 410, 504].includes(status) || ["ocr-output-truncated", "ocr-refused"].includes(code) ? error.message
         : status === 429 ? "The OCR service is busy or its quota has been reached. Try again later." : "OCR is unavailable. Check the request ID in the function logs before retrying.";
       const providerJobId = typeof error.providerJobId === "string" && /^[A-Za-z0-9_-]{1,200}$/.test(error.providerJobId) ? error.providerJobId : undefined;
       log.error("OCR operation failed", {requestId, code: safeCode, status, elapsedMs: Date.now() - startedAt,

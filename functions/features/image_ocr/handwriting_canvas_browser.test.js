@@ -11,6 +11,9 @@ const {DeepseekUtil} = require("../../utils/llm/deepseek_util");
 const {registerLlmProvider} = require("../../utils/llm/llm_util");
 const {PaddleOcrUtil} = require("../../utils/llm/paddleocr");
 const {SarvamOcrUtil, SARVAM_OCR_MODEL} = require("../../utils/llm/sarvam_ocr");
+const {createOcrJobs} = require("./application/image_ocr_jobs");
+const {MemoryJobRepository} = require("./fixtures/memory_job_repository");
+const {extractLlmImageText} = require("../../utils/llm/llm_util");
 
 const publicRoot = path.resolve(__dirname, "../../../public");
 let server, browser, origin;
@@ -51,7 +54,18 @@ before(async () => {
   const feature = createImageOcrFeature({repository: {getConfig: async () => integration.configuration, saveConfig: async (settings, uid) => {
     integration.saves++; return integration.configuration = {...settings, updatedBy: uid};
   }}, getUser: async uid => ({uid, email: "admin@example.com", emailVerified: true}), checkAdmin: async () => true});
-  const handler = createImageOcrHandler({apis: feature, verifyToken: async token => {
+  const repository = new MemoryJobRepository();
+  const jobs = createOcrJobs({repository, prepare: feature.prepareImageOcr, log: {info() {}, error() {}},
+    extract: async (...args) => {
+      if (integration.workerWait) await integration.workerWait;
+      if (integration.failWorker) throw new Error("Private provider failure");
+      return extractLlmImageText(...args);
+    }});
+  repository.onCreate = object => {
+    // Test delivery only: production uses the durable GCS/Eventarc trigger.
+    setImmediate(() => jobs.processObject(object).catch(error => {integration.workerError = error.message;}));
+  };
+  const handler = createImageOcrHandler({apis: feature, jobs, verifyToken: async token => {
     assert.equal(token, "browser-test-token"); return {uid: "admin"};
   }, log: {info() {}, error() {}}});
   server = http.createServer(async (request, response) => {
@@ -93,17 +107,20 @@ async function openPage(width, textScale = 1, fullFlow = false) {
     if (textScale !== 1) document.documentElement.style.fontSize = `${16 * textScale}px`;
     const {mountImageOcrAdmin} = await import("/features/image_ocr/pages/admin/image_ocr_admin.js?stroke-layout-test");
     window.ocrRequests = [];
+    window.ocrCopiedReports = [];
+    const copyText = async report => {window.ocrCopiedReports.push(report);};
     let controller;
     if (fullFlow) {
-      const version = "?v=20261023-ocr-sarvam-v1";
-      const {ImageOcrClient} = await import("/utils/llm/image_ocr_client.js?v=20261021-ocr-canvas-v1");
+      const version = "?v=20261025-ocr-jobs-v1";
+      const {ImageOcrClient} = await import("/utils/llm/image_ocr_client.js?v=20261025-ocr-jobs-v1");
       const {createImageOcrFeature} = await import("/features/image_ocr/image_ocr_module.js" + version);
       const user = {uid: "admin", getIdToken: async () => "browser-test-token"};
       const client = new ImageOcrClient({endpointUrl: "/mock-ocr-api", getUser: () => user});
       const feature = createImageOcrFeature({client, getUser: () => user});
       window.ocrFeature = feature;
-      controller = mountImageOcrAdmin({listLanguages: async () => ["English", "Chinese", "Malay", "Tamil"], getConfig: feature.getImageOcrConfig, saveConfig: feature.saveImageOcrConfig, testOcr: feature.testImageOcr});
-    } else controller = mountImageOcrAdmin({listLanguages: async () => ["English", "Chinese", "Malay", "Tamil"], getConfig: async () => null, testOcr: async input => {
+      controller = mountImageOcrAdmin({copyText, listLanguages: async () => ["English", "Chinese", "Malay", "Tamil"], getConfig: feature.getImageOcrConfig, saveConfig: feature.saveImageOcrConfig, testOcr: feature.testImageOcr,
+        getPendingJob: feature.getPendingImageOcrJob, resumeJob: feature.resumeImageOcrJob});
+    } else controller = mountImageOcrAdmin({copyText, getPendingJob: () => null, listLanguages: async () => ["English", "Chinese", "Malay", "Tamil"], getConfig: async () => null, testOcr: async input => {
       window.ocrRequests.push(input);
       return {text: "Test transcription", warnings: [], provider: input.configuration.provider, model: input.configuration.model};
     }});
@@ -349,8 +366,9 @@ test("Sarvam handwriting draft tests and saved extraction use the existing HTTP 
     assert.equal(integration.saves, 0); assert.equal(integration.configuration, null);
     assert.equal(integration.providerCalls.length, 1); assert.equal(integration.providerCalls[0].provider, "sarvam");
     assert.equal(integration.providerCalls[0].input.language, "ta-IN"); assert.equal(integration.providerCalls[0].input.model, SARVAM_OCR_MODEL);
-    const request = integration.requests.find(value => value.action === "test");
-    assert.equal(request.input.language, "Tamil"); assert.equal(request.input.image.mimeType, "image/png");
+    const request = integration.requests.find(value => value.action === "startJob");
+    assert.equal(request.input.operation, "test");
+    assert.equal(request.input.input.language, "Tamil"); assert.equal(request.input.input.image.mimeType, "image/png");
     assert.equal(JSON.stringify(integration.requests).includes("apiSubscriptionKey"), false);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     await page.$eval("#ocr-save", button => button.click());
@@ -366,4 +384,84 @@ test("Sarvam handwriting draft tests and saved extraction use the existing HTTP 
     assert.equal(result.text, "தமிழ்\n\nHello studant"); assert.equal(integration.providerCalls.length, 2);
     assert.equal(integration.saves, 1);
   } finally {await page.close();}
+});
+test("background failures show a copyable bottom error panel without exposing images or tokens, and recovery clears it", async () => {
+  for (const width of [390, 1360]) {
+    integration.configuration = {...require("../../utils/llm/image_ocr_settings").DEFAULT_OCR_SETTINGS, languageProviders: {chinese: "paddleocr"}};
+    integration.requests.length = 0; integration.providerCalls.length = 0;
+    const page = await openPage(width, 1, true);
+    integration.failWorker = true;
+    let attempts = 0;
+    try {
+      await page.setRequestInterception(true);
+      page.on("request", request => {
+        if (request.url() === origin + "/mock-ocr-api" && request.method() === "POST" && JSON.parse(request.postData()).action === "startJob") {
+          attempts++;
+        }
+        request.continue();
+      });
+      await page.select("#ocr-test-language", "Chinese");
+      await page.$eval("#ocr-canvas", canvas => canvas.scrollIntoView({block: "center"}));
+      const box = await canvasBox(page);
+      await page.mouse.move(box.x + 30, box.y + 40); await page.mouse.down();
+      await page.mouse.move(box.x + 100, box.y + 60); await page.mouse.up();
+      await page.$eval("#ocr-extract", button => button.click());
+      await page.waitForFunction(() => !document.getElementById("ocr-error-panel").hidden);
+      const report = await page.$eval("#ocr-error-details", element => element.textContent);
+      for (const expected of ["Provider: PaddleOCR", "Model: PP-OCRv6_medium", "Language: Chinese", "Error code: ocr-failed",
+        "Failure stage: Checking OCR job status", "OCR job ID:"]) assert.ok(report.includes(expected), expected);
+      assert.equal(report.includes("browser-test-token"), false); assert.equal(report.includes("base64"), false);
+      assert.equal(attempts, 1); assert.equal(integration.providerCalls.length, 0);
+      assert.equal(await page.$eval("#ocr-error-panel", element => element.previousElementSibling.classList.contains("workspace")), true);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+      await page.$eval("#ocr-error-copy", button => button.click());
+      await page.waitForFunction(() => document.getElementById("ocr-error-copy-status").textContent === "Error details copied.");
+      assert.ok((await page.evaluate(() => window.ocrCopiedReports[0])).includes(report));
+      if (process.env.RHX_OCR_SCREENSHOT_DIR) {
+        await fs.mkdir(process.env.RHX_OCR_SCREENSHOT_DIR, {recursive: true});
+        await (await page.$("#ocr-error-panel")).screenshot({path: path.join(process.env.RHX_OCR_SCREENSHOT_DIR, `image-ocr-error-${width}.png`)});
+      }
+      integration.failWorker = false;
+      await page.$eval("#ocr-extract", button => button.click());
+      await page.waitForFunction(() => !document.getElementById("ocr-result").hidden);
+      assert.equal(await page.$eval("#ocr-error-panel", element => element.hidden), true);
+      assert.equal(await page.$eval("#ocr-error-details", element => element.textContent), "");
+      assert.equal(attempts, 2); assert.equal(integration.providerCalls.length, 1);
+    } finally {integration.failWorker = false; await page.close();}
+  }
+});
+test("a cold-start wait and failed browser status request recover using one background job on mobile and desktop", async () => {
+  for (const width of [390, 1360]) {
+    integration.requests.length = 0; integration.providerCalls.length = 0;
+    let wake;
+    integration.workerWait = new Promise(resolve => {wake = resolve;});
+    const page = await openPage(width, 1, true);
+    let failedPolls = 0;
+    try {
+      await page.setRequestInterception(true);
+      page.on("request", request => {
+        if (request.url() === origin + "/mock-ocr-api" && request.method() === "POST" &&
+          JSON.parse(request.postData()).action === "getJob" && failedPolls++ === 0) {
+          request.abort("failed"); return;
+        }
+        request.continue();
+      });
+      await page.select("#ocr-test-language", "Chinese");
+      await page.$eval("#ocr-canvas", canvas => canvas.scrollIntoView({block: "center"}));
+      const box = await canvasBox(page);
+      await page.mouse.move(box.x + 30, box.y + 40); await page.mouse.down();
+      await page.mouse.move(box.x + 100, box.y + 60); await page.mouse.up();
+      await page.$eval("#ocr-extract", button => button.click());
+      await page.waitForFunction(() => document.getElementById("ocr-test-status").textContent.includes("Connection interrupted"), {timeout: 8000});
+      assert.equal(await page.$eval("#ocr-error-panel", element => element.hidden), true);
+      assert.equal(await page.$eval("#ocr-extract", button => button.disabled), true);
+      wake(); integration.workerWait = null;
+      await page.waitForFunction(() => !document.getElementById("ocr-result").hidden, {timeout: 10000});
+      assert.equal(integration.requests.filter(request => request.action === "startJob").length, 1);
+      assert.equal(integration.providerCalls.length, 1);
+      assert.equal(await page.$eval("#ocr-result-text", input => input.value), "Hello studant\n學生的原文");
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+      assert.equal(integration.workerError, undefined);
+    } finally {wake(); integration.workerWait = null; await page.close();}
+  }
 });

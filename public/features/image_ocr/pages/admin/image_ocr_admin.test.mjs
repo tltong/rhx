@@ -16,20 +16,22 @@ class Element {
   edit(value) {this.value = value; this.listeners.get("input")?.();}
   change(value) {this.value = value; this.listeners.get("change")?.();}
 }
-const ids = ["ocr-config-form", "ocr-save", "ocr-retry-load", "ocr-extract", "ocr-provider", "ocr-model", "ocr-detail", "ocr-language", "ocr-test-language", "ocr-pen-width", "ocr-instructions", "ocr-additional", "ocr-max-tokens", "ocr-max-size", "ocr-timeout", "ocr-result", "ocr-result-text", "ocr-warnings", "ocr-sent-image", "ocr-download", "ocr-canvas", "ocr-undo", "ocr-clear", "ocr-ink-status", "ocr-test-status", "ocr-test-panel", "ocr-updated-at", "ocr-draft-status", "ocr-config-status", "ocr-result-model", "ocr-language-providers", "ocr-no-languages", "ocr-test-provider"];
+const ids = ["ocr-resume", "ocr-sent-image-details", "ocr-config-form", "ocr-save", "ocr-retry-load", "ocr-extract", "ocr-provider", "ocr-model", "ocr-detail", "ocr-language", "ocr-test-language", "ocr-pen-width", "ocr-instructions", "ocr-additional", "ocr-max-tokens", "ocr-max-size", "ocr-timeout", "ocr-result", "ocr-result-text", "ocr-warnings", "ocr-sent-image", "ocr-download", "ocr-canvas", "ocr-undo", "ocr-clear", "ocr-ink-status", "ocr-test-status", "ocr-test-panel", "ocr-updated-at", "ocr-draft-status", "ocr-config-status", "ocr-result-model", "ocr-language-providers", "ocr-no-languages", "ocr-test-provider", "ocr-error-panel", "ocr-error-summary", "ocr-error-guidance", "ocr-error-details", "ocr-error-copy", "ocr-error-copy-status"];
 const deferred = () => {let resolve, reject; const promise = new Promise((a,b) => {resolve = a; reject = b;}); return {promise, resolve, reject};};
 function harness(options = {}) {
   const elements = new Map(ids.map(id => [id, new Element()])), get = id => elements.get(id);
   get("ocr-pen-width").value = "3";
-  const calls = [], saves = [], revocations = [], penWidths = [], canvasImage = new Blob(["canvas image"], {type: "image/png"});
+  const calls = [], saves = [], revocations = [], penWidths = [], copies = [], canvasImage = new Blob(["canvas image"], {type: "image/png"});
   let ink = false, onChange, enabled = false, disposed = false, exports = 0;
   const page = mountImageOcrAdmin({root: {getElementById: get, createElement: () => new Element()},
     getConfig: options.getConfig || (async () => null), listLanguages: options.listLanguages || (async () => ["Chinese", "English", "Malay"]), saveConfig: async input => {saves.push(input); return options.saveConfig ? options.saveConfig(input) : {...input, updatedBy: "admin", updatedAt: "2026-10-21T10:00:00Z"};},
-    testOcr: async (input, config) => {calls.push({input, options: config}); return options.testOcr ? options.testOcr(input) : {text: "Hello 学生", warnings: [], model: "deepseek-flash", provider: "deepseek"};},
+    testOcr: async (input, config) => {calls.push({input, options: config}); return options.testOcr ? options.testOcr(input, config) : {text: "Hello 学生", warnings: [], model: "deepseek-flash", provider: "deepseek"};},
+    getPendingJob: options.getPendingJob || (() => null), resumeJob: options.resumeJob,
     mountCanvas: configuration => {onChange = configuration.onChange; return {hasInk: () => ink, isDrawing: () => false, setEnabled: value => {enabled = value;}, setPenWidth: value => penWidths.push(value),
       toBlob: async () => {exports++; return options.exportImage ? options.exportImage() : canvasImage;}, dispose: () => {disposed = true; ink = false;}};},
-    createUrl: () => "blob:canvas", revokeUrl: url => revocations.push(url)});
-  return {page, get, calls, saves, revocations, penWidths, canvasImage, provider(language) {return get("ocr-language-providers").children.find(row => row.children[0].textContent === language).children[1];}, draw() {assert.equal(enabled, true); if (!get("ocr-test-language").value) get("ocr-test-language").change("English"); ink = true; onChange(true);}, clear() {ink = false; onChange(false);}, exports: () => exports, disposed: () => disposed};
+    createUrl: () => "blob:canvas", revokeUrl: url => revocations.push(url),
+    copyText: async report => {copies.push(report); if (options.copyText) await options.copyText(report);}});
+  return {page, get, calls, saves, revocations, penWidths, copies, canvasImage, provider(language) {return get("ocr-language-providers").children.find(row => row.children[0].textContent === language).children[1];}, draw() {assert.equal(enabled, true); if (!get("ocr-test-language").value) get("ocr-test-language").change("English"); ink = true; onChange(true);}, clear() {ink = false; onChange(false);}, exports: () => exports, disposed: () => disposed};
 }
 test("defaults and failed loads cannot save or test until configuration has loaded", async () => {
   const h = harness(); assert.equal(h.get("ocr-save").disabled, true); await h.page.ready;
@@ -133,6 +135,55 @@ test("failed OCR preserves handwriting and drafts and allows a deliberate retry 
   assert.equal(h.calls.length, 1); assert.equal(h.get("ocr-language").value, "Chinese"); assert.equal(h.get("ocr-extract").disabled, false);
   fail = false; await h.get("ocr-extract").click(); assert.equal(h.calls.length, 2); assert.equal(h.get("ocr-result-text").value, "学生");
 });
+test("the bottom panel explains Failed to fetch, captures the failed attempt, and copies only diagnostic metadata", async () => {
+  let fail = true;
+  const error = Object.assign(new TypeError("Failed to fetch"), {code: "ocr-network-error", phase: "request", elapsedMs: 60000,
+    httpResponseReceived: false, browserTimeoutMs: 270000, endpointUrl: "https://user:DO_NOT_COPY_THIS_SECRET@us-central1-readyherox.cloudfunctions.net/extractLlmImageText?token=DO_NOT_COPY_THIS_SECRET#DO_NOT_COPY_THIS_SECRET",
+    body: "DO_NOT_COPY_THIS_SECRET image and transcription", headers: {Authorization: "Bearer DO_NOT_COPY_THIS_SECRET"}, stack: "DO_NOT_COPY_THIS_SECRET stack"});
+  const h = harness({testOcr: async () => {if (fail) throw error; return {text: "hello", warnings: [], provider: "paddleocr", model: "PP-OCRv6_medium"};}});
+  await h.page.ready; assert.equal(h.get("ocr-error-panel").hidden, true);
+  h.provider("Chinese").change("paddleocr"); h.get("ocr-test-language").change("Chinese"); h.draw();
+  await h.get("ocr-extract").click();
+  assert.equal(h.get("ocr-error-panel").hidden, false); assert.match(h.get("ocr-error-summary").textContent, /browser could not read a response/);
+  assert.match(h.get("ocr-error-guidance").textContent, /does not reveal which cause/);
+  const report = h.get("ocr-error-details").textContent;
+  for (const expected of ["Provider: PaddleOCR", "Model: PP-OCRv6_medium", "Language: Chinese", "Elapsed time: 60.0 seconds",
+    "OCR timeout: 240 seconds", "Browser timeout: 270 seconds", "Error code: ocr-network-error", "Error message: Failed to fetch",
+    "HTTP status: No HTTP response accessible to the browser", "Server request ID: Not received"]) assert.ok(report.includes(expected), expected);
+  assert.equal(report.includes("DO_NOT_COPY_THIS_SECRET"), false); assert.equal(h.calls.length, 1); assert.equal(h.get("ocr-extract").disabled, false);
+  await h.get("ocr-error-copy").click();
+  assert.equal(h.copies.length, 1); assert.ok(h.copies[0].includes(report)); assert.equal(h.copies[0].includes("DO_NOT_COPY_THIS_SECRET"), false);
+  assert.equal(h.get("ocr-error-copy-status").textContent, "Error details copied.");
+  h.get("ocr-test-language").change("English");
+  assert.ok(h.get("ocr-error-details").textContent.includes("Language: Chinese"));
+  fail = false; await h.get("ocr-extract").click();
+  assert.equal(h.get("ocr-error-panel").hidden, true); assert.equal(h.get("ocr-error-details").textContent, "");
+  assert.equal(h.get("ocr-error-copy").disabled, true); assert.equal(h.calls.length, 2);
+});
+test("server errors show their status and request ID and clipboard failure preserves the report", async () => {
+  const h = harness({testOcr: async () => {throw Object.assign(new Error("Provider unavailable"), {code: "ocr-unavailable", status: 502, requestId: "server-request-1", phase: "service", elapsedMs: 4000});},
+    copyText: async () => {throw new Error("Clipboard blocked");}});
+  await h.page.ready; h.draw(); await h.get("ocr-extract").click();
+  assert.match(h.get("ocr-error-details").textContent, /HTTP status: 502/);
+  assert.match(h.get("ocr-error-details").textContent, /Server request ID: server-request-1/);
+  await h.get("ocr-error-copy").click();
+  assert.match(h.get("ocr-error-copy-status").textContent, /copy them manually/);
+  assert.equal(h.get("ocr-error-panel").hidden, false); assert.equal(h.get("ocr-error-copy").disabled, false);
+  h.page.dispose(); assert.equal(h.get("ocr-error-panel").hidden, true); assert.equal(h.get("ocr-error-details").textContent, "");
+  assert.equal(h.get("ocr-error-copy").listeners.size, 0);
+});
+test("image preparation and load failures are identified before a transcription request is made", async () => {
+  const h = harness({exportImage: async () => {throw new Error("PNG export failed");}});
+  await h.page.ready; h.draw(); await h.get("ocr-extract").click();
+  assert.match(h.get("ocr-error-summary").textContent, /image could not be prepared/);
+  assert.match(h.get("ocr-error-details").textContent, /Failure stage: Preparing the handwriting image/);
+  assert.equal(h.calls.length, 0);
+  const failed = harness({getConfig: async () => {throw Object.assign(new Error("Sign in again"), {code: "unauthenticated", phase: "authentication"});}});
+  await failed.page.ready;
+  assert.match(failed.get("ocr-error-summary").textContent, /sign-in session/);
+  assert.match(failed.get("ocr-error-details").textContent, /Operation: Load OCR settings/);
+  assert.equal(failed.get("ocr-error-copy").disabled, false);
+});
 test("saving all settings retains drafts on failure and displays trusted metadata on success", async () => {
   let fail = true; const h = harness({saveConfig: async input => {if (fail) throw new Error("Write failed"); return {...input, updatedBy: "admin", updatedAt: "2026-10-21T10:00:00Z"};}}); await h.page.ready;
   h.get("ocr-instructions").edit("My OCR instructions"); h.get("ocr-timeout").edit("60"); await h.get("ocr-config-form").submit();
@@ -152,4 +203,21 @@ test("protected page supplies a handwriting canvas, labels, PNG download, and Si
   for (const id of ids) assert.ok(html.includes(`id="${id}"`), id);
   assert.match(html, /data-site-admin-page/); assert.match(html, /<canvas[^>]*width="1200"[^>]*height="1600"/); assert.match(html, /usage charges/); assert.match(html, /download="readyherox-ocr-handwriting.png"/);
   const navigation = await readFile(new URL("../../../site_admin/pages/site_admin/site_admin.html", import.meta.url), "utf8"); assert.match(navigation, /image_ocr_admin.html/);
+});
+test("a previous job can be retrieved without exporting or submitting another image", async () => {
+  let pending = {jobId: "a7c460f8-2f53-47c8-9cce-97bf16130c14", language: "Chinese"}, resumed = 0;
+  const h = harness({getPendingJob: () => pending, resumeJob: async (jobId, options) => {
+    assert.equal(jobId, pending.jobId); resumed++;
+    options.onProgress({state: "reconnecting"});
+    assert.match(h.get("ocr-test-status").textContent, /not being sent again/);
+    pending = null;
+    return {text: "Saved result", warnings: [], provider: "paddleocr", model: "PP-OCRv6_medium"};
+  }});
+  await h.page.ready; h.draw();
+  assert.equal(h.get("ocr-extract").disabled, true); assert.equal(h.get("ocr-resume").hidden, false);
+  await h.get("ocr-resume").click();
+  assert.equal(resumed, 1); assert.equal(h.exports(), 0); assert.equal(h.calls.length, 0);
+  assert.equal(h.get("ocr-result-text").value, "Saved result");
+  assert.equal(h.get("ocr-sent-image-details").hidden, true);
+  assert.equal(h.get("ocr-resume").hidden, true); assert.equal(h.get("ocr-extract").disabled, false);
 });

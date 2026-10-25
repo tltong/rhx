@@ -5,7 +5,8 @@ set -euo pipefail
 umask 077
 
 usage() {
-  echo "Usage: $0 {hosting|functions|all}"
+  echo "Usage: $0 {hosting|functions|all|ocr-jobs}"
+  echo "       ocr-jobs prepares private temporary OCR job storage."
   echo "       $0 function <exported-function-name>"
   echo "       $0 codebase <configured-codebase-name>"
   echo "Requires FIREBASE_SERVICE_ACCOUNT_JSON; deploys to readyherox."
@@ -15,12 +16,13 @@ usage() {
 function_name=''
 codebase_name=''
 case "${1:-}" in
-  hosting|functions|all)
+  hosting|functions|all|ocr-jobs)
     [[ $# -eq 1 ]] || { usage >&2; exit 2; }
     case "$1" in
       hosting) targets=hosting ;;
       functions) targets=functions ;;
       all) targets=hosting,functions ;;
+      ocr-jobs) targets=ocr-jobs ;;
     esac
     ;;
   function)
@@ -280,9 +282,21 @@ for (const functions of [config.functions].flat().filter(Boolean)) {
 fs.writeFileSync(output, JSON.stringify(config));
 NODE
 
+if [[ "$targets" == ocr-jobs ]]; then
+  echo 'Preparing private OCR job storage in readyherox...'
+  node --require "$deploy_tmp/auth-proxy.cjs" "$repo_dir/scripts/configure-image-ocr-jobs.cjs"
+  exit
+fi
+
 echo "Deploying $targets to readyherox..."
 cd "$deploy_tmp"
+# A new Eventarc failure policy requires explicit CLI acknowledgement. Limit it
+# to this selected, generation-claimed worker; never force a broad deployment.
+retry_policy_args=()
+if [[ "$function_name" == processImageOcrJob ]]; then
+  retry_policy_args+=(--force)
+fi
 node --require "$deploy_tmp/auth-proxy.cjs" \
   "$firebase_entry" \
   deploy --only "$targets" --project readyherox \
-  --config "$deploy_tmp/firebase.json" --non-interactive
+  --config "$deploy_tmp/firebase.json" --non-interactive "${retry_policy_args[@]}"

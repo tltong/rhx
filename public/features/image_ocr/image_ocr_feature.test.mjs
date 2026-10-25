@@ -13,7 +13,7 @@ const response = (payload, status = 200) => ({ok: status === 200, status, json: 
 const blob = () => new Blob([Buffer.from(image.base64, "base64")], {type: "image/png"});
 test("Web sends image and normalized language through the shared authenticated client", async () => {
   const calls = [];
-  const feature = createImageOcrFeature({getUser: () => user, client: {request: async (...args) => {calls.push(args); return {text: "你好", warnings: [], provider: "paddleocr"};}}});
+  const feature = createImageOcrFeature({getUser: () => user, client: {requestJob: async (...args) => {calls.push(args); return {text: "你好", warnings: [], provider: "paddleocr"};}}});
   const result = await feature.extractTextFromImage({image: blob(), language: " English ", languageHint: "auto"});
   assert.equal(result.provider, "paddleocr");
   assert.deepEqual(calls[0], ["extract", {image, language: "English", languageHint: "auto"}, {}]);
@@ -22,7 +22,7 @@ test("Web sends image and normalized language through the shared authenticated c
 });
 test("Web draft tests transmit language and draft routes without saving", async () => {
   const requests = [];
-  const feature = createImageOcrFeature({getUser: () => user, client: {request: async (...args) => requests.push(args)}});
+  const feature = createImageOcrFeature({getUser: () => user, client: {request: async (...args) => requests.push(args), requestJob: async (...args) => requests.push(args)}});
   const configuration = {...defaults, languageProviders: {tamil: "paddleocr"}};
   await feature.testImageOcr({image: blob(), language: "Tamil", configuration});
   assert.deepEqual(requests[0], ["test", {image, language: "Tamil", configuration}, {}]);
@@ -34,7 +34,7 @@ test("both layers share routing validation and reject caller overrides before HT
   for (const key of ["OCR_PROVIDERS", "OCR_MODELS_BY_PROVIDER", "OCR_DEFAULT_MODELS", "OCR_MODELS", "OCR_DETAILS", "OCR_MIME_TYPES", "DEFAULT_OCR_SETTINGS", "SARVAM_OCR_LANGUAGES"]) assert.deepEqual(settings[key], backend[key]);
   const configuration = {...defaults, languageProviders: {" English ": "paddleocr"}};
   assert.deepEqual(settings.normalizeOcrSettings(configuration), backend.normalizeOcrSettings(configuration));
-  const calls = [], feature = createImageOcrFeature({getUser: () => user, client: {request: async input => calls.push(input)}});
+  const calls = [], feature = createImageOcrFeature({getUser: () => user, client: {requestJob: async input => calls.push(input)}});
   for (const input of [{image}, {image, language: " "}, {image, language: "English", provider: "paddleocr"},
     {image, language: "English", model: "gpt-6-astra"}, {image: {...image, mimeType: "image/jpeg"}, language: "English"}]) {
     await assert.rejects(() => feature.extractTextFromImage(input), {code: "invalid-argument"});
@@ -44,7 +44,7 @@ test("both layers share routing validation and reject caller overrides before HT
 });
 test("Sarvam draft routing crosses the existing Web transport and unsupported language assignments fail locally", async () => {
   const calls = [];
-  const feature = createImageOcrFeature({getUser: () => user, client: {request: async (...args) => {calls.push(args); return {text: "தமிழ்", warnings: [], provider: "sarvam", model: "sarvam-vision-v1"};}}});
+  const feature = createImageOcrFeature({getUser: () => user, client: {requestJob: async (...args) => {calls.push(args); return {text: "தமிழ்", warnings: [], provider: "sarvam", model: "sarvam-vision-v1"};}}});
   const configuration = {...defaults, languageProviders: {tamil: "sarvam"}};
   const result = await feature.testImageOcr({image: blob(), language: "Tamil", configuration});
   assert.equal(result.provider, "sarvam");
@@ -74,7 +74,7 @@ test("transport enforces production HTTPS, bearer auth, local emulator and reque
 });
 test("account changes during Blob conversion or after provider responses cannot send or expose OCR results", async () => {
   let current = null, calls = 0;
-  const feature = createImageOcrFeature({getUser: () => current, client: {request: async () => {calls++; current = null; return {text: "private"};}}});
+  const feature = createImageOcrFeature({getUser: () => current, client: {requestJob: async () => {calls++; current = null; return {text: "private"};}}});
   await assert.rejects(() => feature.extractTextFromImage({image, language: "English"}), {code: "unauthenticated"}); assert.equal(calls, 0);
   current = user; const original = blob(); original.arrayBuffer = async () => {current = {uid: "other"}; return Buffer.from(image.base64, "base64");};
   await assert.rejects(() => feature.extractTextFromImage({image: original, language: "English"}), {code: "unauthenticated"}); assert.equal(calls, 0);
@@ -100,4 +100,33 @@ test("errors, stalled responses, and cancellation never trigger automatic OCR re
   const controller = new AbortController(), pendingClient = new ImageOcrClient({getUser: () => user, fetchImpl: () => new Promise(() => {})});
   const pending = pendingClient.request("extract", {image}, {signal: controller.signal}); controller.abort();
   await assert.rejects(() => pending, {name: "AbortError"});
+});
+test("connection errors retain useful diagnostics after a one-minute wait without copying credentials or retrying", async () => {
+  let clock = 0, calls = 0;
+  const client = new ImageOcrClient({endpointUrl: "https://user:private@example.com/ocr?token=private#private", getUser: () => user,
+    now: () => clock, fetchImpl: async () => {calls++; clock = 60000; throw new TypeError("Failed to fetch");}});
+  await assert.rejects(() => client.request("test", {image}), error => {
+    assert.equal(error.code, "ocr-network-error"); assert.equal(error.name, "TypeError"); assert.equal(error.message, "Failed to fetch");
+    assert.equal(error.phase, "request"); assert.equal(error.elapsedMs, 60000); assert.equal(error.browserTimeoutMs, 270000);
+    assert.equal(error.httpResponseReceived, false); assert.equal(error.httpStatus, undefined); assert.equal(error.requestId, undefined);
+    assert.equal(error.endpointUrl, "https://example.com/ocr");
+    assert.equal(JSON.stringify(error).includes("private"), false); assert.equal(JSON.stringify(error).includes(image.base64), false);
+    assert.equal(error.headers, undefined); return true;
+  });
+  assert.equal(calls, 1);
+});
+test("diagnostics distinguish HTTP errors and body-read failures and retain the response header request ID", async () => {
+  for (const invalidBody of [false, true]) {
+    const client = new ImageOcrClient({getUser: () => user, fetchImpl: async () => ({ok: false, status: 502,
+      headers: {get: key => key === "X-Request-ID" ? "header-request-1" : null},
+      json: async () => {if (invalidBody) throw new SyntaxError("private response body"); return {error: {code: "ocr-unavailable", message: "OCR unavailable"}};}})});
+    await assert.rejects(() => client.request("extract", {image}), error => {
+      assert.equal(error.httpResponseReceived, true); assert.equal(error.httpStatus, 502); assert.equal(error.requestId, "header-request-1");
+      assert.equal(error.phase, invalidBody ? "response" : "service");
+      assert.equal(error.code, invalidBody ? "invalid-response" : "ocr-unavailable");
+      assert.equal(error.message.includes("private"), false); return true;
+    });
+  }
+  const client = new ImageOcrClient({getUser: () => ({uid: "admin", getIdToken: () => new Promise(() => {})}), fetchImpl: async () => {throw new Error("Must not send an image");}});
+  await assert.rejects(() => client.request("test", {image}, {timeoutMs: 10}), error => error.code === "ocr-timeout" && error.phase === "authentication" && error.httpResponseReceived === false);
 });
