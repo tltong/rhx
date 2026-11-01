@@ -169,7 +169,7 @@ test("Functions repository persists the complete subscription record", async () 
     createdAt: subscription.createdAt,
     updatedAt: subscription.updatedAt,
   });
-  assert.deepEqual(calls[0][3], {merge: false});
+  assert.deepEqual(calls[0][3], {merge: true});
 });
 
 test("Functions student subscription domain rejects partial linkage", () => {
@@ -181,4 +181,18 @@ test("Functions student subscription domain rejects partial linkage", () => {
     }),
     /Payment linkage must provide all of/,
   );
+});
+
+test("explicit paid linkage retains event mode and coverage without reading mutable configuration", async () => {
+  const repository = new MemoryStudentSubscriptionRepository();
+  repository.subscriptions.set("student-1", new StudentSubscription({studentId: "student-1", subscriptionType: "trial"}));
+  const link = new LinkStudentPaymentSubscription({getPaymentConfig: async () => {throw Error("Must not read global mode");},
+    studentSubscriptionRepository: repository});
+  const paidEnd = new Date("2026-11-01Z");
+  const data = {studentId: "student-1", paymentProvider: "stripe", paymentMode: "prod",
+    paymentCustomerReference: "cus_1", paymentSubscriptionReference: "sub_1", planId: "monthly", billingPeriodEnd: paidEnd};
+  assert.deepEqual((await link.execute(data)).activeUntil, paidEnd);
+  await link.execute({...data, billingPeriodEnd: new Date("2026-10-01Z")});
+  assert.deepEqual(repository.subscriptions.get("student-1").activeUntil, paidEnd);
+  await assert.rejects(() => link.execute({...data, paymentMode: "test"}), e => e.code === "failed-precondition");
 });

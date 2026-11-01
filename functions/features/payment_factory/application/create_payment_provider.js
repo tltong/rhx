@@ -11,21 +11,30 @@ class CreatePaymentProvider {
       throw new Error("Payment configuration is not available.");
     }
 
-    const providerFactory = this.providerFactories[paymentConfig.provider];
+    return this.executeForContext({providerName: paymentConfig.provider, mode: paymentConfig.mode});
+  }
+
+  executeForContext({providerName, mode, requestTimeoutMs}) {
+    if (!["test", "prod"].includes(mode)) throw new Error("Invalid payment provider mode.");
+    if (requestTimeoutMs !== undefined && (!Number.isInteger(requestTimeoutMs) || requestTimeoutMs < 1000 || requestTimeoutMs > 60000)) {
+      throw new Error("Invalid payment provider request timeout.");
+    }
+    const providerFactory = this.providerFactories[providerName];
 
     if (typeof providerFactory !== "function") {
       throw new Error(
-        `Unsupported payment provider: ${paymentConfig.provider}.`,
+        `Unsupported payment provider: ${providerName}.`,
       );
     }
 
     const paymentProvider = providerFactory({
-      mode: paymentConfig.mode,
+      mode,
+      ...(requestTimeoutMs === undefined ? {} : {requestTimeoutMs}),
     });
 
     return Object.freeze({
-      providerName: paymentConfig.provider,
-      mode: paymentConfig.mode,
+      providerName,
+      mode,
       paymentProvider,
     });
   }

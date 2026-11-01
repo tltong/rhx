@@ -2,7 +2,7 @@ import { getGuardianById } from "../guardian/guardian_module.js";
 import {
   getStudentById,
   getStudentSummaryById
-} from "../student/student_module.js?v=20260825-guardian-student-search-v1";
+} from "../student/student_module.js?v=20261031-renewal-restart-v1";
 import {
   GetGuardianStudentLink
 } from "./application/get_guardian_student_link.js";

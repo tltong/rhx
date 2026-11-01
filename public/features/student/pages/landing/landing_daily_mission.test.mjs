@@ -19,7 +19,7 @@ test("student landing places Additional Mission below Daily Mission", async () =
   assert.ok(additionalMissionIndex < syllabusProgressIndex);
   assert.match(html, /firebase-functions-compat\.js/);
   assert.match(html, /landing\.css\?v=20261013-recent-reward-activities-v1/);
-  assert.match(html, /landing\.js\?v=20261020-essay-mission-label-v1/);
+  assert.match(html, /landing\.js\?v=20261031-renewal-restart-v1/);
 });
 
 test("student landing wires the Additional Mission feature", async () => {

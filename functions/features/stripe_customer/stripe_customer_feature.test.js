@@ -119,16 +119,20 @@ function makeMemoryFirestore() {
 
 test("stripe customer module exposes persistence APIs only", () => {
   assert.deepEqual(Object.keys(stripeCustomerModule).sort(), [
+    "applyRecoveredPlan",
+    "claimSubscriptionPlanChange",
     "createCustomerRecord",
     "deleteCustomerRecord",
     "deletePaymentMethodRecord",
     "deleteSetupIntentRecord",
     "deleteSubscriptionRecord",
+    "finishSubscriptionPlanChange",
     "getCustomerRecordByInternalReference",
     "getCustomerRecordByReference",
     "getPaymentMethodRecord",
     "getSetupIntentRecord",
     "getSubscriptionRecord",
+    "initializeSubscriptionRecord",
     "listCustomerRecords",
     "listPaymentMethodRecords",
     "listSetupIntentRecords",
@@ -496,4 +500,45 @@ test("customer choices list one mode and do not include child payment records", 
   assert.deepEqual((await records.listCustomerRecords({mode: "test"})).map(c => c.customerReference), ["cus_test_a", "cus_test_b"]);
   assert.deepEqual((await records.listCustomerRecords({mode: "prod"})).map(c => c.customerReference), ["cus_live_a"]);
   await assert.rejects(() => records.listCustomerRecords({mode: "other"}), /mode must be/);
+});
+
+
+test("SetupIntent card selections survive ordinary webhook writes and stale concurrent projections", async () => {
+  const memory = makeMemoryFirestore();
+  const repository = new FirestoreStripeCustomerRepository(memory.dependencies);
+  const records = new ManageStripeCustomerRecords({stripeCustomerRepository: repository, now: () => NOW});
+  const owner = {mode: "test", customerReference: "cus_family"};
+  const setup = {...owner, setupIntentReference: "seti_family", status: "requires_payment_method", usage: "off_session"};
+  await records.createCustomerRecord({...owner, internalReference: "guardian"});
+  const cardUpdate = {scope: "all_students", targets: [{subscriptionReference: "sub_child", studentId: "child"}]};
+  await records.writeSetupIntentRecord({...setup, cardUpdate});
+  await records.writeSetupIntentRecord({...setup, status: "succeeded", paymentMethodReference: "pm_new"});
+  assert.deepEqual((await records.getSetupIntentRecord(setup)).cardUpdate, cardUpdate);
+  // Represents a webhook that read the old projection before the selection was saved.
+  await repository.writeSetupIntent({...setup, status: "succeeded", createdAt: NOW, updatedAt: NOW});
+  assert.deepEqual((await records.getSetupIntentRecord(setup)).cardUpdate, cardUpdate);
+  await records.writeSetupIntentRecord({...setup, cardUpdate: {scope: "all_students", targets: [{subscriptionReference: "sub_other", studentId: "other"}]}});
+  assert.deepEqual((await records.getSetupIntentRecord(setup)).cardUpdate, cardUpdate);
+});
+test("recovered plan history retains the earlier price and a stale write cannot revive its cleared schedule", async () => {
+  const {FirestoreSubscriptionPlanChangeRepository} = require("./infrastructure/firestore_subscription_plan_change_repository");
+  const memory = makeMemoryFirestore(), repository = new FirestoreStripeCustomerRepository(memory.dependencies);
+  const records = new ManageStripeCustomerRecords({stripeCustomerRepository: repository, now: () => NOW});
+  const owner = {mode: "test", customerReference: "cus_recovery"};
+  await records.createCustomerRecord({...owner, internalReference: "guardian"});
+  const input = {...owner, subscriptionReference: "sub_recovery", studentId: "student", planId: "monthly", paymentMethodReference: "pm_one",
+    status: "active", amount: 2500, currency: "myr", interval: "month", intervalCount: 1,
+    subscriptionStartDate: NOW, cancelAtPeriodEnd: false};
+  await records.writeSubscriptionRecord(input);
+  const ref = "stripeCustomers/test/customers/cus_recovery/subscriptions/sub_recovery";
+  memory.store.set(ref, {...memory.store.get(ref), pendingPlanChange: {state: "scheduled", planId: "annual", priceReference: "price_annual", effectiveAt: NOW}});
+  const stale = await records.getSubscriptionRecord(input);
+  const changes = new FirestoreSubscriptionPlanChangeRepository({...memory.dependencies, now: () => NOW});
+  await changes.applyRecoveredPlan({...owner, subscriptionReference: "sub_recovery", studentId: "student", planId: "annual",
+    priceReference: "price_annual", previousPriceReference: "price_monthly", effectiveAt: new Date("2026-10-01"),
+    terms: {amount: 24000, currency: "myr", interval: "month", intervalCount: 12}});
+  await repository.writeSubscription(stale);
+  const updated = memory.store.get(ref);
+  assert.equal(updated.pendingPlanChange, null);
+  assert.deepEqual(updated.planVersions.map(v => v.priceReference), ["price_monthly", "price_annual"]);
 });

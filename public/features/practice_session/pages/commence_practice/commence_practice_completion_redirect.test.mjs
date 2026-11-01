@@ -15,6 +15,6 @@ test("completed practice redirects with its processing context", async () => {
   assert.match(script, /createStudentLandingUrl\(result\.practiceId\)/);
   assert.match(
     html,
-    /commence_practice\.js\?v=20261018-topic-reset-v1/
+    /commence_practice\.js\?v=20261031-renewal-restart-v1/
   );
 });

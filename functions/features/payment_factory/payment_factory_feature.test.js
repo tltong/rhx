@@ -62,3 +62,11 @@ test("payment factory rejects an unsupported provider", async () => {
     /Unsupported payment provider: unknown/,
   );
 });
+
+test("stored renewal mode creates its provider without using the current default config", () => {
+  const payment = {};
+  const useCase = new CreatePaymentProvider({getPaymentConfig() {throw Error("Must not use the mutable default mode");},
+    providerFactories: {stripe(input) {assert.deepEqual(input, {mode: "prod"}); return payment;}}});
+  assert.equal(useCase.executeForContext({providerName: "stripe", mode: "prod"}).paymentProvider, payment);
+  assert.throws(() => useCase.executeForContext({providerName: "stripe", mode: "unknown"}), /mode/);
+});

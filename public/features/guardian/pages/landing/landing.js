@@ -6,7 +6,7 @@ import {
 import {
   searchStudents,
   studentLevels
-} from "../../../student/student_module.js?v=20260825-guardian-student-search-v1";
+} from "../../../student/student_module.js?v=20261031-renewal-restart-v1";
 import {
   guardianStudentRelationships,
   linkStudentToGuardian,
@@ -17,6 +17,15 @@ import {
 } from "../../../site_admin/site_admin_module.js?v=20260827-site-admin-nav-v1";
 
 const HOME_URL = "/index.html";
+const MANAGE_PAYMENTS_URL = "/features/stripe_payment/pages/guardian/manage_subscription_payment.html";
+
+function addPaymentManagementLink(card, studentId) {
+  const link = document.createElement("a");
+  link.className = "subscription-management-link";
+  link.href = MANAGE_PAYMENTS_URL + "?studentId=" + encodeURIComponent(studentId);
+  link.textContent = "Manage subscription and payments";
+  card.append(link);
+}
 const STUDENT_SUBSCRIPTIONS_URL =
   "/features/syllabus_subscription/pages/manage_student/manage_student_subscriptions.html";
 const STUDENT_PROGRESS_URL =
@@ -141,6 +150,7 @@ function createStudentCard(
       `${STUDENT_SUBSCRIPTIONS_URL}?studentId=${encodeURIComponent(student.id)}`;
     subscriptionLink.textContent = "Manage syllabus subscriptions";
     card.append(progressLink, subscriptionLink);
+    void addPaymentManagementLink(card, student.id);
   }
 
   if (linkAction && student) {

@@ -1,6 +1,6 @@
 import {
   SubscriptionPayment
-} from "../domain/student_subscription.js?v=20260915-student-payment-link-v1";
+} from "../domain/student_subscription.js?v=20261031-subscription-cancel-v1";
 
 function normalizeComparisonText(value) {
   return String(value ?? "").trim().toLocaleLowerCase();

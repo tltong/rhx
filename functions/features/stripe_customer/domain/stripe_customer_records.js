@@ -195,6 +195,7 @@ class StripeSetupIntentRecord {
     status,
     usage,
     paymentMethodReference = null,
+    cardUpdate,
     createdAt,
     updatedAt,
   }) {
@@ -213,6 +214,16 @@ class StripeSetupIntentRecord {
       paymentMethodReference,
       "paymentMethodReference",
     );
+    if (cardUpdate !== undefined) {
+      if (!cardUpdate || cardUpdate.scope !== "all_students" || !Array.isArray(cardUpdate.targets)
+        || !cardUpdate.targets.length) throw new Error("Invalid card update targets.");
+      const targets = cardUpdate.targets.map(target => ({
+        subscriptionReference: requireDocumentReference(target.subscriptionReference, "subscriptionReference"),
+        studentId: requireDocumentReference(target.studentId, "studentId"),
+      }));
+      if (new Set(targets.map(t => t.subscriptionReference)).size !== targets.length) throw new Error("Duplicate card update target.");
+      this.cardUpdate = {scope: "all_students", targets};
+    }
     this.createdAt = requireDate(createdAt, "createdAt");
     this.updatedAt = requireDate(updatedAt, "updatedAt");
   }
@@ -272,6 +283,9 @@ class StripeSubscriptionRecord {
     latestInvoiceStatus = null,
     latestPaymentStatus = null,
     paymentActionRequiredAt = null,
+    planVersions,
+    pendingPlanChange,
+    billingStartsAt,
     createdAt,
     updatedAt,
   }) {
@@ -327,8 +341,40 @@ class StripeSubscriptionRecord {
       paymentActionRequiredAt,
       "paymentActionRequiredAt",
     );
+    if (planVersions !== undefined) {
+      if (!Array.isArray(planVersions)) throw Error("Invalid subscription plan versions.");
+      this.planVersions = planVersions.map(version => ({
+        planId: requireDocumentReference(version.planId, "planId"),
+        priceReference: requireDocumentReference(version.priceReference, "priceReference"),
+        amount: requireNonNegativeNumber(version.amount, "amount"), currency: requireText(version.currency, "currency", 20),
+        interval: requireText(version.interval, "interval", 50), intervalCount: requirePositiveInteger(version.intervalCount, "intervalCount"),
+        effectiveAt: requireDate(version.effectiveAt, "effectiveAt"),
+      }));
+    }
+    if (billingStartsAt !== undefined) this.billingStartsAt = normalizeOptionalDate(billingStartsAt, "billingStartsAt");
+    if (pendingPlanChange === null) this.pendingPlanChange = null;
+    else if (pendingPlanChange !== undefined) this.pendingPlanChange = {...pendingPlanChange,
+      effectiveAt: requireDate(pendingPlanChange.effectiveAt, "effectiveAt"),
+      leaseUntil: normalizeOptionalDate(pendingPlanChange.leaseUntil, "leaseUntil")};
     this.createdAt = requireDate(createdAt, "createdAt");
     this.updatedAt = requireDate(updatedAt, "updatedAt");
+  }
+
+  assertSameCheckout(record) {
+    const fields = [
+      "mode", "customerReference", "subscriptionReference",
+      "studentId", "planId", "paymentMethodReference",
+      "amount", "currency", "interval", "intervalCount",
+    ];
+
+    if (fields.some((field) => this[field] !== record[field])) {
+      const error = new Error(
+        "This Stripe subscription belongs to a different checkout. " +
+        "Start a new checkout attempt for different subscription details.",
+      );
+      error.code = "failed-precondition";
+      throw error;
+    }
   }
 }
 

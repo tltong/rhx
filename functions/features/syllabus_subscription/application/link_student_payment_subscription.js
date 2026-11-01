@@ -17,9 +17,16 @@ class LinkStudentPaymentSubscription {
     paymentCustomerReference,
     paymentSubscriptionReference,
     planId,
+    paymentProvider,
+    paymentMode,
+    billingPeriodEnd = null,
   }) {
+    const explicitContext = paymentProvider != null || paymentMode != null;
+    if (explicitContext && (!paymentProvider || !paymentMode)) {
+      throw Object.assign(Error("Provider and mode must be supplied together."), {code: "invalid-argument"});
+    }
     const [paymentConfig, subscription] = await Promise.all([
-      this.getPaymentConfig(),
+      explicitContext ? {provider: paymentProvider, mode: paymentMode} : this.getPaymentConfig(),
       this.studentSubscriptionRepository.getSubscription(studentId),
     ]);
 
@@ -35,6 +42,19 @@ class LinkStudentPaymentSubscription {
       );
       error.code = "not-found";
       throw error;
+    }
+    if (explicitContext && subscription.paymentMode === "prod" && paymentMode === "test") {
+      throw Object.assign(Error("Test payment cannot replace production access."), {code: "failed-precondition"});
+    }
+    if (explicitContext) {
+      const paidEnd = billingPeriodEnd || activeUntil;
+      const date = value => value instanceof Date ? value : value?.toDate?.();
+      if (!date(paidEnd) || !Number.isFinite(date(paidEnd).getTime())) {
+        throw Object.assign(Error("Verified paid coverage is required."), {code: "failed-precondition"});
+      }
+      const previous = date(subscription.activeUntil);
+      activeUntil = subscription.paymentMode === "test" && paymentMode === "prod" ? paidEnd
+        : previous && previous > date(paidEnd) ? subscription.activeUntil : paidEnd;
     }
 
     subscription.update({

@@ -3,7 +3,7 @@ import {
 } from "../../practice_result_module.js?v=20261018-topic-reset-v1";
 import {
   onStudentAuthStateChanged
-} from "../../../student/student_module.js?v=20260716-no-eager-auth";
+} from "../../../student/student_module.js?v=20261031-renewal-restart-v1";
 import {
   setMathText
 } from "../../../../utils/math/render_math.js?v=20260822-katex-math";

@@ -1,3 +1,4 @@
+import {requireStudentSubscriptionAccess} from "../syllabus_subscription/student_access_module.js?v=20261031-subscription-cancel-v1";
 /**
  * loadEssayPracticeSession({studentId, essayPracticeId}) -> {status, practice, question, result|null}
  * submitEssayPracticeSession({studentId, essayPracticeId, essayText, timeTakenSeconds}) -> saved completion
@@ -15,7 +16,10 @@ const load = new LoadEssayPracticeSession({getAssignedEssayPractice, getComplete
 const submit = new SubmitEssayPracticeSession({completeAssignedEssayPractice, getAssignedEssayPractice, getCompletedEssayPractice, getEssayQuestionById});
 async function withAccess(operation, input) {
  const user = requireCurrentFirebaseAuthUser();
+ if (input?.studentId !== user.uid) throw new Error("This essay belongs to a different student.");
+ const billingAccess = await requireStudentSubscriptionAccess(user.uid);
  const assertAccess = () => {
+   if (billingAccess.expiresAt && billingAccess.expiresAt <= new Date()) throw Object.assign(new Error("Subscription access is suspended."), {code: "subscription-suspended"});
    const current = requireCurrentFirebaseAuthUser();
    if (current.uid !== user.uid || current.email !== user.email || current.emailVerified !== user.emailVerified) {
      throw new Error("The signed-in account changed. Try again.");

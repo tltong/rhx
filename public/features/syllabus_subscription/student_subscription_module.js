@@ -26,10 +26,10 @@
  */
 import {
   CreateStudentSubscription
-} from "./application/create_student_subscription.js?v=20260915-student-payment-link-v1";
+} from "./application/create_student_subscription.js?v=20261031-renewal-restart-v1";
 import {
   GetStudentSubscription
-} from "./application/get_student_subscription.js?v=20260829-student-subscriptions-v1";
+} from "./application/get_student_subscription.js?v=20261031-renewal-restart-v1";
 import {
   GetSubscriptionPayment
 } from "./application/get_subscription_payment.js?v=20260829-student-subscriptions-v1";
@@ -41,17 +41,17 @@ import {
 } from "./application/record_subscription_payment.js?v=20260829-student-subscriptions-v1";
 import {
   UpdateStudentSubscription
-} from "./application/update_student_subscription.js?v=20260915-student-payment-link-v1";
+} from "./application/update_student_subscription.js?v=20261031-renewal-restart-v1";
 import {
   guardianStudentLinkStates,
   getGuardianStudentLink
 } from "../guardian_student_link/guardian_student_link_module.js?v=20260829-student-subscriptions-v1";
 import {
   getStudentById
-} from "../student/student_module.js?v=20260829-student-subscriptions-v1";
+} from "../student/student_module.js?v=20261031-renewal-restart-v1";
 import {
   FirestoreStudentSubscriptionRepository
-} from "./infrastructure/firestore_student_subscription_repository.js?v=20260915-student-payment-link-v1";
+} from "./infrastructure/firestore_student_subscription_repository.js?v=20261031-subscription-cancel-v1";
 import {
   getSubscriptionPlan,
   getSubscriptionPlanCatalog
@@ -59,8 +59,9 @@ import {
 import {
   paymentModes,
   paymentProviders,
-  subscriptionTypes
-} from "./domain/student_subscription.js?v=20260915-student-payment-link-v1";
+  subscriptionTypes,
+  subscriptionStatuses
+} from "./domain/student_subscription.js?v=20261031-subscription-cancel-v1";
 
 const studentSubscriptionRepository =
   new FirestoreStudentSubscriptionRepository();
@@ -116,5 +117,6 @@ export {
   paymentProviders,
   recordSubscriptionPayment,
   subscriptionTypes,
+  subscriptionStatuses,
   updateStudentSubscription
 };

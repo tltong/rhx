@@ -204,3 +204,48 @@ test("browser Stripe gateway preserves safe Stripe error details", async () => {
     }
   );
 });
+
+test("saved-card confirmation uses confirmCardPayment without Elements and handles Stripe errors", async () => {
+  const calls = [];
+  let decline = false;
+  const gateway = new BrowserStripePaymentConfirmationGateway({stripeFactory: () => ({
+    async confirmCardPayment(...args) {
+      calls.push(args);
+      return decline ? {error: {message: "Your card was declined.", code: "card_declined"}}
+        : {paymentIntent: {id: "pi_saved", status: "succeeded"}};
+    },
+    confirmPayment() {assert.fail("Saved-card confirmation must not require Elements");},
+    handleNextAction() {assert.fail("This payment still needs confirmation");}
+  })});
+  const input = {publishableKey: "pk_test", clientSecret: "pi_saved_secret_private",
+    returnUrl: "https://readyherox.web.app/payment-complete", useSavedCard: true};
+  assert.equal((await gateway.confirmPayment(input)).status, "succeeded");
+  assert.deepEqual(calls[0], [input.clientSecret, {return_url: input.returnUrl}]);
+  decline = true;
+  await assert.rejects(() => gateway.confirmPayment(input), error => error.code === "card_declined");
+});
+
+test("authentication-only confirmation handles next action without submitting another confirmation", async () => {
+  const calls = [];
+  const gateway = new BrowserStripePaymentConfirmationGateway({stripeFactory: () => ({
+    async handleNextAction(input) {calls.push(input); return {paymentIntent: {status: "succeeded"}};},
+    confirmCardPayment() {assert.fail("Do not resubmit an already confirmed payment");},
+    confirmPayment() {assert.fail("Do not resubmit an already confirmed payment");}
+  })});
+  await gateway.confirmPayment({publishableKey: "pk_test", clientSecret: "pi_action_secret_private", authenticationOnly: true});
+  assert.deepEqual(calls, [{clientSecret: "pi_action_secret_private"}]);
+});
+
+test("confirmation feature forwards saved-card mode and rejects conflicting modes", async () => {
+  const calls = [];
+  const useCase = new ConfirmStripeSubscriptionPayment({
+    async getStripeClientConfig() {return {publishableKey: "pk_test"};},
+    stripePaymentConfirmationGateway: {async confirmPayment(input) {calls.push(input); return {status: "succeeded"};}}
+  });
+  const input = {paymentClientSecret: "pi_saved_secret_private", returnUrl: "https://readyherox.web.app/payment-complete", useSavedCard: true};
+  assert.deepEqual(await useCase.execute(input), {paymentStatus: "succeeded"});
+  assert.equal(calls[0].useSavedCard, true);
+  await assert.rejects(() => useCase.execute({...input, authenticationOnly: true}), /Choose either/);
+  await assert.rejects(() => useCase.execute({...input, contextReference: "stripe_setup_context_payment"}), /Card entry cannot/);
+  assert.equal(calls.length, 1);
+});

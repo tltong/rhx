@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Subscription access | ReadyHeroX</title>
+  <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+  <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
+  <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+  <script defer src="/__/firebase/init.js"></script>
+  <script type="module" src="/init_fb.js"></script>
+  <link rel="stylesheet" href="/features/stripe_payment/pages/guardian/manage_subscription_payment.css?v=20261031-renewal-restart-v1">
+</head>
+<body><main class="page-shell"><section class="payment-card" aria-labelledby="access-heading">
+  <h1 id="access-heading">Checking subscription access</h1>
+  <p id="access-description" role="status" aria-live="polite">Checking whether your subscription is ready.</p>
+  <p>Your guardian can resolve a renewal payment from Manage subscription payments in their Guardian Dashboard. Your learning progress is retained.</p>
+  <div class="payment-actions"><button id="check-access" type="button">Check access again</button>
+    <button id="sign-out" type="button" class="secondary-button">Sign out</button></div>
+</section></main><script type="module" src="./subscription_suspended.js?v=20261031-renewal-restart-v1"></script></body>
+</html>

@@ -27,9 +27,17 @@ function buildGuardianStudentLinkDocumentId(guardianId, studentId) {
 
 class FirestoreGuardianStudentLinkRepository
   extends GuardianStudentLinkRepository {
-  constructor({readDocument = firebaseOps.readDocument} = {}) {
+  constructor({readDocument = firebaseOps.readDocument, getCollectionRef = firebaseOps.getCollectionRef} = {}) {
     super();
     this.readDocument = readDocument;
+    this.getCollectionRef = getCollectionRef;
+  }
+
+  async listByGuardian(guardianId) {
+    const id = requireIdentifier(guardianId, "guardianId");
+    const snapshot = await this.getCollectionRef(GUARDIAN_STUDENT_LINKS_COLLECTION).where("guardianId", "==", id).get();
+    return snapshot.docs.map(doc => new GuardianStudentLink({...doc.data(), id: doc.id}))
+      .filter(link => link.guardianId === id && link.isActive);
   }
 
   async get(guardianId, studentId) {

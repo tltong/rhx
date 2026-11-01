@@ -12,14 +12,14 @@ import {
 } from "../../stripe_payment_module.js?v=20261025-customer-select-v1";
 import {
   getPaymentConfig
-} from "../../../payment/payment_module.js?v=20260901-payment-config-simple-v1";
+} from "../../../payment/payment_module.js?v=20261031-renewal-restart-v1";
 import {
   getCurrentFirebaseAuthUser,
   onFirebaseAuthStateChanged
 } from "../../../../utils/firebase/firebase_auth.js";
 import {
   listStudents
-} from "../../../student/student_module.js?v=20260825-student-pin-v1";
+} from "../../../student/student_module.js?v=20261031-renewal-restart-v1";
 import {
   getSubscriptionPlanCatalog
 } from "../../../syllabus_subscription/subscription_plan_module.js?v=20260912-stripe-product-name-v1";
@@ -151,6 +151,10 @@ const confirmedSubscriptionPaymentStatus =
 const deleteForm = document.querySelector("#delete-customer-form");
 const customerReferenceEl =
   document.querySelector("#stripe-customer-reference");
+const reloadDeleteCustomersButton =
+  document.querySelector("#reload-delete-customers");
+const deleteCustomerOptionsStatus =
+  document.querySelector("#delete-customer-options-status");
 const confirmDeleteEl = document.querySelector("#confirm-delete");
 const deleteButton = document.querySelector("#delete-customer-button");
 const deleteStatus = document.querySelector("#delete-status");
@@ -420,42 +424,63 @@ function updateSetupIntentControls() {
     || !setupIntentForm.checkValidity();
 }
 
-async function loadStripeCustomerChoices(selectedReference = "") {
+async function loadStripeCustomerChoices(
+  selectedReference = "",
+  selectedDeleteReference = customerReferenceEl.value
+) {
   const version = ++customerLoadVersion;
   const previousReference = setupCustomerReferenceEl.value;
   isLoadingCustomers = true;
   customersLoaded = false;
   resetOptions(setupCustomerReferenceEl, "Loading Stripe customers...");
+  resetOptions(customerReferenceEl, "Loading Stripe customers...");
+  confirmDeleteEl.checked = false;
   setStatus(stripeCustomerOptionsStatus, "Loading Stripe customers...");
+  setStatus(deleteCustomerOptionsStatus, "Loading Stripe customers...");
   updateSetupIntentControls();
+  updateDeleteControls();
   try {
     const result = await listStripeCustomers();
     if (version !== customerLoadVersion) return;
-    resetOptions(setupCustomerReferenceEl, result.customers.length
-      ? `Select a ${result.mode.toUpperCase()} Stripe customer` : "No registered Stripe customers");
-    for (const customer of result.customers) {
-      appendOption(setupCustomerReferenceEl, customer.customerReference,
-        customer.email ? `${customer.email} (${customer.customerReference})` : customer.customerReference);
+    const placeholder = result.customers.length
+      ? `Select a ${result.mode.toUpperCase()} Stripe customer`
+      : "No registered Stripe customers";
+    for (const select of [setupCustomerReferenceEl, customerReferenceEl]) {
+      resetOptions(select, placeholder);
+      for (const customer of result.customers) {
+        const label = customer.email
+          ? `${customer.email} (${customer.customerReference})`
+          : customer.customerReference;
+        appendOption(select, customer.customerReference, label);
+      }
     }
     setupCustomerReferenceEl.value = result.customers.some(customer =>
       customer.customerReference === selectedReference) ? selectedReference : "";
+    customerReferenceEl.value = result.customers.some(customer =>
+      customer.customerReference === selectedDeleteReference) ? selectedDeleteReference : "";
     if (previousReference && previousReference !== setupCustomerReferenceEl.value) {
       resetSetupCustomer(setupCustomerReferenceEl.value);
     }
     customersLoaded = true;
-    setStatus(stripeCustomerOptionsStatus, result.customers.length
+    const message = result.customers.length
       ? `Showing registered Stripe customers in ${result.mode.toUpperCase()} mode.`
-      : `No Stripe customers are registered in ${result.mode.toUpperCase()} mode. Create one in Step 1.`);
+      : `No Stripe customers are registered in ${result.mode.toUpperCase()} mode. Create one in Step 1.`;
+    setStatus(stripeCustomerOptionsStatus, message);
+    setStatus(deleteCustomerOptionsStatus, message);
   } catch (error) {
     if (version !== customerLoadVersion) return;
     console.error("Could not load Stripe customer choices.", error);
     resetOptions(setupCustomerReferenceEl, "Stripe customers unavailable");
+    resetOptions(customerReferenceEl, "Stripe customers unavailable");
     setStatus(stripeCustomerOptionsStatus,
+      "Could not load Stripe customers. Use Reload customers to retry.", true);
+    setStatus(deleteCustomerOptionsStatus,
       "Could not load Stripe customers. Use Reload customers to retry.", true);
   } finally {
     if (version === customerLoadVersion) {
       isLoadingCustomers = false;
       updateSetupIntentControls();
+      updateDeleteControls();
     }
   }
 }
@@ -669,10 +694,16 @@ function resetSubscriptionPaymentConfirmation() {
 }
 
 function updateDeleteControls() {
-  customerReferenceEl.disabled = isDeleting;
-  confirmDeleteEl.disabled = isDeleting;
+  const isBusy = isCreating || isDeleting || isCreatingSetupIntent
+    || isMountingPaymentElement || isConfirmingSetup
+    || isCreatingSubscription || isConfirmingSubscriptionPayment;
+  customerReferenceEl.disabled = isBusy || isLoadingCustomers
+    || !customersLoaded || customerReferenceEl.options.length < 2;
+  confirmDeleteEl.disabled = customerReferenceEl.disabled
+    || !customerReferenceEl.value;
+  reloadDeleteCustomersButton.disabled = isBusy || isLoadingCustomers;
   deleteButton.disabled =
-    isDeleting
+    customerReferenceEl.disabled || !customerReferenceEl.value
     || !deleteForm.checkValidity()
     || !confirmDeleteEl.checked;
 }
@@ -683,6 +714,7 @@ function updateStripeSetupControls() {
   updateConfirmControls();
   updateSubscriptionControls();
   updateSubscriptionPaymentConfirmationControls();
+  updateDeleteControls();
 }
 
 function renderConfirmedSetup(outcome) {
@@ -872,7 +904,7 @@ createForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   isCreating = true;
   updateCreateControls();
-  updateSetupIntentControls();
+  updateStripeSetupControls();
   setStatus(createStatus, "Creating Stripe customer...");
   customerResult.hidden = true;
 
@@ -891,9 +923,8 @@ createForm.addEventListener("submit", async (event) => {
       createIdempotencyReference();
     subscriptionResult.hidden = true;
     resetSubscriptionPaymentConfirmation();
-    customerReferenceEl.value = customerReference;
     confirmDeleteEl.checked = false;
-    await loadStripeCustomerChoices(customerReference);
+    await loadStripeCustomerChoices(customerReference, customerReference);
     updateStripeSetupControls();
     updateDeleteControls();
     setStatus(createStatus, "Stripe customer created.");
@@ -907,7 +938,7 @@ createForm.addEventListener("submit", async (event) => {
   } finally {
     isCreating = false;
     updateCreateControls();
-    updateSetupIntentControls();
+    updateStripeSetupControls();
   }
 });
 
@@ -1085,7 +1116,7 @@ createSubscriptionForm.addEventListener("submit", async (event) => {
   updateSubscriptionControls();
   if (createSubscriptionButton.disabled) return;
   isCreatingSubscription = true;
-  updateSubscriptionControls();
+  updateStripeSetupControls();
   setStatus(
     createSubscriptionStatus,
     "Creating Stripe subscription..."
@@ -1199,13 +1230,23 @@ confirmSubscriptionForm.addEventListener("submit", async (event) => {
 
 deleteForm.addEventListener("input", updateDeleteControls);
 deleteForm.addEventListener("change", updateDeleteControls);
+customerReferenceEl.addEventListener("change", () => {
+  confirmDeleteEl.checked = false;
+  setStatus(deleteStatus, "");
+  updateDeleteControls();
+});
+reloadDeleteCustomersButton.addEventListener("click", () => {
+  if (!reloadDeleteCustomersButton.disabled) {
+    loadStripeCustomerChoices(setupCustomerReferenceEl.value);
+  }
+});
 
 deleteForm.addEventListener("submit", async (event) => {
   event.preventDefault();
 
-  if (!confirmDeleteEl.checked) {
-    return;
-  }
+  updateDeleteControls();
+  if (deleteButton.disabled) return;
+  const referenceToDelete = customerReferenceEl.value;
 
   isDeleting = true;
   updateDeleteControls();
@@ -1213,9 +1254,7 @@ deleteForm.addEventListener("submit", async (event) => {
   setStatus(deleteStatus, "Deleting Stripe customer...");
 
   try {
-    const deletedReference = await deleteCustomer(
-      customerReferenceEl.value
-    );
+    const deletedReference = await deleteCustomer(referenceToDelete);
 
     setStatus(
       deleteStatus,

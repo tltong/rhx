@@ -1,3 +1,4 @@
+const {cardChangeScope} = require("./features/stripe_payment_subscription/application/card_change_scope");
 const {
   HttpsError,
   onCall,
@@ -11,6 +12,8 @@ const {
 } = require(
   "./features/stripe_payment_customer/stripe_payment_customer_module"
 );
+const {createStripeSubscriptionCardSetup} =
+  require("./features/stripe_payment_subscription/stripe_payment_subscription_module");
 
 const CALLABLE_OPTIONS = Object.freeze({
   region: "us-central1",
@@ -43,9 +46,33 @@ function requireCustomerReference(request) {
 
 function createStripeSetupIntentHandlers({
   createPaymentSetupIntent = createStripePaymentSetupIntent,
+  createSubscriptionCardSetup = createStripeSubscriptionCardSetup,
 } = {}) {
   async function createStripeSetupIntentHandler(request) {
     requireAuthenticatedCaller(request);
+    if (request?.data?.subscriptionReference != null) {
+      const subscriptionReference = request.data.subscriptionReference;
+      const attempt = request.data.idempotencyReference;
+      if (typeof subscriptionReference !== "string" || !/^sub_[a-zA-Z0-9_]+$/.test(subscriptionReference)
+        || typeof attempt !== "string" || !attempt.trim() || attempt.length > 500) {
+        throw new HttpsError("invalid-argument", "Valid subscription and attempt references are required.");
+      }
+      try {
+        const result = await createSubscriptionCardSetup({internalReference: request.auth.uid,
+          subscriptionReference, idempotencyReference: attempt,
+          ...(request.data.cardChangeScope === undefined ? {} : {cardChangeScope: cardChangeScope(request.data.cardChangeScope)})});
+        if (!result?.clientSecret || !result?.setupIntentReference) throw Error("Invalid SetupIntent result.");
+        return {setupIntentReference: result.setupIntentReference, clientSecret: result.clientSecret,
+          ...(result.cardChangeTargets ? {cardChangeTargets: result.cardChangeTargets.map(target => ({
+            subscriptionReference: String(target.subscriptionReference), studentId: String(target.studentId),
+            studentName: String(target.studentName || target.studentId), planId: target.planId || null}))} : {})};
+      } catch (error) {
+        if (["not-found", "failed-precondition", "invalid-argument"].includes(error?.code)) {
+          throw new HttpsError(error.code, error.message);
+        }
+        throw error;
+      }
+    }
     const customerReference = requireCustomerReference(request);
 
     const clientSecret = String(

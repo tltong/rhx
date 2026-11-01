@@ -73,3 +73,28 @@ test("Functions repository returns null when config is absent", async () => {
 
   assert.equal(await repository.get(), null);
 });
+
+test("retry policy defaults and validation are owned by the payment feature", async () => {
+  assert.deepEqual(new PaymentConfig(record).renewalRetryPolicy, {maxRetries: 3, intervalHours: 24, gracePeriodHours: 72});
+  for (const policy of [{maxRetries: 0, intervalHours: 1}, {maxRetries: 10, intervalHours: 168}]) {
+    const repository = new FirestorePaymentConfigRepository({readDocument: async () => ({...record, renewalRetryPolicy: policy})});
+    assert.deepEqual((await repository.get()).renewalRetryPolicy, {...policy, gracePeriodHours: 72});
+  }
+  for (const policy of [null, [], {maxRetries: -1, intervalHours: 24}, {maxRetries: 11, intervalHours: 24},
+    {maxRetries: 3, intervalHours: 0}, {maxRetries: 3, intervalHours: 169},
+    {maxRetries: "3", intervalHours: 24}, {maxRetries: 3, intervalHours: 1.5}]) {
+    assert.throws(() => new PaymentConfig({...record, renewalRetryPolicy: policy}), /retry policy/);
+  }
+  const frontend = await import("../../../public/config/firebase/payment_config_schema.js");
+  assert.deepEqual(frontend.paymentConfigSchema, require("../../schema/payment_config_schema").paymentConfigSchema);
+});
+
+test("grace period accepts only whole hours within the configured range", () => {
+  for (const gracePeriodHours of [1, 72, 1680]) {
+    const policy = {maxRetries: 3, intervalHours: 24, gracePeriodHours};
+    assert.equal(new PaymentConfig({...record, renewalRetryPolicy: policy}).renewalRetryPolicy.gracePeriodHours, gracePeriodHours);
+  }
+  for (const gracePeriodHours of [0, -1, 1681, 1.5, "72", null]) {
+    assert.throws(() => new PaymentConfig({...record, renewalRetryPolicy: {maxRetries: 3, intervalHours: 24, gracePeriodHours}}), /grace period/);
+  }
+});

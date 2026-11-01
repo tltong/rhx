@@ -43,6 +43,9 @@ const mocks = {
       window.setupCalls.push(reference); return "seti_fixture_secret_fixture";
     }
     export async function deleteCustomer(reference) {
+      window.deleteCalls.push(reference);
+      if (window.fixture.deferDelete) await new Promise(resolve => {window.releaseDelete = resolve;});
+      if (window.fixture.deleteError) throw new Error("Customer deletion unavailable");
       window.fixture.customers = window.fixture.customers.filter(c => c.customerReference !== reference);
       return reference;
     }
@@ -95,7 +98,7 @@ async function openPage({width = 1360, saved, query = "", ...overrides} = {}) {
       Singapore: {currency: "SGD", plans: [{id: "sg-monthly", name: "Singapore monthly", months: 1, fee: 10}]},
     }, ...overrides};
     window.subscriptionCalls = []; window.catalogRequests = []; window.releasePlans = {}; window.setupRecoveries = 0;
-    window.setupCalls = []; window.pendingCustomers = []; window.customerListCalls = 0;
+    window.setupCalls = []; window.pendingCustomers = []; window.customerListCalls = 0; window.deleteCalls = [];
     if (saved) sessionStorage.setItem("rhx.stripePaymentTest.checkoutState.v1", JSON.stringify(saved));
   }, {saved, overrides});
   await page.goto(origin + pagePath + query, {waitUntil: "domcontentloaded"});
@@ -248,6 +251,8 @@ test("a newly created customer is selected even when an earlier list response ar
     await page.evaluate(() => window.pendingCustomers[0].resolve(window.pendingCustomers[0].result));
     assert.equal(await page.$eval("#setup-customer-reference", el => el.value), "cus_created");
     assert.equal(await page.$eval("#subscription-customer-reference", el => el.value), "cus_created");
+    assert.equal(await page.$eval("#stripe-customer-reference", el => el.value), "cus_created");
+    assert.equal(await page.$eval("#confirm-delete", el => el.checked), false);
   } finally {await page.close();}
 });
 
@@ -264,9 +269,8 @@ test("customer reloads recover failures, restore a saved choice, and clear delet
     await page.$eval("#reload-stripe-customers", el => el.click());
     await page.waitForFunction(() => !document.getElementById("setup-customer-reference").disabled);
     await page.select("#setup-customer-reference", "cus_second");
+    await page.select("#stripe-customer-reference", "cus_second");
     await page.evaluate(() => {
-      const field = document.getElementById("stripe-customer-reference"); field.value = "cus_second";
-      field.dispatchEvent(new Event("input", {bubbles: true}));
       const consent = document.getElementById("confirm-delete"); consent.checked = true;
       consent.dispatchEvent(new Event("change", {bubbles: true}));
     });
@@ -280,5 +284,114 @@ test("customer reloads recover failures, restore a saved choice, and clear delet
     await page.$eval("#reload-stripe-customers", el => el.click());
     await page.waitForFunction(() => document.getElementById("stripe-customer-options-status").textContent.includes("PROD"));
     assert.doesNotMatch(await page.$eval("#setup-customer-reference", el => el.textContent), /cus_fixture|cus_saved/);
+    assert.doesNotMatch(await page.$eval("#stripe-customer-reference", el => el.textContent), /cus_fixture|cus_saved/);
+  } finally {await page.close();}
+});
+
+test("Step 7 deletes only the selected customer after confirmation and blocks repeat submissions", async () => {
+  for (const width of [390, 1360]) {
+    const page = await openPage({width, deferDelete: true});
+    try {
+      await page.waitForFunction(() => !document.getElementById("stripe-customer-reference").disabled);
+      assert.equal(await page.$eval("#stripe-customer-reference", el => el.tagName), "SELECT");
+      assert.match(await page.$eval("#stripe-customer-reference", el => el.textContent), /second@example.test \(cus_second\)/);
+      assert.equal(await page.evaluate(() => window.customerListCalls), 1);
+      assert.equal(await page.$eval("#stripe-customer-reference", el => el.value), "");
+      await page.$eval("#delete-customer-form", el => el.dispatchEvent(new Event("submit", {cancelable: true})));
+      assert.deepEqual(await page.evaluate(() => window.deleteCalls), []);
+      await page.select("#stripe-customer-reference", "cus_fixture");
+      assert.equal(await page.$eval("#delete-customer-button", el => el.disabled), true);
+      await page.click("#confirm-delete");
+      await page.select("#stripe-customer-reference", "cus_second");
+      assert.equal(await page.$eval("#confirm-delete", el => el.checked), false);
+      assert.equal(await page.$eval("#delete-customer-button", el => el.disabled), true);
+      await page.select("#setup-customer-reference", "cus_saved");
+      assert.equal(await page.$eval("#stripe-customer-reference", el => el.value), "cus_second");
+      await page.click("#confirm-delete");
+      await page.$eval("#delete-customer-button", el => el.click());
+      await page.waitForFunction(() => window.deleteCalls.length === 1);
+      assert.equal(await page.$eval("#stripe-customer-reference", el => el.disabled), true);
+      assert.equal(await page.$eval("#confirm-delete", el => el.disabled), true);
+      await page.$eval("#delete-customer-form", el => el.dispatchEvent(new Event("submit", {cancelable: true})));
+      assert.deepEqual(await page.evaluate(() => window.deleteCalls), ["cus_second"]);
+      await page.evaluate(() => window.releaseDelete());
+      await page.waitForFunction(() => !document.getElementById("reload-delete-customers").disabled);
+      assert.equal(await page.$eval("#setup-customer-reference", el => el.value), "cus_saved");
+      assert.equal(await page.$eval("#stripe-customer-reference", el => el.value), "");
+      assert.equal(await page.$eval("#confirm-delete", el => el.checked), false);
+      assert.equal(await page.$eval("#delete-customer-button", el => el.disabled), true);
+      for (const selector of ["#stripe-customer-reference", "#setup-customer-reference"]) {
+        assert.doesNotMatch(await page.$eval(selector, el => el.textContent), /cus_second/);
+      }
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    } finally {await page.close();}
+  }
+});
+
+test("Step 7 handles loading, errors, empty lists, and mode changes with its own reload button", async () => {
+  const page = await openPage({deferCustomers: true});
+  try {
+    await page.waitForFunction(() => window.pendingCustomers.length === 1);
+    await page.$eval("#confirm-delete", el => {el.checked = true;});
+    await page.$eval("#delete-customer-form", el => el.dispatchEvent(new Event("submit", {cancelable: true})));
+    assert.deepEqual(await page.evaluate(() => window.deleteCalls), []);
+    await page.evaluate(() => {
+      window.fixture.deferCustomers = false;
+      window.pendingCustomers[0].resolve(window.pendingCustomers[0].result);
+    });
+    await page.waitForFunction(() => !document.getElementById("stripe-customer-reference").disabled);
+    await page.select("#stripe-customer-reference", "cus_second");
+    await page.click("#confirm-delete");
+    await page.evaluate(() => {window.fixture.customerError = true;});
+    await page.$eval("#reload-delete-customers", el => el.click());
+    await page.waitForFunction(() => document.getElementById("delete-customer-options-status").classList.contains("is-error"));
+    assert.equal(await page.$eval("#stripe-customer-reference", el => el.disabled), true);
+    assert.equal(await page.$eval("#confirm-delete", el => el.checked), false);
+    assert.equal(await page.$eval("#delete-customer-button", el => el.disabled), true);
+    await page.evaluate(() => {window.fixture.customerError = false; window.fixture.customers = [];});
+    await page.$eval("#reload-delete-customers", el => el.click());
+    await page.waitForFunction(() => document.getElementById("delete-customer-options-status").textContent.includes("No Stripe customers"));
+    await page.$eval("#confirm-delete", el => {el.checked = true;});
+    await page.$eval("#delete-customer-form", el => el.dispatchEvent(new Event("submit", {cancelable: true})));
+    assert.deepEqual(await page.evaluate(() => window.deleteCalls), []);
+    await page.evaluate(() => {
+      window.fixture.mode = "prod";
+      window.fixture.customers = [{customerReference: "cus_live", email: "live@example.test"}];
+    });
+    await page.$eval("#reload-delete-customers", el => el.click());
+    await page.waitForFunction(() => document.getElementById("delete-customer-options-status").textContent.includes("PROD"));
+    assert.doesNotMatch(await page.$eval("#stripe-customer-reference", el => el.textContent), /cus_fixture|cus_second|cus_saved/);
+    await page.select("#setup-customer-reference", "cus_live");
+    await page.$eval("#create-setup-intent-button", el => el.click());
+    await page.waitForFunction(() => !document.getElementById("client-secret-result").hidden);
+    await page.$eval("#mount-payment-element-button", el => el.click());
+    await page.waitForFunction(() => !document.getElementById("setup-context-result").hidden);
+    assert.equal(await page.$eval("#reload-stripe-customers", el => el.disabled), true);
+    await page.select("#stripe-customer-reference", "cus_live");
+    await page.click("#confirm-delete");
+    await page.$eval("#reload-delete-customers", el => el.click());
+    await page.waitForFunction(() => !document.getElementById("reload-delete-customers").disabled);
+    assert.equal(await page.$eval("#stripe-customer-reference", el => el.value), "cus_live");
+    assert.equal(await page.$eval("#confirm-delete", el => el.checked), false);
+    assert.equal(await page.$eval("#setup-customer-reference", el => el.value), "cus_live");
+    assert.equal(await page.$eval("#setup-customer-reference", el => el.disabled), true);
+    assert.equal(await page.$eval("#setup-context-result", el => el.hidden), false);
+  } finally {await page.close();}
+});
+
+test("a failed deletion preserves the selected customer for an explicit retry", async () => {
+  const page = await openPage({deleteError: true});
+  try {
+    await page.waitForFunction(() => !document.getElementById("stripe-customer-reference").disabled);
+    await page.select("#stripe-customer-reference", "cus_second");
+    await page.click("#confirm-delete");
+    await page.$eval("#delete-customer-button", el => el.click());
+    await page.waitForFunction(() => document.getElementById("delete-status").classList.contains("is-error"));
+    assert.equal(await page.$eval("#stripe-customer-reference", el => el.value), "cus_second");
+    assert.equal(await page.$eval("#delete-customer-button", el => el.disabled), false);
+    await page.evaluate(() => {window.fixture.deleteError = false;});
+    await page.$eval("#delete-customer-button", el => el.click());
+    await page.waitForFunction(() => document.getElementById("delete-status").textContent.includes("was deleted"));
+    assert.deepEqual(await page.evaluate(() => window.deleteCalls), ["cus_second", "cus_second"]);
   } finally {await page.close();}
 });

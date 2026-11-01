@@ -3,7 +3,9 @@ import {
 } from "../../../utils/firebase/firebase_ops.js";
 import {
   StripePaymentGateway
-} from "../domain/stripe_payment_gateway.js?v=20260914-complete-payment-v1";
+} from "../domain/stripe_payment_gateway.js?v=20261028-saved-card-retry-v1";
+import {FirebaseCallableStripeSubscriptionPaymentGateway}
+  from "../../stripe_payment_subscription/infrastructure/firebase_callable_stripe_subscription_payment_gateway.js?v=20261028-subscription-feature-v1";
 
 const FIREBASE_FUNCTIONS_REGION = "us-central1";
 
@@ -13,6 +15,7 @@ export class FirebaseCallableStripePaymentGateway
     super();
     this.getApp = getApp;
     this.functions = null;
+    this.subscriptionGateway = new FirebaseCallableStripeSubscriptionPaymentGateway({getApp});
   }
 
   getFunctions() {
@@ -32,8 +35,8 @@ export class FirebaseCallableStripePaymentGateway
     return this.functions;
   }
 
-  async call(functionName, data) {
-    const callable = this.getFunctions().httpsCallable(functionName);
+  async call(functionName, data, options) {
+    const callable = this.getFunctions().httpsCallable(functionName, options);
     const response = await callable(data);
 
     return response?.data;
@@ -57,9 +60,9 @@ export class FirebaseCallableStripePaymentGateway
   }
 
   async createSetupIntent(customerReference) {
-    return this.call("createStripeSetupIntent", {
-      customerReference
-    });
+    return typeof customerReference === "string"
+      ? this.call("createStripeSetupIntent", {customerReference})
+      : this.subscriptionGateway.createSubscriptionCardSetup(customerReference);
   }
 
   async createSubscription(input) {
@@ -67,12 +70,22 @@ export class FirebaseCallableStripePaymentGateway
   }
 
   async getSubscriptionPaymentAction(subscriptionReference) {
-    return this.call("getStripeSubscriptionPaymentAction", {
-      subscriptionReference
-    });
+    return this.subscriptionGateway.getSubscriptionPaymentAction(subscriptionReference);
+  }
+
+  async retrySubscriptionPayment(input) {
+    return this.subscriptionGateway.retrySubscriptionPayment(input);
   }
 
   async getClientConfig() {
     return this.call("getStripeClientConfig", {});
+  }
+
+  async getSubscriptionPaymentDetails(input) {
+    return this.subscriptionGateway.getSubscriptionPaymentDetails(input);
+  }
+
+  async updateSubscriptionPaymentMethod(input) {
+    return this.subscriptionGateway.updateSubscriptionPaymentMethod(input);
   }
 }

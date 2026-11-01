@@ -32,7 +32,8 @@ export class SubmitPracticeSession {
     this.now = requireFunction(now, "now");
   }
 
-  async execute(sessionInput) {
+  async execute(sessionInput, {assertAccess = () => {}} = {}) {
+    assertAccess();
     const session = sessionInput instanceof PracticeSession
       ? sessionInput
       : new PracticeSession(sessionInput);
@@ -42,6 +43,7 @@ export class SubmitPracticeSession {
     };
     const existingResult = await this.getPracticeResult(resultKey);
 
+    assertAccess();
     if (existingResult) {
       await this.completeAssignedPractice(existingResult);
       return existingResult;
@@ -51,6 +53,7 @@ export class SubmitPracticeSession {
       session.toResultSubmission(this.now())
     );
 
+    assertAccess();
     await this.completeAssignedPractice(practiceResult);
 
     return practiceResult;

@@ -1,6 +1,6 @@
 import {
   PaymentConfig
-} from "../domain/payment_config.js?v=20260901-payment-config-simple-v1";
+} from "../domain/payment_config.js?v=20261031-renewal-restart-v1";
 
 export class SavePaymentConfig {
   constructor(paymentConfigRepository) {

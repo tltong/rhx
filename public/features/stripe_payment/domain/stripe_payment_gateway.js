@@ -28,4 +28,16 @@ export class StripePaymentGateway {
   async getClientConfig() {
     throw new Error("getClientConfig() is not implemented.");
   }
+
+  async retrySubscriptionPayment(input) {
+    throw new Error("retrySubscriptionPayment() is not implemented.");
+  }
+
+  async getSubscriptionPaymentDetails(input) {
+    throw new Error("getSubscriptionPaymentDetails() is not implemented.");
+  }
+
+  async updateSubscriptionPaymentMethod(input) {
+    throw new Error("updateSubscriptionPaymentMethod() is not implemented.");
+  }
 }

@@ -65,6 +65,10 @@ class StripeCustomerRepository {
     throw new Error("writeSubscription() is not implemented.");
   }
 
+  async initializeSubscription(_record) {
+    throw new Error("initializeSubscription() is not implemented.");
+  }
+
   async getSubscription(_input) {
     throw new Error("getSubscription() is not implemented.");
   }

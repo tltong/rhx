@@ -23,7 +23,7 @@ import {
 } from "../stream/stream_module.js?v=20260823-stream-language-v1";
 import {
   getStudentAcademicScope
-} from "../student/student_module.js?v=20260825-stream-syllabus-subscriptions-v1";
+} from "../student/student_module.js?v=20261031-renewal-restart-v1";
 import {
   GetStudentStreamSubscription
 } from "./application/get_student_stream_subscription.js?v=20260823-stream-subscription-v1";

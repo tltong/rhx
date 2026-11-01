@@ -91,16 +91,12 @@ function createStripeTestWebhookHandlers({
     }
 
     try {
-      let outcome = await processSetupIntentEvent({
-        mode: "test",
-        event,
-      });
-
-      if (outcome?.handled !== true) {
-        outcome = await processSubscriptionEvent({
-          mode: "test",
-          event,
-        });
+      let outcome = {handled: false};
+      const type = String(event?.type || "");
+      if (type.startsWith("invoice.") || type.startsWith("customer.subscription.") || type.startsWith("payment_intent.")) {
+        outcome = await processSubscriptionEvent({mode: "test", event});
+      } else if (type.startsWith("setup_intent.")) {
+        outcome = await processSetupIntentEvent({mode: "test", event});
       }
 
       eventLogger.info("Stripe test webhook event processed.", {

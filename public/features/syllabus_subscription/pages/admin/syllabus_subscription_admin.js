@@ -1,6 +1,6 @@
 import {
   listStudents
-} from "../../../student/student_module.js?v=20260823-student-country-v1";
+} from "../../../student/student_module.js?v=20261031-renewal-restart-v1";
 
 import {
   getSyllabusById

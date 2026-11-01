@@ -3,7 +3,7 @@
  *
  * getPaymentConfig()
  *   -> Promise<PaymentConfig|null>
- * savePaymentConfig({provider, mode, customData})
+ * savePaymentConfig({provider, mode, customData, renewalRetryPolicy?})
  *   -> Promise<PaymentConfig>
  */
 import {
@@ -11,14 +11,15 @@ import {
 } from "./application/get_payment_config.js?v=20260901-payment-config-simple-v1";
 import {
   SavePaymentConfig
-} from "./application/save_payment_config.js?v=20260901-payment-config-simple-v1";
+} from "./application/save_payment_config.js?v=20261031-renewal-restart-v1";
 import {
   paymentModes,
-  paymentProviders
-} from "./domain/payment_config.js?v=20260915-payment-provider-enum-v1";
+  paymentProviders,
+  defaultRenewalRetryPolicy
+} from "./domain/payment_config.js?v=20261031-renewal-restart-v1";
 import {
   FirestorePaymentConfigRepository
-} from "./infrastructure/firestore_payment_config_repository.js?v=20260901-payment-config-simple-v1";
+} from "./infrastructure/firestore_payment_config_repository.js?v=20261031-renewal-restart-v1";
 
 const paymentConfigRepository = new FirestorePaymentConfigRepository();
 const getPaymentConfigUseCase = new GetPaymentConfig(
@@ -40,5 +41,6 @@ export {
   getPaymentConfig,
   paymentModes,
   paymentProviders,
+  defaultRenewalRetryPolicy,
   savePaymentConfig
 };

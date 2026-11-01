@@ -1,18 +1,18 @@
 import {
   SUBSCRIPTIONS_COLLECTION,
   SUBSCRIPTION_PAYMENTS_SUBCOLLECTION
-} from "../../../config/firebase/subscription_schema.js?v=20260915-student-payment-link-v1";
+} from "../../../config/firebase/subscription_schema.js?v=20261031-renewal-restart-v1";
 import {
   createDocument,
   createDocumentIfAbsent,
   readCollection,
   readDocument,
   writeDocument
-} from "../../../utils/firebase/firebase_ops.js";
+} from "../../../utils/firebase/firebase_ops.js?v=20261031-renewal-restart-v1";
 import {
   StudentSubscription,
   SubscriptionPayment
-} from "../domain/student_subscription.js?v=20260915-student-payment-link-v1";
+} from "../domain/student_subscription.js?v=20261031-subscription-cancel-v1";
 import {
   StudentSubscriptionRepository
 } from "../domain/student_subscription_repository.js";
@@ -43,6 +43,11 @@ function toSubscription(studentId, data) {
   return new StudentSubscription({
     studentId,
     subscriptionType: data.subscriptionType,
+    billingSummary: data.billingSummary,
+    renewalRecovery: data.renewalRecovery,
+    renewalGraceUntil: data.renewalGraceUntil,
+    subscriptionCancellation: data.subscriptionCancellation,
+    applicationStatus: data.applicationStatus,
     activeUntil: data.activeUntil,
     paymentProvider: data.paymentProvider,
     paymentMode: data.paymentMode,
@@ -121,14 +126,15 @@ function timestampToMillis(value) {
 
 export class FirestoreStudentSubscriptionRepository
   extends StudentSubscriptionRepository {
-  async getSubscription(studentId) {
+  async getSubscription(studentId, {source} = {}) {
     const normalizedStudentId = requireNonEmptyString(
       studentId,
       "studentId"
     );
     const data = await readDocument(
       SUBSCRIPTIONS_COLLECTION,
-      normalizedStudentId
+      normalizedStudentId,
+      source ? {source} : {}
     );
 
     return toSubscription(normalizedStudentId, data);
@@ -138,7 +144,7 @@ export class FirestoreStudentSubscriptionRepository
     await createDocumentIfAbsent(
       SUBSCRIPTIONS_COLLECTION,
       subscription.studentId,
-      toSubscriptionRecord(subscription)
+      {...toSubscriptionRecord(subscription), applicationStatus: subscription.applicationStatus}
     );
 
     return subscription;
@@ -149,7 +155,7 @@ export class FirestoreStudentSubscriptionRepository
       SUBSCRIPTIONS_COLLECTION,
       subscription.studentId,
       toSubscriptionRecord(subscription),
-      { merge: false }
+      { merge: true }
     );
 
     return subscription;
@@ -177,7 +183,9 @@ export class FirestoreStudentSubscriptionRepository
       getPaymentsCollectionPath(normalizedStudentId)
     );
 
+    const subscription = await this.getSubscription(normalizedStudentId);
     return records
+      .filter(record => !record.paymentMode || record.paymentMode === subscription?.paymentMode)
       .map((record) => toPayment(normalizedStudentId, record))
       .sort((first, second) => (
         timestampToMillis(second.paymentDate)

@@ -4,6 +4,9 @@
  * createPaymentProvider() -> Promise<PaymentProvider>
  * createPaymentProviderContext()
  *   -> Promise<{providerName: string, mode: string, paymentProvider}>
+ * createPaymentProviderForContext({providerName, mode})
+ *   -> {providerName, mode, paymentProvider} from a trusted stored context;
+ *      does not use the mutable default provider/mode configuration.
  */
 const {
   getPaymentConfig,
@@ -37,5 +40,6 @@ const paymentProviderSecrets = stripeSecretKeys;
 module.exports = {
   createPaymentProvider,
   createPaymentProviderContext,
+  createPaymentProviderForContext: input => createPaymentProviderUseCase.executeForContext({...input, requestTimeoutMs: 15000}),
   paymentProviderSecrets,
 };

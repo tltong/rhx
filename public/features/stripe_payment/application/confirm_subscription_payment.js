@@ -1,5 +1,6 @@
 import {
-  normalizeStripeClientSecret
+  normalizeStripeClientSecret,
+  normalizeStripeSetupContextReference
 } from "../domain/stripe_payment_references.js?v=20260912-stripe-subscription-confirm-v1";
 import {
   normalizeStripeRedirectBehavior
@@ -42,7 +43,8 @@ function normalizePaymentIntent(paymentIntent) {
 }
 
 export class ConfirmStripeSubscriptionPayment {
-  constructor({getStripeClientConfig, stripePaymentConfirmationGateway}) {
+  constructor({getStripeClientConfig, stripePaymentConfirmationGateway, stripeSetupGateway = null}) {
+    this.stripeSetupGateway = stripeSetupGateway;
     this.getStripeClientConfig = getStripeClientConfig;
     this.stripePaymentConfirmationGateway =
       stripePaymentConfirmationGateway;
@@ -50,13 +52,23 @@ export class ConfirmStripeSubscriptionPayment {
 
   async execute({
     paymentClientSecret,
+    contextReference,
     returnUrl,
-    redirectBehavior = "if_required"
+    redirectBehavior = "if_required",
+    authenticationOnly = false,
+    useSavedCard = false
   } = {}) {
-    const clientSecret = normalizeStripeClientSecret(paymentClientSecret);
     const normalizedReturnUrl = requireReturnUrl(returnUrl);
     const normalizedRedirectBehavior =
       normalizeStripeRedirectBehavior(redirectBehavior);
+    if (contextReference) {
+      if (authenticationOnly || useSavedCard) throw Error("Card entry cannot be combined with authentication-only or saved-card mode.");
+      return normalizePaymentIntent(await this.stripeSetupGateway.confirmPayment({
+        contextReference: normalizeStripeSetupContextReference(contextReference),
+        returnUrl: normalizedReturnUrl, redirectBehavior: normalizedRedirectBehavior}));
+    }
+    const clientSecret = normalizeStripeClientSecret(paymentClientSecret);
+    if (authenticationOnly && useSavedCard) throw Error("Choose either authentication or saved-card confirmation.");
     const config = await this.getStripeClientConfig();
 
     return normalizePaymentIntent(
@@ -64,7 +76,9 @@ export class ConfirmStripeSubscriptionPayment {
         publishableKey: config.publishableKey,
         clientSecret,
         returnUrl: normalizedReturnUrl,
-        redirectBehavior: normalizedRedirectBehavior
+        redirectBehavior: normalizedRedirectBehavior,
+        ...(authenticationOnly ? {authenticationOnly: true} : {}),
+        ...(useSavedCard ? {useSavedCard: true} : {})
       })
     );
   }

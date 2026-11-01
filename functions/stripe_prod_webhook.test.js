@@ -112,7 +112,6 @@ test("production webhook routes invoice.paid to subscription processing", async 
   assert.equal(response.statusCode, 200);
   assert.deepEqual(response.body, {received: true, handled: true});
   assert.deepEqual(calls, [
-    ["setup", {mode: "prod", event}],
     ["subscription", {mode: "prod", event}],
   ]);
 });
@@ -206,4 +205,17 @@ test("production webhook rejects non-POST requests", async () => {
 
   assert.equal(response.statusCode, 405);
   assert.equal(response.headers.Allow, "POST");
+});
+
+test("prod webhook routes verified PaymentIntent events into subscription recovery", async () => {
+  const event = {id: "evt_recovery", type: "payment_intent.succeeded"}, calls = [];
+  const {stripeProdWebhookHandler} = createStripeProdWebhookHandlers({
+    constructWebhookEvent: () => event, readWebhookSecret: () => "whsec_test_value", eventLogger: silentLogger,
+    processSubscriptionEvent: async input => {calls.push(input); return {handled: true};},
+    processSetupIntentEvent: async () => {throw Error("Wrong feature");},
+  });
+  const response = createResponse();
+  await stripeProdWebhookHandler({method: "POST", rawBody: Buffer.from("{}"), headers: {"stripe-signature": "verified"}}, response);
+  assert.equal(response.statusCode, 200); assert.equal(calls.length, 1); assert.equal(calls[0].mode, "prod");
+  assert.equal(calls[0].event, event);
 });

@@ -58,6 +58,27 @@
           </div>
         </section>
 
+        <section class="config-section" aria-labelledby="renewal-retries-heading">
+          <h2 id="renewal-retries-heading">Renewal retries and access suspension</h2>
+          <p>Configure the retry count, retry interval and suspension grace period separately.
+            The grace period starts at the first failed renewal payment. Access stays active until
+            grace ends, even if all automatic retries finish earlier. Only retries scheduled within
+            grace run automatically. A retry due exactly at the grace deadline is skipped.
+            Successful payment starts a full new billing period.
+            Changes apply to newly failed renewals.</p>
+          <div class="field-grid general-grid">
+            <label>Additional automatic retries
+              <input id="renewal-max-retries" type="number" min="0" max="10" step="1" required value="3">
+            </label>
+            <label>Interval between retries (hours)
+              <input id="renewal-retry-interval" type="number" min="1" max="168" step="1" required value="24">
+            </label>
+            <label>Grace period before access suspension (hours)
+              <input id="renewal-grace-period" type="number" min="1" max="1680" step="1" required value="72">
+            </label>
+          </div>
+        </section>
+
         <section class="config-section" aria-labelledby="custom-data-heading">
           <div class="section-heading">
             <div>
@@ -82,7 +103,7 @@
       id="site-admin-page-loader"
       type="module"
       data-site-admin-page
-      data-page-module="./payment_admin.js?v=20260915-payment-provider-enum-v1"
+      data-page-module="./payment_admin.js?v=20261031-renewal-restart-v1"
       src="/features/site_admin/pages/common/site_admin_page_loader.js?v=20260827-site-admin-guard-v1"
     ></script>
   </body>

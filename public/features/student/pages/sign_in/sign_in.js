@@ -3,7 +3,7 @@ import {
   onStudentAuthStateChanged,
   signInStudent,
   signOutStudent
-} from "../../student_module.js?v=20260716-no-eager-auth";
+} from "../../student_module.js?v=20261031-renewal-restart-v1";
 
 const STUDENT_EMAIL_DOMAIN = "rhx.com";
 const STUDENT_LANDING_URL =

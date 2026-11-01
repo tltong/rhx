@@ -8,7 +8,7 @@ import { CreateStudent } from "./application/create_student.js?v=20260825-studen
 import { UpdateStudent } from "./application/update_student.js?v=20260716-no-eager-auth";
 import { DeleteStudent } from "./application/delete_student.js?v=20260716-no-eager-auth";
 import { CurrentStudentSession } from "./application/current_student_session.js?v=20260716-no-eager-auth";
-import { getStudentAuthService } from "./auth/student_auth_service.js?v=20260716-no-eager-auth";
+import { getStudentAuthService } from "./auth/student_auth_service.js?v=20261031-renewal-restart-v1";
 import { findSyllabusScopeByCountry } from "../syllabusscope/syllabusscope_module.js?v=20260823-student-country-v1";
 import { studentLevels } from "../../config/firebase/student_schema.js";
 

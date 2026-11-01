@@ -1,10 +1,18 @@
+const {holdStripeRenewalBilling, restartStripeRenewalBilling} = require("./stripe_renewal_billing");
+const {scheduleStripePlanChange, confirmedStripePlanChange} = require("./stripe_subscription_plan_change");
 const {randomUUID} = require("node:crypto");
+const {cancelStripeSubscriptionNow} = require("./stripe_subscription_cancellation");
+const {retrieveStripeSetupIntent, updateStripeSubscriptionPaymentMethod, key} =
+  require("./stripe_subscription_card");
 const {
   retrieveStripeInvoicePaymentContext,
+  payStripeInvoice,
+  disableStripeInvoiceAutomaticCollection,
 } = require("./stripe_invoice");
 const {
   createStripeSubscription,
   retrieveStripeSubscription,
+  getOrCreatePrice,
 } = require("./stripe_subscription");
 
 function requireInputReference(value) {
@@ -177,7 +185,7 @@ class StripePayment {
     return deletedReference;
   }
 
-  async createSetupIntent(customerReference) {
+  async createSetupIntent(customerReference, options = null) {
     const reference = requireCustomerReference(customerReference);
 
     if (typeof this.stripeClient?.setupIntents?.create !== "function") {
@@ -186,13 +194,22 @@ class StripePayment {
       );
     }
 
-    const setupIntent = await this.stripeClient.setupIntents.create({
+    const parameters = {
       customer: reference,
       usage: "off_session",
       automatic_payment_methods: {
         enabled: true,
       },
-    });
+    };
+    if (options) {
+      delete parameters.automatic_payment_methods;
+      parameters.payment_method_types = ["card"];
+      parameters.metadata = options.metadata;
+    }
+    const setupIntent = options
+      ? await this.stripeClient.setupIntents.create(parameters, {
+        idempotencyKey: key("subscription-card-setup-", [reference, options.metadata, options.idempotencyReference]),
+      }) : await this.stripeClient.setupIntents.create(parameters);
     const setupIntentReference = String(setupIntent?.id ?? "").trim();
     const clientSecret = String(
       setupIntent?.client_secret ?? "",
@@ -292,18 +309,54 @@ class StripePayment {
     return createStripeSubscription(this.stripeClient, input);
   }
 
-  async retrieveSubscription(subscriptionReference) {
+  async cancelSubscriptionNow(input) {
+    return cancelStripeSubscriptionNow(this.stripeClient, input);
+  }
+
+  async retrieveSubscription(subscriptionReference, options) {
     return retrieveStripeSubscription(
       this.stripeClient,
       subscriptionReference,
+      options,
     );
   }
 
-  async retrieveInvoicePaymentContext(invoiceReference) {
+  async retrieveInvoicePaymentContext(invoiceReference, options) {
     return retrieveStripeInvoicePaymentContext(
       this.stripeClient,
       invoiceReference,
+      options,
     );
+  }
+
+  async payInvoice(input) {
+    return payStripeInvoice(this.stripeClient, input);
+  }
+
+  async disableInvoiceAutomaticCollection(invoiceReference) {
+    return disableStripeInvoiceAutomaticCollection(this.stripeClient, invoiceReference);
+  }
+
+  async retrieveSetupIntent(reference) {
+    return retrieveStripeSetupIntent(this.stripeClient, reference);
+  }
+
+  async holdRenewalBilling(input) {return holdStripeRenewalBilling(this.stripeClient, input);}
+  async renewalEpisodeOperation(operation, episode) {
+    const operations = require("./stripe_renewal_episode");
+    if (!["ensurePaused", "dropInvoice", "createDraft", "createPayment", "payment", "confirm", "cancelPayment", "settleInvoice", "resumePrepaid"].includes(operation)) {
+      throw Error("Unsupported recovery operation.");
+    }
+    return operation === "dropInvoice" ? operations.dropInvoice(this.stripeClient, episode, episode.targetInvoiceReference)
+      : operations[operation](this.stripeClient, episode);
+  }
+  async resolveSubscriptionPrice(terms) {return getOrCreatePrice(this.stripeClient, terms);}
+  async scheduleSubscriptionPlanChange(input) {return scheduleStripePlanChange(this.stripeClient, input);}
+  async confirmedSubscriptionPlanChange(input) {return confirmedStripePlanChange(this.stripeClient, input);}
+  async restartRenewalBilling(input) {return restartStripeRenewalBilling(this.stripeClient, input);}
+
+  async updateSubscriptionPaymentMethod(input) {
+    return updateStripeSubscriptionPaymentMethod(this.stripeClient, input);
   }
 }
 

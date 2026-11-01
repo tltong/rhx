@@ -1,7 +1,7 @@
 import {
   confirmSubscriptionPayment,
   getStripeSubscriptionPaymentAction
-} from "../../stripe_payment_module.js?v=20260917-student-link-v1";
+} from "../../stripe_payment_module.js?v=20261031-initial-confirm-v1";
 import {
   onFirebaseAuthStateChanged
 } from "../../../../utils/firebase/firebase_auth.js";
@@ -37,6 +37,7 @@ let subscriptionReference = null;
 let currentPaymentAction = null;
 let activeUserId = null;
 let isBusy = false;
+let authGeneration = 0;
 
 function cleanStripeReturnParameters() {
   const url = new URL(window.location.href);
@@ -149,24 +150,33 @@ function renderAction(action) {
   renderSummary(action);
 
   switch (action.action) {
-    case "confirm_payment":
-      paymentHeading.textContent = "Authentication required";
+    case "confirm_payment": {
+      const initialConfirmation = action.paymentStatus === "requires_confirmation";
+      paymentHeading.textContent = initialConfirmation
+        ? "Payment confirmation required" : "Authentication required";
       actionIcon.textContent = "!";
       actionHeading.textContent = "Confirm this payment";
-      actionDescription.textContent =
-        "Your bank requires an additional authentication step. " +
-        "Select Authenticate Payment to continue securely with Stripe.";
+      confirmPaymentButton.textContent = initialConfirmation
+        ? "Pay " + formatAmount(action.amountDue, action.currency)
+        : "Authenticate Payment";
+      actionDescription.textContent = initialConfirmation
+        ? "Select Pay to submit your first subscription payment using your saved card. " +
+          "Your bank may ask you to authenticate the payment."
+        : "Your bank requires an additional authentication step. " +
+          "Select Authenticate Payment to continue securely with Stripe.";
       setStatus(
-        "Your subscription payment is waiting for authentication.",
+        initialConfirmation ? "Your first subscription payment has not been submitted yet."
+          : "Your subscription payment is waiting for authentication.",
         "warning"
       );
       showActions({confirm: true, refresh: true});
       break;
+    }
 
     case "complete":
       paymentHeading.textContent = "Payment complete";
       actionIcon.textContent = "✓";
-      actionHeading.textContent = "Authentication completed";
+      actionHeading.textContent = "Payment confirmed";
       actionDescription.textContent =
         "Stripe has confirmed this payment. ReadyHeroX will update " +
         "your subscription access automatically.";
@@ -202,15 +212,16 @@ function renderAction(action) {
       actionIcon.textContent = "?";
       actionHeading.textContent = "This payment cannot be completed here";
       actionDescription.textContent =
-        "The invoice is not currently waiting for authentication. " +
+        "The invoice does not currently have a payment action available here. " +
         "Check again or return to ReadyHeroX.";
       actionPanel.classList.add("is-error");
-      setStatus("No authentication action is currently available.", "error");
+      setStatus("No payment action is currently available.", "error");
       showActions({refresh: true});
   }
 }
 
 function renderSignInRequired() {
+  authGeneration++;
   activeUserId = null;
   currentPaymentAction = null;
   paymentHeading.textContent = "Sign in to continue";
@@ -255,7 +266,7 @@ function renderLoadError(error) {
     paymentHeading.textContent = "Payment action not ready";
     actionHeading.textContent = "Waiting for payment details";
     actionDescription.textContent =
-      "Stripe has not supplied a pending authentication action yet. " +
+      "Stripe has not supplied a pending payment action yet. " +
       "Wait a moment, then check again.";
     setStatus("The payment action is not ready yet.", "warning");
     return;
@@ -270,10 +281,11 @@ function renderLoadError(error) {
 }
 
 async function loadPaymentAction() {
-  if (!subscriptionReference || isBusy) {
-    return;
+  if (!subscriptionReference || !activeUserId || isBusy) {
+    return null;
   }
 
+  const generation = authGeneration;
   setBusy(true);
   setStatus("Checking your payment...");
 
@@ -282,15 +294,19 @@ async function loadPaymentAction() {
       subscriptionReference
     );
 
+    if (generation !== authGeneration) return null;
     renderAction(action);
+    return action;
   } catch (error) {
+    if (generation !== authGeneration) return null;
     console.error(
       "Could not load Stripe subscription payment action.",
       normalizedErrorCode(error) || "unknown"
     );
     renderLoadError(error);
+    return null;
   } finally {
-    setBusy(false);
+    if (generation === authGeneration) setBusy(false);
   }
 }
 
@@ -301,6 +317,7 @@ refreshPaymentButton.addEventListener("click", () => {
 confirmPaymentButton.addEventListener("click", async () => {
   if (
     isBusy
+    || !activeUserId
     || currentPaymentAction?.action !== "confirm_payment"
     || !currentPaymentAction.paymentClientSecret
   ) {
@@ -309,28 +326,38 @@ confirmPaymentButton.addEventListener("click", async () => {
 
   const paymentClientSecret =
     currentPaymentAction.paymentClientSecret;
+  const useSavedCard = currentPaymentAction.paymentStatus === "requires_confirmation";
+  const generation = authGeneration;
 
   setBusy(true);
-  setStatus("Opening secure payment authentication...", "warning");
+  setStatus(useSavedCard ? "Submitting your payment securely..."
+    : "Opening secure payment authentication...", "warning");
 
   try {
     await confirmSubscriptionPayment({
       paymentClientSecret,
-      returnUrl: currentReturnUrl()
+      returnUrl: currentReturnUrl(),
+      ...(useSavedCard ? {useSavedCard: true} : {authenticationOnly: true})
     });
+    if (generation !== authGeneration) return;
     setBusy(false);
-    setStatus("Authentication received. Checking payment...", "warning");
     await loadPaymentAction();
   } catch (error) {
+    if (generation !== authGeneration) return;
     console.error(
       "Stripe subscription payment confirmation failed.",
       normalizedErrorCode(error) || "stripe_error"
     );
-    setStatus(
-      error?.message || "Stripe could not confirm this payment.",
-      "error"
-    );
+    // A lost response can follow a successful charge. Recheck the invoice
+    // before offering another action, and trust paid/processing over the error.
+    currentPaymentAction = null;
+    showActions({refresh: true});
     setBusy(false);
+    const action = await loadPaymentAction();
+    if (generation !== authGeneration) return;
+    if (action && !["complete", "wait"].includes(action.action)) {
+      setStatus(error?.message || "Stripe could not confirm this payment.", "error");
+    }
   }
 });
 
@@ -361,6 +388,12 @@ if (!subscriptionReference) {
       return;
     }
 
+    authGeneration++;
+    currentPaymentAction = null;
+    paymentSummary.hidden = true;
+    actionPanel.hidden = true;
+    showActions();
+    setBusy(false);
     activeUserId = authUser.uid;
     signInPanel.hidden = true;
     loadPaymentAction();

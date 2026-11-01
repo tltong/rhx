@@ -10,7 +10,7 @@ import {
   paymentModes,
   paymentProviders
 } from "./domain/payment_config.js?v=20260901-payment-config-simple-v1";
-import * as paymentModule from "./payment_module.js?v=20260901-payment-config-simple-v1";
+import * as paymentModule from "./payment_module.js?v=20261031-renewal-restart-v1";
 
 const validInput = {
   provider: "Stripe",
@@ -69,6 +69,18 @@ test("save payment config assigns the update timestamp", async () => {
   assert.ok(result.updatedAt instanceof Date);
 });
 
+test("retry settings survive feature saves and reject invalid limits and intervals", async () => {
+  let saved;
+  const useCase = new SavePaymentConfig({async save(config) {saved = config; return config;}});
+  await useCase.execute({...validInput, renewalRetryPolicy: {maxRetries: 5, intervalHours: 12}});
+  assert.deepEqual(saved.renewalRetryPolicy, {maxRetries: 5, intervalHours: 12, gracePeriodHours: 72});
+  assert.deepEqual(new PaymentConfig(validInput).renewalRetryPolicy, {maxRetries: 3, intervalHours: 24, gracePeriodHours: 72});
+  for (const policy of [{maxRetries: -1, intervalHours: 24}, {maxRetries: 11, intervalHours: 24},
+    {maxRetries: 3, intervalHours: 0}, {maxRetries: 3, intervalHours: 1.5}]) {
+    await assert.rejects(() => useCase.execute({...validInput, renewalRetryPolicy: policy}), /retry policy/);
+  }
+});
+
 test("payment admin page is protected and linked from Site Admin", () => {
   const pageHtml = fs.readFileSync(
     new URL("./pages/admin/payment_admin.html", import.meta.url),
@@ -89,4 +101,14 @@ test("payment admin page is protected and linked from Site Admin", () => {
     siteAdminHtml,
     /\/features\/payment\/pages\/admin\/payment_admin\.html/
   );
+});
+
+test("grace period accepts only whole hours within the configured range", () => {
+  for (const gracePeriodHours of [1, 72, 1680]) {
+    const policy = {maxRetries: 3, intervalHours: 24, gracePeriodHours};
+    assert.equal(new PaymentConfig({...validInput, renewalRetryPolicy: policy}).renewalRetryPolicy.gracePeriodHours, gracePeriodHours);
+  }
+  for (const gracePeriodHours of [0, -1, 1681, 1.5, "72", null]) {
+    assert.throws(() => new PaymentConfig({...validInput, renewalRetryPolicy: {maxRetries: 3, intervalHours: 24, gracePeriodHours}}), /grace period/);
+  }
 });

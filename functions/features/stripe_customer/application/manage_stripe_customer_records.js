@@ -94,6 +94,7 @@ class ManageStripeCustomerRecords {
     const timestamp = this.now();
     const record = new StripeSetupIntentRecord({
       ...input,
+      cardUpdate: existing?.cardUpdate ?? input?.cardUpdate,
       createdAt: existing?.createdAt ?? input?.createdAt ?? timestamp,
       updatedAt: timestamp,
     });
@@ -141,12 +142,24 @@ class ManageStripeCustomerRecords {
     const existing = await this.getSubscriptionRecord(input);
     const timestamp = this.now();
     const record = new StripeSubscriptionRecord({
+      ...existing,
       ...input,
       createdAt: existing?.createdAt ?? input?.createdAt ?? timestamp,
       updatedAt: timestamp,
     });
 
     return this.stripeCustomerRepository.writeSubscription(record);
+  }
+
+  async initializeSubscriptionRecord(input) {
+    const timestamp = this.now();
+    const record = new StripeSubscriptionRecord({
+      ...input,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+
+    return this.stripeCustomerRepository.initializeSubscription(record);
   }
 
   async getSubscriptionRecord(input) {

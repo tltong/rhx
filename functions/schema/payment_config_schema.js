@@ -10,6 +10,8 @@ const paymentModes = Object.freeze({
   PROD: "prod",
 });
 
+const defaultRenewalRetryPolicy = Object.freeze({maxRetries: 3, intervalHours: 24, gracePeriodHours: 72});
+
 
 const paymentConfigSchema = {
   collection: PAYMENT_CONFIGS_COLLECTION,
@@ -24,6 +26,11 @@ const paymentConfigSchema = {
       enum: Object.values(paymentModes),
     },
     customData: "map",
+    renewalRetryPolicy: {type: "map", fields: {
+      maxRetries: {type: "number", minimum: 0, maximum: 10},
+      intervalHours: {type: "number", minimum: 1, maximum: 168},
+      gracePeriodHours: {type: "number", minimum: 1, maximum: 1680},
+    }},
     updatedAt: "timestamp",
   },
 };
@@ -34,4 +41,5 @@ module.exports = {
   paymentProviders,
   paymentModes,
   paymentConfigSchema,
+  defaultRenewalRetryPolicy,
 };

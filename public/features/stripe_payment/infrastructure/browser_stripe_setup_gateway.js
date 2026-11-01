@@ -149,6 +149,26 @@ export class BrowserStripeSetupGateway {
     return result?.setupIntent || null;
   }
 
+  disposePaymentElement({contextReference}) {
+    const context = this.setupContexts.get(contextReference);
+    if (context) this.releaseContext(context);
+  }
+
+  async confirmPayment({contextReference, returnUrl, redirectBehavior = "if_required"}) {
+    const context = this.requireContext(contextReference);
+    const {stripe, elements, clientSecret} = readStripeSetupContext(context);
+    if (!clientSecret.startsWith("pi_")) throw Error("This context is not an invoice payment.");
+    const submitted = await elements.submit?.();
+    if (submitted?.error) throw createStripeError(submitted.error, "Check your card details.");
+    const result = await stripe.confirmPayment({elements, clientSecret,
+      confirmParams: {return_url: returnUrl}, redirect: redirectBehavior});
+    if (result?.error) throw createStripeError(result.error, "Payment could not be confirmed.");
+    if (["succeeded", "processing", "canceled"].includes(result?.paymentIntent?.status)) {
+      this.releaseContext(context);
+    }
+    return result?.paymentIntent || null;
+  }
+
   async confirmSetup({
     contextReference,
     returnUrl,

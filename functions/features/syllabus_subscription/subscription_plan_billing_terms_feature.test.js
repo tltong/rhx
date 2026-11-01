@@ -14,7 +14,7 @@ const subscriptionPlanModule = require("./subscription_plan_module");
 
 test("subscription plan module exposes normalized billing terms", () => {
   assert.deepEqual(Object.keys(subscriptionPlanModule), [
-    "getSubscriptionPlanBillingTerms",
+    "getSubscriptionPlanBillingTerms", "listSubscriptionPlanChoices",
   ]);
 });
 

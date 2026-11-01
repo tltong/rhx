@@ -1,0 +1,33 @@
+@import "./retry_subscription_payment.css?v=20261028-saved-card-retry-v1";
+.page-shell { max-width: 820px; }
+.management-panel > label, #create-subscription-section > label, #change-subscription-plan-section > label { display: block; font-weight: 700; margin-bottom: 8px; }
+.management-panel select { width: 100%; max-width: 100%; min-height: 44px; padding: 10px; border: 1px solid #9fb3c8; border-radius: 6px; background: #fff; color: #102a43; font: inherit; }
+#finish-student-subscription { margin-top: 12px; }
+.billing-banner { border: 1px solid #7dd3fc; border-radius: 9px; background: #e0f2fe; margin-top: 24px; padding: 18px; }
+.billing-banner h2 { margin: 0 0 8px; font-size: 22px; }
+.billing-banner p { margin: 0; line-height: 1.5; }
+.billing-banner.is-error { background: #fef2f2; border-color: #fca5a5; color: #991b1b; }
+.billing-banner.is-warning { background: #fff7ed; border-color: #fdba74; color: #9a3412; }
+.billing-banner.is-success { background: #ecfdf5; border-color: #86efac; color: #166534; }
+.management-panel { border: 1px solid #d9e2ec; border-radius: 9px; padding: 20px; margin-top: 20px; }
+.management-panel h2 { font-size: 21px; margin: 0 0 12px; }
+.management-panel h3 { margin: 0 0 8px; font-size: 17px; }
+.management-panel p { line-height: 1.5; }
+.card-label { font-size: 18px; font-weight: 700; }
+.invoice-details { display: grid; gap: 12px; margin: 0; }
+.invoice-details > div { display: grid; grid-template-columns: 155px minmax(0, 1fr); gap: 12px; }
+.invoice-details dt { font-size: 13px; color: #627d98; }
+.invoice-details dd { margin: 0; text-align: right; font-weight: 700; overflow-wrap: anywhere; }
+#card-entry-container { margin-top: 20px; min-height: 80px; }
+#finish-save-button { margin-top: 16px; }
+@media (max-width: 560px) {
+  .management-panel { padding: 16px; }
+  .invoice-details > div { grid-template-columns: 1fr; gap: 4px; }
+  .invoice-details dd { text-align: left; }
+}
+
+.card-scope { border: 0; padding: 0; margin: 20px 0 12px; min-width: 0; }
+.card-scope legend { font-weight: 700; margin-bottom: 10px; }
+.card-scope label { display: flex; align-items: flex-start; gap: 9px; margin: 12px 0; line-height: 1.5; }
+.card-scope input { width: auto; flex: none; margin-top: 5px; }
+.card-targets { padding-left: 22px; line-height: 1.6; overflow-wrap: anywhere; }

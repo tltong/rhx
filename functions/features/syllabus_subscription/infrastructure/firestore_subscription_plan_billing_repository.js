@@ -4,6 +4,7 @@ const {
 } = require("../../../schema/subscription_plans_schema");
 const {
   readDocument,
+  readCollection,
 } = require("../../../utils/firebase/firebase_ops");
 const {
   SubscriptionPlanBillingRepository,
@@ -33,9 +34,19 @@ function plansCollectionPath(country) {
 
 class FirestoreSubscriptionPlanBillingRepository
   extends SubscriptionPlanBillingRepository {
-  constructor({readPlanDocument = readDocument} = {}) {
+  constructor({readPlanDocument = readDocument, readPlanCollection = readCollection} = {}) {
     super();
     this.readPlanDocument = readPlanDocument;
+    this.readPlanCollection = readPlanCollection;
+  }
+
+  async listPricing(country) {
+    const id = requireIdentifier(country, "country");
+    const [catalog, plans] = await Promise.all([
+      this.readPlanDocument(SUBSCRIPTION_PLANS_COLLECTION, id),
+      this.readPlanCollection(plansCollectionPath(id)),
+    ]);
+    return catalog ? plans.map(plan => ({...plan, currency: catalog.currency})) : [];
   }
 
   async getPricing(country, planId) {

@@ -29,15 +29,23 @@ export class BrowserStripePaymentConfirmationGateway {
     publishableKey,
     clientSecret,
     returnUrl,
-    redirectBehavior = "if_required"
+    redirectBehavior = "if_required",
+    authenticationOnly = false,
+    useSavedCard = false
   }) {
     const stripe = this.getStripeFactory()(publishableKey);
 
-    if (!stripe || typeof stripe.confirmPayment !== "function") {
+    if (authenticationOnly && useSavedCard) throw Error("Choose either authentication or saved-card confirmation.");
+    const method = authenticationOnly ? "handleNextAction" : useSavedCard ? "confirmCardPayment" : "confirmPayment";
+    if (!stripe || typeof stripe[method] !== "function") {
       throw new Error("Stripe.js cannot confirm PaymentIntents.");
     }
 
-    const result = await stripe.confirmPayment({
+    // An already-confirmed payment only needs its next action. Initial
+    // saved-card payments need confirmation without mounting card-entry UI.
+    const result = authenticationOnly ? await stripe.handleNextAction({clientSecret})
+      : useSavedCard ? await stripe.confirmCardPayment(clientSecret, {return_url: returnUrl})
+      : await stripe.confirmPayment({
       clientSecret,
       confirmParams: {
         return_url: returnUrl

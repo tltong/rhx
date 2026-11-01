@@ -179,8 +179,8 @@ export function mountEssayPractice({
 
 if (typeof window !== "undefined" && typeof document !== "undefined") {
   const [{loadEssayPracticeSession, submitEssayPracticeSession}, {onStudentAuthStateChanged}] = await Promise.all([
-    import("../../essay_practice_session_module.js?v=20261018-essay-reuse-v1"),
-    import("../../../student/student_module.js?v=20260823-student-country-v1"),
+    import("../../essay_practice_session_module.js?v=20261031-renewal-restart-v1"),
+    import("../../../student/student_module.js?v=20261031-renewal-restart-v1"),
   ]);
   const page = mountEssayPractice({loadSession: loadEssayPracticeSession, submitSession: submitEssayPracticeSession, onAuthChanged: onStudentAuthStateChanged});
   window.addEventListener("beforeunload", event => {if (page.hasUnsavedAnswer()) {event.preventDefault(); event.returnValue = "";}});

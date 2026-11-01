@@ -4,7 +4,7 @@ import {
   clearCurrentStudent,
   onStudentAuthStateChanged,
   signOutStudent
-} from "../../student_module.js?v=20260823-student-country-v1";
+} from "../../student_module.js?v=20261031-renewal-restart-v1";
 import {
   getStudentDashboard
 } from "../../../student_dashboard/student_dashboard_module.js?v=20261019-essay-level-display-v1";

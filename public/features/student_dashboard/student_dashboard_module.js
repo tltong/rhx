@@ -53,7 +53,7 @@ import {
 } from "../question/question_module.js?v=20260824-completed-practices";
 import {
   getStudentById
-} from "../student/student_module.js?v=20260823-student-country-v1";
+} from "../student/student_module.js?v=20261031-renewal-restart-v1";
 import {
   getStudentTopicLevel
 } from "../student_assessment_progress/student_assessment_progress_module.js?v=20261018-essay-progression-v1";

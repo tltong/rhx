@@ -1,11 +1,25 @@
 import {
   PAYMENT_CONFIG_DOCUMENT_ID,
   paymentModes,
-  paymentProviders
-} from "../../../config/firebase/payment_config_schema.js?v=20260915-payment-provider-enum-v1";
+  paymentProviders,
+  defaultRenewalRetryPolicy
+} from "../../../config/firebase/payment_config_schema.js?v=20261031-renewal-restart-v1";
 
 const PAYMENT_MODE_VALUES = new Set(Object.values(paymentModes));
 const PAYMENT_PROVIDER_VALUES = new Set(Object.values(paymentProviders));
+
+export function normalizeRenewalRetryPolicy(value = defaultRenewalRetryPolicy) {
+  if (!value || typeof value !== "object" || Array.isArray(value)
+    || !Number.isInteger(value.maxRetries) || value.maxRetries < 0 || value.maxRetries > 10
+    || !Number.isInteger(value.intervalHours) || value.intervalHours < 1 || value.intervalHours > 168) {
+    throw new Error("Renewal retry policy requires 0–10 additional retries and an interval of 1–168 whole hours.");
+  }
+  const gracePeriodHours = value.gracePeriodHours === undefined ? 72 : value.gracePeriodHours;
+  if (!Number.isInteger(gracePeriodHours) || gracePeriodHours < 1 || gracePeriodHours > 1680) {
+    throw new Error("Suspension grace period must be 1–1680 whole hours.");
+  }
+  return Object.freeze({maxRetries: value.maxRetries, intervalHours: value.intervalHours, gracePeriodHours});
+}
 
 function requireNonEmptyString(value, name) {
   const normalizedValue = String(value ?? "").trim();
@@ -81,14 +95,16 @@ export class PaymentConfig {
     provider,
     mode,
     customData = {},
+    renewalRetryPolicy,
     updatedAt = null
   }) {
     this.id = requireNonEmptyString(id, "id");
     this.provider = normalizeProvider(provider);
     this.mode = normalizeMode(mode);
     this.customData = normalizeCustomData(customData);
+    this.renewalRetryPolicy = normalizeRenewalRetryPolicy(renewalRetryPolicy);
     this.updatedAt = normalizeTimestamp(updatedAt);
   }
 }
 
-export { paymentModes, paymentProviders };
+export { paymentModes, paymentProviders, defaultRenewalRetryPolicy };

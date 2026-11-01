@@ -1,10 +1,11 @@
 import {
-  subscriptionTypes
-} from "../../../config/firebase/subscription_schema.js?v=20260915-student-payment-link-v1";
+  subscriptionTypes,
+  subscriptionStatuses
+} from "../../../config/firebase/subscription_schema.js?v=20261031-renewal-restart-v1";
 import {
   paymentModes,
   paymentProviders
-} from "../../../config/firebase/payment_config_schema.js?v=20260915-payment-provider-enum-v1";
+} from "../../../config/firebase/payment_config_schema.js?v=20261031-renewal-restart-v1";
 
 const SUBSCRIPTION_TYPE_VALUES = new Set(Object.values(subscriptionTypes));
 const PAYMENT_MODE_VALUES = new Set(Object.values(paymentModes));
@@ -145,6 +146,11 @@ function requireNonNegativeNumber(value, name) {
 export class StudentSubscription {
   constructor({
     studentId,
+    billingSummary = null,
+    renewalRecovery = null,
+    renewalGraceUntil = null,
+    subscriptionCancellation = null,
+    applicationStatus = subscriptionStatuses.ACTIVE,
     subscriptionType,
     activeUntil = null,
     paymentProvider = null,
@@ -156,6 +162,12 @@ export class StudentSubscription {
     updatedAt = null
   }) {
     this.studentId = requireNonEmptyString(studentId, "studentId");
+    this.renewalGraceUntil = normalizeTimestamp(renewalGraceUntil, "renewalGraceUntil", {optional: true});
+    this.subscriptionCancellation = subscriptionCancellation == null ? null : Object.freeze({...subscriptionCancellation});
+    this.renewalRecovery = renewalRecovery == null ? null : Object.freeze({...renewalRecovery});
+    this.billingSummary = billingSummary == null ? null : Object.freeze({...billingSummary});
+    if (!Object.values(subscriptionStatuses).includes(applicationStatus)) throw new Error("Invalid application subscription status.");
+    this.applicationStatus = applicationStatus;
     this.subscriptionType = normalizeSubscriptionType(subscriptionType);
     this.activeUntil = normalizeTimestamp(activeUntil, "activeUntil", {
       optional: true
@@ -196,6 +208,11 @@ export class StudentSubscription {
     );
     const candidate = new StudentSubscription({
       studentId: this.studentId,
+      billingSummary: this.billingSummary,
+      renewalRecovery: this.renewalRecovery,
+      renewalGraceUntil: this.renewalGraceUntil,
+      subscriptionCancellation: this.subscriptionCancellation,
+      applicationStatus: this.applicationStatus,
       subscriptionType: valueFor("subscriptionType"),
       activeUntil: valueFor("activeUntil"),
       paymentProvider: valueFor("paymentProvider"),
@@ -255,4 +272,4 @@ export class SubscriptionPayment {
   }
 }
 
-export { paymentModes, paymentProviders, subscriptionTypes };
+export { paymentModes, paymentProviders, subscriptionTypes, subscriptionStatuses };

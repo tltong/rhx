@@ -26,6 +26,7 @@ async function getGuardianStudentLink(input) {
 }
 
 module.exports = {
+  listActiveGuardianStudentLinks: guardianId => guardianStudentLinkRepository.listByGuardian(guardianId),
   getGuardianStudentLink,
   guardianStudentLinkStates,
 };

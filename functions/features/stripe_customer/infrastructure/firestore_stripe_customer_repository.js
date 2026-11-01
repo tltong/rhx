@@ -91,6 +91,7 @@ function internalReferenceData(record) {
 
 function setupIntentRecordData(record) {
   return {
+    ...(record.cardUpdate ? {cardUpdate: record.cardUpdate} : {}),
     status: record.status,
     usage: record.usage,
     paymentMethodReference: record.paymentMethodReference,
@@ -112,6 +113,9 @@ function paymentMethodRecordData(record) {
 
 function subscriptionRecordData(record) {
   return {
+    ...(record.billingStartsAt ? {billingStartsAt: record.billingStartsAt} : {}),
+    ...(record.planVersions ? {planVersions: record.planVersions} : {}),
+    ...(record.pendingPlanChange ? {pendingPlanChange: record.pendingPlanChange} : {}),
     studentId: record.studentId,
     planId: record.planId,
     paymentMethodReference: record.paymentMethodReference,
@@ -531,7 +535,7 @@ class FirestoreStripeCustomerRepository extends StripeCustomerRepository {
       ),
       normalizedRecord.setupIntentReference,
       setupIntentRecordData(normalizedRecord),
-      {merge: false},
+      {merge: true},
     );
 
     return normalizedRecord;
@@ -616,6 +620,54 @@ class FirestoreStripeCustomerRepository extends StripeCustomerRepository {
     });
   }
 
+  async initializeSubscription(record) {
+    const normalizedRecord = record instanceof StripeSubscriptionRecord
+      ? record
+      : new StripeSubscriptionRecord(record);
+    const customerDocument = this.getDocumentRef(
+      customerCollectionPath(normalizedRecord.mode),
+      normalizedRecord.customerReference,
+    );
+    const subscriptionDocument = this.getDocumentRef(
+      customerChildCollectionPath(
+        normalizedRecord.mode,
+        normalizedRecord.customerReference,
+        STRIPE_SUBSCRIPTIONS_SUBCOLLECTION,
+      ),
+      normalizedRecord.subscriptionReference,
+    );
+
+    // Read and initialize atomically: a retry must never replace a webhook's
+    // payment state, including when that webhook commits during this request.
+    return this.getFirestoreDb().runTransaction(async (transaction) => {
+      const [customerSnapshot, subscriptionSnapshot] = await Promise.all([
+        transaction.get(customerDocument),
+        transaction.get(subscriptionDocument),
+      ]);
+
+      if (!customerSnapshot.exists) {
+        throw notFound("Stripe customer record could not be found.");
+      }
+
+      if (subscriptionSnapshot.exists) {
+        const existing = toSubscriptionRecord(
+          subscriptionSnapshot.data(),
+          normalizedRecord.mode,
+          normalizedRecord.customerReference,
+          normalizedRecord.subscriptionReference,
+        );
+        existing.assertSameCheckout(normalizedRecord);
+        return Object.freeze({created: false, record: existing});
+      }
+
+      transaction.set(
+        subscriptionDocument,
+        subscriptionRecordData(normalizedRecord),
+      );
+      return Object.freeze({created: true, record: normalizedRecord});
+    });
+  }
+
   async writeSubscription(record) {
     const normalizedRecord = record instanceof StripeSubscriptionRecord
       ? record
@@ -625,18 +677,17 @@ class FirestoreStripeCustomerRepository extends StripeCustomerRepository {
       normalizedRecord.mode,
       normalizedRecord.customerReference,
     );
-    await this.writeDocument(
-      customerChildCollectionPath(
-        normalizedRecord.mode,
-        normalizedRecord.customerReference,
-        STRIPE_SUBSCRIPTIONS_SUBCOLLECTION,
-      ),
-      normalizedRecord.subscriptionReference,
-      subscriptionRecordData(normalizedRecord),
-      {merge: false},
-    );
-
-    return normalizedRecord;
+    const ref = this.getDocumentRef(customerChildCollectionPath(normalizedRecord.mode,
+      normalizedRecord.customerReference, STRIPE_SUBSCRIPTIONS_SUBCOLLECTION), normalizedRecord.subscriptionReference);
+    return this.getFirestoreDb().runTransaction(async transaction => {
+      const snapshot = await transaction.get(ref), latest = snapshot.data() || {};
+      const data = {...subscriptionRecordData(normalizedRecord),
+        ...(latest.billingStartsAt ? {billingStartsAt: latest.billingStartsAt} : {}),
+        ...(latest.planVersions ? {planVersions: latest.planVersions} : {}),
+        ...(Object.hasOwn(latest, "pendingPlanChange") ? {pendingPlanChange: latest.pendingPlanChange} : {})};
+      transaction.set(ref, data);
+      return toSubscriptionRecord(data, normalizedRecord.mode, normalizedRecord.customerReference, normalizedRecord.subscriptionReference);
+    });
   }
 
   async getSubscription(input) {

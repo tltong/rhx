@@ -2,13 +2,17 @@ import {
   getPaymentConfig,
   paymentModes,
   paymentProviders,
-  savePaymentConfig
-} from "../../payment_module.js?v=20260915-payment-provider-enum-v1";
+  savePaymentConfig,
+  defaultRenewalRetryPolicy
+} from "../../payment_module.js?v=20261031-renewal-restart-v1";
 
 const formEl = document.querySelector("#payment-config-form");
 const providerEl = document.querySelector("#payment-provider");
 const modeEl = document.querySelector("#payment-mode");
 const customDataEl = document.querySelector("#payment-custom-data");
+const retriesEl = document.querySelector("#renewal-max-retries");
+const intervalEl = document.querySelector("#renewal-retry-interval");
+const graceEl = document.querySelector("#renewal-grace-period");
 const saveButtonEl = document.querySelector("#save-payment-config");
 const statusEl = document.querySelector("#payment-config-status");
 const currentModeEl = document.querySelector("#current-mode");
@@ -92,6 +96,10 @@ function renderConfig(config) {
   providerEl.value = config?.provider || paymentProviders.STRIPE;
   modeEl.value = config?.mode || paymentModes.TEST;
   customDataEl.value = JSON.stringify(config?.customData || {}, null, 2);
+  const policy = config?.renewalRetryPolicy || defaultRenewalRetryPolicy;
+  retriesEl.value = policy.maxRetries;
+  intervalEl.value = policy.intervalHours;
+  graceEl.value = policy.gracePeriodHours ?? 72;
   currentModeEl.textContent = config
     ? formatMode(config.mode)
     : "Not configured";
@@ -122,7 +130,8 @@ function getFormInput() {
     provider: providerEl.value,
     mode: modeEl.value,
 
-    customData: parseCustomData()
+    customData: parseCustomData(),
+    renewalRetryPolicy: {maxRetries: Number(retriesEl.value), intervalHours: Number(intervalEl.value), gracePeriodHours: Number(graceEl.value)}
   };
 }
 

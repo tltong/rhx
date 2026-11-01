@@ -511,17 +511,23 @@
             <label for="stripe-customer-reference">
               Stripe customer reference
             </label>
-            <input
+            <select
               id="stripe-customer-reference"
               name="customerReference"
-              type="text"
-              autocomplete="off"
-              placeholder="cus_..."
+              aria-describedby="delete-customer-options-status"
+              disabled
               required
             >
+              <option value="">Loading Stripe customers...</option>
+            </select>
+            <button id="reload-delete-customers" type="button" disabled>
+              Reload customers
+            </button>
+            <p id="delete-customer-options-status" class="status" role="status"
+              aria-live="polite" hidden></p>
 
             <label class="confirmation-row">
-              <input id="confirm-delete" type="checkbox">
+              <input id="confirm-delete" type="checkbox" required>
               <span>I understand this permanently deletes the Stripe customer.</span>
             </label>
 
@@ -552,7 +558,7 @@
       id="site-admin-page-loader"
       type="module"
       data-site-admin-page
-      data-page-module="./stripe_payment_test.js?v=20261025-customer-select-v1"
+      data-page-module="./stripe_payment_test.js?v=20261025-delete-customer-select-v1"
       src="/features/site_admin/pages/common/site_admin_page_loader.js?v=20260827-site-admin-guard-v1"
     ></script>
   </body>

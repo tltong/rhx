@@ -282,6 +282,11 @@ async function createStripeSubscription(stripeClient, input = {}) {
       save_default_payment_method: "on_subscription",
     },
     expand: ["latest_invoice.confirmation_secret"],
+    ...(input.billingStartsAt ? {
+      trial_end: Math.floor(+(input.billingStartsAt?.toDate?.() || input.billingStartsAt) / 1000),
+      proration_behavior: "none",
+      metadata: {rhx_prepaid_until: String(Math.floor(+(input.billingStartsAt?.toDate?.() || input.billingStartsAt) / 1000))},
+    } : {}),
   }, {
     idempotencyKey: subscriptionCreationIdempotencyKey({
       customerReference,
@@ -307,6 +312,7 @@ async function createStripeSubscription(stripeClient, input = {}) {
 async function retrieveStripeSubscription(
   stripeClient,
   subscriptionReference,
+  {includePaymentClientSecret = false, includeRecoveryDetails = false} = {},
 ) {
   const reference = requireReference(
     subscriptionReference,
@@ -319,7 +325,11 @@ async function retrieveStripeSubscription(
     );
   }
 
-  const subscription = await stripeClient.subscriptions.retrieve(reference);
+  const subscription = includePaymentClientSecret
+    ? await stripeClient.subscriptions.retrieve(reference, {
+      expand: ["latest_invoice.confirmation_secret"],
+    })
+    : await stripeClient.subscriptions.retrieve(reference);
   const returnedReference = requireStripeResultText(
     subscription?.id,
     "a Subscription reference",
@@ -361,10 +371,31 @@ async function retrieveStripeSubscription(
     currentPeriodStart,
     currentPeriodEnd,
     cancelAtPeriodEnd: subscription.cancel_at_period_end,
+    ...(includeRecoveryDetails ? {
+      ...(subscription.metadata?.rhx_prepaid_until ? {prepaidUntil: requireStripeTimestamp(subscription.metadata.rhx_prepaid_until, "prepaid access end")} : {}),
+      ...(subscription.items?.data?.length === 1 ? {currentPriceReference: subscription.items.data[0].price?.id || subscription.items.data[0].plan?.id || null} : {}),
+      scheduleReference: typeof subscription.schedule === "object" ? subscription.schedule?.id || null : subscription.schedule || null,
+      latestInvoiceReference: subscription.latest_invoice
+        ? requireStripeResultReference(subscription.latest_invoice,
+          "a latest Invoice reference") : null,
+      defaultPaymentMethodReference: subscription.default_payment_method
+        ? requireStripeResultReference(subscription.default_payment_method,
+          "a default PaymentMethod reference") : null,
+      collectionMethod: subscription.collection_method,
+      saveDefaultPaymentMethod: subscription.payment_settings?.save_default_payment_method || null,
+      paused: !!subscription.pause_collection || subscription.status === "paused",
+      billingHoldManaged: ["1", "2"].includes(subscription.metadata?.rhx_recovery_version) && subscription.metadata?.rhx_recovery_state === "held",
+      recoveryInvoiceReference: ["1", "2"].includes(subscription.metadata?.rhx_recovery_version) ? subscription.metadata.rhx_recovery_invoice || null : null,
+      recoveryState: ["1", "2"].includes(subscription.metadata?.rhx_recovery_version) ? subscription.metadata.rhx_recovery_state || null : null,
+    } : {}),
+    ...(includePaymentClientSecret ? {
+      paymentClientSecret: paymentClientSecret(subscription, status),
+    } : {}),
   });
 }
 
 module.exports = {
+  getOrCreatePrice,
   createStripeSubscription,
   retrieveStripeSubscription,
 };

@@ -31,6 +31,7 @@ class FirestorePaymentConfigRepository extends PaymentConfigRepository {
       provider: data.provider,
       mode: data.mode,
       customData: data.customData,
+      renewalRetryPolicy: data.renewalRetryPolicy,
       updatedAt: data.updatedAt,
     });
   }

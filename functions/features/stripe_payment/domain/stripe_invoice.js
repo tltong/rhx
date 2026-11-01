@@ -1,3 +1,6 @@
+const {createHash} = require("node:crypto");
+const {billingDetails} = require("./stripe_invoice_billing");
+
 function requireReference(value, fieldName) {
   const reference = String(value ?? "").trim();
 
@@ -47,7 +50,8 @@ function requireCurrency(value) {
 function invoiceSubscriptionReference(invoice) {
   return optionalStripeReference(
     invoice?.parent?.subscription_details?.subscription
-      ?? invoice?.subscription,
+      ?? invoice?.subscription
+      ?? (invoice?.metadata?.rhx_recovery_version === "2" ? invoice.metadata.rhx_subscription : null),
   );
 }
 
@@ -89,7 +93,9 @@ function defaultPaymentIntentReference(invoice) {
 async function retrieveStripeInvoicePaymentContext(
   stripeClient,
   invoiceReference,
+  {includeRecoveryDetails = false, includeCardPaymentSecret = false, includeBillingDetails = false} = {},
 ) {
+  includeRecoveryDetails ||= includeBillingDetails;
   const reference = requireReference(invoiceReference, "invoiceReference");
 
   if (typeof stripeClient?.invoices?.retrieve !== "function") {
@@ -125,6 +131,20 @@ async function retrieveStripeInvoicePaymentContext(
   const amountDue = requireAmount(invoice?.amount_due);
   const currency = requireCurrency(invoice?.currency);
   const paymentIntentReference = defaultPaymentIntentReference(invoice);
+  const recoveryDetails = includeRecoveryDetails ? {
+    autoAdvance: invoice.auto_advance === true,
+    amountRemaining: requireAmount(invoice.amount_remaining),
+    defaultPaymentMethodReference: optionalStripeReference(
+      invoice.default_payment_method,
+    ),
+    collectionMethod: invoice.collection_method,
+    billingReason: invoice.billing_reason || null,
+    paymentAttempted: invoice.attempted === true,
+    nextPaymentAttemptAt: Number.isSafeInteger(invoice.next_payment_attempt)
+      ? new Date(invoice.next_payment_attempt * 1000).toISOString() : null,
+    failureCode: null,
+  } : {};
+  const billing = includeBillingDetails ? await billingDetails(stripeClient, invoice, subscriptionReference) : {};
 
   if (!paymentIntentReference) {
     return Object.freeze({
@@ -137,6 +157,8 @@ async function retrieveStripeInvoicePaymentContext(
       paymentClientSecret: null,
       amountDue,
       currency,
+      ...recoveryDetails,
+      ...billing,
     });
   }
 
@@ -177,7 +199,10 @@ async function retrieveStripeInvoicePaymentContext(
     );
   }
 
-  const paymentClientSecret = paymentStatus === "requires_action"
+  const initialConfirmation = includeRecoveryDetails && invoice.billing_reason === "subscription_create"
+    && paymentStatus === "requires_confirmation" && !!optionalStripeReference(paymentIntent.payment_method);
+  const paymentClientSecret = !includeBillingDetails && (paymentStatus === "requires_action" || initialConfirmation
+    || (includeCardPaymentSecret && ["requires_payment_method", "requires_confirmation"].includes(paymentStatus)))
     ? requireStripeText(
       paymentIntent?.client_secret ?? confirmationSecret(invoice),
       "a PaymentIntent client secret",
@@ -194,9 +219,61 @@ async function retrieveStripeInvoicePaymentContext(
     paymentClientSecret,
     amountDue,
     currency,
+    ...recoveryDetails,
+    ...billing,
+    ...(includeRecoveryDetails ? {
+      paymentMethodReference: optionalStripeReference(paymentIntent.payment_method),
+      failureCode: paymentIntent.last_payment_error?.decline_code
+        || paymentIntent.last_payment_error?.code || null,
+      failedPaymentMethodReference: optionalStripeReference(
+        paymentIntent.last_payment_error?.payment_method ?? paymentIntent.payment_method),
+    } : {}),
   });
+}
+
+// Stripe serializes payment of an Invoice. Replaying a transport attempt uses
+// the same key; a fresh user-initiated attempt supplies a new reference.
+async function payStripeInvoice(stripeClient, input = {}) {
+  if (typeof stripeClient?.invoices?.pay !== "function") {
+    throw new Error("The initialized Stripe client cannot pay invoices.");
+  }
+  const invoiceReference = requireReference(input.invoiceReference,
+    "invoiceReference");
+  const paymentMethodReference = requireReference(input.paymentMethodReference,
+    "paymentMethodReference");
+  const attempt = requireReference(input.idempotencyReference,
+    "idempotencyReference");
+  if (attempt.length > 500) {
+    throw new Error("idempotencyReference must not exceed 500 characters.");
+  }
+  if (input.offSession !== undefined && typeof input.offSession !== "boolean") {
+    throw new Error("offSession must be a boolean.");
+  }
+  const key = createHash("sha256")
+    .update(JSON.stringify([invoiceReference, attempt]))
+    .digest("hex");
+  const invoice = await stripeClient.invoices.pay(invoiceReference, {
+    payment_method: paymentMethodReference,
+    off_session: input.offSession === true,
+  }, {idempotencyKey: `retry-subscription-invoice-${key}`});
+  if (invoice?.id !== invoiceReference) {
+    throw new Error("Stripe returned an unexpected Invoice reference.");
+  }
+  return Object.freeze({invoiceReference, invoiceStatus: invoice.status});
+}
+
+async function disableStripeInvoiceAutomaticCollection(stripeClient, invoiceReference) {
+  const reference = requireReference(invoiceReference, "invoiceReference");
+  if (typeof stripeClient?.invoices?.update !== "function") throw Error("Stripe client cannot update invoices.");
+  // Stop Stripe's retries for this invoice while future renewals retain their
+  // normal first collection attempt. Manual invoice payment remains available.
+  const invoice = await stripeClient.invoices.update(reference, {auto_advance: false});
+  if (invoice?.id !== reference || invoice.auto_advance !== false) throw Error("Stripe did not disable automatic invoice collection.");
+  return {invoiceReference: reference, autoAdvance: false};
 }
 
 module.exports = {
   retrieveStripeInvoicePaymentContext,
+  payStripeInvoice,
+  disableStripeInvoiceAutomaticCollection,
 };

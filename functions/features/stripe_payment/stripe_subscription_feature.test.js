@@ -363,3 +363,48 @@ test("StripePayment rejects ambiguous Subscription billing periods", async () =>
     /multiple billing periods/,
   );
 });
+
+test("checkout refresh retrieves current Stripe state and exposes a secret only for incomplete subscriptions", async () => {
+  for (const status of ["incomplete", "active", "canceled", "incomplete_expired"]) {
+    const payment = new StripePayment(stripeClient({
+      subscriptions: {
+        async retrieve(reference, options) {
+          assert.equal(reference, "sub_fixture");
+          assert.deepEqual(options, {expand: ["latest_invoice.confirmation_secret"]});
+          return {
+            id: reference, customer: {id: "cus_fixture"}, status,
+            start_date: 1792886400, current_period_start: 1792886400,
+            current_period_end: 1795564800, cancel_at_period_end: false,
+            latest_invoice: {confirmation_secret: {client_secret: "pi_current_secret_fixture"}},
+          };
+        },
+      },
+    }));
+    const current = await payment.retrieveSubscription("sub_fixture", {
+      includePaymentClientSecret: true,
+    });
+    assert.equal(current.status, status);
+    assert.equal(current.customerReference, "cus_fixture");
+    assert.equal(current.paymentClientSecret, status === "incomplete"
+      ? "pi_current_secret_fixture" : null);
+  }
+});
+
+test("ordinary Subscription retrieval does not request or return payment secrets", async () => {
+  const payment = new StripePayment(stripeClient({
+    subscriptions: {
+      async retrieve(reference, options) {
+        assert.equal(options, undefined);
+        return {
+          id: reference, customer: "cus_fixture", status: "incomplete",
+          start_date: 1792886400, current_period_start: 1792886400,
+          current_period_end: 1795564800, cancel_at_period_end: false,
+          latest_invoice: {confirmation_secret: {client_secret: "pi_private_secret_fixture"}},
+        };
+      },
+    },
+  }));
+  const current = await payment.retrieveSubscription("sub_fixture");
+  assert.equal(Object.hasOwn(current, "paymentClientSecret"), false);
+  assert.equal(JSON.stringify(current).includes("_secret_"), false);
+});

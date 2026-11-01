@@ -1,3 +1,4 @@
+import {requireStudentSubscriptionAccess} from "../syllabus_subscription/student_access_module.js?v=20261031-subscription-cancel-v1";
 /**
  * Browser APIs
  *
@@ -34,7 +35,7 @@ import {
 } from "../student_practice/student_practice_module.js?v=20261018-topic-reset-v1";
 import {
   requireCurrentStudentAuthUser
-} from "../student/student_module.js?v=20260716-no-eager-auth";
+} from "../student/student_module.js?v=20261031-renewal-restart-v1";
 import {
   CurrentPracticeSession
 } from "./application/current_practice_session.js?v=20260808-practice-session";
@@ -46,7 +47,7 @@ import {
 } from "./application/start_practice_session.js?v=20260808-practice-session";
 import {
   SubmitPracticeSession
-} from "./application/submit_practice_session.js?v=20260810-completed-practice";
+} from "./application/submit_practice_session.js?v=20261031-renewal-restart-v1";
 
 const currentPracticeSession = new CurrentPracticeSession();
 const listAssignedPracticeSessionsUseCase =
@@ -71,6 +72,8 @@ const submitPracticeSessionUseCase = new SubmitPracticeSession({
 
 async function listCurrentStudentAssignedPractices() {
   const authUser = requireCurrentStudentAuthUser();
+  await requireStudentSubscriptionAccess(authUser.uid);
+  if (requireCurrentStudentAuthUser().uid !== authUser.uid) throw Error("The signed-in account changed.");
 
   return listAssignedPracticeSessionsUseCase.execute({
     studentId: authUser.uid
@@ -79,6 +82,8 @@ async function listCurrentStudentAssignedPractices() {
 
 async function startPracticeSession({ practiceId } = {}) {
   const authUser = requireCurrentStudentAuthUser();
+  await requireStudentSubscriptionAccess(authUser.uid);
+  if (requireCurrentStudentAuthUser().uid !== authUser.uid) throw Error("The signed-in account changed.");
   const session = await startPracticeSessionUseCase.execute({
     practiceId,
     studentId: authUser.uid
@@ -102,7 +107,15 @@ function answerPracticeQuestion({ questionId, selectedOption } = {}) {
 
 async function submitPracticeSession() {
   const session = currentPracticeSession.require();
-  const practiceResult = await submitPracticeSessionUseCase.execute(session);
+  const authUser = requireCurrentStudentAuthUser();
+  if (session.studentId !== authUser.uid) throw Error("This practice belongs to a different student.");
+  const access = await requireStudentSubscriptionAccess(authUser.uid);
+  const assertAccess = () => {
+    if (requireCurrentStudentAuthUser().uid !== authUser.uid) throw Error("The signed-in account changed.");
+    if (access.expiresAt && access.expiresAt <= new Date()) throw Object.assign(Error("Subscription access is suspended."), {code: "subscription-suspended"});
+  };
+  assertAccess();
+  const practiceResult = await submitPracticeSessionUseCase.execute(session, {assertAccess});
 
   currentPracticeSession.set(session.markSubmitted());
 

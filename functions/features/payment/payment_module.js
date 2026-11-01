@@ -3,6 +3,8 @@
  *
  * getPaymentConfig()
  *   -> Promise<PaymentConfig|null>
+ *   Includes validated renewalRetryPolicy {maxRetries, intervalHours}; legacy
+ *   documents default to 3 additional attempts separated by 24 hours.
  */
 const {
   GetPaymentConfig,

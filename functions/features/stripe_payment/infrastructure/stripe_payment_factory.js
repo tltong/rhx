@@ -15,9 +15,10 @@ class StripePaymentFactory {
     this.secretKeyProvider = secretKeyProvider;
   }
 
-  create({ mode }) {
+  create({mode, requestTimeoutMs}) {
     const secretKey = this.secretKeyProvider.getSecretKey(mode);
-    const stripeClient = new this.StripeConstructor(secretKey);
+    const stripeClient = requestTimeoutMs === undefined ? new this.StripeConstructor(secretKey)
+      : new this.StripeConstructor(secretKey, {timeout: requestTimeoutMs, maxNetworkRetries: 0});
 
     return new StripePayment(stripeClient);
   }

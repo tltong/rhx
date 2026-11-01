@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Manage Subscription Payments | ReadyHeroX</title>
+    <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script defer src="https://js.stripe.com/v3/"></script>
+    <script type="module" src="/init_fb.js"></script>
+    <link rel="stylesheet" href="./manage_subscription_payment.css?v=20261101-stored-status-v1">
+  </head>
+  <body>
+    <main class="page-shell">
+      <a class="back-link" href="/features/guardian/pages/landing/landing.html">Back to Guardian Dashboard</a>
+      <section id="payment-card" class="payment-card" aria-labelledby="page-heading" aria-busy="true">
+        <header class="payment-header">
+          <div class="brand-mark" aria-hidden="true">RHX</div>
+          <div><p class="eyebrow">Guardian billing</p>
+            <h1 id="page-heading">Manage subscription payments</h1>
+            <p class="page-description">Choose a linked student to manage their subscription or start a new one.</p>
+          </div>
+        </header>
+
+        <section id="student-selector-panel" class="management-panel" hidden>
+          <label for="linked-student-select">Student</label>
+          <select id="linked-student-select" disabled aria-describedby="student-selection-description"></select>
+          <p id="student-selection-description">Only students currently linked to your guardian account are listed.</p>
+        </section>
+
+        <section id="subscription-plan-section" class="management-panel" hidden>
+          <h2>Subscription plan</h2>
+          <p id="current-plan-description"></p>
+          <p id="plan-change-unavailable" hidden>Plan changes are available after outstanding payments and billing updates are resolved, provided plans are available for this student.</p>
+          <p id="scheduled-plan-description" role="status" hidden></p>
+          <div id="change-subscription-plan-section" hidden>
+            <label for="change-subscription-plan-select">Plan for the next renewal</label>
+            <select id="change-subscription-plan-select"></select>
+            <p id="change-plan-price"></p>
+            <p class="security-note">Your current paid period stays unchanged. The new plan starts at the next renewal; this action does not collect a payment now.</p>
+            <button id="change-student-subscription-plan" type="button" disabled>Change plan at next renewal</button>
+          </div>
+          <div id="create-subscription-section" hidden>
+            <label for="subscription-plan-select">Choose a plan</label>
+            <select id="subscription-plan-select"></select>
+            <p id="selected-plan-price"></p>
+            <fieldset class="card-scope">
+              <legend>Card for this student's subscription</legend>
+              <label id="checkout-saved-card-option" hidden><input type="radio" name="checkout-card" id="checkout-saved-card" value="saved"> <span id="checkout-saved-card-label"></span></label>
+              <label><input type="radio" name="checkout-card" id="checkout-new-card" value="new" checked> Use a new card</label>
+            </fieldset>
+            <p id="checkout-payment-note" class="security-note">Creating a subscription starts payment for the selected plan. Bank authentication may be required. Other students keep their existing subscriptions.</p>
+            <button id="create-student-subscription" type="button" disabled>Create subscription</button>
+          </div>
+          <button id="finish-student-subscription" type="button" hidden>Check and finish subscription setup</button>
+        </section>
+
+        <section id="billing-banner" class="billing-banner" role="status" aria-live="polite">
+          <h2 id="payment-heading">Checking payment status</h2>
+          <p id="billing-description">Loading the latest subscription and invoice details...</p>
+        </section>
+        <p id="initial-payment-notice" class="notice-panel" hidden>
+          <a id="complete-initial-payment" href="#">Open your initial subscription payment</a>.
+        </p>
+        <p id="payment-status" class="status" role="status" aria-live="polite" hidden></p>
+        <section id="sign-in-panel" class="notice-panel" hidden>
+          <h2>Sign in to manage this subscription</h2>
+          <p>Sign in with the guardian account that owns this subscription in a new tab, then return here.</p>
+          <a class="primary-link" href="/features/guardian/pages/sign_in/sign_in.html" target="_blank" rel="noopener">Sign in in a new tab</a>
+        </section>
+
+        <section id="payment-summary" class="payment-summary" hidden>
+          <dl>
+            <div><dt>Student</dt><dd id="student-name"></dd></div>
+            <div><dt>Subscription</dt><dd><code id="subscription-reference"></code></dd></div>
+            <div><dt>Status</dt><dd id="subscription-state"></dd></div>
+            <div id="plan-row" hidden><dt>Plan</dt><dd id="plan-reference"></dd></div>
+            <div id="next-charge-row" hidden><dt>Next scheduled charge</dt><dd id="next-charge"></dd></div>
+          </dl>
+        </section>
+
+        <section id="subscription-cancellation-section" class="management-panel" hidden>
+          <h2>Cancel this student's subscription</h2>
+          <p id="subscription-cancellation-description"></p>
+          <button id="cancel-subscription-button" type="button" class="secondary-button">Cancel subscription</button>
+          <div id="subscription-cancellation-confirmation" class="notice-panel" hidden>
+            <p id="subscription-cancellation-confirmation-text"></p>
+            <div class="payment-actions">
+              <button id="confirm-subscription-cancellation" type="button">Confirm cancellation</button>
+              <button id="keep-subscription-button" type="button" class="secondary-button">Keep subscription</button>
+            </div>
+          </div>
+        </section>
+
+        <section id="renewal-recovery-summary" class="management-panel" hidden>
+          <h2>Renewal and access</h2>
+          <dl class="invoice-details">
+            <div><dt>Grace period ends</dt><dd id="access-grace-until"></dd></div>
+            <div id="recovered-period-row" hidden><dt>New paid period</dt><dd id="recovered-period"></dd></div>
+          </dl>
+          <p id="renewal-recovery-description"></p>
+        </section>
+        <section id="renewal-retry-summary" class="management-panel" hidden>
+          <h2>Automatic renewal retries</h2>
+          <dl class="invoice-details">
+            <div><dt>Retries started</dt><dd id="automatic-retry-count"></dd></div>
+            <div><dt>Retry interval</dt><dd id="automatic-retry-interval"></dd></div>
+            <div><dt>Retry period ends</dt><dd id="retry-window-end"></dd></div>
+          </dl>
+          <p id="retry-state-description"></p>
+        </section>
+        <section id="saved-card-section" class="management-panel" hidden>
+          <h2>Card for future payments</h2>
+          <p id="default-card" class="card-label"></p>
+          <p>Choose whose future payments will use the new card. Automatic payment schedules and retries still apply.</p>
+          <fieldset id="card-change-scope" class="card-scope">
+            <legend>Apply the new card to</legend>
+            <label><input id="card-scope-subscription" type="radio" name="card-change-scope" value="subscription" checked> <span id="this-student-label">This student's subscription</span></label>
+            <label><input id="card-scope-all" type="radio" name="card-change-scope" value="all_students" disabled> All my students' eligible subscriptions</label>
+          </fieldset>
+          <p id="card-scope-description"></p>
+          <ul id="card-scope-targets" class="card-targets"></ul>
+          <p class="security-note">Saving a card does not submit an invoice payment. Each student keeps their own subscription, invoices and renewal schedule.</p>
+          <div id="card-update-summary" role="status" aria-live="polite" hidden><ul id="card-update-results" class="card-targets"></ul></div>
+          <button id="change-card-button" type="button">Change card for future payments</button>
+          <p id="card-change-unavailable" hidden>This subscription cannot accept a card change. Contact support for help.</p>
+        </section>
+
+        <section id="renewal-section" class="management-panel" hidden>
+          <h2>Renewal invoice</h2>
+          <dl class="invoice-details">
+            <div><dt>Invoice</dt><dd><code id="invoice-reference"></code></dd></div>
+            <div><dt id="payment-amount-label">Amount due</dt><dd id="payment-amount"></dd></div>
+            <div><dt>Invoice status</dt><dd id="payment-state"></dd></div>
+            <div id="saved-card-row" hidden><dt>Card for this invoice</dt><dd id="saved-card"></dd></div>
+            <div id="next-retry-row" hidden><dt>Next automatic retry</dt><dd id="next-retry"></dd></div>
+          </dl>
+          <p id="old-invoice-notice" class="notice-panel" hidden>
+            This link refers to an earlier invoice. The latest renewal is shown above.
+            <a id="view-current-invoice" href="#">View the latest renewal to continue</a>.
+          </p>
+          <section id="renewal-plan-section" class="notice-panel" hidden>
+            <label for="renewal-plan-select">Plan for this payment</label>
+            <select id="renewal-plan-select"></select>
+            <p id="renewal-plan-price"></p>
+            <p>A successful payment starts a full new period from its payment date. An unpaid expired period is dropped.</p>
+          </section>
+          <section id="action-panel" class="action-panel" hidden>
+            <div><h3 id="action-heading"></h3><p id="action-description"></p></div>
+          </section>
+          <div id="payment-actions" class="payment-actions" hidden>
+            <button id="retry-payment-button" type="button">Retry with current card</button>
+            <button id="confirm-payment-button" type="button" hidden>Authenticate payment</button>
+            <button id="use-new-card-button" class="secondary-button" type="button">Pay with a new card</button>
+          </div>
+          <div class="payment-actions">
+            <button id="cancel-pending-renewal-button" type="button" class="secondary-button" hidden>Cancel pending payment and try again</button>
+            <button id="cancel-renewal-button" type="button" class="secondary-button" hidden>Stop automatic retries</button>
+          </div>
+          <p id="cancel-renewal-explanation" class="security-note" hidden>Stopping automatic retries keeps billing paused. Access continues until the original grace deadline. Use Cancel subscription above to cancel the subscription in Stripe.</p>
+        </section>
+
+        <section id="card-form-section" class="management-panel" hidden>
+          <h2 id="card-form-heading"></h2><p id="card-form-description"></p>
+          <div id="card-entry-container" aria-label="Secure card details"></div>
+          <p id="card-form-error" class="status is-error" role="alert" hidden></p>
+          <div class="payment-actions">
+            <button id="card-submit-button" type="button" disabled></button>
+            <button id="card-cancel-button" class="secondary-button" type="button">Cancel</button>
+          </div>
+        </section>
+        <button id="finish-save-button" type="button" hidden>Finish saving card</button>
+        <div class="payment-actions">
+          <button id="refresh-payment-button" class="secondary-button" type="button" hidden>Check payment status</button>
+        </div>
+        <p id="payment-sync-notice" class="security-note" role="status" aria-live="polite" hidden></p>
+        <p id="checked-at" class="security-note"></p>
+        <p class="security-note">Card details and bank authentication are handled securely by Stripe.</p>
+        <p id="payment-error" class="status is-error" role="alert" hidden></p>
+      </section>
+    </main>
+    <script type="module" src="./manage_subscription_payment.js?v=20261101-stored-status-v1"></script>
+  </body>
+</html>

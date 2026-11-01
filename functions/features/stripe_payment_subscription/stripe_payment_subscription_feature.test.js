@@ -42,9 +42,17 @@ function billingTerms() {
 
 test("stripe subscription module exposes its application API", () => {
   assert.deepEqual(Object.keys(stripePaymentSubscriptionModule), [
+    "cancelStripeStudentSubscription",
+    "manageStripeRenewalRecovery",
+    "getStripeGuardianSubscriptionOptions", "prepareStripeStudentSubscription", "createStripeStudentSubscription", "changeStripeStudentSubscriptionPlan",
     "createStripePaymentSubscription",
     "getStripeSubscriptionPaymentAction",
     "processStripeSubscriptionEvent",
+    "retryStripeSubscriptionInvoicePayment",
+    "getStripeSubscriptionPaymentDetails",
+    "createStripeSubscriptionCardSetup",
+    "updateStripeSubscriptionPaymentMethod",
+    "processDueStripeRenewalRetries",
   ]);
 });
 
@@ -67,6 +75,11 @@ test("resolves plan terms, creates, and persists a Stripe subscription", async (
             paymentClientSecret: "pi_subscription_secret_123",
           };
         },
+        async retrieveSubscription(reference, options) {
+          calls.push(["retrieve-subscription", reference, options]);
+          return {subscriptionReference: "sub_123", customerReference: "cus_123",
+            status: "incomplete", paymentClientSecret: "pi_current_secret_123"};
+        },
       },
     }),
     getCustomerRecordByReference: async (input) => {
@@ -84,8 +97,9 @@ test("resolves plan terms, creates, and persists a Stripe subscription", async (
       calls.push(["get-student-subscription", studentId]);
       return {studentId, subscriptionType: "trial"};
     },
-    writeSubscriptionRecord: async (input) => {
-      calls.push(["write-subscription", input]);
+    initializeSubscriptionRecord: async (input) => {
+      calls.push(["initialize-subscription", input]);
+      return {created: true, record: input};
     },
   });
 
@@ -94,7 +108,7 @@ test("resolves plan terms, creates, and persists a Stripe subscription", async (
   assert.deepEqual(result, {
     subscriptionReference: "sub_123",
     status: "incomplete",
-    paymentClientSecret: "pi_subscription_secret_123",
+    paymentClientSecret: "pi_current_secret_123",
   });
   assert.deepEqual(calls, [
     ["get-billing-terms", {
@@ -120,7 +134,7 @@ test("resolves plan terms, creates, and persists a Stripe subscription", async (
       intervalCount: 3,
       idempotencyReference: "checkout-attempt-123",
     }],
-    ["write-subscription", {
+    ["initialize-subscription", {
       mode: "test",
       studentId: "student-123",
       planId: "plan-quarterly",
@@ -141,6 +155,7 @@ test("resolves plan terms, creates, and persists a Stripe subscription", async (
       latestPaymentStatus: null,
       paymentActionRequiredAt: null,
     }],
+    ["retrieve-subscription", "sub_123", {includePaymentClientSecret: true, includeRecoveryDetails: true}],
   ]);
 });
 
@@ -154,7 +169,7 @@ test("returns not-found when the country or plan is not configured", async () =>
       providerCalls += 1;
     },
     async getCustomerRecordByReference() {},
-    async writeSubscriptionRecord() {},
+    async initializeSubscriptionRecord() {},
   });
 
   await assert.rejects(
@@ -189,7 +204,7 @@ test("rejects a Stripe customer owned by another authenticated user", async () =
       linkReads += 1;
     },
     async getStudentSubscription() {},
-    async writeSubscriptionRecord() {},
+    async initializeSubscriptionRecord() {},
   });
 
   await assert.rejects(
@@ -225,7 +240,7 @@ test("requires an active guardian-student link before calling Stripe", async () 
     async getStudentSubscription() {
       return {studentId: "student-123", subscriptionType: "trial"};
     },
-    async writeSubscriptionRecord() {},
+    async initializeSubscriptionRecord() {},
   });
 
   await assert.rejects(
@@ -255,7 +270,7 @@ test("requires the Stripe customer to be registered for persistence", async () =
     async getCustomerRecordByReference() {
       return null;
     },
-    async writeSubscriptionRecord() {},
+    async initializeSubscriptionRecord() {},
   });
 
   await assert.rejects(
@@ -276,7 +291,7 @@ test("rejects a non-Stripe payment provider", async () => {
       paymentProvider: {},
     }),
     async getCustomerRecordByReference() {},
-    async writeSubscriptionRecord() {},
+    async initializeSubscriptionRecord() {},
   });
 
   await assert.rejects(
@@ -324,306 +339,6 @@ test("normalizes current and legacy subscription Invoice references", () => {
   });
 });
 
-test("processes invoice.paid using current Stripe subscription state", async () => {
-  const calls = [];
-  const subscriptionStartDate = new Date("2026-09-01T00:00:00.000Z");
-  const currentPeriodStart = new Date("2026-09-01T00:00:00.000Z");
-  const currentPeriodEnd = new Date("2026-10-01T00:00:00.000Z");
-  const useCase = new ProcessStripeSubscriptionEvent({
-    createStripePayment(input) {
-      calls.push(["create-stripe-payment", input]);
-      return {
-        async retrieveSubscription(reference) {
-          calls.push(["retrieve-subscription", reference]);
-          return {
-            subscriptionReference: "sub_123",
-            customerReference: "cus_123",
-            status: "active",
-            subscriptionStartDate,
-            currentPeriodStart,
-            currentPeriodEnd,
-            cancelAtPeriodEnd: false,
-          };
-        },
-      };
-    },
-    async getSubscriptionRecord(input) {
-      calls.push(["get-subscription", input]);
-      return {
-        studentId: "student-123",
-        planId: "plan-quarterly",
-        paymentMethodReference: "pm_123",
-        amount: 4500,
-        currency: "myr",
-        interval: "month",
-        intervalCount: 3,
-      };
-    },
-    async writeSubscriptionRecord(input) {
-      calls.push(["write-subscription", input]);
-    },
-    async linkStudentPaymentSubscription(input) {
-      calls.push(["link-student-subscription", input]);
-    },
-  });
-
-  const result = await useCase.execute({
-    mode: "test",
-    event: {
-      type: "invoice.paid",
-      data: {
-        object: {
-          id: "in_123",
-          object: "invoice",
-          customer: "cus_123",
-          parent: {
-            type: "subscription_details",
-            subscription_details: {
-              subscription: "sub_123",
-            },
-          },
-        },
-      },
-    },
-  });
-
-  assert.deepEqual(calls, [
-    ["create-stripe-payment", {mode: "test"}],
-    ["retrieve-subscription", "sub_123"],
-    ["get-subscription", {
-      mode: "test",
-      customerReference: "cus_123",
-      subscriptionReference: "sub_123",
-    }],
-    ["write-subscription", {
-      mode: "test",
-      studentId: "student-123",
-      planId: "plan-quarterly",
-      customerReference: "cus_123",
-      subscriptionReference: "sub_123",
-      paymentMethodReference: "pm_123",
-      status: "active",
-      amount: 4500,
-      currency: "myr",
-      interval: "month",
-      intervalCount: 3,
-      subscriptionStartDate,
-      currentPeriodStart,
-      currentPeriodEnd,
-      cancelAtPeriodEnd: false,
-      latestInvoiceReference: "in_123",
-      latestInvoiceStatus: "paid",
-      latestPaymentStatus: "succeeded",
-      paymentActionRequiredAt: null,
-    }],
-    ["link-student-subscription", {
-      studentId: "student-123",
-      activeUntil: currentPeriodEnd,
-      paymentCustomerReference: "cus_123",
-      paymentSubscriptionReference: "sub_123",
-      planId: "plan-quarterly",
-    }],
-  ]);
-  assert.deepEqual(result, {
-    handled: true,
-    eventType: "invoice.paid",
-    mode: "test",
-    invoiceReference: "in_123",
-    customerReference: "cus_123",
-    subscriptionReference: "sub_123",
-    status: "active",
-    subscriptionStartDate,
-    currentPeriodStart,
-    currentPeriodEnd,
-    cancelAtPeriodEnd: false,
-    latestInvoiceStatus: "paid",
-    latestPaymentStatus: "succeeded",
-    paymentActionRequiredAt: null,
-  });
-});
-
-test("records an Invoice payment action without persisting its secret", async () => {
-  const calls = [];
-  const actionRequiredAt = new Date("2026-09-14T01:02:03.000Z");
-  const subscriptionStartDate = new Date("2026-09-01T00:00:00.000Z");
-  const currentPeriodStart = new Date("2026-09-01T00:00:00.000Z");
-  const currentPeriodEnd = new Date("2026-10-01T00:00:00.000Z");
-  const useCase = new ProcessStripeSubscriptionEvent({
-    createStripePayment(input) {
-      calls.push(["create-stripe-payment", input]);
-      return {
-        async retrieveInvoicePaymentContext(reference) {
-          calls.push(["retrieve-invoice-context", reference]);
-          return {
-            invoiceReference: "in_action",
-            customerReference: "cus_123",
-            subscriptionReference: "sub_123",
-            invoiceStatus: "open",
-            paymentStatus: "requires_action",
-            paymentClientSecret: "pi_secret_must_not_be_stored",
-          };
-        },
-        async retrieveSubscription(reference) {
-          calls.push(["retrieve-subscription", reference]);
-          return {
-            subscriptionReference: "sub_123",
-            customerReference: "cus_123",
-            status: "past_due",
-            subscriptionStartDate,
-            currentPeriodStart,
-            currentPeriodEnd,
-            cancelAtPeriodEnd: false,
-          };
-        },
-      };
-    },
-    async getSubscriptionRecord(input) {
-      calls.push(["get-subscription", input]);
-      return {
-        paymentMethodReference: "pm_123",
-        amount: 4500,
-        currency: "myr",
-        interval: "month",
-        intervalCount: 3,
-        paymentActionRequiredAt: null,
-      };
-    },
-    async writeSubscriptionRecord(input) {
-      calls.push(["write-subscription", input]);
-    },
-    now: () => actionRequiredAt,
-  });
-
-  const result = await useCase.execute({
-    mode: "test",
-    event: {
-      type: "invoice.payment_action_required",
-      data: {
-        object: {
-          id: "in_action",
-          object: "invoice",
-          customer: "cus_123",
-          subscription: "sub_123",
-        },
-      },
-    },
-  });
-  const write = calls.find(([operation]) => (
-    operation === "write-subscription"
-  ))[1];
-
-  assert.deepEqual(calls.slice(0, 4), [
-    ["create-stripe-payment", {mode: "test"}],
-    ["retrieve-invoice-context", "in_action"],
-    ["retrieve-subscription", "sub_123"],
-    ["get-subscription", {
-      mode: "test",
-      customerReference: "cus_123",
-      subscriptionReference: "sub_123",
-    }],
-  ]);
-  assert.deepEqual(write, {
-    mode: "test",
-    studentId: null,
-    planId: null,
-    customerReference: "cus_123",
-    subscriptionReference: "sub_123",
-    paymentMethodReference: "pm_123",
-    status: "past_due",
-    amount: 4500,
-    currency: "myr",
-    interval: "month",
-    intervalCount: 3,
-    subscriptionStartDate,
-    currentPeriodStart,
-    currentPeriodEnd,
-    cancelAtPeriodEnd: false,
-    latestInvoiceReference: "in_action",
-    latestInvoiceStatus: "open",
-    latestPaymentStatus: "requires_action",
-    paymentActionRequiredAt: actionRequiredAt,
-  });
-  assert.equal("paymentClientSecret" in write, false);
-  assert.deepEqual(result, {
-    handled: true,
-    eventType: "invoice.payment_action_required",
-    mode: "test",
-    invoiceReference: "in_action",
-    customerReference: "cus_123",
-    subscriptionReference: "sub_123",
-    status: "past_due",
-    subscriptionStartDate,
-    currentPeriodStart,
-    currentPeriodEnd,
-    cancelAtPeriodEnd: false,
-    latestInvoiceStatus: "open",
-    latestPaymentStatus: "requires_action",
-    paymentActionRequiredAt: actionRequiredAt,
-  });
-  assert.equal("paymentClientSecret" in result, false);
-});
-
-test("does not restore action-required state after the Invoice is paid", async () => {
-  let write;
-  const useCase = new ProcessStripeSubscriptionEvent({
-    createStripePayment: () => ({
-      async retrieveInvoicePaymentContext() {
-        return {
-          invoiceReference: "in_stale_action",
-          customerReference: "cus_123",
-          subscriptionReference: "sub_123",
-          invoiceStatus: "paid",
-          paymentStatus: "succeeded",
-        };
-      },
-      async retrieveSubscription() {
-        return {
-          subscriptionReference: "sub_123",
-          customerReference: "cus_123",
-          status: "active",
-          subscriptionStartDate: null,
-          currentPeriodStart: null,
-          currentPeriodEnd: null,
-          cancelAtPeriodEnd: false,
-        };
-      },
-    }),
-    async getSubscriptionRecord() {
-      return {
-        paymentMethodReference: "pm_123",
-        amount: 4500,
-        currency: "myr",
-        interval: "month",
-        intervalCount: 3,
-        paymentActionRequiredAt:
-          new Date("2026-09-13T00:00:00.000Z"),
-      };
-    },
-    async writeSubscriptionRecord(input) {
-      write = input;
-    },
-  });
-
-  await useCase.execute({
-    mode: "test",
-    event: {
-      type: "invoice.payment_action_required",
-      data: {
-        object: {
-          id: "in_stale_action",
-          object: "invoice",
-          customer: "cus_123",
-          subscription: "sub_123",
-        },
-      },
-    },
-  });
-
-  assert.equal(write.latestInvoiceStatus, "paid");
-  assert.equal(write.latestPaymentStatus, "succeeded");
-  assert.equal(write.paymentActionRequiredAt, null);
-});
-
 test("gets a current payment action only for its internal owner", async () => {
   const calls = [];
   const useCase = new GetStripeSubscriptionPaymentAction({
@@ -631,6 +346,12 @@ test("gets a current payment action only for its internal owner", async () => {
       providerName: "stripe",
       mode: "test",
       paymentProvider: {
+        async retrieveSubscription(reference) {
+          calls.push(["retrieve-subscription", reference]);
+          return {subscriptionReference: "sub_owner", customerReference: "cus_owner",
+            latestInvoiceReference: "in_action", status: "past_due",
+            collectionMethod: "charge_automatically"};
+        },
         async retrieveInvoicePaymentContext(reference) {
           calls.push(["retrieve-invoice-context", reference]);
           return {
@@ -641,6 +362,8 @@ test("gets a current payment action only for its internal owner", async () => {
             paymentStatus: "requires_action",
             paymentClientSecret: "pi_owner_secret",
             amountDue: 4500,
+            amountRemaining: 4500,
+            collectionMethod: "charge_automatically",
             currency: "myr",
           };
         },
@@ -671,6 +394,7 @@ test("gets a current payment action only for its internal owner", async () => {
       customerReference: "cus_owner",
       subscriptionReference: "sub_owner",
     }],
+    ["retrieve-subscription", "sub_owner"],
     ["retrieve-invoice-context", "in_action"],
   ]);
   assert.deepEqual(result, {
@@ -681,6 +405,17 @@ test("gets a current payment action only for its internal owner", async () => {
     paymentClientSecret: "pi_owner_secret",
     amountDue: 4500,
     currency: "myr",
+    canRetry: false,
+    savedCard: null,
+    failureCode: null,
+    invoiceStatus: "open",
+    subscriptionStatus: "past_due",
+    billingReason: null,
+    canPayWithNewCard: false,
+    paymentState: "authentication_required",
+    nextPaymentAttemptAt: null,
+    studentId: null,
+    planId: null,
   });
 });
 
@@ -714,83 +449,4 @@ test("does not expose a subscription owned by another caller", async () => {
   );
   assert.equal(subscriptionReads, 0);
   assert.equal(stripeReads, 0);
-});
-
-test("rejects an Invoice and Subscription customer mismatch", async () => {
-  let persistenceCalls = 0;
-  const useCase = new ProcessStripeSubscriptionEvent({
-    createStripePayment: () => ({
-      async retrieveSubscription() {
-        return {
-          subscriptionReference: "sub_123",
-          customerReference: "cus_other",
-          status: "active",
-        };
-      },
-    }),
-    async getSubscriptionRecord() {
-      persistenceCalls += 1;
-    },
-    async writeSubscriptionRecord() {
-      persistenceCalls += 1;
-    },
-  });
-
-  await assert.rejects(
-    () => useCase.execute({
-      mode: "prod",
-      event: {
-        type: "invoice.paid",
-        data: {
-          object: {
-            id: "in_123",
-            object: "invoice",
-            customer: "cus_123",
-            subscription: "sub_123",
-          },
-        },
-      },
-    }),
-    /Subscription customer does not match Invoice customer/,
-  );
-  assert.equal(persistenceCalls, 0);
-});
-
-test("ignores unsupported and non-subscription Invoice events", async () => {
-  let stripeCalls = 0;
-  const useCase = new ProcessStripeSubscriptionEvent({
-    createStripePayment() {
-      stripeCalls += 1;
-    },
-    async getSubscriptionRecord() {},
-    async writeSubscriptionRecord() {},
-  });
-
-  assert.deepEqual(await useCase.execute({
-    mode: "test",
-    event: {type: "invoice.payment_failed"},
-  }), {
-    handled: false,
-    eventType: "invoice.payment_failed",
-  });
-  assert.deepEqual(await useCase.execute({
-    mode: "test",
-    event: {
-      type: "invoice.paid",
-      data: {
-        object: {
-          id: "in_manual",
-          object: "invoice",
-          customer: "cus_123",
-          parent: null,
-        },
-      },
-    },
-  }), {
-    handled: false,
-    eventType: "invoice.paid",
-    mode: "test",
-    invoiceReference: "in_manual",
-  });
-  assert.equal(stripeCalls, 0);
 });

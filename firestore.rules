@@ -1,0 +1,140 @@
+rules_version = '2';
+// Billing/access overlay on the live rules read 2026-10-31. Not yet deployed.
+service cloud.firestore {
+  match /databases/{database}/documents {
+// Merge into the existing database match. This is not a replacement ruleset.
+function cancelledSubscriptionAccessAllows(billing, cancellation) {
+  let paidUntil = billing.get('activeUntil', null);
+  let retainedUntil = cancellation.get('accessUntil', null);
+  return (paidUntil is timestamp && request.time < paidUntil)
+    || (retainedUntil is timestamp && request.time < retainedUntil);
+}
+function studentBillingDocumentAllows(studentId) {
+  let billing = get(/databases/$(database)/documents/subscriptions/$(studentId)).data;
+  let recovery = billing.get('renewalRecovery', null);
+  let summary = billing.get('billingSummary', null);
+  let context = summary is map && summary.get('paymentProvider', null) == 'stripe' ? summary : billing;
+  let recovering = recovery is map
+    && recovery.get('paymentProvider', null) == context.get('paymentProvider', null)
+    && recovery.get('paymentMode', null) == context.get('paymentMode', null)
+    && recovery.get('paymentSubscriptionReference', null) == context.get('paymentSubscriptionReference', null)
+    && recovery.get('state', 'completed') != 'completed';
+  let cancellation = billing.get('subscriptionCancellation', null);
+  let cancelled = cancellation is map && cancellation.get('state', '') == 'cancelled'
+    && cancellation.get('paymentMode', null) == context.get('paymentMode', null)
+    && cancellation.get('paymentSubscriptionReference', null) == context.get('paymentSubscriptionReference', null);
+  let paidUntil = billing.get('activeUntil', null);
+  let pendingGrace = billing.get('renewalGraceUntil', null) is timestamp
+    ? billing.renewalGraceUntil : paidUntil is timestamp ? paidUntil + duration.value(72, 'h') : request.time;
+  let ended = summary is map && summary.get('subscriptionStatus', '') in ['canceled', 'incomplete_expired'];
+  return billing.get('applicationStatus', 'active') != 'suspended'
+    && (cancelled ? cancelledSubscriptionAccessAllows(billing, cancellation) : recovering
+      ? recovery.get('graceUntil', null) is timestamp && request.time < recovery.graceUntil
+      : billing.get('paymentProvider', null) != 'stripe'
+        || (paidUntil is timestamp && (request.time < paidUntil || (!ended && request.time < pendingGrace))));
+}
+function studentHasBillingAccess(studentId) {
+  return !exists(/databases/$(database)/documents/subscriptions/$(studentId))
+    || studentBillingDocumentAllows(studentId);
+}
+function currentStudentHasBillingAccess() {
+  return request.auth != null && studentHasBillingAccess(request.auth.uid);
+}
+function clientPreservesBillingState() {
+  return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+    'subscriptionType', 'activeUntil', 'applicationStatus', 'paymentProvider', 'paymentMode',
+    'paymentCustomerReference', 'paymentSubscriptionReference', 'planId', 'billingSummary', 'renewalRecovery', 'renewalGraceUntil', 'subscriptionCancellation'
+  ]);
+}
+
+    function signedIn() { return request.auth != null; }
+    function siteAdmin() {
+      return signedIn() && request.auth.token.get('email_verified', false)
+        && request.auth.token.get('email', '') is string
+        && exists(/databases/$(database)/documents/siteAdmins/$(request.auth.token.email.lower()));
+    }
+    function guardianOf(studentId) {
+      let linkId = request.auth.uid + '__' + studentId;
+      return exists(/databases/$(database)/documents/guardianStudentLinks/$(linkId))
+        && get(/databases/$(database)/documents/guardianStudentLinks/$(linkId)).data.get('state', '') == 'active';
+    }
+    function mayReadStudent(studentId) {
+      return signedIn() && (request.auth.uid == studentId || siteAdmin() || guardianOf(studentId));
+    }
+    function mayWriteStudent(studentId) {
+      return signedIn() && (request.auth.uid == studentId || siteAdmin());
+    }
+    function studentLearningCollection(collection) {
+      return collection in ['studentPractices', 'studentEssayPractices', 'studentAssessmentProgress',
+        'studentReadiness', 'studentDailyMissions', 'userCompletedQuestions', 'rewards'];
+    }
+    function sharedLearningCollection(collection) {
+      return collection in ['questions', 'practices', 'essayPractices', 'essayResults'];
+    }
+    function protectedCollection(collection) {
+      return studentLearningCollection(collection) || sharedLearningCollection(collection)
+        || collection in ['subscriptions', 'stripeCustomers', 'paymentConfigs', 'siteAdmins', 'practiceResults'];
+    }
+    function manualBilling(data) {
+      return data.get('paymentProvider', null) == null
+        && data.get('paymentSubscriptionReference', null) == null
+        && data.get('paymentCustomerReference', null) == null
+        && data.get('paymentMode', null) == null && data.get('planId', null) == null
+        && data.get('billingSummary', null) == null && data.get('renewalRecovery', null) == null
+        && data.get('renewalGraceUntil', null) == null && data.get('subscriptionCancellation', null) == null;
+    }
+
+    // Billing authority is server-only. Client-created student trials remain supported.
+    match /subscriptions/{studentId} {
+      allow read: if mayReadStudent(studentId);
+      allow create: if mayWriteStudent(studentId) && manualBilling(request.resource.data)
+        && request.resource.data.get('applicationStatus', 'active') == 'active'
+        && (siteAdmin() || request.resource.data.get('subscriptionType', '') == 'trial');
+      allow update: if mayWriteStudent(studentId) && (clientPreservesBillingState()
+        || (siteAdmin() && manualBilling(resource.data) && manualBilling(request.resource.data)));
+      allow delete: if siteAdmin() && manualBilling(resource.data);
+      match /{collection}/{document=**} {
+        allow read: if !(collection in ['checkouts', 'renewalEpisodes', 'subscriptionCancellations', 'paymentViews']) && mayReadStudent(studentId);
+        allow write: if collection == 'payments' && siteAdmin()
+          && request.resource.data.get('paymentProvider', null) == null
+          && get(/databases/$(database)/documents/subscriptions/$(studentId)).data.get('paymentProvider', null) == null;
+      }
+    }
+    match /stripeCustomers/{document=**} {
+      allow read: if siteAdmin();
+      // Registration, payment methods and SetupIntent progress use backend APIs.
+      allow write: if false;
+    }
+    match /paymentConfigs/{document} {
+      allow read: if signedIn();
+      allow write: if siteAdmin();
+    }
+    match /siteAdmins/{document} {
+      allow read: if signedIn();
+      // The existing authenticated admin callables own membership/bootstrap.
+      allow write: if false;
+    }
+    match /{collection}/{studentId}/{document=**} {
+      allow read: if studentLearningCollection(collection) && currentStudentHasBillingAccess()
+        && (mayReadStudent(studentId) || studentId == 'config');
+      allow write: if studentLearningCollection(collection) && currentStudentHasBillingAccess()
+        && (studentId == 'config' ? siteAdmin() : mayWriteStudent(studentId));
+    }
+    match /{collection}/{document=**} {
+      allow read, write: if sharedLearningCollection(collection) && currentStudentHasBillingAccess();
+    }
+    match /practiceResults/{practiceId} {
+      allow read, write: if currentStudentHasBillingAccess();
+      match /studentSubmissions/{studentId} {
+        allow read: if currentStudentHasBillingAccess() && mayReadStudent(studentId);
+        allow write: if currentStudentHasBillingAccess() && mayWriteStudent(studentId);
+      }
+    }
+    // Preserve the existing policy outside this billing/learning change. This
+    // deliberately excludes all guarded roots: Firestore allow rules combine by OR.
+    match /{collection}/{document=**} {
+      allow read, write: if !protectedCollection(collection);
+    }
+
+  }
+}

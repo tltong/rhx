@@ -9,6 +9,7 @@
  */
 const {
   GetSubscriptionPlanBillingTerms,
+  normalizeBillingTerms,
 } = require("./application/get_subscription_plan_billing_terms");
 const {
   FirestoreSubscriptionPlanBillingRepository,
@@ -27,4 +28,11 @@ async function getSubscriptionPlanBillingTerms(input) {
 
 module.exports = {
   getSubscriptionPlanBillingTerms,
+  async listSubscriptionPlanChoices(country) {
+    const plans = await subscriptionPlanBillingRepository.listPricing(country);
+    return plans.map(plan => {
+      const terms = normalizeBillingTerms(plan);
+      return {planId: plan.id, name: plan.name || terms.stripeProductName, months: terms.intervalCount, ...terms};
+    }).sort((a, b) => a.intervalCount - b.intervalCount || a.amount - b.amount);
+  },
 };

@@ -6,11 +6,13 @@
  * updateStudentSubscription({studentId, ...changes})
  * linkStudentPaymentSubscription({
  *   studentId, activeUntil?, paymentCustomerReference,
- *   paymentSubscriptionReference, planId
+ *   paymentSubscriptionReference, planId, paymentProvider?, paymentMode?,
+ *   billingPeriodEnd?
  * })
  *
- * linkStudentPaymentSubscription reads paymentProvider and paymentMode from
- * paymentConfigs/default during execution; callers do not supply them.
+ * Explicit provider/mode preserve verified event context. The legacy call without
+ * them retains paymentConfigs/default behavior. Invoice webhooks use the atomic
+ * subscription_billing_module API for ledger + receipt + access updates.
  */
 const {
   getPaymentConfig,
@@ -31,6 +33,7 @@ const {
   paymentModes,
   paymentProviders,
   subscriptionTypes,
+  subscriptionStatuses,
 } = require("./domain/student_subscription");
 const {
   FirestoreStudentSubscriptionRepository,
@@ -75,5 +78,6 @@ module.exports = {
   paymentModes,
   paymentProviders,
   subscriptionTypes,
+  subscriptionStatuses,
   updateStudentSubscription,
 };

@@ -159,7 +159,8 @@ export async function createDocumentIfAbsent(
 }
 
 export async function readDocument(collectionPath, documentId, options = {}) {
-  const snapshot = await getDocumentRef(collectionPath, documentId).get();
+  const reference = getDocumentRef(collectionPath, documentId);
+  const snapshot = options.source ? await reference.get({source: options.source}) : await reference.get();
 
   return toDocumentData(snapshot, options);
 }
@@ -179,10 +180,11 @@ export function watchDocument(
     throw new Error("onError must be a function when provided.");
   }
 
-  return getDocumentRef(collectionPath, documentId).onSnapshot(
-    (snapshot) => onChange(toDocumentData(snapshot, options)),
-    onError
-  );
+  const reference = getDocumentRef(collectionPath, documentId);
+  const callback = (snapshot) => onChange(toDocumentData(snapshot, options), snapshot);
+  return options.includeMetadataChanges
+    ? reference.onSnapshot({includeMetadataChanges: true}, callback, onError)
+    : reference.onSnapshot(callback, onError);
 }
 
 export async function readDocuments(documents, options = {}) {

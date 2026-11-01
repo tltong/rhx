@@ -2,7 +2,7 @@ import {
   getTutorConfig, getTutorMiniQuestionSet, checkTutorMiniQuestionAnswer,
   getTutorQuestionById,
 } from "../../tutor_module.js?v=20261015-tutor-count-variants-v1";
-import {onStudentAuthStateChanged} from "../../../student/student_module.js?v=20260716-no-eager-auth";
+import {onStudentAuthStateChanged} from "../../../student/student_module.js?v=20261031-renewal-restart-v1";
 import {setMathText} from "../../../../utils/math/render_math.js?v=20260822-katex-math";
 
 const SIGN_IN_URL = "/features/student/pages/sign_in/sign_in.html";

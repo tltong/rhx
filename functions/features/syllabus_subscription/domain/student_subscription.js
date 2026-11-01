@@ -2,6 +2,7 @@ const {
   paymentModes,
   paymentProviders,
   subscriptionTypes,
+  subscriptionStatuses,
 } = require("../../../schema/subscription_schema");
 
 const SUBSCRIPTION_TYPE_VALUES = new Set(Object.values(subscriptionTypes));
@@ -129,6 +130,11 @@ function validatePaymentLink(subscription) {
 class StudentSubscription {
   constructor({
     studentId,
+    billingSummary = null,
+    renewalRecovery = null,
+    renewalGraceUntil = null,
+    subscriptionCancellation = null,
+    applicationStatus = subscriptionStatuses.ACTIVE,
     subscriptionType,
     activeUntil = null,
     paymentProvider = null,
@@ -140,6 +146,12 @@ class StudentSubscription {
     updatedAt = null,
   }) {
     this.studentId = requireNonEmptyString(studentId, "studentId");
+    this.renewalGraceUntil = normalizeTimestamp(renewalGraceUntil, "renewalGraceUntil", {optional: true});
+    this.subscriptionCancellation = subscriptionCancellation == null ? null : Object.freeze({...subscriptionCancellation});
+    this.renewalRecovery = renewalRecovery == null ? null : Object.freeze({...renewalRecovery});
+    this.billingSummary = billingSummary == null ? null : Object.freeze({...billingSummary});
+    if (!Object.values(subscriptionStatuses).includes(applicationStatus)) throw new Error("Invalid application subscription status.");
+    this.applicationStatus = applicationStatus;
     this.subscriptionType = normalizeSubscriptionType(subscriptionType);
     this.activeUntil = normalizeTimestamp(activeUntil, "activeUntil", {
       optional: true,
@@ -180,6 +192,11 @@ class StudentSubscription {
     );
     const candidate = new StudentSubscription({
       studentId: this.studentId,
+      billingSummary: this.billingSummary,
+      renewalRecovery: this.renewalRecovery,
+      renewalGraceUntil: this.renewalGraceUntil,
+      subscriptionCancellation: this.subscriptionCancellation,
+      applicationStatus: this.applicationStatus,
       subscriptionType: valueFor("subscriptionType"),
       activeUntil: valueFor("activeUntil"),
       paymentProvider: valueFor("paymentProvider"),
@@ -203,4 +220,5 @@ module.exports = {
   paymentProviders,
   StudentSubscription,
   subscriptionTypes,
+  subscriptionStatuses,
 };

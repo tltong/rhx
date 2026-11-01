@@ -32,6 +32,10 @@
  *   interval, intervalCount,
  *   subscriptionStartDate, currentPeriodStart, currentPeriodEnd,
  *   cancelAtPeriodEnd}) -> Promise<StripeSubscriptionRecord>
+ * initializeSubscriptionRecord(input)
+ *   -> Promise<{created: boolean, record: StripeSubscriptionRecord}>
+ *   Atomically initializes a missing record, validates checkout identity on
+ *   retries, and preserves all existing payment state and timestamps.
  * getSubscriptionRecord(input) -> Promise<StripeSubscriptionRecord|null>
  * listSubscriptionRecords({mode, customerReference})
  *   -> Promise<StripeSubscriptionRecord[]>
@@ -121,6 +125,10 @@ async function writeSubscriptionRecord(input) {
   return stripeCustomerRecords.writeSubscriptionRecord(input);
 }
 
+async function initializeSubscriptionRecord(input) {
+  return stripeCustomerRecords.initializeSubscriptionRecord(input);
+}
+
 async function getSubscriptionRecord(input) {
   return stripeCustomerRecords.getSubscriptionRecord(input);
 }
@@ -133,7 +141,12 @@ async function deleteSubscriptionRecord(input) {
   return stripeCustomerRecords.deleteSubscriptionRecord(input);
 }
 
+const {FirestoreSubscriptionPlanChangeRepository} = require("./infrastructure/firestore_subscription_plan_change_repository");
+const planChanges = new FirestoreSubscriptionPlanChangeRepository();
 module.exports = {
+  applyRecoveredPlan: input => planChanges.applyRecoveredPlan(input),
+  claimSubscriptionPlanChange: input => planChanges.claim(input),
+  finishSubscriptionPlanChange: input => planChanges.finish(input),
   stripeCustomerModes,
   createCustomerRecord,
   getCustomerRecordByReference,
@@ -151,6 +164,7 @@ module.exports = {
   listPaymentMethodRecords,
   deletePaymentMethodRecord,
   writeSubscriptionRecord,
+  initializeSubscriptionRecord,
   getSubscriptionRecord,
   listSubscriptionRecords,
   deleteSubscriptionRecord,

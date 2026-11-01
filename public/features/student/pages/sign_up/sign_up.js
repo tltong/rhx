@@ -2,7 +2,7 @@ import {
   createStudentRecord,
   findStudentByUsername,
   signUpStudent
-} from "../../student_module.js?v=20260825-student-pin-v1";
+} from "../../student_module.js?v=20261031-renewal-restart-v1";
 import {
   studentLevels
 } from "../../../../config/firebase/student_schema.js?v=20260825-student-pin-v1";

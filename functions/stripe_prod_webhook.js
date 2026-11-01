@@ -91,16 +91,12 @@ function createStripeProdWebhookHandlers({
     }
 
     try {
-      let outcome = await processSetupIntentEvent({
-        mode: "prod",
-        event,
-      });
-
-      if (outcome?.handled !== true) {
-        outcome = await processSubscriptionEvent({
-          mode: "prod",
-          event,
-        });
+      let outcome = {handled: false};
+      const type = String(event?.type || "");
+      if (type.startsWith("invoice.") || type.startsWith("customer.subscription.") || type.startsWith("payment_intent.")) {
+        outcome = await processSubscriptionEvent({mode: "prod", event});
+      } else if (type.startsWith("setup_intent.")) {
+        outcome = await processSetupIntentEvent({mode: "prod", event});
       }
 
       eventLogger.info("Stripe production webhook event processed.", {

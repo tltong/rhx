@@ -1,9 +1,9 @@
 import {
   listCurrentStudentAssignedPractices
-} from "../../practice_session_module.js?v=20261018-topic-reset-v1";
+} from "../../practice_session_module.js?v=20261031-renewal-restart-v1";
 import {
   onStudentAuthStateChanged
-} from "../../../student/student_module.js?v=20260716-no-eager-auth";
+} from "../../../student/student_module.js?v=20261031-renewal-restart-v1";
 
 const SIGN_IN_URL = "/features/student/pages/sign_in/sign_in.html";
 const COMMENCE_PRACTICE_URL =

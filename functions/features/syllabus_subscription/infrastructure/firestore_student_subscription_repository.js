@@ -27,6 +27,11 @@ function toSubscription(studentId, data) {
   return new StudentSubscription({
     studentId,
     subscriptionType: data.subscriptionType,
+    billingSummary: data.billingSummary,
+    renewalRecovery: data.renewalRecovery,
+    renewalGraceUntil: data.renewalGraceUntil,
+    subscriptionCancellation: data.subscriptionCancellation,
+    applicationStatus: data.applicationStatus,
     activeUntil: data.activeUntil,
     paymentProvider: data.paymentProvider,
     paymentMode: data.paymentMode,
@@ -87,7 +92,7 @@ class FirestoreStudentSubscriptionRepository
     await this.createDocumentIfAbsent(
       SUBSCRIPTIONS_COLLECTION,
       record.studentId,
-      toSubscriptionRecord(record),
+      {...toSubscriptionRecord(record), applicationStatus: record.applicationStatus},
     );
 
     return record;
@@ -102,7 +107,7 @@ class FirestoreStudentSubscriptionRepository
       SUBSCRIPTIONS_COLLECTION,
       record.studentId,
       toSubscriptionRecord(record),
-      {merge: false},
+      {merge: true},
     );
 
     return record;

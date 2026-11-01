@@ -1,14 +1,14 @@
 import {
   PAYMENT_CONFIGS_COLLECTION,
   PAYMENT_CONFIG_DOCUMENT_ID
-} from "../../../config/firebase/payment_config_schema.js?v=20260901-payment-config-simple-v1";
+} from "../../../config/firebase/payment_config_schema.js?v=20261031-renewal-restart-v1";
 import {
   readDocument,
   writeDocument
 } from "../../../utils/firebase/firebase_ops.js";
 import {
   PaymentConfig
-} from "../domain/payment_config.js?v=20260901-payment-config-simple-v1";
+} from "../domain/payment_config.js?v=20261031-renewal-restart-v1";
 import {
   PaymentConfigRepository
 } from "../domain/payment_config_repository.js";
@@ -23,6 +23,7 @@ function toPaymentConfig(data) {
     provider: data.provider,
     mode: data.mode,
     customData: data.customData,
+    renewalRetryPolicy: data.renewalRetryPolicy,
     updatedAt: data.updatedAt
   });
 }
@@ -32,6 +33,7 @@ function toPaymentConfigRecord(paymentConfig) {
     provider: paymentConfig.provider,
     mode: paymentConfig.mode,
     customData: paymentConfig.customData,
+    renewalRetryPolicy: paymentConfig.renewalRetryPolicy,
     updatedAt: paymentConfig.updatedAt
   };
 }

@@ -1,339 +1,122 @@
+const {selectedSubscriptionInvoice} = require("./load_owned_subscription_invoice");
+const {invoiceRecord} = require("./stripe_invoice_record");
 const STRIPE_SUBSCRIPTION_EVENT_TYPES = Object.freeze({
   INVOICE_PAID: "invoice.paid",
+  INVOICE_PAYMENT_FAILED: "invoice.payment_failed",
   INVOICE_PAYMENT_ACTION_REQUIRED: "invoice.payment_action_required",
+  INVOICE_UPDATED: "invoice.updated",
+  SUBSCRIPTION_UPDATED: "customer.subscription.updated",
+  SUBSCRIPTION_DELETED: "customer.subscription.deleted",
 });
-
-const SUPPORTED_EVENT_TYPES = new Set(
-  Object.values(STRIPE_SUBSCRIPTION_EVENT_TYPES),
-);
-
-function requireMode(value) {
-  const mode = String(value ?? "").trim().toLowerCase();
-
-  if (mode !== "test" && mode !== "prod") {
-    throw new Error("mode must be test or prod.");
-  }
-
-  return mode;
-}
-
-function requireEvent(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("A Stripe event is required.");
-  }
-
-  const eventType = String(value.type ?? "").trim();
-
-  if (!eventType) {
-    throw new Error("Stripe event type is required.");
-  }
-
-  return {event: value, eventType};
-}
-
-function stripeReference(value, fieldName, {required = true} = {}) {
-  const reference = String(
-    value && typeof value === "object" ? value.id ?? "" : value ?? "",
-  ).trim();
-
-  if (required && !reference) {
-    throw new Error(`Stripe ${fieldName} is required.`);
-  }
-
-  return reference || null;
-}
-
-function invoiceSubscriptionReference(invoice) {
-  return invoice?.parent?.subscription_details?.subscription
-    ?? invoice?.subscription
-    ?? null;
-}
-
+const SUPPORTED_EVENT_TYPES = new Set(Object.values(STRIPE_SUBSCRIPTION_EVENT_TYPES));
+function ref(value) {return typeof value === "object" ? value?.id || null : value || null;}
 function normalizeInvoiceEvent(event) {
-  const invoice = event?.data?.object;
-
-  if (
-    !invoice
-    || typeof invoice !== "object"
-    || Array.isArray(invoice)
-    || invoice.object !== "invoice"
-  ) {
-    throw new Error("Stripe event must contain an Invoice object.");
+  const value = event?.data?.object;
+  if (!value || value.object !== "invoice" || !value.id || !ref(value.customer)) {
+    throw Error("Stripe event must contain an Invoice object with its customer.");
   }
-
-  return Object.freeze({
-    invoiceReference: stripeReference(invoice.id, "Invoice reference"),
-    customerReference: stripeReference(
-      invoice.customer,
-      "Invoice customer reference",
-    ),
-    subscriptionReference: stripeReference(
-      invoiceSubscriptionReference(invoice),
-      "Invoice subscription reference",
-      {required: false},
-    ),
-  });
+  return Object.freeze({invoiceReference: value.id, customerReference: ref(value.customer),
+    subscriptionReference: ref(value.parent?.subscription_details?.subscription || value.subscription)});
 }
-
-function requireSubscriptionResult(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(
-      "The Stripe payment provider did not return Subscription details.",
-    );
+function verify(context, identity) {
+  if (context.invoiceReference !== identity.invoiceReference
+    || context.customerReference !== identity.customerReference
+    || context.subscriptionReference !== identity.subscriptionReference) {
+    throw Error("Stripe Invoice payment context does not match event ownership.");
   }
-
-  return value;
 }
-
-function requirePaymentContext(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(
-      "The Stripe payment provider did not return Invoice payment context.",
-    );
-  }
-
-  return value;
-}
-
-function optionalText(value) {
-  return String(value ?? "").trim() || null;
-}
-
-function verifyInvoicePaymentContext(context, invoice) {
-  const invoiceReference = stripeReference(
-    context.invoiceReference,
-    "Invoice payment context reference",
-  );
-  const customerReference = stripeReference(
-    context.customerReference,
-    "Invoice payment context customer reference",
-  );
-  const subscriptionReference = stripeReference(
-    context.subscriptionReference,
-    "Invoice payment context subscription reference",
-  );
-
-  if (invoiceReference !== invoice.invoiceReference) {
-    throw new Error("Stripe returned an unexpected Invoice reference.");
-  }
-
-  if (customerReference !== invoice.customerReference) {
-    throw new Error(
-      "Stripe Invoice payment context customer does not match event customer.",
-    );
-  }
-
-  if (subscriptionReference !== invoice.subscriptionReference) {
-    throw new Error(
-      "Stripe Invoice payment context subscription does not match event.",
-    );
-  }
-
-  return Object.freeze({
-    invoiceReference,
-    customerReference,
-    subscriptionReference,
-    invoiceStatus: optionalText(context.invoiceStatus),
-    paymentStatus: optionalText(context.paymentStatus),
-  });
-}
-
 class ProcessStripeSubscriptionEvent {
-  constructor({
-    createStripePayment,
-    getSubscriptionRecord,
-    linkStudentPaymentSubscription,
-    writeSubscriptionRecord,
-    now = () => new Date(),
-  }) {
-    this.createStripePayment = createStripePayment;
-    this.getSubscriptionRecord = getSubscriptionRecord;
-    this.linkStudentPaymentSubscription = linkStudentPaymentSubscription;
-    this.writeSubscriptionRecord = writeSubscriptionRecord;
-    this.now = now;
+  constructor({createStripePayment, getSubscriptionRecord, getCustomerRecordByReference,
+    recordInvoicePaymentEvent, writePaymentMethodRecord = null, getPaymentConfig = null, getStudentSubscription = null, getInvoiceRecord = null, reconcileRenewalRecovery = null, now = () => new Date()}) {
+    Object.assign(this, {createStripePayment, getSubscriptionRecord, getCustomerRecordByReference,
+      recordInvoicePaymentEvent, writePaymentMethodRecord, getPaymentConfig, getStudentSubscription, getInvoiceRecord, reconcileRenewalRecovery, now});
   }
-
-  async execute({mode: inputMode, event: inputEvent} = {}) {
-    const mode = requireMode(inputMode);
-    const {event, eventType} = requireEvent(inputEvent);
-
-    if (!SUPPORTED_EVENT_TYPES.has(eventType)) {
-      return Object.freeze({handled: false, eventType});
+  async execute({mode, event} = {}) {
+    if (!["test", "prod"].includes(mode)) throw Error("mode must be test or prod.");
+    const eventType = event?.type;
+    if (!eventType) throw Error("A Stripe event is required.");
+    if (!SUPPORTED_EVENT_TYPES.has(eventType)) return {handled: false, eventType};
+    if (typeof event.livemode === "boolean" && event.livemode !== (mode === "prod")) {
+      throw Error("Stripe event mode does not match this endpoint.");
     }
-
-    const invoice = normalizeInvoiceEvent(event);
-
-    if (!invoice.subscriptionReference) {
-      return Object.freeze({
-        handled: false,
-        eventType,
-        mode,
-        invoiceReference: invoice.invoiceReference,
-      });
+    if (!event.id || !Number.isSafeInteger(event.created) || event.created < 0) throw Error("Stripe event identity and timestamp are required.");
+    const eventCreatedAt = new Date(event.created * 1000), observedAt = this.now();
+    let identity;
+    if (eventType.startsWith("customer.subscription.")) {
+      const value = event.data?.object;
+      if (value?.object !== "subscription" || !value.id || !ref(value.customer)) throw Error("Invalid subscription event.");
+      identity = {subscriptionReference: value.id, customerReference: ref(value.customer), invoiceReference: ref(value.latest_invoice)};
+    } else identity = normalizeInvoiceEvent(event);
+    if (!identity.subscriptionReference) return {handled: false, eventType, mode, invoiceReference: identity.invoiceReference};
+    const payment = this.createStripePayment({mode});
+    const [registered, customer] = await Promise.all([
+      this.getSubscriptionRecord({mode, customerReference: identity.customerReference, subscriptionReference: identity.subscriptionReference}),
+      this.getCustomerRecordByReference({mode, customerReference: identity.customerReference}),
+    ]);
+    if (!registered || !customer) throw Error("Stripe subscription/customer is not registered yet.");
+    if (!registered.studentId || !registered.planId) return {handled: false, eventType, reason: "unmapped_subscription"};
+    const subscription = await payment.retrieveSubscription(identity.subscriptionReference, {includeRecoveryDetails: true});
+    if (subscription.subscriptionReference !== identity.subscriptionReference
+      || subscription.customerReference !== identity.customerReference) throw Error("Stripe subscription customer does not match event.");
+    const student = this.getStudentSubscription ? await this.getStudentSubscription(registered.studentId) : null;
+    const selectedInvoiceReference = await selectedSubscriptionInvoice({subscription, student, mode, paymentProvider: payment});
+    if (!identity.invoiceReference || eventType.startsWith("customer.subscription.")) {
+      identity.invoiceReference = selectedInvoiceReference;
     }
-
-    const stripePayment = this.createStripePayment({mode});
-
-    if (typeof stripePayment?.retrieveSubscription !== "function") {
-      throw new Error(
-        "The Stripe payment provider cannot retrieve Subscriptions.",
-      );
-    }
-
-    let paymentContext = null;
-
-    if (
-      eventType
-      === STRIPE_SUBSCRIPTION_EVENT_TYPES.INVOICE_PAYMENT_ACTION_REQUIRED
-    ) {
-      if (
-        typeof stripePayment?.retrieveInvoicePaymentContext !== "function"
-      ) {
-        throw new Error(
-          "The Stripe payment provider cannot retrieve Invoice payment context.",
-        );
+    if (!identity.invoiceReference) return {handled: true, eventType, reason: "no_invoice"};
+    const context = await payment.retrieveInvoicePaymentContext(identity.invoiceReference, {includeBillingDetails: true});
+    verify(context, identity);
+    const record = invoiceRecord({context, subscription, registered, customer, observedAt, eventType, eventCreatedAt, selectedInvoiceReference});
+    let renewalRetryPolicy;
+    if (this.getInvoiceRecord && this.reconcileRenewalRecovery && record.billingReason === "subscription_cycle") {
+      const stored = await this.getInvoiceRecord({studentId: registered.studentId, paymentProvider: "stripe", paymentMode: mode,
+        paymentSubscriptionReference: identity.subscriptionReference, invoiceReference: identity.invoiceReference});
+      if ((stored?.renewalRetry || stored?.lastFailedAt) && !stored.renewalRecovery && stored.paymentState !== "paid") {
+        const plan = stored.renewalRetry;
+        renewalRetryPolicy = plan ? {maxRetries: plan.maxRetries, intervalHours: plan.intervalHours,
+          gracePeriodHours: Math.max(1, Math.min(1680, Math.ceil((plan.graceUntil - plan.firstFailedAt) / 3600000)))}
+          : (await this.getPaymentConfig?.())?.renewalRetryPolicy;
       }
-
-      paymentContext = verifyInvoicePaymentContext(
-        requirePaymentContext(
-          await stripePayment.retrieveInvoicePaymentContext(
-            invoice.invoiceReference,
-          ),
-        ),
-        invoice,
-      );
     }
-
-    const subscription = requireSubscriptionResult(
-      await stripePayment.retrieveSubscription(
-        invoice.subscriptionReference,
-      ),
-    );
-    const subscriptionReference = stripeReference(
-      subscription.subscriptionReference,
-      "Subscription result reference",
-    );
-    const customerReference = stripeReference(
-      subscription.customerReference,
-      "Subscription result customer reference",
-    );
-
-    if (subscriptionReference !== invoice.subscriptionReference) {
-      throw new Error(
-        "Stripe returned an unexpected Subscription reference.",
-      );
+    if (this.getPaymentConfig && eventType === "invoice.payment_failed"
+      && record.billingReason === "subscription_cycle" && record.isLatestInvoice
+      && (record.invoiceStatus === "paid" || (record.invoiceStatus === "open" && ["failed", "authentication_required"].includes(record.paymentState)))) {
+      const config = await this.getPaymentConfig();
+      if (!config?.renewalRetryPolicy) throw Error("Renewal retry configuration is unavailable.");
+      // Take collection ownership before committing the retry plan. Failure
+      // returns 500 so Stripe redelivers instead of leaving two retry owners.
+      if (context.invoiceStatus === "open") await payment.disableInvoiceAutomaticCollection(context.invoiceReference);
+      renewalRetryPolicy ||= this.reconcileRenewalRecovery ? config.renewalRetryPolicy
+        : {maxRetries: config.renewalRetryPolicy.maxRetries, intervalHours: config.renewalRetryPolicy.intervalHours};
     }
-
-    if (customerReference !== invoice.customerReference) {
-      throw new Error(
-        "Stripe Subscription customer does not match Invoice customer.",
-      );
+    if (!renewalRetryPolicy && record.paymentState === "paid" && this.getPaymentConfig) {
+      const policy = (await this.getPaymentConfig())?.renewalRetryPolicy;
+      renewalRetryPolicy = policy && (this.reconcileRenewalRecovery ? policy
+        : {maxRetries: policy.maxRetries, intervalHours: policy.intervalHours});
     }
-
-    const existingRecord = await this.getSubscriptionRecord({
-      mode,
-      customerReference,
-      subscriptionReference,
-    });
-
-    if (!existingRecord) {
-      throw new Error(
-        `Stripe subscription ${subscriptionReference} is not registered ` +
-        `for customer ${customerReference} in ${mode} mode.`,
-      );
+    const outcome = await this.recordInvoicePaymentEvent({studentId: registered.studentId,
+      paymentProvider: "stripe", paymentMode: mode, paymentSubscriptionReference: identity.subscriptionReference,
+      eventReference: event.id, eventType, eventCreatedAt, invoiceRecord: record,
+      ...(renewalRetryPolicy ? {renewalRetryPolicy} : {})});
+    let recoveryOutcome;
+    if (outcome.invoiceRecord?.renewalRecovery && this.reconcileRenewalRecovery) {
+      recoveryOutcome = await this.reconcileRenewalRecovery({studentId: registered.studentId,
+        paymentProvider: "stripe", paymentMode: mode, paymentSubscriptionReference: identity.subscriptionReference,
+        invoiceReference: identity.invoiceReference});
+      if (recoveryOutcome.outcome === "error") throw Error("Renewal billing control is pending reconciliation.");
     }
-
-    const status = String(subscription.status ?? "").trim();
-
-    if (!status) {
-      throw new Error("Stripe Subscription status is required.");
+    // Card metadata is an idempotent projection. If this fails, return 500 and
+    // retry it; the committed invoice event safely prevents duplicate receipts.
+    if (record.paymentState === "paid" && this.writePaymentMethodRecord && subscription.defaultPaymentMethodReference) {
+      const method = await payment.retrievePaymentMethod(subscription.defaultPaymentMethodReference);
+      if (method.customerReference !== identity.customerReference
+        || method.paymentMethodReference !== subscription.defaultPaymentMethodReference) throw Error("Unexpected subscription card owner.");
+      await this.writePaymentMethodRecord({mode, customerReference: identity.customerReference,
+        paymentMethodReference: method.paymentMethodReference, type: method.type, status: "attached", card: method.card});
     }
-
-    const invoicePaid = eventType
-      === STRIPE_SUBSCRIPTION_EVENT_TYPES.INVOICE_PAID
-      || paymentContext?.invoiceStatus === "paid"
-      || paymentContext?.paymentStatus === "succeeded";
-    const latestInvoiceStatus = invoicePaid
-      ? "paid"
-      : paymentContext?.invoiceStatus ?? null;
-    const latestPaymentStatus = invoicePaid
-      ? "succeeded"
-      : paymentContext?.paymentStatus ?? null;
-    const paymentActionRequiredAt = (
-      latestInvoiceStatus === "open"
-      && latestPaymentStatus === "requires_action"
-    ) ? existingRecord.paymentActionRequiredAt ?? this.now() : null;
-
-    await this.writeSubscriptionRecord({
-      mode,
-      studentId: existingRecord.studentId ?? null,
-      planId: existingRecord.planId ?? null,
-      customerReference,
-      subscriptionReference,
-      paymentMethodReference: existingRecord.paymentMethodReference,
-      status,
-      amount: existingRecord.amount,
-      currency: existingRecord.currency,
-      interval: existingRecord.interval,
-      intervalCount: existingRecord.intervalCount,
-      subscriptionStartDate: subscription.subscriptionStartDate,
-      currentPeriodStart: subscription.currentPeriodStart,
-      currentPeriodEnd: subscription.currentPeriodEnd,
-      cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
-      latestInvoiceReference: invoice.invoiceReference,
-      latestInvoiceStatus,
-      latestPaymentStatus,
-      paymentActionRequiredAt,
-    });
-
-    if (
-      eventType === STRIPE_SUBSCRIPTION_EVENT_TYPES.INVOICE_PAID
-      && status === "active"
-      && existingRecord.studentId
-      && existingRecord.planId
-    ) {
-      if (!subscription.currentPeriodEnd) {
-        throw new Error(
-          "An active Stripe subscription must include currentPeriodEnd.",
-        );
-      }
-
-      if (typeof this.linkStudentPaymentSubscription !== "function") {
-        throw new Error(
-          "Student payment subscription linking is not configured.",
-        );
-      }
-
-      await this.linkStudentPaymentSubscription({
-        studentId: existingRecord.studentId,
-        activeUntil: subscription.currentPeriodEnd,
-        paymentCustomerReference: customerReference,
-        paymentSubscriptionReference: subscriptionReference,
-        planId: existingRecord.planId,
-      });
-    }
-
-    return Object.freeze({
-      handled: true,
-      eventType,
-      mode,
-      invoiceReference: invoice.invoiceReference,
-      customerReference,
-      subscriptionReference,
-      status,
-      subscriptionStartDate: subscription.subscriptionStartDate,
-      currentPeriodStart: subscription.currentPeriodStart,
-      currentPeriodEnd: subscription.currentPeriodEnd,
-      cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
-      latestInvoiceStatus,
-      latestPaymentStatus,
-      paymentActionRequiredAt,
-    });
+    return {handled: true, eventType, mode, ...identity, status: subscription.status,
+      paymentState: outcome.invoiceRecord.paymentState, duplicate: outcome.duplicate,
+      accessUpdated: outcome.accessUpdated || recoveryOutcome?.outcome === "restarted", receiptCreated: outcome.receiptCreated || recoveryOutcome?.outcome === "restarted"};
   }
 }
-
-module.exports = {
-  ProcessStripeSubscriptionEvent,
-  STRIPE_SUBSCRIPTION_EVENT_TYPES,
-  normalizeInvoiceEvent,
-};
+module.exports = {ProcessStripeSubscriptionEvent, STRIPE_SUBSCRIPTION_EVENT_TYPES, normalizeInvoiceEvent};

@@ -1,4 +1,4 @@
-import {listStudents} from "../../../student/student_module.js?v=20260823-student-country-v1";
+import {listStudents} from "../../../student/student_module.js?v=20261031-renewal-restart-v1";
 import {listSyllabuses} from "../../../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
 import {previewStudentTopicPracticeReset, requestStudentTopicPracticeReset, getStudentTopicPracticeResetStatus}
   from "../../student_topic_practice_reset_module.js?v=20261018-topic-reset-v1";

@@ -1,3 +1,5 @@
+import {watchStudentSubscriptionAccess} from "../../syllabus_subscription/student_access_module.js?v=20261031-subscription-cancel-v1";
+import {watchStudentBillingGate} from "./student_billing_gate.js?v=20261031-renewal-restart-v1";
 import { getFirebaseEmailAuth } from "../../../utils/firebase/firebase_email_auth.js";
 import {
   getCurrentFirebaseAuthUser,
@@ -41,7 +43,13 @@ export class StudentAuthService {
   }
 
   onAuthStateChanged(callback) {
-    return onFirebaseAuthStateChanged(callback);
+    // Account creation/sign-in must finish before the learning-page gate runs.
+    if (/\/features\/student\/pages\/(sign_in|sign_up)\//.test(globalThis.location?.pathname || "")) {
+      return onFirebaseAuthStateChanged(callback);
+    }
+    return watchStudentBillingGate({observeAuth: onFirebaseAuthStateChanged, observeAccess: watchStudentSubscriptionAccess,
+      callback, redirect: reason => globalThis.location?.replace(
+        "/features/student/pages/subscription_suspended/subscription_suspended.html?reason=" + encodeURIComponent(reason))});
   }
 
   async getIdToken(forceRefresh = false) {

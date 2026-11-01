@@ -31,6 +31,14 @@ test("Stripe test webhook secrets use the expected Firebase secret names", () =>
   );
 });
 
+test("automatic providers bound request time while the worker controls transport replay", () => {
+  let options;
+  const factory = new StripePaymentFactory({secretKeyProvider: {getSecretKey: () => "sk_test_fake"},
+    StripeConstructor: class {constructor(_key, input) {options = input; this.customers = {create() {}, del() {}};}}});
+  factory.create({mode: "test", requestTimeoutMs: 15000});
+  assert.deepEqual(options, {timeout: 15000, maxNetworkRetries: 0});
+});
+
 test("Stripe production webhook secrets use the expected Firebase secret names", () => {
   assert.equal(
     stripeProdWebhookSecret.name,

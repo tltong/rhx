@@ -1,4 +1,9 @@
 const { generateDeepseekText } = require("./deepseek");
+const guardianSubscriptionFunctions = require("./stripe_guardian_subscriptions");
+exports.getStripeGuardianSubscriptionOptions = guardianSubscriptionFunctions.getStripeGuardianSubscriptionOptions;
+exports.prepareStripeStudentSubscription = guardianSubscriptionFunctions.prepareStripeStudentSubscription;
+exports.createStripeStudentSubscription = guardianSubscriptionFunctions.createStripeStudentSubscription;
+exports.changeStripeStudentSubscriptionPlan = guardianSubscriptionFunctions.changeStripeStudentSubscriptionPlan;
 const {
   createPaymentCustomer,
   deleteCustomer,
@@ -9,6 +14,9 @@ const {
 const {
   createStripeSubscription,
   getStripeSubscriptionPaymentAction,
+  retryStripeSubscriptionPayment,
+  getStripeSubscriptionPaymentDetails,
+  updateStripeSubscriptionPaymentMethod,
 } = require("./stripe_payment_subscription");
 const {
   getStripeClientConfig,
@@ -48,11 +56,15 @@ exports.createStripeSetupIntent = createStripeSetupIntent;
 exports.createStripeSubscription = createStripeSubscription;
 exports.getStripeSubscriptionPaymentAction =
   getStripeSubscriptionPaymentAction;
+exports.retryStripeSubscriptionPayment = retryStripeSubscriptionPayment;
+exports.getStripeSubscriptionPaymentDetails = getStripeSubscriptionPaymentDetails;
+exports.updateStripeSubscriptionPaymentMethod = updateStripeSubscriptionPaymentMethod;
 exports.getStripeClientConfig = getStripeClientConfig;
 exports.listStripeCustomers =
   require("./stripe_customer_list").listStripeCustomers;
 exports.stripeTestWebhook = stripeTestWebhook;
 exports.stripeProdWebhook = stripeProdWebhook;
+exports.retryStripeRenewals = require("./stripe_renewal_retry_scheduler").retryStripeRenewals;
 exports.addSiteAdminEmail = addSiteAdminEmail;
 exports.isCurrentUserSiteAdmin = isCurrentUserSiteAdmin;
 exports.listSiteAdminEmails = listSiteAdminEmails;
@@ -63,3 +75,4 @@ exports.onStudentEssayPracticeCompleted = require("./triggers/student_essay_prac
 exports.pruneStudentLoginHistoryDaily = pruneStudentLoginHistoryDaily;
 exports.onStudentLoginRecorded = onStudentLoginRecorded;
 exports.studentTopicPracticeReset = require("./student_topic_practice_reset_http").studentTopicPracticeReset;
+exports.manageStripeRenewalRecovery = require("./stripe_renewal_recovery").manageStripeRenewalRecovery;

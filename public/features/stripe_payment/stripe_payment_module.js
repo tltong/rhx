@@ -1,5 +1,7 @@
 /**
  * Public APIs:
+ * Subscription management exports are compatibility aliases. Guardian pages
+ * should query stripe_payment_subscription directly.
  *
  * createPaymentCustomer(inputReference, email)
  *   -> Promise<string> Stripe customer reference
@@ -8,12 +10,26 @@
  *   -> Promise<string> deleted Stripe customer reference
  * createStripeSetupIntent(customerReference)
  *   -> Promise<string> Stripe SetupIntent client secret
+ * createStripeSetupIntent({subscriptionReference, idempotencyReference})
+ *   -> Promise<{setupIntentReference, clientSecret}> owned future-card setup
+ * getStripeSubscriptionPaymentDetails({subscriptionReference, invoiceReference?})
+ *   -> Promise<{subscriptionReference, subscriptionStatus, currentCard,
+ *      canChangeCard, paymentState, renewal, nextChargeAt, linkedInvoiceIsCurrent}>
+ * updateStripeSubscriptionPaymentMethod({subscriptionReference, setupIntentReference})
+ *   -> Promise<subscription payment details>; does not pay an invoice
  * createStripeSubscription({studentId, customerReference,
  *   paymentMethodReference, country, planId, idempotencyReference})
  *   -> Promise<{subscriptionReference, status, paymentClientSecret}>
- * getStripeSubscriptionPaymentAction(subscriptionReference)
+ * getStripeSubscriptionPaymentAction(subscriptionReference |
+ *   {subscriptionReference, invoiceReference?, paymentMethodChoice?: "new_card"})
  *   -> Promise<{action, subscriptionReference, invoiceReference,
- *      paymentStatus, paymentClientSecret, amountDue, currency}>
+ *      paymentStatus, paymentClientSecret, amountDue, currency,
+ *      canRetry, savedCard, failureCode, invoiceStatus, subscriptionStatus,
+ *      billingReason}>
+ * retryStripeSubscriptionPayment({subscriptionReference, invoiceReference,
+ *   idempotencyReference}) -> Promise<same payment-action DTO>
+ *   Retries only the saved card on a failed recurring renewal invoice. Keep the same
+ *   idempotencyReference when retrying a request whose outcome is unknown.
  * getStripeClientConfig()
  *   -> Promise<{provider: "stripe", mode: "test"|"prod", publishableKey}>
  * mountSetupPaymentElement({clientSecret, containerSelector})
@@ -21,9 +37,14 @@
  * confirmSetup({contextReference, returnUrl, redirectBehavior?})
  *   -> Promise<{setupIntentReference, status, paymentMethodReference}>
  * confirmSubscriptionPayment({
- *   paymentClientSecret, returnUrl, redirectBehavior?
+ *   paymentClientSecret?, contextReference?, returnUrl, redirectBehavior?, authenticationOnly?, useSavedCard?
  * })
  *   -> Promise<{paymentStatus}>
+ *   authenticationOnly completes 3DS for a server-confirmed PaymentIntent.
+ *   useSavedCard confirms an initial PaymentIntent with its verified attached card.
+ *   Both modes require an explicit guardian action; they cannot be combined.
+ *   contextReference submits a new card on the existing Invoice PaymentIntent.
+ * disposePaymentElement({contextReference}) -> void (cancel/sign-out cleanup)
  * retrieveSetupIntent({clientSecret})
  *   -> Promise<{setupIntentReference, status, paymentMethodReference}>
  */
@@ -38,16 +59,19 @@ import {
 } from "./application/delete_payment_customer.js?v=20260903-stripe-customer-test-v1";
 import {
   CreateStripeSetupIntent
-} from "./application/create_setup_intent.js?v=20260904-stripe-setup-intent-v1";
+} from "./application/create_setup_intent.js?v=20261031-renewal-restart-v1";
 import {
   CreateStripeSubscription
 } from "./application/create_subscription.js?v=20260917-student-link-v1";
 import {
   GetStripeClientConfig
 } from "./application/get_stripe_client_config.js?v=20260906-stripe-client-config-v1";
-import {
-  GetStripeSubscriptionPaymentAction
-} from "./application/get_subscription_payment_action.js?v=20260914-complete-payment-v1";
+// Compatibility exports for checkout/admin callers. Guardian subscription pages
+// import these operations directly from the subscription feature.
+import {getStripeSubscriptionPaymentDetails, getStripeSubscriptionPaymentAction,
+  retryStripeSubscriptionPayment, updateStripeSubscriptionPaymentMethod,
+  createStripeSubscriptionCardSetup}
+  from "../stripe_payment_subscription/stripe_payment_subscription_module.js?v=20261101-stored-status-v1";
 import {
   MountStripeSetupPaymentElement
 } from "./application/mount_setup_payment_element.js?v=20260907-stripe-setup-context-v1";
@@ -56,19 +80,19 @@ import {
 } from "./application/confirm_setup.js?v=20260919-redirect-toggle-v1";
 import {
   ConfirmStripeSubscriptionPayment
-} from "./application/confirm_subscription_payment.js?v=20260919-redirect-toggle-v1";
+} from "./application/confirm_subscription_payment.js?v=20261031-initial-confirm-v1";
 import {
   RetrieveStripeSetupIntent
 } from "./application/retrieve_setup_intent.js?v=20260906-confirm-setup-redirect-v1";
 import {
   BrowserStripeSetupGateway
-} from "./infrastructure/browser_stripe_setup_gateway.js?v=20260919-redirect-toggle-v1";
+} from "./infrastructure/browser_stripe_setup_gateway.js?v=20261028-manage-payments-v1";
 import {
   BrowserStripePaymentConfirmationGateway
-} from "./infrastructure/browser_stripe_payment_confirmation_gateway.js?v=20260919-redirect-toggle-v1";
+} from "./infrastructure/browser_stripe_payment_confirmation_gateway.js?v=20261031-initial-confirm-v1";
 import {
   FirebaseCallableStripePaymentGateway
-} from "./infrastructure/firebase_callable_stripe_payment_gateway.js?v=20261025-customer-select-v1";
+} from "./infrastructure/firebase_callable_stripe_payment_gateway.js?v=20261028-subscription-feature-v1";
 
 const stripePaymentGateway = new FirebaseCallableStripePaymentGateway();
 const createPaymentCustomerUseCase = new CreatePaymentCustomer(
@@ -87,8 +111,6 @@ const createStripeSubscriptionUseCase = new CreateStripeSubscription(
 const getStripeClientConfigUseCase = new GetStripeClientConfig(
   stripePaymentGateway
 );
-const getStripeSubscriptionPaymentActionUseCase =
-  new GetStripeSubscriptionPaymentAction(stripePaymentGateway);
 const browserStripeSetupGateway = new BrowserStripeSetupGateway();
 const mountStripeSetupPaymentElementUseCase =
   new MountStripeSetupPaymentElement({
@@ -104,7 +126,8 @@ const confirmStripeSubscriptionPaymentUseCase =
   new ConfirmStripeSubscriptionPayment({
     getStripeClientConfig: () => getStripeClientConfigUseCase.execute(),
     stripePaymentConfirmationGateway:
-      browserStripePaymentConfirmationGateway
+      browserStripePaymentConfirmationGateway,
+    stripeSetupGateway: browserStripeSetupGateway
   });
 const retrieveStripeSetupIntentUseCase =
   new RetrieveStripeSetupIntent({
@@ -125,6 +148,9 @@ async function deleteCustomer(customerReference) {
 }
 
 async function createStripeSetupIntent(customerReference) {
+  if (customerReference && typeof customerReference === "object") {
+    return createStripeSubscriptionCardSetup(customerReference);
+  }
   return createStripeSetupIntentUseCase.execute(customerReference);
 }
 
@@ -134,14 +160,6 @@ async function createStripeSubscription(input) {
 
 async function getStripeClientConfig() {
   return getStripeClientConfigUseCase.execute();
-}
-
-async function getStripeSubscriptionPaymentAction(
-  subscriptionReference
-) {
-  return getStripeSubscriptionPaymentActionUseCase.execute(
-    subscriptionReference
-  );
 }
 
 async function mountSetupPaymentElement(input) {
@@ -169,7 +187,14 @@ export {
   deleteCustomer,
   getStripeClientConfig,
   getStripeSubscriptionPaymentAction,
+  getStripeSubscriptionPaymentDetails,
   listStripeCustomers,
   mountSetupPaymentElement,
-  retrieveSetupIntent
+  retrieveSetupIntent,
+  retryStripeSubscriptionPayment,
+  updateStripeSubscriptionPaymentMethod
 };
+
+export function disposePaymentElement(input) {
+  browserStripeSetupGateway.disposePaymentElement(input);
+}

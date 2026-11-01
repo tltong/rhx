@@ -33,7 +33,7 @@ import {
 } from "../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
 import {
   getStudentById
-} from "../student/student_module.js?v=20260823-student-country-v1";
+} from "../student/student_module.js?v=20261031-renewal-restart-v1";
 import {
   getStudentStreamSubscription
 } from "../stream_subscription/stream_subscription_module.js?v=20260823-student-stream-v1";
@@ -172,4 +172,4 @@ export {
   recordSubscriptionPayment,
   subscriptionTypes,
   updateStudentSubscription
-} from "./student_subscription_module.js?v=20260915-student-payment-link-v1";
+} from "./student_subscription_module.js?v=20261031-renewal-restart-v1";

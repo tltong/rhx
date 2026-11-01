@@ -1,3 +1,4 @@
+const {cardChangeScope} = require("./features/stripe_payment_subscription/application/card_change_scope");
 const {
   HttpsError,
   onCall,
@@ -10,6 +11,9 @@ const {
   createStripePaymentSubscription,
   getStripeSubscriptionPaymentAction:
     loadStripeSubscriptionPaymentAction,
+  retryStripeSubscriptionInvoicePayment,
+  getStripeSubscriptionPaymentDetails: loadSubscriptionPaymentDetails,
+  updateStripeSubscriptionPaymentMethod: updateSubscriptionPaymentMethod,
 } = require(
   "./features/stripe_payment_subscription/stripe_payment_subscription_module"
 );
@@ -71,6 +75,14 @@ function requireIdempotencyReference(value) {
   return reference;
 }
 
+function requireStripeReference(value, prefix, fieldName) {
+  const reference = requireDocumentReference(value, fieldName);
+  if (!new RegExp(`^${prefix}[a-zA-Z0-9_]+$`).test(reference)) {
+    throw new HttpsError("invalid-argument", `${fieldName} is invalid.`);
+  }
+  return reference;
+}
+
 function subscriptionInput(request, internalReference) {
   return Object.freeze({
     internalReference,
@@ -120,6 +132,8 @@ const PAYMENT_ACTIONS = new Set([
   "replace_payment_method",
   "unavailable",
   "wait",
+  "retry_payment",
+  "enter_new_card",
 ]);
 
 function requireProviderText(value, fieldName) {
@@ -159,7 +173,7 @@ function normalizePaymentActionResult(result) {
     throw new Error("The payment provider returned an unsupported action.");
   }
 
-  const paymentClientSecret = action === "confirm_payment"
+  const paymentClientSecret = ["confirm_payment", "enter_new_card"].includes(action) && result.requiresActionFetch !== true
     ? requireProviderText(
       result.paymentClientSecret,
       "paymentClientSecret",
@@ -191,14 +205,83 @@ function normalizePaymentActionResult(result) {
     ),
     paymentStatus: String(result.paymentStatus ?? "").trim() || null,
     paymentClientSecret,
+    ...(result.requiresActionFetch === true ? {requiresActionFetch: true} : {}),
     amountDue,
     currency,
+    ...(typeof result.canRetry === "boolean" ? {
+      canRetry: result.canRetry && action === "retry_payment",
+      savedCard: result.savedCard ? {
+        brand: String(result.savedCard.brand),
+        last4: String(result.savedCard.last4),
+        expiryMonth: result.savedCard.expiryMonth,
+        expiryYear: result.savedCard.expiryYear,
+      } : null,
+      failureCode: result.failureCode || null,
+      invoiceStatus: result.invoiceStatus || null,
+      subscriptionStatus: result.subscriptionStatus || null,
+      billingReason: result.billingReason || null,
+      canPayWithNewCard: result.canPayWithNewCard === true,
+      paymentState: result.paymentState || null,
+      nextPaymentAttemptAt: result.nextPaymentAttemptAt || null,
+      studentId: result.studentId || null,
+      planId: result.planId || null,
+      ...(result.attemptInvoiceReference ? {attemptInvoiceReference: requireProviderDocumentReference(result.attemptInvoiceReference, "attemptInvoiceReference")} : {}),
+      ...(Number.isSafeInteger(result.amountPaid) && result.amountPaid >= 0 ? {amountPaid: result.amountPaid} : {}),
+    } : {}),
   });
+}
+
+function normalizePaymentDetails(result, subscriptionReference) {
+  if (!result || result.subscriptionReference !== subscriptionReference) {
+    throw Error("Unexpected subscription payment details.");
+  }
+  if (result.renewal && result.renewal.subscriptionReference !== subscriptionReference) {
+    throw Error("Unexpected renewal subscription reference.");
+  }
+  const card = result.currentCard;
+  const applicationStatus = result.applicationStatus || "active";
+  if (!["active", "suspended"].includes(applicationStatus)) throw Error("Unexpected application subscription status.");
+  const renewalRetry = result.renewalRetry ? Object.fromEntries([
+    "state", "maxRetries", "intervalHours", "attemptsMade", "firstFailedAt", "graceUntil",
+    "nextAttemptAt", "lastAttemptAt", "lastOutcome", "completedAt", "exhaustedAt"
+  ].map(key => [key, result.renewalRetry[key] ?? null])) : null;
+  return {subscriptionReference, subscriptionStatus: String(result.subscriptionStatus),
+    ...(result.syncState ? {syncState: {state: result.syncState.state === "pending" ? "pending" : "current",
+      lastConfirmedAt: result.syncState.lastConfirmedAt || null, unavailable: result.syncState.unavailable === true}} : {}),
+    ...(typeof result.canCancelSubscription === "boolean" ? {canCancelSubscription: result.canCancelSubscription} : {}),
+    ...(result.cancellation ? {cancellation: Object.fromEntries(["state", "requestedAt", "cancelledAt", "accessUntil"].map(key => [key, result.cancellation[key] || null]))} : {}),
+    ...(result.firstChargeAt ? {firstChargeAt: result.firstChargeAt} : {}),
+    ...(result.accessUntil ? {accessUntil: result.accessUntil} : {}),
+    ...(result.renewalRecovery?.version === 2 ? {canCancelPendingPayment: result.canCancelPendingPayment === true,
+      canCancelRenewal: result.canCancelRenewal === true, renewalCancelled: result.renewalCancelled === true,
+      recoveryPending: result.recoveryPending === true} : {}),
+    applicationStatus, renewalRetry,
+    renewalRecovery: result.renewalRecovery ? Object.fromEntries([
+      "version", "state", "firstFailedAt", "graceUntil", "paidAt", "paidThrough", "completedAt", "lastErrorCode"
+    ].map(key => [key, result.renewalRecovery[key] ?? null])) : null,
+    currentCard: card ? {brand: String(card.brand), last4: String(card.last4),
+      expiryMonth: card.expiryMonth, expiryYear: card.expiryYear} : null,
+    canChangeCard: result.canChangeCard === true,
+    nextChargeAt: result.nextChargeAt || null, cancelAtPeriodEnd: result.cancelAtPeriodEnd === true,
+    studentId: result.studentId || null, studentName: result.studentName || null, planId: result.planId || null,
+    canChangeAllStudents: result.canChangeAllStudents === true,
+    cardChangeTargets: (result.cardChangeTargets || []).map(target => ({
+      subscriptionReference: requireStripeReference(target.subscriptionReference, "sub_", "subscriptionReference"),
+      studentId: String(target.studentId), studentName: String(target.studentName || target.studentId), planId: target.planId || null})),
+    cardUpdateResult: result.cardUpdateResult ? {scope: cardChangeScope(result.cardUpdateResult.scope),
+      ...Object.fromEntries(["updated", "failed", "skipped"].map(key => [key,
+        (result.cardUpdateResult[key] || []).map(ref => requireStripeReference(ref, "sub_", "subscriptionReference"))]))} : null,
+    paymentState: result.paymentState || "unavailable",
+    linkedInvoiceIsCurrent: result.linkedInvoiceIsCurrent === true,
+    renewal: result.renewal ? normalizePaymentActionResult(result.renewal) : null};
 }
 
 function createStripeSubscriptionHandlers({
   createPaymentSubscription = createStripePaymentSubscription,
   getSubscriptionPaymentAction = loadStripeSubscriptionPaymentAction,
+  retrySubscriptionInvoicePayment = retryStripeSubscriptionInvoicePayment,
+  getSubscriptionPaymentDetails = loadSubscriptionPaymentDetails,
+  updateSubscriptionCard = updateSubscriptionPaymentMethod,
 } = {}) {
   async function createStripeSubscriptionHandler(request) {
     const internalReference = requireAuthenticatedCaller(request);
@@ -221,16 +304,28 @@ function createStripeSubscriptionHandlers({
 
   async function getStripeSubscriptionPaymentActionHandler(request) {
     const internalReference = requireAuthenticatedCaller(request);
-    const subscriptionReference = requireDocumentReference(
+    const subscriptionReference = requireStripeReference(
       request?.data?.subscriptionReference,
+      "sub_",
       "subscriptionReference",
     );
+    const invoiceReference = request?.data?.invoiceReference == null ? null
+      : requireStripeReference(request.data.invoiceReference, "in_", "invoiceReference");
+    const paymentMethodChoice = request?.data?.paymentMethodChoice;
+    if (paymentMethodChoice != null && paymentMethodChoice !== "new_card") {
+      throw new HttpsError("invalid-argument", "Unsupported payment method choice.");
+    }
+    if (paymentMethodChoice && !invoiceReference) {
+      throw new HttpsError("invalid-argument", "invoiceReference is required for new-card payment.");
+    }
 
     try {
       const result = normalizePaymentActionResult(
         await getSubscriptionPaymentAction({
           internalReference,
           subscriptionReference,
+          ...(invoiceReference ? {invoiceReference} : {}),
+          ...(paymentMethodChoice ? {paymentMethodChoice} : {}),
         }),
       );
 
@@ -239,12 +334,16 @@ function createStripeSubscriptionHandlers({
           "The payment provider returned an unexpected subscriptionReference.",
         );
       }
+      if (invoiceReference && result.invoiceReference !== invoiceReference) {
+        throw new Error("The payment provider returned an unexpected invoiceReference.");
+      }
 
       return result;
     } catch (error) {
       if (
         error?.code === "not-found"
         || error?.code === "failed-precondition"
+        || error?.code === "invalid-argument"
       ) {
         throw new HttpsError(error.code, error.message);
       }
@@ -253,9 +352,69 @@ function createStripeSubscriptionHandlers({
     }
   }
 
+  async function retryStripeSubscriptionPaymentHandler(request) {
+    const internalReference = requireAuthenticatedCaller(request);
+    const subscriptionReference = requireStripeReference(
+      request?.data?.subscriptionReference, "sub_", "subscriptionReference");
+    const invoiceReference = requireStripeReference(
+      request?.data?.invoiceReference, "in_", "invoiceReference");
+    const idempotencyReference = requireIdempotencyReference(
+      request?.data?.idempotencyReference);
+    try {
+      const result = normalizePaymentActionResult(
+        await retrySubscriptionInvoicePayment({internalReference,
+          subscriptionReference, invoiceReference, idempotencyReference,
+          ...(request.data.planId === undefined ? {} : {planId: requireText(request.data.planId, "planId")}),
+          ...(request.data.quoteReference === undefined ? {} : {quoteReference: requireText(request.data.quoteReference, "quoteReference")})}),
+      );
+      if (result.subscriptionReference !== subscriptionReference
+        || result.invoiceReference !== invoiceReference) {
+        throw new Error("The payment provider returned an unexpected invoice.");
+      }
+      return result;
+    } catch (error) {
+      if (["invalid-argument", "not-found", "failed-precondition", "unavailable",
+        "permission-denied"].includes(error?.code)) {
+        throw new HttpsError(error.code, error.message);
+      }
+      throw error;
+    }
+  }
+
+  function managementHandler(operation, update = false) {
+    return async request => {
+      const internalReference = requireAuthenticatedCaller(request);
+      const subscriptionReference = requireStripeReference(
+        request?.data?.subscriptionReference, "sub_", "subscriptionReference");
+      const input = {internalReference, subscriptionReference};
+      if (!update && request?.data?.refreshFromStripe !== undefined) {
+        if (typeof request.data.refreshFromStripe !== "boolean") throw new HttpsError("invalid-argument", "refreshFromStripe must be a boolean.");
+        input.refreshFromStripe = request.data.refreshFromStripe;
+      }
+      if (request?.data?.invoiceReference != null) input.invoiceReference =
+        requireStripeReference(request.data.invoiceReference, "in_", "invoiceReference");
+      if (update && request?.data?.cardChangeScope !== undefined) {
+        try {input.cardChangeScope = cardChangeScope(request.data.cardChangeScope);}
+        catch (error) {throw new HttpsError("invalid-argument", error.message);}
+      }
+      if (update) input.setupIntentReference = requireStripeReference(
+        request?.data?.setupIntentReference, "seti_", "setupIntentReference");
+      try {
+        return normalizePaymentDetails(await operation(input), subscriptionReference);
+      } catch (error) {
+        if (["not-found", "failed-precondition", "invalid-argument", "permission-denied",
+          "unavailable"].includes(error?.code)) throw new HttpsError(error.code, error.message);
+        throw error;
+      }
+    };
+  }
+
   return Object.freeze({
     createStripeSubscriptionHandler,
     getStripeSubscriptionPaymentActionHandler,
+    retryStripeSubscriptionPaymentHandler,
+    getStripeSubscriptionPaymentDetailsHandler: managementHandler(getSubscriptionPaymentDetails),
+    updateStripeSubscriptionPaymentMethodHandler: managementHandler(updateSubscriptionCard, true),
   });
 }
 
@@ -301,9 +460,28 @@ const getStripeSubscriptionPaymentAction = onCall(
     },
   ),
 );
+const retryStripeSubscriptionPayment = onCall(
+  {...CALLABLE_OPTIONS, timeoutSeconds: 120},
+  withErrorLogging(handlers.retryStripeSubscriptionPaymentHandler, {
+    logMessage: "Stripe subscription invoice retry failed.",
+    userMessage: "Could not confirm the payment result. Check the invoice status before retrying.",
+  }),
+);
+const getStripeSubscriptionPaymentDetails = onCall({...CALLABLE_OPTIONS, timeoutSeconds: 120},
+  withErrorLogging(handlers.getStripeSubscriptionPaymentDetailsHandler, {
+    logMessage: "Subscription payment details failed.", userMessage: "Could not load subscription payment details.",
+  }));
+const updateStripeSubscriptionPaymentMethod = onCall({...CALLABLE_OPTIONS, timeoutSeconds: 120},
+  withErrorLogging(handlers.updateStripeSubscriptionPaymentMethodHandler, {
+    logMessage: "Subscription card update failed.", userMessage: "Could not confirm the saved card. Refresh to check its status.",
+  }));
 
 module.exports = {
+  normalizePaymentDetails,
   createStripeSubscription,
   createStripeSubscriptionHandlers,
   getStripeSubscriptionPaymentAction,
+  retryStripeSubscriptionPayment,
+  getStripeSubscriptionPaymentDetails,
+  updateStripeSubscriptionPaymentMethod,
 };
