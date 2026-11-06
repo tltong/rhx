@@ -1,5 +1,8 @@
-import {QUESTION_SELECTION_ATTEMPT_LIMIT} from "../config/student_essay_practice_generator_config.js?v=20261020-theme-pool-v1";
-import {normalizeGenerationRequest, requireIdentifier, themeKey, questionCriteria, normalizeDraft, generationError} from "../domain/essay_generation.js?v=20261018-next-essay-v1";
+import {resolveTopicAssessmentFrameworkId} from "../../syllabus/domain/syllabus.js?v=20261105-topic-framework-v1";
+import {questionSupportsSettings} from "../../essay_question_generator/domain/essay_question_support.js?v=20261101-essay-simple-images-v4";
+import {createDefaultConfiguration} from "../../essay_question_generator/domain/essay_question_generator_config.js?v=20261101-essay-simple-images-v4";
+import {QUESTION_SELECTION_ATTEMPT_LIMIT} from "../config/student_essay_practice_generator_config.js?v=20261104-fill-preassessment-v3";
+import {normalizeGenerationRequest, requireIdentifier, themeKey, questionCriteria, normalizeDraft, generationError} from "../domain/essay_generation.js?v=20261105-mcq-adoption-v1";
 
 class GenerateNextStudentEssayPractice {
   constructor(dependencies) {Object.assign(this, {random: Math.random}, dependencies);}
@@ -44,7 +47,7 @@ class GenerateNextStudentEssayPractice {
     return {themes: new Map([[themeKey(fallback), fallback]]), useDefault: true};
   }
 
-  async reusableQuestion(criteria, history, themes, assertAccess) {
+  async reusableQuestion(criteria, history, themes, assertAccess, settings) {
     let cursor = null, selected = null, count = 0;
     const sample = total => {
       const draw = this.random();
@@ -56,6 +59,7 @@ class GenerateNextStudentEssayPractice {
       const page = await this.listEssayQuestions({...criteria, limit: 100, cursor});
       assertAccess();
       for (const question of page.questions) {
+        if (!questionSupportsSettings(question, settings)) continue;
         if (history.questionIds.has(question.questionId) || !themes.has(themeKey(question.seedUsed))) continue;
         const candidate = normalizeDraft(question, criteria, question.seedUsed);
         if (sample(++count)) selected = candidate;
@@ -90,6 +94,7 @@ class GenerateNextStudentEssayPractice {
     const persistenceContext = {assertAccess, sourceCompletion: {completedAt: source.completedAt, syllabusId: source.syllabusId, topicId: source.topicId}};
     let generation = await this.repository.claim(request, persistenceContext);
     try {
+      if (generation.outcome === "framework-completed") return null;
       let practice = await this.existingPractice(request, generation, source, assertAccess);
       if (practice) {
         if (generation.status !== "completed") await this.repository.finish(request, generation.leaseToken, practice.essayQuestionId, persistenceContext);
@@ -100,7 +105,28 @@ class GenerateNextStudentEssayPractice {
       const sourceQuestion = await this.getEssayQuestionById(source.essayQuestionId);
       assertAccess();
       if (!sourceQuestion) throw new Error("The completed essay's question could not be found.");
-      const criteria = questionCriteria(sourceQuestion);
+      const syllabus = await this.getSyllabusById(source.syllabusId);
+      assertAccess();
+      if (!syllabus) throw new Error("The essay syllabus could not be found.");
+      const frameworkId = resolveTopicAssessmentFrameworkId(syllabus, {topicId: source.topicId, language: sourceQuestion.language});
+      if (!frameworkId) throw new Error("A topic assessment framework is required before generating the next essay.");
+      const framework = await this.getAssessmentFrameworkById(frameworkId);
+      assertAccess();
+      if (framework?.frameworkType !== "essay") throw new Error("The topic requires an essay assessment framework.");
+      const levelId = await this.getStudentTopicLevel({studentId: request.studentId, syllabusId: source.syllabusId, topicId: source.topicId});
+      assertAccess();
+      if (levelId === "endLevel") {
+        generation = await this.repository.finishWithoutAssignment(request, generation.leaseToken, persistenceContext);
+        assertAccess();
+        return null;
+      }
+      const level = levelId ? framework.levels.find(item => item.id === levelId)
+        : [...framework.levels].sort((a, b) => a.sequenceOrder - b.sequenceOrder)[0];
+      if (!level) throw new Error("The student's current level is not available in the essay topic framework.");
+      const criteria = questionCriteria(sourceQuestion, level.criteria.difficultyLevel);
+      const config = await this.getEssayQuestionGeneratorConfig?.() || createDefaultConfiguration();
+      assertAccess();
+      const settings = config.gradeSupport[criteria.level][criteria.standard];
       const unavailableQuestionIds = new Set();
       for (let selectionAttempt = 0; selectionAttempt < QUESTION_SELECTION_ATTEMPT_LIMIT; selectionAttempt++) {
         const history = await this.studentHistory(request.studentId, source, sourceQuestion, assertAccess);
@@ -115,14 +141,14 @@ class GenerateNextStudentEssayPractice {
           const selected = generation.draft ?? await this.getEssayQuestionById(selectedId);
           assertAccess();
           if (!selected) throw new Error("The selected essay question could not be found.");
-          if (!themes.has(themeKey(selected.seedUsed))) {
+          if (Object.entries(criteria).some(([key, value]) => selected[key] !== value) || !themes.has(themeKey(selected.seedUsed)) || !questionSupportsSettings(selected, settings)) {
             generation = await this.repository.clearSelection(request, generation.leaseToken, persistenceContext);
             continue;
           }
         }
         let draft = generation.draft, question;
         if (!draft && !generation.reusedQuestionId) {
-          const reusable = useDefault ? null : await this.reusableQuestion(criteria, history, themes, assertAccess);
+          const reusable = useDefault ? null : await this.reusableQuestion(criteria, history, themes, assertAccess, settings);
           if (reusable) {
             generation = await this.repository.saveReusedQuestion(request, generation.leaseToken, reusable.questionId, persistenceContext);
           } else {

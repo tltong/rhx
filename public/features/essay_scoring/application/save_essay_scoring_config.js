@@ -1,4 +1,4 @@
-import {normalizeConfiguration, requireAdministratorUid} from "../domain/essay_scoring_config.js?v=20261020-scoring-config-v1";
+import {normalizeConfiguration, requireAdministratorUid} from "../domain/essay_scoring_config.js?v=20261104-fill-preassessment-v3";
 
 class SaveEssayScoringConfig {
   constructor(repository, requireAdministrator) {Object.assign(this, {repository, requireAdministrator});}

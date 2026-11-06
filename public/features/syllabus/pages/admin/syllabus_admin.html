@@ -5,20 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Syllabus Admin</title>
     <script>document.documentElement.hidden = true;</script>
-    <link rel="stylesheet" href="./syllabus_admin.css?v=20260718-syllabus-languages">
+    <link rel="stylesheet" href="./syllabus_admin.css?v=20261104-fill-preassessment-v3">
     <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script>
     <script defer src="/__/firebase/init.js"></script>
-    <script type="module" src="/init_fb.js"></script>
+    <script type="module" src="/init_fb.js?v=20261104-fill-preassessment-v3"></script>
   </head>
   <body>
     <main class="page">
       <header class="page-header">
         <a class="back-link" href="/">Back to Home</a>
         <h1>Syllabus Admin</h1>
-        <p>Define syllabuses from available scope, languages, and assessment frameworks.</p>
+        <p>Define syllabuses and assign a framework to each topic and language. The framework determines the question type.</p>
       </header>
 
       <section class="panel">
@@ -80,12 +80,6 @@
               </label>
               <button id="use-new-subject" type="button" class="secondary">Use New Subject</button>
             </div>
-            <label class="field">
-              <span>Assessment framework</span>
-              <select id="assessment-framework-select">
-                <option value="">Select framework</option>
-              </select>
-            </label>
             <label class="toggle-field">
               <input id="active-input" type="checkbox">
               <span>Active syllabus</span>
@@ -149,7 +143,7 @@
       id="site-admin-page-loader"
       type="module"
       data-site-admin-page
-      data-page-module="./syllabus_admin.js?v=20261018-topic-framework-v1"
+      data-page-module="./syllabus_admin.js?v=20261105-topic-framework-v1"
       src="/features/site_admin/pages/common/site_admin_page_loader.js?v=20260827-site-admin-guard-v1"
     ></script>
   </body>

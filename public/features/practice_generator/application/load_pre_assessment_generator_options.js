@@ -18,7 +18,7 @@ export class LoadPreAssessmentGeneratorOptions {
   async execute() {
     const syllabuses = await this.listSyllabuses();
     const frameworkTypes = {};
-    const ids = new Set(syllabuses.flatMap(syllabus => [syllabus.assessmentFrameworkId, ...(syllabus.topics || []).flatMap(topic => Object.values(topic.assessmentFrameworkIds || {}))]).filter(Boolean));
+    const ids = new Set(syllabuses.flatMap(syllabus => (syllabus.topics || []).flatMap(topic => Object.values(topic.assessmentFrameworkIds || {}))).filter(Boolean));
     if (this.getAssessmentFrameworkById) await Promise.all([...ids].map(async id => {const framework = await this.getAssessmentFrameworkById(id); if (framework) frameworkTypes[id] = framework.frameworkType || "normal";}));
 
     return {
@@ -32,7 +32,6 @@ export class LoadPreAssessmentGeneratorOptions {
         ))
         .map((syllabus) => ({
           id: syllabus.id,
-          assessmentFrameworkId: syllabus.assessmentFrameworkId || null,
           frameworkTypes,
           country: syllabus.country,
           level: syllabus.level,

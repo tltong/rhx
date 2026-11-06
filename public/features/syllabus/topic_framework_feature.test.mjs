@@ -61,11 +61,11 @@ beforeEach(() => {documents.clear(); writes.length = 0; admin = true; auth.curre
 after(() => {Object.assign(ops, originalOps); if (originalFirebase === undefined) delete globalThis.firebase; else globalThis.firebase = originalFirebase;});
 
 for (const [layer, api, resolve] of [["backend", backend, backendResolve], ["web", web, webResolve]]) {
-  test(layer + ": topic override wins for its language and other languages inherit the syllabus default", async () => {
-    assert.equal(await api.getTopicAssessmentFrameworkId(scope), "normal");
+  test(layer + ": only explicit topic/language assignments resolve; legacy defaults are ignored", async () => {
+    assert.equal(await api.getTopicAssessmentFrameworkId(scope), null);
     await api.assignTopicAssessmentFramework({...scope, assessmentFrameworkId: "essay"});
     assert.equal(await api.getTopicAssessmentFrameworkId(scope), "essay");
-    assert.equal(await api.getTopicAssessmentFrameworkId({...scope, language: " bahasa   melayu "}), "normal");
+    assert.equal(await api.getTopicAssessmentFrameworkId({...scope, language: " bahasa   melayu "}), null);
     const syllabus = await api.getSyllabusById("syllabus");
     assert.equal(resolve(syllabus, scope), "essay");
     assert.equal(syllabus.topics[0].pausable, false); assert.deepEqual(syllabus.topics[0].subtopics, {one: "Paragraphs"});
@@ -77,9 +77,11 @@ for (const [layer, api, resolve] of [["backend", backend, backendResolve], ["web
       api.assignTopicAssessmentFramework({...scope, language: "Bahasa Melayu", assessmentFrameworkId: "other"}),
     ]);
     assert.deepEqual(documents.get(topicPath).assessmentFrameworkIds, {english: "essay", bahasa_melayu: "other"});
+    await assert.rejects(api.assignTopicAssessmentFramework({...scope, assessmentFrameworkId: null}), /requires an assessment framework/);
+    delete documents.get(topicPath).preAssessmentPractices.english;
     await api.assignTopicAssessmentFramework({...scope, assessmentFrameworkId: null});
     assert.deepEqual(documents.get(topicPath).assessmentFrameworkIds, {bahasa_melayu: "other"});
-    assert.equal(await api.getTopicAssessmentFrameworkId(scope), "normal");
+    assert.equal(await api.getTopicAssessmentFrameworkId(scope), null);
     assert.equal(await api.getTopicAssessmentFrameworkId({...scope, language: "Bahasa Melayu"}), "other");
   });
   test(layer + ": invalid topic, language or framework cannot create partial bindings", async () => {
@@ -119,7 +121,7 @@ test("legacy frameworks default to normal and essay framework configuration pers
   assert.equal((await backendFrameworks.calculateAssessmentProgression({assessmentFrameworkId: saved.id, scores: [80, 82]})).levelId, "first");
   assert.equal((await frameworks.calculateAssessmentProgression({assessmentFrameworkId: saved.id, scores: [80, 82, 85]})).isEndLevel, true);
   await assert.rejects(frameworks.saveAssessmentFrameworkPreAssessment(saved.id, {}), /do not use pre-assessment/);
-  for (const criteria of [{questionsPerPractice: 2}, {difficultyLevel: "hard"}, {requiredPracticeCount: 0}, {minimumScore: 101}]) {
+  for (const criteria of [{questionsPerPractice: 2}, {requiredPracticeCount: 0}, {minimumScore: 101}]) {
     const before = writes.length;
     await assert.rejects(frameworks.createAssessmentFrameworkRecord({...input, levels: [{...input.levels[0], criteria: {...input.levels[0].criteria, ...criteria}}]}));
     assert.equal(writes.length, before);

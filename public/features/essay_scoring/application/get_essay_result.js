@@ -1,4 +1,4 @@
-import {normalizeResultReference} from "../domain/essay_result.js?v=20261018-essay-review-comment-v1";
+import {normalizeResultReference} from "../domain/essay_result.js?v=20261104-fill-preassessment-v3";
 
 class GetEssayResult {
   constructor(repository) {this.repository = repository;}

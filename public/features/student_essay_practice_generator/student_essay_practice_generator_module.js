@@ -1,8 +1,11 @@
+import {getStudentTopicLevel} from "../student_assessment_progress/student_assessment_progress_module.js?v=20261105-mcq-adoption-v1";
+import {getSyllabusById} from "../syllabus/syllabus_module.js?v=20261105-mcq-adoption-v1";
+import {getAssessmentFrameworkById} from "../assessment_framework/assessment_framework_module.js?v=20261105-mcq-adoption-v1";
 /**
  * generateNextStudentEssayPractice({studentId, completedEssayPracticeId})
- *   -> Promise<AssignedEssayPractice|CompletedEssayPractice>
+ *   -> Promise<AssignedEssayPractice|CompletedEssayPractice|null>
  *
- * Reuses and assigns an unseen medium essay following a completed student essay attempt.
+ * Reuses and assigns an unseen essay at the student's current framework difficulty following a completed student essay attempt.
  * Reads the full theme pool for the source question's level/grade, excluding themes from
  * all the student's completed AND assigned essays across subjects/topics (case/spacing ignored).
  * Reuses an unseen matching question only from an eligible unused theme; otherwise generates one.
@@ -24,13 +27,13 @@
  * The backend essay-completion trigger invokes this after grading. No new Firebase endpoints.
  */
 import {getCompletedEssayPractice, getAssignedEssayPractice, listCompletedEssayPractices,
-  listAssignedEssayPractices, assignEssayPracticeToStudent} from "../student_essay_practice/student_essay_practice_module.js?v=20261018-essay-reuse-v1";
-import {getEssayQuestionById, listEssayQuestions, generateEssayQuestion, saveEssayQuestion} from "../essay_question_generator/essay_question_generator_module.js?v=20261017-essay-grade-min-words-v1";
-import {getQuestionSeedEntries, getDefaultQuestionSeedTheme} from "../question_seed_generator/question_seed_generator_module.js?v=20261020-default-theme-v1";
+  listAssignedEssayPractices, assignEssayPracticeToStudent} from "../student_essay_practice/student_essay_practice_module.js?v=20261104-fill-preassessment-v3";
+import {getEssayQuestionById, listEssayQuestions, generateEssayQuestion, saveEssayQuestion, getEssayQuestionGeneratorConfig} from "../essay_question_generator/essay_question_generator_module.js?v=20261104-fill-preassessment-v3";
+import {getQuestionSeedEntries, getDefaultQuestionSeedTheme} from "../question_seed_generator/question_seed_generator_module.js?v=20261104-fill-preassessment-v3";
 import {requireCurrentFirebaseAuthUser} from "../../utils/firebase/firebase_auth.js";
 import {requireCurrentSiteAdmin} from "../site_admin/site_admin_module.js?v=20260827-site-admin-guard-v1";
-import {FirestoreEssayGenerationRepository} from "./infrastructure/firestore_essay_generation_repository.js?v=20261018-essay-reuse-v1";
-import {GenerateNextStudentEssayPractice} from "./application/generate_next_student_essay_practice.js?v=20261020-theme-pool-v1";
+import {FirestoreEssayGenerationRepository} from "./infrastructure/firestore_essay_generation_repository.js?v=20261105-mcq-adoption-v1";
+import {GenerateNextStudentEssayPractice} from "./application/generate_next_student_essay_practice.js?v=20261105-mcq-adoption-v1";
 
 async function administratorAccess() {
   const user = requireCurrentFirebaseAuthUser();
@@ -50,9 +53,10 @@ async function administratorAccess() {
 
 const generator = new GenerateNextStudentEssayPractice({
   repository: new FirestoreEssayGenerationRepository(), requireAdministrator: administratorAccess,
+  getStudentTopicLevel, getSyllabusById, getAssessmentFrameworkById,
   getCompletedEssayPractice, getAssignedEssayPractice, listCompletedEssayPractices,
   listAssignedEssayPractices, assignEssayPracticeToStudent,
-  getEssayQuestionById, listEssayQuestions, generateEssayQuestion, saveEssayQuestion, getQuestionSeedEntries, getDefaultQuestionSeedTheme,
+  getEssayQuestionById, listEssayQuestions, generateEssayQuestion, saveEssayQuestion, getEssayQuestionGeneratorConfig, getQuestionSeedEntries, getDefaultQuestionSeedTheme,
 });
 
 async function generateNextStudentEssayPractice(input) {return generator.execute(input);}

@@ -20,25 +20,25 @@
  */
 import {
   getStreamById
-} from "../stream/stream_module.js?v=20260823-stream-language-v1";
+} from "../stream/stream_module.js?v=20261104-fill-preassessment-v3";
 import {
   getStudentAcademicScope
-} from "../student/student_module.js?v=20261031-renewal-restart-v1";
+} from "../student/student_module.js?v=20261104-fill-preassessment-v3";
 import {
   GetStudentStreamSubscription
-} from "./application/get_student_stream_subscription.js?v=20260823-stream-subscription-v1";
+} from "./application/get_student_stream_subscription.js?v=20261104-fill-preassessment-v3";
 import {
   SubscribeStudentToStream
-} from "./application/subscribe_student_to_stream.js?v=20260823-stream-subscription-v1";
+} from "./application/subscribe_student_to_stream.js?v=20261104-fill-preassessment-v3";
 import {
   SubscribeStudentToStreamSyllabuses
-} from "./application/subscribe_student_to_stream_syllabuses.js?v=20260825-stream-syllabus-subscriptions-v1";
+} from "./application/subscribe_student_to_stream_syllabuses.js?v=20261104-fill-preassessment-v3";
 import {
   UnsubscribeStudentFromStream
-} from "./application/unsubscribe_student_from_stream.js?v=20260823-stream-subscription-v1";
+} from "./application/unsubscribe_student_from_stream.js?v=20261104-fill-preassessment-v3";
 import {
   FirestoreStreamSubscriptionRepository
-} from "./infrastructure/firestore_stream_subscription_repository.js?v=20260823-stream-subscription-v1";
+} from "./infrastructure/firestore_stream_subscription_repository.js?v=20261104-fill-preassessment-v3";
 
 const streamSubscriptionRepository =
   new FirestoreStreamSubscriptionRepository();
@@ -54,7 +54,7 @@ const unsubscribeStudentFromStreamUseCase =
 
 async function subscribeSyllabusThroughFeature(studentId, syllabusId, language) {
   const { subscribeSyllabus } = await import(
-    "../syllabus_subscription/syllabus_subscription_module.js?v=20260825-stream-syllabus-subscriptions-v1"
+    "../syllabus_subscription/syllabus_subscription_module.js?v=20261104-fill-preassessment-v3"
   );
 
   return subscribeSyllabus(studentId, syllabusId, language);

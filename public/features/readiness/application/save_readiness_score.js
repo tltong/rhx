@@ -1,4 +1,4 @@
-import {requireTopicScope, requireReadinessScore, normalizeSourcePracticeId, normalizeSourcePracticeType} from "../domain/readiness_score.js?v=20261018-essay-completion-metrics-v1";
+import {requireTopicScope, requireReadinessScore, normalizeSourcePracticeId, normalizeSourcePracticeType} from "../domain/readiness_score.js?v=20261104-fill-firestore-v2";
 
 class SaveReadinessScore {
   constructor(repository) {

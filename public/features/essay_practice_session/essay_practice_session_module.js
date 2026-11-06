@@ -1,4 +1,4 @@
-import {requireStudentSubscriptionAccess} from "../syllabus_subscription/student_access_module.js?v=20261031-subscription-cancel-v1";
+import {requireStudentSubscriptionAccess} from "../syllabus_subscription/student_access_module.js?v=20261104-fill-preassessment-v3";
 /**
  * loadEssayPracticeSession({studentId, essayPracticeId}) -> {status, practice, question, result|null}
  * submitEssayPracticeSession({studentId, essayPracticeId, essayText, timeTakenSeconds}) -> saved completion
@@ -6,12 +6,12 @@ import {requireStudentSubscriptionAccess} from "../syllabus_subscription/student
  * Saves the submission before asynchronous backend scoring. No new Firebase callable.
  */
 import {getAssignedEssayPractice, getCompletedEssayPractice, completeAssignedEssayPractice}
-  from "../student_essay_practice/student_essay_practice_module.js?v=20261018-essay-reuse-v1";
-import {getEssayQuestionById} from "../essay_question_generator/essay_question_generator_module.js?v=20261017-essay-grade-min-words-v1";
-import {getEssayResult} from "../essay_scoring/essay_scoring_module.js?v=20261018-essay-review-comment-v1";
+  from "../student_essay_practice/student_essay_practice_module.js?v=20261104-fill-preassessment-v3";
+import {getEssayQuestionById} from "../essay_question_generator/essay_question_generator_module.js?v=20261104-fill-preassessment-v3";
+import {getEssayResult} from "../essay_scoring/essay_scoring_module.js?v=20261104-fill-preassessment-v3";
 import {requireCurrentFirebaseAuthUser} from "../../utils/firebase/firebase_auth.js";
-import {LoadEssayPracticeSession} from "./application/load_essay_practice_session.js?v=20261018-essay-session-v1";
-import {SubmitEssayPracticeSession} from "./application/submit_essay_practice_session.js?v=20261018-essay-min-word-count-v1";
+import {LoadEssayPracticeSession} from "./application/load_essay_practice_session.js?v=20261104-fill-preassessment-v3";
+import {SubmitEssayPracticeSession} from "./application/submit_essay_practice_session.js?v=20261104-fill-preassessment-v3";
 const load = new LoadEssayPracticeSession({getAssignedEssayPractice, getCompletedEssayPractice, getEssayQuestionById, getEssayResult});
 const submit = new SubmitEssayPracticeSession({completeAssignedEssayPractice, getAssignedEssayPractice, getCompletedEssayPractice, getEssayQuestionById});
 async function withAccess(operation, input) {

@@ -1,13 +1,13 @@
 import {
   listSyllabusScopeCountries
-} from "../../../syllabusscope/syllabusscope_module.js?v=20260829-subscription-plan-admin-v1";
+} from "../../../syllabusscope/syllabusscope_module.js?v=20261104-fill-preassessment-v3";
 import {
   createSubscriptionPlan,
   deleteSubscriptionPlan,
   getSubscriptionPlanCatalog,
   setSubscriptionPlanCurrency,
   updateSubscriptionPlan
-} from "../../syllabus_subscription_module.js?v=20260912-stripe-product-name-v1";
+} from "../../syllabus_subscription_module.js?v=20261104-fill-preassessment-v3";
 
 const countryEl = document.querySelector("#subscription-plan-country");
 const currencyFormEl = document.querySelector("#currency-form");

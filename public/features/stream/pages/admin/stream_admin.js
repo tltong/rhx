@@ -10,7 +10,7 @@ import {
   listStreams,
   listStreamYears,
   renameStream
-} from "../../stream_module.js?v=20260823-stream-language-v1";
+} from "../../stream_module.js?v=20261104-fill-preassessment-v3";
 
 const streamSelect = document.querySelector("#stream-select");
 const newStreamButton = document.querySelector("#new-stream");

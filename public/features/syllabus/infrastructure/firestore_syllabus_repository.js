@@ -4,12 +4,12 @@ import {
   Syllabus,
   SyllabusTopic,
   SyllabusTopicPreAssessmentPractice
-} from "../domain/syllabus.js?v=20261018-topic-framework-v1";
-import { SyllabusRepository } from "../domain/syllabus_repository.js";
+} from "../domain/syllabus.js?v=20261105-topic-framework-v1";
+import { SyllabusRepository } from "../domain/syllabus_repository.js?v=20261104-fill-preassessment-v3";
 import {
   SYLLABUSES_COLLECTION,
   SYLLABUS_TOPICS_SUBCOLLECTION
-} from "../../../config/firebase/syllabuses_schema.js";
+} from "../../../config/firebase/syllabuses_schema.js?v=20261105-topic-framework-v1";
 import {
   createDocument,
   deleteDocument,
@@ -174,13 +174,11 @@ function toSyllabus(data, topics = []) {
     subject: data.subject,
     languages: normalizeLanguages(data.languages || []),
     active: Boolean(data.active),
-    assessmentFrameworkId: data.assessmentFrameworkId || null,
     topics: topics.map(toSyllabusTopic).filter(Boolean)
   });
 }
 
 function toSyllabusRecord(syllabus) {
-  const assessmentFrameworkId = optionalString(syllabus.assessmentFrameworkId);
   const record = {
     country: requireNonEmptyString(syllabus.country, "country"),
     level: requireNonEmptyString(syllabus.level, "level"),
@@ -190,9 +188,6 @@ function toSyllabusRecord(syllabus) {
     active: Boolean(syllabus.active)
   };
 
-  if (assessmentFrameworkId) {
-    record.assessmentFrameworkId = assessmentFrameworkId;
-  }
 
   return record;
 }

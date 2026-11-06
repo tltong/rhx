@@ -36,7 +36,7 @@ function normalizeSourcePracticeId(value) {
 
 function normalizeSourcePracticeType(value) {
   if (value === undefined || value === null) return null;
-  if (!["normal", "essay"].includes(value)) throw new Error("practiceType must be normal or essay.");
+  if (!["normal", "essay", "fillInTheBlanks"].includes(value)) throw new Error("practiceType must be normal, essay or fillInTheBlanks.");
   return value;
 }
 

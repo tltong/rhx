@@ -5,13 +5,13 @@ const {requireCoinValue} = require("../domain/reward_config");
 const {createAssessmentLevelRewardId, requireMatchingLevelAward} = require("../domain/assessment_level_reward");
 
 class AwardAssessmentLevelUp {
-  constructor({studentRewardRepository, getStudentPracticeAssessment, listCompletedPracticeIds, getCompletedEssayPractice = async () => null,
+  constructor({studentRewardRepository, getStudentPracticeAssessment, listCompletedPracticeIds, getCompletedEssayPractice = async () => null, getCompletedFillInTheBlanksPractice = async () => null,
     getAssessmentFrameworkRewardConfig, authorizeWrite = () => {}} = {}) {
     if (typeof studentRewardRepository?.saveAssessmentLevelAwards !== "function"
         || typeof studentRewardRepository?.getById !== "function"
         || [getStudentPracticeAssessment, listCompletedPracticeIds, getAssessmentFrameworkRewardConfig, authorizeWrite]
           .some(value => typeof value !== "function")) throw new Error("Level reward dependencies are required.");
-    Object.assign(this, {studentRewardRepository, getStudentPracticeAssessment, listCompletedPracticeIds, getCompletedEssayPractice,
+    Object.assign(this, {studentRewardRepository, getStudentPracticeAssessment, listCompletedPracticeIds, getCompletedEssayPractice, getCompletedFillInTheBlanksPractice,
       getAssessmentFrameworkRewardConfig, authorizeWrite});
   }
 
@@ -21,9 +21,10 @@ class AwardAssessmentLevelUp {
     const assessment = await this.getStudentPracticeAssessment(scope);
     if (assessment === null || assessment.reachedLevelIds.length === 0) return null;
     if (assessment.studentId !== scope.studentId || assessment.practiceId !== scope.practiceId) throw new Error("Assessment does not match the completed practice.");
-    const essay = assessment.practiceType === "essay"
+    const essay = assessment.practiceType === "fillInTheBlanks" ? await this.getCompletedFillInTheBlanksPractice(scope)
+      : assessment.practiceType === "essay"
       ? await this.getCompletedEssayPractice({studentId: scope.studentId, essayPracticeId: scope.practiceId}) : null;
-    const completed = assessment.practiceType === "essay"
+    const completed = ["essay", "fillInTheBlanks"].includes(assessment.practiceType)
       ? essay?.syllabusId === assessment.syllabusId && essay?.topicId === assessment.topicId
       : (await this.listCompletedPracticeIds({studentId: scope.studentId})).includes(scope.practiceId);
     if (!completed) {

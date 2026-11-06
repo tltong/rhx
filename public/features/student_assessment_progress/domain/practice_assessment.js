@@ -25,6 +25,10 @@ class PracticeAssessment {
     }
     if (typeof input.practiceType !== "string" || !input.practiceType.trim()) throw new Error("practiceType is required.");
     this.practiceType = input.practiceType;
+    if (input.assessmentType !== undefined) {
+      if (!["assessment", "pre assessment"].includes(input.assessmentType)) throw new Error("Unknown assessment type.");
+      this.assessmentType = input.assessmentType;
+    }
     if (!Number.isFinite(input.score) || input.score < 0 || input.score > 100) throw new Error("score must be from 0 to 100.");
     this.score = input.score;
     for (const key of ["reason", "levelName"]) {

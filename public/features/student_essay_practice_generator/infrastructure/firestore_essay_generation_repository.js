@@ -1,9 +1,9 @@
 
 import * as firebaseOps from "../../../utils/firebase/firebase_ops.js";
-import {guardStudentMaintenance} from "../../../utils/student_topic_reset_guard.js?v=20261018-topic-reset-v1";
-import {STUDENT_ESSAY_PRACTICE_GENERATIONS_COLLECTION, ESSAY_FOLLOW_UP_GENERATIONS_SUBCOLLECTION} from "../../../config/firebase/student_essay_practice_generator_schema.js?v=20261018-essay-reuse-v1";
-import {GENERATION_LEASE_MILLISECONDS} from "../config/student_essay_practice_generator_config.js?v=20261018-essay-reuse-v1";
-import {normalizeGenerationRequest, requireIdentifier, generationError} from "../domain/essay_generation.js?v=20261018-next-essay-v1";
+import {guardStudentMaintenance} from "../../../utils/student_topic_reset_guard.js?v=20261104-fill-preassessment-v3";
+import {STUDENT_ESSAY_PRACTICE_GENERATIONS_COLLECTION, ESSAY_FOLLOW_UP_GENERATIONS_SUBCOLLECTION} from "../../../config/firebase/student_essay_practice_generator_schema.js?v=20261105-mcq-adoption-v1";
+import {GENERATION_LEASE_MILLISECONDS} from "../config/student_essay_practice_generator_config.js?v=20261104-fill-preassessment-v3";
+import {normalizeGenerationRequest, requireIdentifier, generationError} from "../domain/essay_generation.js?v=20261105-mcq-adoption-v1";
 
 class FirestoreEssayGenerationRepository {
   constructor({getFirestoreDb = firebaseOps.getFirestoreDb, serverTimestamp = () => firebaseOps.getFirebaseNamespace().firestore.FieldValue.serverTimestamp(),
@@ -101,6 +101,11 @@ class FirestoreEssayGenerationRepository {
       if ((state.reusedQuestionId ?? state.draft?.questionId) !== essayQuestionId) throw new Error("The essay assignment does not match its saved question selection.");
       return {status: "completed", nextEssayPracticeId: state.nextEssayPracticeId, essayQuestionId};
     }, context);
+  }
+
+  async finishWithoutAssignment(input, leaseToken, context) {
+    return this.updateOwned(input, leaseToken, state => ({status: "completed", nextEssayPracticeId: state.nextEssayPracticeId,
+      outcome: "framework-completed"}), context);
   }
 
   async fail(input, leaseToken, context) {

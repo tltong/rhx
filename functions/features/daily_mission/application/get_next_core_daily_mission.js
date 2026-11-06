@@ -162,6 +162,7 @@ class GetNextCoreDailyMission {
     dailyMissionRepository,
     listAssignedPracticeIds,
     listAssignedEssayPractices = async () => ({practices: [], nextCursor: null}),
+    listAssignedFillInTheBlanksPractices = async () => ({practices: [], nextCursor: null}),
     getPracticeById,
     checkPausedTopicValidity,
     getCurrentDate = currentUtcDate,
@@ -176,6 +177,7 @@ class GetNextCoreDailyMission {
 
     this.dailyMissionRepository = dailyMissionRepository;
     this.listAssignedEssayPractices = listAssignedEssayPractices;
+    this.listAssignedFillInTheBlanksPractices = listAssignedFillInTheBlanksPractices;
     this.listAssignedPracticeIds = requireFunction(
       listAssignedPracticeIds,
       "listAssignedPracticeIds",
@@ -262,6 +264,19 @@ class GetNextCoreDailyMission {
       cursor = page.nextCursor;
     } while (cursor);
 
+    if (true) {
+      let fillCursor = null;
+      do {
+        const page = await this.listAssignedFillInTheBlanksPractices({...input, limit: 100, cursor: fillCursor});
+        for (const assignment of page.practices) {
+          if (assignment.syllabusId === normalizedSyllabusId && !pausedTopics.has(assignment.topicId) ) {
+            candidates.push({topicId: assignment.topicId, practiceId: assignment.practiceId, practiceType: "fillInTheBlanks", isPreAssessment: assignment.type === "pre assessment"});
+          }
+        }
+        fillCursor = page.nextCursor;
+      } while (fillCursor);
+    }
+
     if (candidates.length === 0) {
       return null;
     }
@@ -280,7 +295,9 @@ class GetNextCoreDailyMission {
     );
     const practicesByTopic = new Map();
 
-    candidates.forEach(({topicId, practiceId, practiceType}) => {
+    const preAssessmentTopics = new Set(candidates.filter(candidate => candidate.practiceType === "fillInTheBlanks" && candidate.isPreAssessment).map(candidate => candidate.topicId));
+    candidates.forEach(({topicId, practiceId, practiceType, isPreAssessment}) => {
+      if (preAssessmentTopics.has(topicId) && !isPreAssessment) return;
       if (practiceType !== "essay" && acceptedAdditionalPractices.has(practiceId)) {
         return;
       }
@@ -313,8 +330,8 @@ class GetNextCoreDailyMission {
     const selectedTopic = topics[0];
     const selectedPractice = [...selectedTopic.practiceIds].sort(
       (first, second) => compareStable(
-        first.practiceType === "essay" ? `essay|${first.practiceId}` : first.practiceId,
-        second.practiceType === "essay" ? `essay|${second.practiceId}` : second.practiceId,
+        first.practiceType && first.practiceType !== "normal" ? `${first.practiceType}|${first.practiceId}` : first.practiceId,
+        second.practiceType && second.practiceType !== "normal" ? `${second.practiceType}|${second.practiceId}` : second.practiceId,
         `${seed}|${selectedTopic.topicId}|practice`,
       ),
     )[0];

@@ -1,6 +1,7 @@
+const FILL_PRACTICE_URL = "/features/fill_in_the_blanks_practice_session/pages/practice/fill_in_the_blanks_practice.html";
 const ESSAY_PRACTICE_URL = "/features/essay_practice_session/pages/essay_practice/essay_practice.html";
 function createMissionUrl(mission, normalUrl) {
-  return mission.practiceType === "essay" ? ESSAY_PRACTICE_URL + "?essayPracticeId=" + encodeURIComponent(mission.practiceId)
+  return mission.practiceType === "fillInTheBlanks" ? FILL_PRACTICE_URL + "?practiceId=" + encodeURIComponent(mission.practiceId) : mission.practiceType === "essay" ? ESSAY_PRACTICE_URL + "?essayPracticeId=" + encodeURIComponent(mission.practiceId)
     : createCommencePracticeUrl(mission.practiceId, normalUrl);
 }
 const DEFAULT_COMMENCE_PRACTICE_URL =
@@ -67,7 +68,7 @@ function isPracticeCompleted(syllabus, practiceId, practiceType) {
     (topic) => (
       Array.isArray(topic?.completedPractices)
       && topic.completedPractices.some(
-        (practice) => practice?.practiceId === practiceId && (practice.practiceType === "essay") === (practiceType === "essay")
+        (practice) => practice?.practiceId === practiceId && (["essay", "fillInTheBlanks"].includes(practice.practiceType) ? practice.practiceType : "normal") === (["essay", "fillInTheBlanks"].includes(practiceType) ? practiceType : "normal")
       )
     )
   );
@@ -386,7 +387,7 @@ export class DailyMissionSection {
       : "Suggested core mission";
     heading.textContent = syllabusLabel(syllabus);
     details.className = "daily-mission-topic";
-    details.textContent = findTopicName(syllabus, mission.topicId) + (mission.practiceType === "essay" ? " — Essay assessment" : "");
+    details.textContent = findTopicName(syllabus, mission.topicId) + (mission.practiceType === "fillInTheBlanks" ? " — Fill-in-the-blanks assessment" : mission.practiceType === "essay" ? " — Essay assessment" : "");
     card.append(eyebrow, heading, details);
     this.actionButtons = [];
 
@@ -518,7 +519,7 @@ export class DailyMissionSection {
       const accepted = await this.acceptCoreDailyMission({
         studentId: this.studentId,
         practiceId: mission.practiceId,
-        ...(mission.practiceType === "essay" ? {practiceType: "essay"} : {})
+        ...(mission.practiceType && mission.practiceType !== "normal" ? {practiceType: mission.practiceType} : {})
       });
 
       this.navigate(createMissionUrl(
@@ -550,7 +551,7 @@ export class DailyMissionSection {
       await this.pauseCoreDailyMission({
         studentId: this.studentId,
         practiceId: mission.practiceId,
-        ...(mission.practiceType === "essay" ? {practiceType: "essay"} : {})
+        ...(mission.practiceType && mission.practiceType !== "normal" ? {practiceType: mission.practiceType} : {})
       });
 
       try {

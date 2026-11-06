@@ -1,58 +1,58 @@
 import {
   DEFAULT_LLM_PROMPT_CONFIG_ID
-} from "../../config/firebase/llm_prompt_config_schema.js?v=20260717-llm-prompt-config";
+} from "../../config/firebase/llm_prompt_config_schema.js?v=20261104-fill-preassessment-v3";
 import {
   FirestoreLlmPromptConfigRepository
-} from "./infrastructure/firestore_llm_prompt_config_repository.js?v=20260717-llm-prompt-config";
+} from "./infrastructure/firestore_llm_prompt_config_repository.js?v=20261104-fill-preassessment-v3";
 import {
   GetLlmPromptConfig
-} from "./application/get_llm_prompt_config.js?v=20260717-llm-prompt-config";
+} from "./application/get_llm_prompt_config.js?v=20261104-fill-preassessment-v3";
 import {
   ListLlmPromptConfigs
-} from "./application/list_llm_prompt_configs.js?v=20260717-llm-prompt-config";
+} from "./application/list_llm_prompt_configs.js?v=20261104-fill-preassessment-v3";
 import {
   CreateLlmPromptConfig
-} from "./application/create_llm_prompt_config.js?v=20260717-llm-prompt-config";
+} from "./application/create_llm_prompt_config.js?v=20261104-fill-preassessment-v3";
 import {
   UpdateLlmPromptConfig
-} from "./application/update_llm_prompt_config.js?v=20260717-llm-prompt-config";
+} from "./application/update_llm_prompt_config.js?v=20261104-fill-preassessment-v3";
 import {
   DeleteLlmPromptConfig
-} from "./application/delete_llm_prompt_config.js?v=20260717-llm-prompt-config";
+} from "./application/delete_llm_prompt_config.js?v=20261104-fill-preassessment-v3";
 import {
   getSyllabusById,
   listSyllabuses
-} from "../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
+} from "../syllabus/syllabus_module.js?v=20261104-fill-preassessment-v3";
 import {
   FirestoreSyllabusPromptInstructionsRepository
-} from "./infrastructure/firestore_syllabus_prompt_instructions_repository.js?v=20260801-syllabus-topic-instructions";
+} from "./infrastructure/firestore_syllabus_prompt_instructions_repository.js?v=20261104-fill-preassessment-v3";
 import {
   GetSyllabusPromptInstructions
-} from "./application/get_syllabus_prompt_instructions.js?v=20260801-syllabus-topic-instructions";
+} from "./application/get_syllabus_prompt_instructions.js?v=20261104-fill-preassessment-v3";
 import {
   SetSyllabusPromptInstructions
-} from "./application/set_syllabus_prompt_instructions.js?v=20260801-syllabus-topic-instructions";
+} from "./application/set_syllabus_prompt_instructions.js?v=20261104-fill-preassessment-v3";
 import {
   DeleteSyllabusPromptInstructions
-} from "./application/delete_syllabus_prompt_instructions.js?v=20260801-syllabus-topic-instructions";
+} from "./application/delete_syllabus_prompt_instructions.js?v=20261104-fill-preassessment-v3";
 import {
   GetTopicPromptInstructions
-} from "./application/get_topic_prompt_instructions.js?v=20260801-syllabus-topic-instructions";
+} from "./application/get_topic_prompt_instructions.js?v=20261104-fill-preassessment-v3";
 import {
   ListTopicPromptInstructions
-} from "./application/list_topic_prompt_instructions.js?v=20260801-syllabus-topic-instructions";
+} from "./application/list_topic_prompt_instructions.js?v=20261104-fill-preassessment-v3";
 import {
   SetTopicPromptInstructions
-} from "./application/set_topic_prompt_instructions.js?v=20260801-syllabus-topic-instructions";
+} from "./application/set_topic_prompt_instructions.js?v=20261104-fill-preassessment-v3";
 import {
   DeleteTopicPromptInstructions
-} from "./application/delete_topic_prompt_instructions.js?v=20260801-syllabus-topic-instructions";
+} from "./application/delete_topic_prompt_instructions.js?v=20261104-fill-preassessment-v3";
 import {
   GetSyllabusTopicPromptInstructions
-} from "./application/get_syllabus_topic_prompt_instructions.js?v=20260801-syllabus-topic-instructions";
+} from "./application/get_syllabus_topic_prompt_instructions.js?v=20261104-fill-preassessment-v3";
 import {
   LoadSyllabusPromptInstructionOptions
-} from "./application/load_syllabus_prompt_instruction_options.js?v=20260801-syllabus-instruction-admin";
+} from "./application/load_syllabus_prompt_instruction_options.js?v=20261104-fill-preassessment-v3";
 
 const llmPromptConfigRepository =
   new FirestoreLlmPromptConfigRepository();

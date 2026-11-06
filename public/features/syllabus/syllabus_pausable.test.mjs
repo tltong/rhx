@@ -81,11 +81,12 @@ after(() => {
 });
 beforeEach(() => {
   documents.clear();
+  documents.set("assessmentFrameworks/framework", {name: "MCQ", endLevelName: "Ready"});
   writes.length = 0;
   documents.set("syllabuses/syllabus-1", {...syllabusData});
-  documents.set(topicPath("topic-true"), {topicName: "Fractions", pausable: true});
-  documents.set(topicPath("topic-false"), {topicName: "Geometry", pausable: false});
-  documents.set(topicPath("topic-legacy"), {topicName: "Algebra"});
+  documents.set(topicPath("topic-true"), {topicName: "Fractions", assessmentFrameworkIds: {english: "framework"}, pausable: true});
+  documents.set(topicPath("topic-false"), {topicName: "Geometry", assessmentFrameworkIds: {english: "framework"}, pausable: false});
+  documents.set(topicPath("topic-legacy"), {topicName: "Algebra", assessmentFrameworkIds: {english: "framework"}});
 });
 
 test("web syllabus API returns true, false and the legacy default without writing", async () => {
@@ -108,8 +109,8 @@ test("creating a syllabus persists explicit false and the default for new topics
   const syllabus = await createSyllabusRecord({
     ...syllabusData,
     topics: [
-      {topicName: "Fractions", pausable: false},
-      {topicName: "Geometry"}
+      {topicName: "Fractions", assessmentFrameworkIds: {english: "framework"}, pausable: false},
+      {topicName: "Geometry", assessmentFrameworkIds: {english: "framework"}}
     ]
   });
   assert.equal(await isTopicPausable(syllabus.id, syllabus.topics[0].id), false);
@@ -148,14 +149,14 @@ test("topic updates change pausable independently and persist through syllabus u
 
 test("malformed boolean values are rejected instead of being coerced", async () => {
   for (const pausable of ["false", 0, 1, null]) {
-    assert.throws(() => new SyllabusTopic({topicName: "Fractions", pausable}),
+    assert.throws(() => new SyllabusTopic({topicName: "Fractions", assessmentFrameworkIds: {english: "framework"}, pausable}),
       /pausable must be a boolean/);
     await assert.rejects(() => createSyllabusRecord({
       ...syllabusData,
-      topics: [{topicName: "Fractions", pausable}]
+      topics: [{topicName: "Fractions", assessmentFrameworkIds: {english: "framework"}, pausable}]
     }), /pausable must be a boolean/);
   }
-  const topic = new SyllabusTopic({topicName: "Fractions", pausable: false});
+  const topic = new SyllabusTopic({topicName: "Fractions", assessmentFrameworkIds: {english: "framework"}, pausable: false});
   assert.throws(() => topic.update({pausable: "true"}), /pausable must be a boolean/);
   assert.equal(topic.pausable, false);
   assert.deepEqual(writes, []);

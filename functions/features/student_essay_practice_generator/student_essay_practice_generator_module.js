@@ -1,8 +1,11 @@
+const {getStudentTopicLevel} = require("../student_assessment_progress/student_assessment_progress_module");
+const {getSyllabusById} = require("../syllabus/syllabus_module");
+const {getAssessmentFrameworkById} = require("../assessment_framework/assessment_framework_module");
 /**
  * generateNextStudentEssayPractice({studentId, completedEssayPracticeId}, {updatedBy})
- *   -> Promise<AssignedEssayPractice|CompletedEssayPractice>
+ *   -> Promise<AssignedEssayPractice|CompletedEssayPractice|null>
  *
- * Reuses and assigns an unseen medium essay following a completed student essay attempt.
+ * Reuses and assigns an unseen essay at the student's current framework difficulty following a completed student essay attempt.
  * Reads the full theme pool for the source question's level/grade, excluding themes from
  * all the student's completed AND assigned essays across subjects/topics (case/spacing ignored).
  * Reuses an unseen matching question only from an eligible unused theme; otherwise generates one.
@@ -25,16 +28,17 @@
  */
 const {getCompletedEssayPractice, getAssignedEssayPractice, listCompletedEssayPractices,
   listAssignedEssayPractices, assignEssayPracticeToStudent} = require("../student_essay_practice/student_essay_practice_module");
-const {getEssayQuestionById, listEssayQuestions, generateEssayQuestion, saveEssayQuestion} = require("../essay_question_generator/essay_question_generator_module");
+const {getEssayQuestionById, listEssayQuestions, generateEssayQuestion, saveEssayQuestion, getEssayQuestionGeneratorConfig} = require("../essay_question_generator/essay_question_generator_module");
 const {getQuestionSeedEntries, getDefaultQuestionSeedTheme} = require("../question_seed_generator/question_seed_generator_module");
 const {FirestoreEssayGenerationRepository} = require("./infrastructure/firestore_essay_generation_repository");
 const {GenerateNextStudentEssayPractice} = require("./application/generate_next_student_essay_practice");
 
 const generator = new GenerateNextStudentEssayPractice({
   repository: new FirestoreEssayGenerationRepository(),
+  getStudentTopicLevel, getSyllabusById, getAssessmentFrameworkById,
   getCompletedEssayPractice, getAssignedEssayPractice, listCompletedEssayPractices,
   listAssignedEssayPractices, assignEssayPracticeToStudent,
-  getEssayQuestionById, listEssayQuestions, generateEssayQuestion, saveEssayQuestion, getQuestionSeedEntries, getDefaultQuestionSeedTheme,
+  getEssayQuestionById, listEssayQuestions, generateEssayQuestion, saveEssayQuestion, getEssayQuestionGeneratorConfig, getQuestionSeedEntries, getDefaultQuestionSeedTheme,
   requireAdministrator: async context => ({uid: context?.updatedBy}),
 });
 

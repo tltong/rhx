@@ -27,7 +27,7 @@
  * Web essay APIs require sign-in. No new Firebase callable endpoints.
  *
  */
-const {getEssayQuestionById} = require("../essay_question_generator/essay_question_generator_module");
+const {getEssayQuestionById, prepareEssayQuestionForAssignment} = require("../essay_question_generator/essay_question_generator_module");
 const {FirestoreStudentEssayPracticeRepository} = require("./infrastructure/firestore_student_essay_practice_repository");
 const {AssignEssayPracticeToStudent} = require("./application/assign_essay_practice_to_student");
 const {CompleteAssignedEssayPractice} = require("./application/complete_assigned_essay_practice");
@@ -40,6 +40,7 @@ const {ListCompletedEssayPractices} = require("./application/list_completed_essa
 const studentEssayPracticeRepository = new FirestoreStudentEssayPracticeRepository();
 const assignEssayPracticeUseCase = new AssignEssayPracticeToStudent({
   repository: studentEssayPracticeRepository, getEssayQuestionById,
+  prepareQuestion: questionId => prepareEssayQuestionForAssignment(questionId, {updatedBy: "system:assignment"}),
 });
 const completeEssayPracticeUseCase = new CompleteAssignedEssayPractice(studentEssayPracticeRepository);
 const getAssignedEssayPracticeUseCase = new GetAssignedEssayPractice(studentEssayPracticeRepository);

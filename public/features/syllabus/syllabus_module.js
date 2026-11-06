@@ -1,60 +1,57 @@
 /**
  * Topic framework APIs (feature APIs; no Firebase callable endpoints).
  * getTopicAssessmentFrameworkId({syllabusId, topicId, language}) -> string|null.
- * Resolves the topic/language override first, then the syllabus default.
+ * Resolves only the topic/language assignment; there is no syllabus default.
  * assignTopicAssessmentFramework({syllabusId, topicId, language, assessmentFrameworkId})
- * saves a reference; assessmentFrameworkId: null deletes that language override.
- * Reads preserve legacy defaults. Web binding writes require a site administrator.
+ * saves a reference; null clears a draft topic without an attached practice.
+ * Framework type determines the topic question type. Web binding writes require a site administrator.
  */
-import {getAssessmentFrameworkById} from "../assessment_framework/assessment_framework_module.js?v=20261018-topic-framework-v1";
-import {resolveTopicAssessmentFrameworkId} from "./domain/syllabus.js?v=20261018-topic-framework-v1";
+import {getAssessmentFrameworkById} from "../assessment_framework/assessment_framework_module.js?v=20261105-mcq-adoption-v1";
+import {resolveTopicAssessmentFrameworkId} from "./domain/syllabus.js?v=20261105-topic-framework-v1";
 import {requireCurrentSiteAdmin} from "../site_admin/site_admin_module.js";
 import {requireCurrentFirebaseAuthUser} from "../../utils/firebase/firebase_auth.js";
-import {AssignTopicAssessmentFramework, GetTopicAssessmentFrameworkId} from "./application/topic_assessment_framework.js?v=20261018-topic-framework-v1";
-import {preAssessmentPracticeTypes} from "../../config/firebase/syllabuses_schema.js?v=20261018-preassessment-essay-v1";
+import {AssignTopicAssessmentFramework, GetTopicAssessmentFrameworkId} from "./application/topic_assessment_framework.js?v=20261105-topic-framework-v1";
+import {preAssessmentPracticeTypes} from "../../config/firebase/syllabuses_schema.js?v=20261105-topic-framework-v1";
 import {
   FirestoreSyllabusRepository
-} from "./infrastructure/firestore_syllabus_repository.js?v=20261018-topic-framework-v1";
+} from "./infrastructure/firestore_syllabus_repository.js?v=20261105-topic-framework-v1";
 import {
   GetSyllabus
-} from "./application/get_syllabus.js?v=20261018-topic-framework-v1";
-import {
-  GetSyllabusAssessmentFrameworkId
-} from "./application/get_syllabus_assessment_framework_id.js?v=20261018-topic-framework-v1";
+} from "./application/get_syllabus.js?v=20261104-fill-preassessment-v3";
 import {
   ListSyllabuses
-} from "./application/list_syllabuses.js?v=20261018-topic-framework-v1";
+} from "./application/list_syllabuses.js?v=20261104-fill-preassessment-v3";
 import {
   CreateSyllabus
-} from "./application/create_syllabus.js?v=20261018-topic-framework-v1";
+} from "./application/create_syllabus.js?v=20261105-topic-framework-v1";
 import {
   UpdateSyllabus
-} from "./application/update_syllabus.js?v=20261018-topic-framework-v1";
+} from "./application/update_syllabus.js?v=20261105-topic-framework-v1";
 import {
   DeleteSyllabus
-} from "./application/delete_syllabus.js?v=20261018-topic-framework-v1";
+} from "./application/delete_syllabus.js?v=20261104-fill-preassessment-v3";
 import {
   AddSyllabusLanguage
-} from "./application/add_syllabus_language.js?v=20261018-topic-framework-v1";
+} from "./application/add_syllabus_language.js?v=20261104-fill-preassessment-v3";
 import {
   DeleteSyllabusLanguage
-} from "./application/delete_syllabus_language.js?v=20261018-topic-framework-v1";
+} from "./application/delete_syllabus_language.js?v=20261104-fill-preassessment-v3";
 import {
   AssignTopicPreAssessmentPractice
-} from "./application/assign_topic_pre_assessment_practice.js?v=20261018-topic-framework-v1";
+} from "./application/assign_topic_pre_assessment_practice.js?v=20261105-topic-framework-v1";
 import {
   GetTopicPreAssessmentPractice
-} from "./application/get_topic_pre_assessment_practice.js?v=20261018-topic-framework-v1";
+} from "./application/get_topic_pre_assessment_practice.js?v=20261104-fill-preassessment-v3";
 import {
   ListTopicPreAssessmentPractices
-} from "./application/list_topic_pre_assessment_practices.js?v=20261018-topic-framework-v1";
+} from "./application/list_topic_pre_assessment_practices.js?v=20261104-fill-preassessment-v3";
 import {
   RemoveTopicPreAssessmentPractice
-} from "./application/remove_topic_pre_assessment_practice.js?v=20261018-topic-framework-v1";
+} from "./application/remove_topic_pre_assessment_practice.js?v=20261104-fill-preassessment-v3";
 
 import {
   IsTopicPausable
-} from "./application/is_topic_pausable.js?v=20261018-topic-framework-v1";
+} from "./application/is_topic_pausable.js?v=20261104-fill-preassessment-v3";
 
 const syllabusRepository = new FirestoreSyllabusRepository();
 const topicFrameworkReader = new GetTopicAssessmentFrameworkId(syllabusRepository);
@@ -73,8 +70,6 @@ async function assignTopicAssessmentFramework(input, context) {
 
 const isTopicPausableUseCase = new IsTopicPausable(syllabusRepository);
 const getSyllabus = new GetSyllabus(syllabusRepository);
-const getSyllabusAssessmentFrameworkIdUseCase =
-  new GetSyllabusAssessmentFrameworkId(syllabusRepository);
 const listSyllabusesUseCase = new ListSyllabuses(syllabusRepository);
 const createSyllabus = new CreateSyllabus(syllabusRepository, {getAssessmentFrameworkById});
 const updateSyllabus = new UpdateSyllabus(syllabusRepository, {getAssessmentFrameworkById});
@@ -98,13 +93,6 @@ async function getSyllabusById(syllabusId) {
   return getSyllabus.execute(syllabusId);
 }
 
-/**
- * @param {string} syllabusId
- * @returns {Promise<string>} The attached assessment framework ID.
- */
-async function getSyllabusAssessmentFrameworkId(syllabusId) {
-  return getSyllabusAssessmentFrameworkIdUseCase.execute(syllabusId);
-}
 
 /**
  * @param {string} syllabusId
@@ -196,7 +184,6 @@ export {
   assignTopicAssessmentFramework, getTopicAssessmentFrameworkId, resolveTopicAssessmentFrameworkId,
   preAssessmentPracticeTypes,
   getSyllabusById,
-  getSyllabusAssessmentFrameworkId,
   isTopicPausable,
   listSyllabuses,
   findSyllabusesByScope,

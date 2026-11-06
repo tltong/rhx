@@ -1,8 +1,11 @@
 const {createHash} = require("node:crypto");
+const {deepseekApiKey} = require("../deepseek");
+const {openaiApiKey} = require("../utils/llm/openai_util");
 const {withTopicResetGuard} = require("../utils/student_topic_reset_guard");
+const {getAssessmentFrameworkById} = require("../features/assessment_framework/assessment_framework_module");
 const {getPracticeById} = require("../features/practice/practice_module");
 const {onDocumentCreated} = require("firebase-functions/v2/firestore");
-const {getSyllabusById, preAssessmentPracticeTypes} = require("../features/syllabus/syllabus_module");
+const {getSyllabusById, preAssessmentPracticeTypes, resolveTopicAssessmentFrameworkId} = require("../features/syllabus/syllabus_module");
 const {assignPracticeToStudent} = require("../features/student_practice/student_practice_module");
 const {getEssayPracticeById} = require("../features/essay_practice/essay_practice_module");
 const {getEssayQuestionById} = require("../features/essay_question_generator/essay_question_generator_module");
@@ -28,11 +31,14 @@ async function assignSubscriptionPreAssessmentPractices({
   studentId, syllabusId, language,
 } = {}, {
   getSyllabus = getSyllabusById,
+  getFramework = getAssessmentFrameworkById,
   assignPractice = assignPracticeToStudent,
   getEssayPractice = getEssayPracticeById,
   getEssayQuestion = getEssayQuestionById,
   assignEssayPractice = assignEssayPracticeToStudent,
   getCompletedEssay = getCompletedEssayPractice,
+  getFillInTheBlanksPractice = input => require("../features/fill_in_the_blanks_practice/fill_in_the_blanks_practice_module").getFillInTheBlanksPracticeById(input),
+  assignFillInTheBlanksPractice = input => require("../features/student_fill_in_the_blanks_practice_generator/student_fill_in_the_blanks_practice_generator_module").assignInitialStudentFillInTheBlanksPractice(input),
 } = {}) {
   const selectedStudentId = requireNonEmptyString(studentId, "studentId");
   const selectedSyllabusId = requireNonEmptyString(syllabusId, "syllabusId");
@@ -42,17 +48,24 @@ async function assignSubscriptionPreAssessmentPractices({
   if (!Array.isArray(syllabus.topics) || !syllabus.topics.length) {
     throw new Error("Syllabus " + selectedSyllabusId + " has no topics.");
   }
-  const missingTopics = [], normalPracticeIds = new Set(), essayAttachments = [];
+  const missingTopics = [], normalPracticeIds = new Set(), essayAttachments = [], fillAttachments = [];
   for (const topic of syllabus.topics) {
+    const frameworkId = resolveTopicAssessmentFrameworkId(syllabus, {topicId: topic.id, language: selectedLanguage});
+    if (!frameworkId) throw new Error("Assessment framework is not configured for " + topic.topicName + " / " + selectedLanguage + ".");
+    const framework = await getFramework(frameworkId);
+    if (!framework) throw new Error("Topic assessment framework could not be found: " + frameworkId + ".");
     const practice = topic.getPreAssessmentPractice(selectedLanguage);
     if (!practice) {
       missingTopics.push(topic.topicName || topic.id);
       continue;
     }
     const practiceType = practice.practiceType === undefined ? preAssessmentPracticeTypes.NORMAL : practice.practiceType;
-    if (!Object.values(preAssessmentPracticeTypes).includes(practiceType)) throw new Error("practiceType must be normal or essay.");
+    if (!Object.values(preAssessmentPracticeTypes).includes(practiceType)) throw new Error("practiceType must be normal, essay or fillInTheBlanks.");
+    if ((framework.frameworkType || "normal") !== practiceType) throw new Error("The attached practice type does not match the framework for " + topic.topicName + ".");
     const practiceId = requireNonEmptyString(practice.practiceId, "practiceId");
-    if (practiceType === preAssessmentPracticeTypes.ESSAY) {
+    if (practiceType === preAssessmentPracticeTypes.FILL_IN_THE_BLANKS) {
+      fillAttachments.push({studentId: selectedStudentId, syllabusId: selectedSyllabusId, topicId: requireNonEmptyString(topic.id, "topicId"), practiceId});
+    } else if (practiceType === preAssessmentPracticeTypes.ESSAY) {
       essayAttachments.push({topicId: requireNonEmptyString(topic.id, "topicId"), practiceId});
     } else normalPracticeIds.add(practiceId);
   }
@@ -73,8 +86,14 @@ async function assignSubscriptionPreAssessmentPractices({
     };
   }));
 
+  for (const attachment of fillAttachments) {
+    const definition = await getFillInTheBlanksPractice(attachment.practiceId);
+    if (!definition || definition.syllabusId !== attachment.syllabusId || definition.topicId !== attachment.topicId) throw new Error("The attached fill-in-the-blanks practice does not match its topic.");
+  }
+
   function validateCompleted(saved, assignment) {
-    if (saved && !["syllabusId", "topicId", "essayQuestionId"].every(key => saved[key] === assignment[key])) {
+    if (saved && (!["syllabusId", "topicId"].every(key => saved[key] === assignment[key])
+        || (saved.essayQuestionId !== assignment.essayQuestionId && saved.sourceEssayQuestionId !== assignment.essayQuestionId))) {
       throw new Error("The completed essay conflicts with its syllabus attachment.");
     }
     return saved;
@@ -95,11 +114,15 @@ async function assignSubscriptionPreAssessmentPractices({
   return Promise.all([
     ...[...normalPracticeIds].map(practiceId => assignPractice({studentId: selectedStudentId, practiceId})),
     ...essayAssignments.map(assignEssay),
+    ...fillAttachments.map(assignFillInTheBlanksPractice),
   ]);
 }
 
 const onSyllabusSubscriptionCreated = onDocumentCreated({
   document: SYLLABUS_SUBSCRIPTION_DOCUMENT, region: "us-central1",
+  // A newly assigned essay may need content matching the administrator's settings.
+  // Keep the existing event delivery policy; no automatic retries are introduced.
+  memory: "1GiB", timeoutSeconds: 540, secrets: [deepseekApiKey, openaiApiKey],
 }, async event => {
   const subscription = event.data.data();
   await assignSubscriptionPreAssessmentPractices({
@@ -111,6 +134,13 @@ const onSyllabusSubscriptionCreated = onDocumentCreated({
         return await withTopicResetGuard({studentId: input.studentId, createdAt: event.data.createTime,
           scopes: (practice?.questions ?? []).map(question => ({syllabusId: question.syllabusId, topicId: question.topicId}))},
         () => assignPracticeToStudent(input));
+      } catch (error) {if (error.code !== "topic-practice-reset") throw error; return null;}
+    },
+    assignFillInTheBlanksPractice: async input => {
+      try {
+        return await withTopicResetGuard({studentId: input.studentId, createdAt: event.data.createTime,
+          scopes: [{syllabusId: input.syllabusId, topicId: input.topicId}]}, () =>
+          require("../features/student_fill_in_the_blanks_practice_generator/student_fill_in_the_blanks_practice_generator_module").assignInitialStudentFillInTheBlanksPractice(input));
       } catch (error) {if (error.code !== "topic-practice-reset") throw error; return null;}
     },
     assignEssayPractice: async input => {

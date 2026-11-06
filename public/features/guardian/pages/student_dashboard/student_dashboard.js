@@ -1,15 +1,15 @@
 import {
   getGuardianById,
   onGuardianAuthStateChanged
-} from "../../guardian_module.js?v=20260908-guardian-student-dashboard-v1";
+} from "../../guardian_module.js?v=20261104-fill-preassessment-v3";
 import {
   getGuardianStudentLink,
   guardianStudentLinkStates
-} from "../../../guardian_student_link/guardian_student_link_module.js?v=20260908-guardian-student-dashboard-v1";
+} from "../../../guardian_student_link/guardian_student_link_module.js?v=20261104-fill-preassessment-v3";
 import {
   getStudentDashboard,
   renderSyllabusProgressPane
-} from "../../../student_dashboard/student_dashboard_module.js?v=20261019-essay-level-display-v1";
+} from "../../../student_dashboard/student_dashboard_module.js?v=20261105-mcq-adoption-v1";
 
 const GUARDIAN_SIGN_IN_URL =
   "/features/guardian/pages/sign_in/sign_in.html";

@@ -1,6 +1,6 @@
 import {
   AssessmentFrameworkPreAssessment
-} from "../domain/assessment_framework.js?v=20261018-topic-framework-v1";
+} from "../domain/assessment_framework.js?v=20261104-fill-preassessment-v3";
 
 function requireNonEmptyString(value, name) {
   if (typeof value !== "string" || value.trim() === "") {
@@ -33,7 +33,7 @@ export class SaveAssessmentFrameworkPreAssessment {
       );
     }
 
-    const preAssessment = new AssessmentFrameworkPreAssessment(input || {});
+    const preAssessment = new AssessmentFrameworkPreAssessment(input || {}, assessmentFramework.frameworkType);
 
     return this.assessmentFrameworkRepository.savePreAssessment(
       assessmentFramework,

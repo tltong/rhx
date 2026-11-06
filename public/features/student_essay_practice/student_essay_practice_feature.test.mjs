@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import {after, beforeEach, test} from "node:test";
 import {createRequire} from "node:module";
 import {readFile} from "node:fs/promises";
-import * as web from "./student_essay_practice_module.js";
+import * as web from "./student_essay_practice_module.js?v=20261104-fill-preassessment-v3";
 import * as webSchema from "../../config/firebase/student_essay_practice_schema.js";
 
 const require = createRequire(import.meta.url);
@@ -102,9 +102,10 @@ firestore.FieldPath = {documentId: () => "__name__"};
 const app = {firestore: () => db, auth: () => auth, functions() {throw new Error("Essay practice APIs must not call Firebase endpoints");}};
 globalThis.firebase = {apps: [], firestore, initializeApp: () => app};
 backendOps.getFirestoreDb = () => db;
+backendOps.readDocument = async (collection, id) => (await read(collection + "/" + id)).data() ?? null;
 const backend = require("../../../functions/features/student_essay_practice/student_essay_practice_module");
 const backendSessions = require("../../../functions/features/essay_practice_session/essay_practice_session_module");
-const webSessions = await import("../essay_practice_session/essay_practice_session_module.js");
+const webSessions = await import("../essay_practice_session/essay_practice_session_module.js?v=20261104-fill-preassessment-v3");
 const backendSchema = require("../../../functions/schema/student_essay_practice_schema");
 const apis = ["assignEssayPracticeToStudent", "getAssignedEssayPractice", "listAssignedEssayPractices",
   "completeAssignedEssayPractice", "getCompletedEssayPractice", "listCompletedEssayPractices"];
@@ -132,9 +133,9 @@ after(() => {
 test("matching backend/web schemas and all six APIs; no callable exports", async () => {
   for (const key of Object.keys(backendSchema)) assert.deepEqual(webSchema[key], backendSchema[key]);
   assert.deepEqual(webSchema.studentEssayPracticeSchema.subcollections.assignedEssayPractices.fields,
-    {essayQuestionId: "string", syllabusId: "string", topicId: "string", assignedAt: "timestamp"});
+    {essayQuestionId: "string", sourceEssayQuestionId: {type: "string", optional: true}, syllabusId: "string", topicId: "string", assignedAt: "timestamp"});
   assert.deepEqual(webSchema.studentEssayPracticeSchema.subcollections.completedEssayPractices.fields,
-    {essayQuestionId: "string", syllabusId: "string", topicId: "string", assignedAt: "timestamp",
+    {essayQuestionId: "string", sourceEssayQuestionId: {type: "string", optional: true}, syllabusId: "string", topicId: "string", assignedAt: "timestamp",
       completedAt: "timestamp", essayText: "string", timeTakenSeconds: "number",
       scoring: {type: "map", fields: {status: "pending|scoring|completed|failed|superseded", updatedAt: "timestamp", leaseUntil: {type: "timestamp", optional: true}}}});
   for (const api of [backend, web]) for (const name of apis) assert.equal(typeof api[name], "function");
@@ -144,7 +145,7 @@ test("matching backend/web schemas and all six APIs; no callable exports", async
 
 test("essay practice owns its APIs and storage independently of Student Practice", async () => {
   const legacyBackend = require("../../../functions/features/student_practice/student_practice_module");
-  const legacyWeb = await import("../student_practice/student_practice_module.js");
+  const legacyWeb = await import("../student_practice/student_practice_module.js?v=20261104-fill-preassessment-v3");
   const legacySchema = require("../../../functions/schema/student_practice_schema");
   assert.equal(webSchema.STUDENT_ESSAY_PRACTICES_COLLECTION, "studentEssayPractices");
   assert.notEqual(webSchema.STUDENT_ESSAY_PRACTICES_COLLECTION, legacySchema.STUDENT_PRACTICES_COLLECTION);
@@ -388,6 +389,7 @@ test("web account changes before returning reads do not disclose the previous ac
 
 for (const [layer, api] of [["backend", backendSessions], ["web", webSessions]]) {
   test(layer + ": session rejects essays below the saved question's minimum without moving the assignment", async () => {
+    auth.currentUser = {...user, uid: "student-1"};
     seedQuestion();
     const questionPath = documents.get("essayQuestionGenerator/questionIndex/entries/question-1").documentPath;
     put(questionPath, {...documents.get(questionPath), wordCountRequirement: {minWords: 3}});
@@ -402,6 +404,7 @@ for (const [layer, api] of [["backend", backendSessions], ["web", webSessions]])
     assert.equal(documents.has(assignedPath("attempt-1")), false);
   });
   test(layer + ": session APIs submit once, reopen original answer and read its grade", async () => {
+    auth.currentUser = {...user, uid: "student-1"};
     seedQuestion();
     put(assignedPath("attempt-1"), assignmentRecord());
     assert.equal((await api.loadEssayPracticeSession(ref("attempt-1"))).status, "assigned");
@@ -430,3 +433,14 @@ test("backend grading lease prevents concurrent work, failed grading is retryabl
   const data = documents.get(completedPath("attempt-1"));
   assert.equal(data.essayText, completion().essayText);
 });
+
+for (const [layer, api] of [["backend", backend], ["web", web]]) {
+  test(layer + ": prepared initial question keeps its source reference through completion", async () => {
+    seedQuestion();
+    const assigned = await api.assignEssayPracticeToStudent(assignment({sourceEssayQuestionId: "shared-initial-question"}));
+    assert.equal(assigned.sourceEssayQuestionId, "shared-initial-question");
+    const completed = await api.completeAssignedEssayPractice(completion({essayPracticeId: assigned.essayPracticeId}));
+    assert.equal(completed.sourceEssayQuestionId, "shared-initial-question");
+    assert.equal((await api.getCompletedEssayPractice(ref(assigned.essayPracticeId))).sourceEssayQuestionId, "shared-initial-question");
+  });
+}

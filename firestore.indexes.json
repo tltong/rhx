@@ -1,5 +1,68 @@
 {
-  "indexes": [],
+  "indexes": [
+    {
+      "collectionGroup": "passages",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        {
+          "fieldPath": "format",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "level",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "grade",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "difficulty",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "generatedAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "assignedPractices",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "syllabusId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "topicId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "completedPractices",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "syllabusId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "topicId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ]
+    }
+  ],
   "fieldOverrides": [
     {
       "collectionGroup": "invoices",

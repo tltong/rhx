@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import {test} from "node:test";
 import {readFile} from "node:fs/promises";
-import {mountEssayScoringAdmin} from "./essay_scoring_admin.js";
-import {EssayScoringConfig, createDefaultConfiguration} from "../../domain/essay_scoring_config.js";
-import {buildEssayScoringInstructions} from "../../application/build_essay_scoring_prompt.js";
+import {mountEssayScoringAdmin} from "./essay_scoring_admin.js?v=20261104-fill-preassessment-v3";
+import {EssayScoringConfig, createDefaultConfiguration} from "../../domain/essay_scoring_config.js?v=20261104-fill-preassessment-v3";
+import {buildEssayScoringInstructions} from "../../application/build_essay_scoring_prompt.js?v=20261104-fill-preassessment-v3";
 
 class Element {
   constructor(tagName = "div") {
@@ -131,7 +131,7 @@ test("the page uses the shared administrator guard, explicit grade labels and Si
   const site = await readFile(new URL("../../../site_admin/pages/site_admin/site_admin.html", import.meta.url), "utf8");
   for (const id of ids) assert.ok(html.includes('id="' + id + '"'), id);
   assert.match(html, /data-site-admin-page/); assert.match(html, /site_admin_page_loader\.js/);
-  assert.match(html, /essay_scoring_admin\.js\?v=20261020-scoring-config-v1/);
+  assert.match(html, /essay_scoring_admin\.js\?v=20261101-essay-image-prompt-preview-v6/);
   assert.match(html, /id="scoring-preview"[^>]*readonly/);
   assert.match(site, /essay_scoring\/pages\/admin\/essay_scoring_admin\.html/);
   const h = harness(); await h.page.ready;

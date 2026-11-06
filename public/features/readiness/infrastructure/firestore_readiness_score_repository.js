@@ -1,8 +1,8 @@
 
 import * as firebaseOps from "../../../utils/firebase/firebase_ops.js";
-import {STUDENT_READINESS_COLLECTION, READINESS_SYLLABUSES_SUBCOLLECTION, READINESS_TOPICS_SUBCOLLECTION, READINESS_HISTORY_SUBCOLLECTION} from "../../../config/firebase/student_readiness_schema.js?v=20261018-essay-completion-metrics-v1";
-import {requireSubjectScope, requireTopicScope, requireReadinessScore, normalizeSourcePracticeId, normalizeSourcePracticeType, ReadinessScore, ReadinessScoreHistoryEntry} from "../domain/readiness_score.js?v=20261018-essay-completion-metrics-v1";
-import {ReadinessScoreRepository} from "../domain/readiness_score_repository.js?v=20261018-essay-completion-metrics-v1";
+import {STUDENT_READINESS_COLLECTION, READINESS_SYLLABUSES_SUBCOLLECTION, READINESS_TOPICS_SUBCOLLECTION, READINESS_HISTORY_SUBCOLLECTION} from "../../../config/firebase/student_readiness_schema.js?v=20261104-fill-firestore-v2";
+import {requireSubjectScope, requireTopicScope, requireReadinessScore, normalizeSourcePracticeId, normalizeSourcePracticeType, ReadinessScore, ReadinessScoreHistoryEntry} from "../domain/readiness_score.js?v=20261104-fill-firestore-v2";
+import {ReadinessScoreRepository} from "../domain/readiness_score_repository.js?v=20261104-fill-preassessment-v3";
 const defaultServerTimestamp = () => firebaseOps.getFirebaseNamespace().firestore.FieldValue.serverTimestamp();
 
 function subjectCollectionPath({studentId}) {
@@ -75,7 +75,7 @@ class FirestoreReadinessScoreRepository extends ReadinessScoreRepository {
     const latestDocument = this.getDocumentRef(collectionPath, documentId);
     const historyCollection = this.getCollectionRef(historyPath);
     const historyDocument = practiceId === null
-      ? historyCollection.doc() : historyCollection.doc(`${practiceType === "essay" ? "essay" : "practice"}-${practiceId}`);
+      ? historyCollection.doc() : historyCollection.doc(`${practiceType && practiceType !== "normal" ? practiceType : "practice"}-${practiceId}`);
     const timestamp = this.serverTimestamp();
     const latestRecord = {score, updatedAt: timestamp};
 

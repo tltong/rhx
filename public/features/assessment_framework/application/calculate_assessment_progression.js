@@ -1,6 +1,6 @@
 import {
   ASSESSMENT_FRAMEWORK_END_LEVEL_ID
-} from "../../../config/firebase/assessment_framework_schema.js?v=20260822-assessment-progression";
+} from "../../../config/firebase/assessment_framework_schema.js?v=20261104-fill-preassessment-v3";
 
 function requireIdentifier(value, fieldName) {
   const identifier = String(value ?? "").trim();
@@ -88,7 +88,7 @@ export class CalculateAssessmentProgression {
     if (currentLevelId === ASSESSMENT_FRAMEWORK_END_LEVEL_ID) {
       return Object.freeze({
         assessmentFrameworkId: framework.id,
-        ...(framework.frameworkType === "essay" ? {frameworkType: "essay"} : {}),
+        ...(["essay", "fillInTheBlanks"].includes(framework.frameworkType) ? {frameworkType: framework.frameworkType} : {}),
         previousLevelId: ASSESSMENT_FRAMEWORK_END_LEVEL_ID,
         levelId: ASSESSMENT_FRAMEWORK_END_LEVEL_ID,
         levelName: framework.endLevelName,
@@ -127,7 +127,7 @@ export class CalculateAssessmentProgression {
     if (!levelChanged) {
       return Object.freeze({
         assessmentFrameworkId: framework.id,
-        ...(framework.frameworkType === "essay" ? {frameworkType: "essay"} : {}),
+        ...(["essay", "fillInTheBlanks"].includes(framework.frameworkType) ? {frameworkType: framework.frameworkType} : {}),
         previousLevelId: currentLevel.id,
         levelId: currentLevel.id,
         levelName: currentLevel.levelName,
@@ -143,7 +143,7 @@ export class CalculateAssessmentProgression {
 
     return Object.freeze({
       assessmentFrameworkId: framework.id,
-      ...(framework.frameworkType === "essay" ? {frameworkType: "essay"} : {}),
+      ...(["essay", "fillInTheBlanks"].includes(framework.frameworkType) ? {frameworkType: framework.frameworkType} : {}),
       previousLevelId: currentLevel.id,
       levelId: nextLevel?.id || ASSESSMENT_FRAMEWORK_END_LEVEL_ID,
       levelName: nextLevel?.levelName || framework.endLevelName,

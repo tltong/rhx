@@ -52,6 +52,7 @@ class AssessStudentEssayPractice {
       : await this.calculateAssessmentProgression({assessmentFrameworkId, currentLevelId: null, scores: []});
     assertAccess();
     if (level.frameworkType !== "essay") return Object.freeze({...base, assessmentFrameworkId, reason: "essay-assessment-framework-required"});
+    if (String(question.difficulty).toLowerCase() !== String(level.criteria.difficultyLevel).toLowerCase()) return Object.freeze({...base, assessmentFrameworkId, reason: "practice-difficulty-mismatch"});
     const currentLevelId = existingProgress?.currentLevelId ?? level.previousLevelId;
     // Each saved essay assessment belongs to exactly one level. Arrival order and
     // equal completion timestamps cannot cause an essay to count at two levels.

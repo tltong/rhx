@@ -5,16 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pre-Assessment Practice Generator</title>
     <script>document.documentElement.hidden = true;</script>
-    <link rel="stylesheet" href="/vendor/katex/0.18.1/katex.min.css" integrity="sha384-1vdNCNel6Tx/NQa8IR1mGOGKsbGreCkOPfbtPPnUURJ5Tu2PRVfQ/7KLZC+Pi1p1">
-    <script defer src="/vendor/katex/0.18.1/katex.min.js" integrity="sha384-ycJ6GAwiS15LoUPipwJOrWTvkUHl/YqELValBwI5I4awP1EeEQJYarj+w85ntcz7"></script>
-    <script defer src="/vendor/katex/0.18.1/contrib/auto-render.min.js" integrity="sha384-bjyGPfbij8/NDKJhSGZNP/khQVgtHUE5exjm4Ydllo42FwIgYsdLO2lXGmRBf5Mz"></script>
-    <link rel="stylesheet" href="./practice_generator_admin.css?v=20260731-practice-question-preview">
+    <link rel="stylesheet" href="/vendor/katex/0.18.1/katex.min.css?v=20261104-fill-preassessment-v3" integrity="sha384-1vdNCNel6Tx/NQa8IR1mGOGKsbGreCkOPfbtPPnUURJ5Tu2PRVfQ/7KLZC+Pi1p1">
+    <script defer src="/vendor/katex/0.18.1/katex.min.js?v=20261104-fill-preassessment-v3" integrity="sha384-ycJ6GAwiS15LoUPipwJOrWTvkUHl/YqELValBwI5I4awP1EeEQJYarj+w85ntcz7"></script>
+    <script defer src="/vendor/katex/0.18.1/contrib/auto-render.min.js?v=20261104-fill-preassessment-v3" integrity="sha384-bjyGPfbij8/NDKJhSGZNP/khQVgtHUE5exjm4Ydllo42FwIgYsdLO2lXGmRBf5Mz"></script>
+    <link rel="stylesheet" href="./practice_generator_admin.css?v=20261104-fill-preassessment-v3">
     <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script>
     <script defer src="/__/firebase/init.js"></script>
-    <script type="module" src="/init_fb.js"></script>
+    <script type="module" src="/init_fb.js?v=20261104-fill-preassessment-v3"></script>
+      <link rel="stylesheet" href="/features/fill_in_the_blanks_question_generator/components/passage_view.css?v=20261104-fill-firestore-v2">
   </head>
   <body>
     <main class="page">
@@ -71,7 +72,7 @@
           <span>Practice type</span>
           <select id="practice-type-select">
             <option value="normal">Normal pre-assessment practice</option>
-            <option value="essay">Essay pre-assessment practice</option>
+            <option value="essay">Essay starting practice</option><option value="fillInTheBlanks">Fill-in-the-blanks pre-assessment</option>
           </select>
         </label>
         <p id="practice-type-help" class="assignment-message"></p>
@@ -145,7 +146,7 @@
       id="site-admin-page-loader"
       type="module"
       data-site-admin-page
-      data-page-module="./practice_generator_admin.js?v=20261018-essay-progression-v1"
+      data-page-module="./practice_generator_admin.js?v=20261105-chinese-count-v1"
       src="/features/site_admin/pages/common/site_admin_page_loader.js?v=20260827-site-admin-guard-v1"
     ></script>
   </body>

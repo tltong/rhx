@@ -1,45 +1,45 @@
 import {
   FirestoreSyllabusSubscriptionRepository
-} from "./infrastructure/firestore_syllabus_subscription_repository.js?v=20260726-subscription-language";
+} from "./infrastructure/firestore_syllabus_subscription_repository.js?v=20261104-fill-preassessment-v3";
 import {
   GetStudentSyllabusSubscription
-} from "./application/get_student_syllabus_subscription.js?v=20260726-subscription-language";
+} from "./application/get_student_syllabus_subscription.js?v=20261104-fill-preassessment-v3";
 import {
   GetStudentSyllabusSubscriptionLanguage
-} from "./application/get_student_syllabus_subscription_language.js?v=20260815-language-lookup";
+} from "./application/get_student_syllabus_subscription_language.js?v=20261104-fill-preassessment-v3";
 import {
   ListStudentSyllabusSubscriptions
-} from "./application/list_student_syllabus_subscriptions.js?v=20260726-subscription-language";
+} from "./application/list_student_syllabus_subscriptions.js?v=20261104-fill-preassessment-v3";
 import {
   ListActiveStudentSyllabusSubscriptions
-} from "./application/list_active_student_syllabus_subscriptions.js?v=20260726-subscription-language";
+} from "./application/list_active_student_syllabus_subscriptions.js?v=20261104-fill-preassessment-v3";
 import {
   SubscribeSyllabus
-} from "./application/subscribe_syllabus.js?v=20260726-subscription-language";
+} from "./application/subscribe_syllabus.js?v=20261104-fill-preassessment-v3";
 import {
   UnsubscribeSyllabus
-} from "./application/unsubscribe_syllabus.js?v=20260726-subscription-language";
+} from "./application/unsubscribe_syllabus.js?v=20261104-fill-preassessment-v3";
 import {
   ActivateSyllabus
-} from "./application/activate_syllabus.js?v=20260726-subscription-language";
+} from "./application/activate_syllabus.js?v=20261104-fill-preassessment-v3";
 import {
   DeactivateSyllabus
-} from "./application/deactivate_syllabus.js?v=20260726-subscription-language";
+} from "./application/deactivate_syllabus.js?v=20261104-fill-preassessment-v3";
 import {
   ListAvailableSyllabusesForStudent
-} from "./application/list_available_syllabuses_for_student.js?v=20260823-student-syllabus-availability-v1";
+} from "./application/list_available_syllabuses_for_student.js?v=20261104-fill-preassessment-v3";
 import {
   getSyllabusById
-} from "../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
+} from "../syllabus/syllabus_module.js?v=20261104-fill-preassessment-v3";
 import {
   getStudentById
-} from "../student/student_module.js?v=20261031-renewal-restart-v1";
+} from "../student/student_module.js?v=20261104-fill-preassessment-v3";
 import {
   getStudentStreamSubscription
-} from "../stream_subscription/stream_subscription_module.js?v=20260823-student-stream-v1";
+} from "../stream_subscription/stream_subscription_module.js?v=20261104-fill-preassessment-v3";
 import {
   getStreamById
-} from "../stream/stream_module.js?v=20260823-student-standard-stream-v1";
+} from "../stream/stream_module.js?v=20261104-fill-preassessment-v3";
 
 const syllabusSubscriptionRepository =
   new FirestoreSyllabusSubscriptionRepository();
@@ -160,7 +160,7 @@ export {
   listSubscriptionPlans,
   setSubscriptionPlanCurrency,
   updateSubscriptionPlan
-} from "./subscription_plan_module.js?v=20260912-stripe-product-name-v1";
+} from "./subscription_plan_module.js?v=20261104-fill-preassessment-v3";
 
 export {
   createStudentSubscription,
@@ -172,4 +172,4 @@ export {
   recordSubscriptionPayment,
   subscriptionTypes,
   updateStudentSubscription
-} from "./student_subscription_module.js?v=20261031-renewal-restart-v1";
+} from "./student_subscription_module.js?v=20261104-fill-preassessment-v3";

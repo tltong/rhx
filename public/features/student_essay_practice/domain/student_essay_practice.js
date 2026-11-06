@@ -32,6 +32,7 @@ function normalizeAssignment(input) {
     syllabusId: requireIdentifier(input.syllabusId, "syllabusId"),
     topicId: requireIdentifier(input.topicId, "topicId"),
   };
+  if (input.sourceEssayQuestionId !== undefined) result.sourceEssayQuestionId = requireIdentifier(input.sourceEssayQuestionId, "sourceEssayQuestionId");
   if (input.essayPracticeId !== undefined) {
     result.essayPracticeId = requireIdentifier(input.essayPracticeId, "essayPracticeId");
   }

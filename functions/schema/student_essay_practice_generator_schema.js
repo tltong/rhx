@@ -12,12 +12,13 @@ const studentEssayPracticeGeneratorSchema = {
       fields: {
         status: "generating|completed|failed",
         nextEssayPracticeId: "string",
+        outcome: {type: "framework-completed", optional: true},
         essayQuestionId: {type: "string", optional: true},
         reusedQuestionId: {type: "string", optional: true},
         // A temporary draft makes question persistence and assignment retryable.
         draft: {type: "map", optional: true, fields: {
           questionId: "string", level: "primary|secondary", standard: "number",
-          language: "string", difficulty: "medium", questionText: "string", seedUsed: "string",
+          language: "string", difficulty: "easy|medium|hard", questionText: "string", seedUsed: "string",
           wordCountRequirement: {type: "map", fields: {minWords: "number|null"}},
         }},
         leaseToken: {type: "string", optional: true},

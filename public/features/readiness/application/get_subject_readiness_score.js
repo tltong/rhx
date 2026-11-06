@@ -1,4 +1,4 @@
-import {requireSubjectScope} from "../domain/readiness_score.js?v=20261008-subject-readiness-v1";
+import {requireSubjectScope} from "../domain/readiness_score.js?v=20261104-fill-firestore-v2";
 
 class GetSubjectReadinessScore {
   constructor(repository) {

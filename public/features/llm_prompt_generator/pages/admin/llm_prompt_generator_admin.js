@@ -3,10 +3,10 @@ import {
   generateLlmPromptWithDiagram,
   getTopicDiagramPercentage,
   loadLlmPromptGeneratorOptions
-} from "../../llm_prompt_generator_module.js?v=20260822-previous-practice-variety";
+} from "../../llm_prompt_generator_module.js?v=20261104-fill-preassessment-v3";
 
 /**
- * @typedef {import("../../domain/llm_prompt_generator.js").LlmPromptGenerationInput}
+ * @typedef {import("../../domain/llm_prompt_generator.js?v=20261104-fill-preassessment-v3").LlmPromptGenerationInput}
  * LlmPromptGenerationInput
  */
 

@@ -1,10 +1,10 @@
 import {
   DEFAULT_REWARD_CONFIG, getRewardConfig, saveRewardConfig,
   getAssessmentFrameworkRewardConfig, saveAssessmentFrameworkRewardConfig,
-} from "../../reward_module.js?v=20261018-essay-progression-v1";
+} from "../../reward_module.js?v=20261104-fill-preassessment-v3";
 import {
   listAssessmentFrameworks, getAssessmentFrameworkById, ASSESSMENT_FRAMEWORK_END_LEVEL_ID,
-} from "../../../assessment_framework/assessment_framework_module.js?v=20261018-topic-framework-v1";
+} from "../../../assessment_framework/assessment_framework_module.js?v=20261104-fill-preassessment-v3";
 
 export function mountRewardAdmin({
   root = document, getConfig = getRewardConfig, saveConfig = saveRewardConfig,

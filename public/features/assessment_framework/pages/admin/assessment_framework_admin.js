@@ -1,3 +1,4 @@
+import {adoptMcqFramework, adoptMcqPreAssessment} from "../../application/adopt_mcq_framework.js?v=20261105-mcq-preassessment-adoption-v2";
 import {
   ASSESSMENT_FRAMEWORK_END_LEVEL_ID,
   assessmentFrameworkPreAssessmentDifficultyLevels,
@@ -8,7 +9,18 @@ import {
   listAssessmentFrameworks,
   saveAssessmentFrameworkPreAssessment,
   updateAssessmentFrameworkRecord
-} from "../../assessment_framework_module.js?v=20261018-topic-framework-v1";
+} from "../../assessment_framework_module.js?v=20261105-mcq-adoption-v1";
+
+const mcqAdoptionSection = document.querySelector("#mcq-adoption-section");
+const mcqFrameworkSelect = document.querySelector("#mcq-framework-select");
+const applyMcqButton = document.querySelector("#apply-mcq-framework");
+const undoMcqButton = document.querySelector("#undo-mcq-framework");
+let mcqAdoptionSnapshot = null;
+const preAssessmentMcqSection = document.querySelector("#mcq-pre-assessment-adoption");
+const preAssessmentMcqSelect = document.querySelector("#pre-assessment-mcq-framework-select");
+const applyMcqPreAssessmentButton = document.querySelector("#apply-mcq-pre-assessment");
+const undoMcqPreAssessmentButton = document.querySelector("#undo-mcq-pre-assessment");
+let preAssessmentMcqSnapshot = null;
 
 const frameworkTypeSelect = document.querySelector("#framework-type");
 const frameworkSelect = document.querySelector("#framework-select");
@@ -75,11 +87,16 @@ function hasSavedLevels() {
 function updatePreAssessmentControls() {
   const levelsAreReady = hasSavedLevels() && !frameworkLevelsDirty;
   const essay = frameworkTypeSelect.value === "essay";
+  const fill = frameworkTypeSelect.value === "fillInTheBlanks";
   document.querySelector("#pre-assessment-section").hidden = essay;
+  document.querySelector("#fill-pre-assessment-options").hidden = !fill;
+  document.querySelector("#mcq-pre-assessment-count").hidden = fill;
+  document.querySelector("#mcq-pre-assessment-difficulty").hidden = fill;
   const canEdit = !essay && !pageBusy && levelsAreReady;
 
   preAssessmentFields.disabled = !canEdit;
   savePreAssessmentButton.disabled = !canEdit;
+  updatePreAssessmentMcqControls();
 
   if (!loadedFramework?.id || !hasSavedLevels()) {
     preAssessmentAvailability.textContent =
@@ -110,6 +127,7 @@ function setBusy(isBusy) {
   updateLevelControls();
   updateDeleteControls();
   updatePreAssessmentControls();
+  updateMcqAdoptionControls();
 }
 
 function renderFrameworkOptions(frameworks, selectedFrameworkId = "") {
@@ -130,6 +148,8 @@ function renderFrameworkOptions(frameworks, selectedFrameworkId = "") {
   });
 
   frameworkSelect.value = selectedFrameworkId;
+  renderMcqFrameworkOptions(frameworks);
+  renderPreAssessmentMcqOptions(frameworks);
 }
 
 async function refreshFrameworkOptions(selectedFrameworkId = "") {
@@ -138,26 +158,165 @@ async function refreshFrameworkOptions(selectedFrameworkId = "") {
   return frameworks;
 }
 
+function updateMcqAdoptionControls() {
+  const eligible = ["essay", "fillInTheBlanks"].includes(frameworkTypeSelect.value);
+  mcqAdoptionSection.hidden = !eligible;
+  mcqFrameworkSelect.disabled = pageBusy || !eligible;
+  applyMcqButton.disabled = pageBusy || !eligible || !mcqFrameworkSelect.value;
+  undoMcqButton.disabled = pageBusy || !eligible || !mcqAdoptionSnapshot;
+}
+
+function clearMcqAdoption() {
+  clearPreAssessmentMcqAdoption();
+  mcqAdoptionSnapshot = null;
+  mcqFrameworkSelect.value = "";
+  updateMcqAdoptionControls();
+}
+
+function renderMcqFrameworkOptions(frameworks) {
+  const selectedId = mcqFrameworkSelect.value;
+  mcqFrameworkSelect.replaceChildren();
+  const placeholder = document.createElement("option");
+  placeholder.value = ""; placeholder.textContent = "Select normal (MCQ) framework";
+  mcqFrameworkSelect.append(placeholder);
+  for (const framework of frameworks.filter(item => (item.frameworkType || "normal") === "normal")) {
+    const option = document.createElement("option");
+    option.value = framework.id; option.textContent = framework.name;
+    mcqFrameworkSelect.append(option);
+  }
+  mcqFrameworkSelect.value = frameworks.some(item => item.id === selectedId && (item.frameworkType || "normal") === "normal") ? selectedId : "";
+  updateMcqAdoptionControls();
+}
+
+function captureLevelDrafts() {
+  return getLevelRows().map((row, index) => ({id: row.dataset.levelId || null,
+    levelName: row.querySelector("[data-field='levelName']").value, sequenceOrder: index + 1,
+    criteria: Object.fromEntries(["requiredPracticeCount", "minimumScore", "questionsPerPractice", "difficultyLevel"]
+      .map(field => [field, row.querySelector("[data-field='" + field + "']").value]))}));
+}
+
+async function applyMcqFramework() {
+  if (pageBusy || !["essay", "fillInTheBlanks"].includes(frameworkTypeSelect.value) || !mcqFrameworkSelect.value) return;
+  const sourceId = mcqFrameworkSelect.value;
+  setBusy(true); clearStatus();
+  try {
+    const source = await getAssessmentFrameworkById(sourceId);
+    const snapshot = {endLevelName: endLevelNameInput.value, levels: captureLevelDrafts(), frameworkLevelsDirty};
+    const draft = adoptMcqFramework(source, {frameworkType: frameworkTypeSelect.value, levels: snapshot.levels,
+      preAssessment: loadedFramework?.preAssessment});
+    mcqAdoptionSnapshot = snapshot;
+    endLevelNameInput.value = draft.endLevelName;
+    renderLevels(draft.levels);
+    markFrameworkLevelsDirty();
+    setStatus("MCQ settings applied to this form. You can edit them, undo this application, or save the framework.");
+  } catch (error) {setStatus(error.message || "Could not apply MCQ framework settings.", true);}
+  finally {setBusy(false);}
+}
+
+function undoMcqFramework() {
+  if (pageBusy || !mcqAdoptionSnapshot) return;
+  const snapshot = mcqAdoptionSnapshot;
+  endLevelNameInput.value = snapshot.endLevelName;
+  renderLevels(snapshot.levels);
+  frameworkLevelsDirty = snapshot.frameworkLevelsDirty;
+  clearMcqAdoption();
+  updatePreAssessmentControls();
+  setStatus("MCQ application undone. The previous form values have been restored. Save to keep any remaining changes.");
+}
+
+function updatePreAssessmentMcqControls() {
+  const fill = frameworkTypeSelect.value === "fillInTheBlanks";
+  const ready = fill && !pageBusy && hasSavedLevels() && !frameworkLevelsDirty;
+  preAssessmentMcqSection.hidden = !fill;
+  preAssessmentMcqSelect.disabled = !ready;
+  applyMcqPreAssessmentButton.disabled = !ready || !preAssessmentMcqSelect.value;
+  undoMcqPreAssessmentButton.disabled = !ready || !preAssessmentMcqSnapshot;
+}
+
+function clearPreAssessmentMcqAdoption() {
+  preAssessmentMcqSnapshot = null;
+  preAssessmentMcqSelect.value = "";
+}
+
+function renderPreAssessmentMcqOptions(frameworks) {
+  const selectedId = preAssessmentMcqSelect.value;
+  preAssessmentMcqSelect.replaceChildren();
+  const placeholder = document.createElement("option");
+  placeholder.value = ""; placeholder.textContent = "Select MCQ pre-assessment source";
+  preAssessmentMcqSelect.append(placeholder);
+  for (const framework of frameworks.filter(item => (item.frameworkType || "normal") === "normal")) {
+    const option = document.createElement("option"); option.value = framework.id;
+    option.disabled = !framework.preAssessment;
+    option.textContent = framework.name + (option.disabled ? " (no saved pre-assessment)" : "");
+    preAssessmentMcqSelect.append(option);
+  }
+  preAssessmentMcqSelect.value = frameworks.some(item => item.id === selectedId && (item.frameworkType || "normal") === "normal" && item.preAssessment) ? selectedId : "";
+  updatePreAssessmentMcqControls();
+}
+
+function capturePreAssessmentDraft() {
+  return {difficultyLevel: document.querySelector("#fill-pre-assessment-difficulty").value,
+    scoreLevelSplit: Object.fromEntries(Array.from(scoreLevelMappings.querySelectorAll("[data-score-field]"))
+      .map(select => [select.dataset.scoreField, select.value]))};
+}
+
+function displayPreAssessmentDraft(draft) {
+  document.querySelector("#fill-pre-assessment-difficulty").value = draft.difficultyLevel;
+  scoreLevelMappings.querySelectorAll("[data-score-field]").forEach(select => {
+    select.value = draft.scoreLevelSplit[select.dataset.scoreField] || "";
+  });
+}
+
+async function applyMcqPreAssessment() {
+  if (pageBusy || frameworkTypeSelect.value !== "fillInTheBlanks" || !hasSavedLevels() || frameworkLevelsDirty || !preAssessmentMcqSelect.value) return;
+  const sourceId = preAssessmentMcqSelect.value;
+  setBusy(true); clearStatus();
+  try {
+    const source = await getAssessmentFrameworkById(sourceId);
+    const snapshot = capturePreAssessmentDraft();
+    const draft = adoptMcqPreAssessment(source, {frameworkType: "fillInTheBlanks", levels: loadedFramework.levels, preAssessment: snapshot}, assessmentFrameworkPreAssessmentScoreBands);
+    preAssessmentMcqSnapshot = snapshot;
+    displayPreAssessmentDraft(draft);
+    setStatus("MCQ score-to-level mapping applied to this form. Passage difficulty is unchanged. Edit or undo the mapping, then use Save Pre-assessment.");
+  } catch (error) {setStatus(error.message || "Could not adopt MCQ pre-assessment settings.", true);}
+  finally {setBusy(false);}
+}
+
+function undoMcqPreAssessment() {
+  if (pageBusy || !preAssessmentMcqSnapshot || frameworkLevelsDirty) return;
+  displayPreAssessmentDraft(preAssessmentMcqSnapshot);
+  clearPreAssessmentMcqAdoption();
+  updatePreAssessmentMcqControls();
+  setStatus("Pre-assessment adoption undone. The previous form values are restored. Use Save Pre-assessment to save your changes.");
+}
+
 function getLevelRows() {
   return Array.from(levelsContainer.querySelectorAll(".level-row"));
 }
 
 function markFrameworkLevelsDirty() {
+  clearPreAssessmentMcqAdoption();
   frameworkLevelsDirty = true;
   updatePreAssessmentControls();
 }
 
 function updateLevelControls() {
   const rows = getLevelRows();
+  const fillHelp = document.querySelector("#fill-framework-help");
+  if (fillHelp) fillHelp.hidden = frameworkTypeSelect.value !== "fillInTheBlanks";
 
   rows.forEach((row, index) => {
     row.querySelector("[data-field='sequenceOrder']").value = index + 1;
+    for (const field of ["levelName", "requiredPracticeCount", "minimumScore"]) row.querySelector("[data-field='" + field + "']").disabled = pageBusy;
     const essay = frameworkTypeSelect.value === "essay";
-    row.querySelector("[data-label='practice-count']").textContent = essay ? "Essays" : "Practices";
+    const fill = frameworkTypeSelect.value === "fillInTheBlanks";
+    row.querySelector("[data-label='practice-count']").textContent = fill ? "Passages" : essay ? "Essays" : "Practices";
     for (const field of ["questionsPerPractice", "difficultyLevel"]) {
       const input = row.querySelector("[data-field='" + field + "']");
-      if (essay) input.value = field === "questionsPerPractice" ? 1 : "Medium";
-      input.disabled = pageBusy || essay;
+      if (essay && field === "questionsPerPractice") input.value = 1;
+      if (fill && field === "questionsPerPractice") {input.value = 1; input.title = "Blank count is configured per grade in Fill-in-the-Blanks Question Generator.";}
+      if (field === "questionsPerPractice") input.parentElement.hidden = fill;
+      input.disabled = pageBusy || ((essay || fill) && field === "questionsPerPractice");
     }
 
     const moveUpButton = row.querySelector("[data-action='move-up']");
@@ -203,7 +362,7 @@ function addLevelRow(level = {}) {
   row.querySelector("[data-field='questionsPerPractice']").value =
     criteria.questionsPerPractice ?? 10;
   row.querySelector("[data-field='difficultyLevel']").value =
-    criteria.difficultyLevel || "Easy";
+    ["Easy", "Medium", "Hard"].find(value => value.toLowerCase() === String(criteria.difficultyLevel || "").toLowerCase()) || (frameworkTypeSelect.value === "essay" ? "Medium" : "Easy");
   row.querySelector("[data-action='move-up']").addEventListener("click", () => {
     moveLevelRow(row, "up");
   });
@@ -294,6 +453,7 @@ function renderPreAssessmentEditor() {
   );
   preAssessmentQuestionCountInput.value =
     preAssessment?.numberOfQuestions ?? 10;
+  document.querySelector("#fill-pre-assessment-difficulty").value = preAssessment?.difficultyLevel ?? "medium";
 
   difficultyInputs.forEach((input) => {
     input.value = difficultySplit[input.dataset.difficultyField] ?? 0;
@@ -313,6 +473,7 @@ function renderPreAssessmentEditor() {
 function resetPreAssessmentEditor() {
   renderScoreLevelMappings([]);
   preAssessmentQuestionCountInput.value = 10;
+  document.querySelector("#fill-pre-assessment-difficulty").value = "medium";
   const defaults = getDifficultyDefaults();
 
   difficultyInputs.forEach((input) => {
@@ -325,6 +486,7 @@ function resetPreAssessmentEditor() {
 
 function resetForm() {
   loadedFramework = null;
+  clearMcqAdoption();
   frameworkTypeSelect.disabled = false;
   frameworkTypeSelect.value = "normal";
   frameworkLevelsDirty = false;
@@ -340,6 +502,7 @@ function resetForm() {
 }
 
 function displayFramework(framework, message) {
+  clearMcqAdoption();
   loadedFramework = framework;
   frameworkLevelsDirty = false;
   confirmDeleteInput.checked = false;
@@ -356,6 +519,7 @@ function displayFramework(framework, message) {
   renderLevels(framework.levels || []);
   renderPreAssessmentEditor();
   updateDeleteControls();
+  updateMcqAdoptionControls();
   setStatus(message);
 }
 
@@ -368,6 +532,7 @@ function prepareNewFramework() {
   }
 
   loadedFramework = null;
+  clearMcqAdoption();
   frameworkTypeSelect.disabled = false;
   frameworkTypeSelect.value = "normal";
   frameworkLevelsDirty = true;
@@ -379,6 +544,7 @@ function prepareNewFramework() {
   addLevelRow();
   updateDeleteControls();
   resetPreAssessmentEditor();
+  updateMcqAdoptionControls();
   setStatus(`Ready to create ${frameworkName}. Add levels and save.`);
 }
 
@@ -392,7 +558,7 @@ function readLevelRow(row, index) {
   const questionsPerPractice = Number(
     row.querySelector("[data-field='questionsPerPractice']").value
   );
-  const difficultyLevel = frameworkTypeSelect.value === "essay" ? "medium" : row.querySelector("[data-field='difficultyLevel']").value;
+  const difficultyLevel = row.querySelector("[data-field='difficultyLevel']").value;
 
   if (!levelName) {
     throw new Error(`Level ${index + 1} name is required.`);
@@ -525,7 +691,7 @@ async function savePreAssessment() {
 
   const numberOfQuestions = Number(preAssessmentQuestionCountInput.value);
 
-  if (!Number.isInteger(numberOfQuestions) || numberOfQuestions < 1) {
+  if (frameworkTypeSelect.value !== "fillInTheBlanks" && (!Number.isInteger(numberOfQuestions) || numberOfQuestions < 1)) {
     setStatus("Number of questions must be a positive whole number.", true);
     return;
   }
@@ -534,7 +700,10 @@ async function savePreAssessment() {
   clearStatus();
 
   try {
-    await saveAssessmentFrameworkPreAssessment(loadedFramework.id, {
+    await saveAssessmentFrameworkPreAssessment(loadedFramework.id, frameworkTypeSelect.value === "fillInTheBlanks" ? {
+      difficultyLevel: document.querySelector("#fill-pre-assessment-difficulty").value,
+      scoreLevelSplit: readScoreLevelSplit()
+    } : {
       numberOfQuestions,
       difficultySplit: readDifficultySplit(),
       scoreLevelSplit: readScoreLevelSplit()
@@ -651,5 +820,19 @@ difficultyInputs.forEach((input) => {
 });
 savePreAssessmentButton.addEventListener("click", savePreAssessment);
 
-frameworkTypeSelect.addEventListener("change", () => {updateLevelControls(); updatePreAssessmentControls();});
+frameworkTypeSelect.addEventListener("change", () => {
+  clearMcqAdoption();
+  if (!loadedFramework && frameworkTypeSelect.value === "essay") {
+    for (const row of getLevelRows()) row.querySelector("[data-field='difficultyLevel']").value = "Medium";
+  }
+  updateLevelControls();
+  updatePreAssessmentControls();
+  updateMcqAdoptionControls();
+});
+mcqFrameworkSelect.addEventListener("change", updateMcqAdoptionControls);
+applyMcqButton.addEventListener("click", applyMcqFramework);
+undoMcqButton.addEventListener("click", undoMcqFramework);
+preAssessmentMcqSelect.addEventListener("change", updatePreAssessmentMcqControls);
+applyMcqPreAssessmentButton.addEventListener("click", applyMcqPreAssessment);
+undoMcqPreAssessmentButton.addEventListener("click", undoMcqPreAssessment);
 initPage();

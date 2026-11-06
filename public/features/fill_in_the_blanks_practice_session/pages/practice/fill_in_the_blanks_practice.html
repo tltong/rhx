@@ -1,0 +1,14 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fill in the Blanks</title><link rel="stylesheet" href="/features/fill_in_the_blanks_question_generator/pages/admin/fill_in_the_blanks_admin.css?v=20261104-fill-firestore-v2">
+<script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script><script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
+<script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+<script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script><script defer src="/__/firebase/init.js"></script></head>
+<body><main class="page-shell"><a id="fill-back" href="/features/student/pages/landing/landing.html">Back to dashboard</a>
+<h1>Fill in the blanks</h1><p id="fill-session-status" class="status" role="status" aria-live="polite">Loading your practice…</p>
+<section class="panel" id="fill-session-content" hidden><p id="fill-session-instructions">Read the whole passage and type your answers. Each blank shows its required word count. You may leave an answer blank; it will receive zero marks.</p>
+<p id="fill-session-meta" class="help"></p><form id="fill-answer-form"><div id="fill-student-passage"></div><button id="fill-submit" type="submit">Submit passage</button></form>
+<button id="fill-check" type="button" class="secondary">Check submission status</button><p id="fill-final-score" class="score" aria-live="polite" hidden></p>
+<p id="fill-placement" class="status" role="status" aria-live="polite" hidden></p>
+</section><section id="fill-next-section" class="panel" hidden><h2>Next practice</h2><p id="fill-next-status" role="status" aria-live="polite"></p>
+<button id="fill-retry-generation" type="button" hidden>Retry preparation</button></section>
+</main><script type="module" src="./fill_in_the_blanks_practice.js?v=20261105-chinese-count-v1"></script></body></html>

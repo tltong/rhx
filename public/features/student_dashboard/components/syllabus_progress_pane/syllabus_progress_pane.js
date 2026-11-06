@@ -68,6 +68,7 @@ function getPreAssessmentPresentation(state) {
 }
 
 function getPracticeHistoryType(practice) {
+  if (practice.practiceType === "fillInTheBlanks") return "Fill-in-the-blanks assessment";
   if (practice.practiceType === "essay") return "Essay assessment";
   if (practice.practiceType === "pre assessment") {
     return "Pre-assessment";
@@ -155,7 +156,9 @@ function createCompletedPracticeHistory({
 
     item.className = "student-dashboard-practice-history-item";
     action.className = "student-dashboard-history-result-link";
-    action.href = practice.practiceType === "essay"
+    action.href = practice.practiceType === "fillInTheBlanks"
+      ? "/features/fill_in_the_blanks_practice_session/pages/practice/fill_in_the_blanks_practice.html?practiceId=" + encodeURIComponent(practice.practiceId) + "&studentId=" + encodeURIComponent(studentId)
+      : practice.practiceType === "essay"
       ? "/features/essay_practice_session/pages/essay_practice/essay_practice.html?essayPracticeId=" + encodeURIComponent(practice.practiceId) + "&studentId=" + encodeURIComponent(studentId)
       : createPracticeResultUrl(
       studentId,
@@ -239,6 +242,7 @@ function createTopicRow({
   row.className = "student-dashboard-topic-row";
   topicName.className = "student-dashboard-topic-name";
   topicName.textContent = topic.topicName;
+  topicName.append(createMetric(documentRef, "Assessment framework", topic.frameworkName || "Not configured"));
   assessmentMetric.className = "student-dashboard-progress-metric";
   assessmentLabel.className = "student-dashboard-progress-label";
   assessmentLabel.textContent = "Pre-assessment";

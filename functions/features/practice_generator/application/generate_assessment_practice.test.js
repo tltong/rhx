@@ -20,7 +20,7 @@ function question(id, hasDiagram = false) {
 function createDependencies(overrides = {}) {
   return {
     getStudentTopicLevel: async () => "level-1",
-    getSyllabusAssessmentFrameworkId: async () => "framework-1",
+    getTopicAssessmentFrameworkId: async () => "framework-1",
     getAssessmentLevelCriteria: async () => ({
       criteria: {
         questionsPerPractice: 4,

@@ -1,3 +1,4 @@
+const {listAssignedFillInTheBlanksPractices, listCompletedFillInTheBlanksPractices, getAssignedFillInTheBlanksPractice, getCompletedFillInTheBlanksPractice} = require("../student_fill_in_the_blanks_practice/student_fill_in_the_blanks_practice_module");
 /**
  * listAdditionalMissions({studentId, syllabusId}) -> [{practiceId, practiceType: "normal"|"essay", topicId}]
  * getAdditionalMissionAvailability({studentId, syllabusId}) -> {missions, preparingEssay}
@@ -161,7 +162,7 @@ const isTopicPausedUseCase = new IsTopicPaused({
 const getNextCoreDailyMissionUseCase = new GetNextCoreDailyMission({
   dailyMissionRepository,
   listAssignedPracticeIds,
-  listAssignedEssayPractices,
+  listAssignedEssayPractices, listAssignedFillInTheBlanksPractices,
   getPracticeById,
   checkPausedTopicValidity: runPausedTopicValidityCheck,
 });
@@ -172,13 +173,13 @@ const acceptCoreDailyMissionUseCase = new AcceptCoreDailyMission({
     getNextCoreDailyMissionUseCase.execute(input)
   ),
   getPracticeById,
-  getAssignedEssayPractice, getCompletedEssayPractice,
+  getAssignedEssayPractice, getCompletedEssayPractice, getAssignedFillInTheBlanksPractice, getCompletedFillInTheBlanksPractice,
 });
 const pauseCoreDailyMissionUseCase = new PauseCoreDailyMission({
   dailyMissionRepository,
   getPracticeById,
   isTopicPausable,
-  getAssignedEssayPractice,
+  getAssignedEssayPractice, getAssignedFillInTheBlanksPractice, getCompletedFillInTheBlanksPractice,
 });
 const listAdditionalMissionPracticeIdsUseCase =
   new ListAdditionalMissionPracticeIds({
@@ -190,14 +191,14 @@ const listAdditionalMissionPracticeIdsUseCase =
 const acceptAdditionalDailyMissionUseCase =
   new AcceptAdditionalDailyMission({
     dailyMissionRepository,
-    getAssignedEssayPractice, getCompletedEssayPractice,
+    getAssignedEssayPractice, getCompletedEssayPractice, getAssignedFillInTheBlanksPractice, getCompletedFillInTheBlanksPractice,
     getPracticeById,
   });
 const listAdditionalMissionsUseCase = new ListAdditionalMissions({dailyMissionRepository, listAssignedPracticeIds,
-  listAssignedEssayPractices, getPracticeById, checkPausedTopicValidity: runPausedTopicValidityCheck});
+  listAssignedEssayPractices, listAssignedFillInTheBlanksPractices, getPracticeById, checkPausedTopicValidity: runPausedTopicValidityCheck});
 async function listAdditionalMissions(input) {return listAdditionalMissionsUseCase.execute(input);}
 const additionalMissionAvailability = new GetAdditionalMissionAvailability({listAdditionalMissions,
-  dailyMissionRepository, listCompletedEssayPractices, checkPausedTopicValidity: runPausedTopicValidityCheck,
+  dailyMissionRepository, listCompletedEssayPractices, listCompletedFillInTheBlanksPractices, checkPausedTopicValidity: runPausedTopicValidityCheck,
   getCurrentDate: () => new Date().toISOString().slice(0, 10)});
 async function getAdditionalMissionAvailability(input) {return additionalMissionAvailability.execute(input);}
 const unpauseTopicUseCase = new UnpauseTopic({

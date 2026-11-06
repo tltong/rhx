@@ -1,4 +1,4 @@
-import {missionTypeFields} from "./mission_practice_type.js?v=20261018-essay-session-v1";
+import {missionTypeFields} from "./mission_practice_type.js?v=20261104-fill-firestore-v2";
 function requireDocumentId(value, name) {
   if (typeof value !== "string" || !value.trim() || value.includes("/")
       || [".", ".."].includes(value.trim()) || /^__.*__$/.test(value.trim())

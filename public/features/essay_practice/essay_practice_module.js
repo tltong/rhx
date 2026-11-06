@@ -6,10 +6,10 @@
  * Web creation requires a verified site administrator; reads require sign-in.
  * No Firebase endpoints are exported.
  */
-import {getEssayQuestionById} from "../essay_question_generator/essay_question_generator_module.js?v=20261017-essay-grade-min-words-v1";
-import {CreateEssayPractice} from "./application/create_essay_practice.js?v=20261018-preassessment-essay-v1";
-import {GetEssayPracticeById} from "./application/get_essay_practice_by_id.js?v=20261018-preassessment-essay-v1";
-import {FirestoreEssayPracticeRepository} from "./infrastructure/firestore_essay_practice_repository.js?v=20261018-preassessment-essay-v1";
+import {getEssayQuestionById} from "../essay_question_generator/essay_question_generator_module.js?v=20261104-fill-preassessment-v3";
+import {CreateEssayPractice} from "./application/create_essay_practice.js?v=20261104-fill-preassessment-v3";
+import {GetEssayPracticeById} from "./application/get_essay_practice_by_id.js?v=20261104-fill-preassessment-v3";
+import {FirestoreEssayPracticeRepository} from "./infrastructure/firestore_essay_practice_repository.js?v=20261104-fill-preassessment-v3";
 import {requireCurrentFirebaseAuthUser} from "../../utils/firebase/firebase_auth.js";
 import {requireCurrentSiteAdmin} from "../site_admin/site_admin_module.js?v=20260827-site-admin-guard-v1";
 

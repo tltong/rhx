@@ -1,7 +1,7 @@
-import {resolveTopicAssessmentFrameworkId} from "../../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
-import {StudentAssessmentTopicProgress} from "../domain/student_assessment_topic_progress.js?v=20261018-essay-progression-v1";
-import {requirePracticeAssessmentScope} from "../domain/practice_assessment.js?v=20261010-level-rewards-v1";
-import {requireSyllabusTopic, toDate} from "./assessment_helpers.js?v=20260822-assessment-progression";
+import {resolveTopicAssessmentFrameworkId} from "../../syllabus/syllabus_module.js?v=20261105-mcq-adoption-v1";
+import {StudentAssessmentTopicProgress} from "../domain/student_assessment_topic_progress.js?v=20261104-fill-preassessment-v3";
+import {requirePracticeAssessmentScope} from "../domain/practice_assessment.js?v=20261104-fill-preassessment-v3";
+import {requireSyllabusTopic, toDate} from "./assessment_helpers.js?v=20261104-fill-preassessment-v3";
 
 class AssessStudentEssayPractice {
   constructor(dependencies) {Object.assign(this, dependencies);}
@@ -52,6 +52,7 @@ class AssessStudentEssayPractice {
       : await this.calculateAssessmentProgression({assessmentFrameworkId, currentLevelId: null, scores: []});
     assertAccess();
     if (level.frameworkType !== "essay") return Object.freeze({...base, assessmentFrameworkId, reason: "essay-assessment-framework-required"});
+    if (String(question.difficulty).toLowerCase() !== String(level.criteria.difficultyLevel).toLowerCase()) return Object.freeze({...base, assessmentFrameworkId, reason: "practice-difficulty-mismatch"});
     const currentLevelId = existingProgress?.currentLevelId ?? level.previousLevelId;
     // Each saved essay assessment belongs to exactly one level. Arrival order and
     // equal completion timestamps cannot cause an essay to count at two levels.

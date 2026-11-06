@@ -1,7 +1,7 @@
 import * as firebaseOps from "../../../utils/firebase/firebase_ops.js";
-import {ESSAY_RESULTS_COLLECTION, ESSAY_RESULT_QUESTIONS_SUBCOLLECTION} from "../../../config/firebase/essay_scoring_schema.js?v=20261018-essay-review-comment-v1";
-import {normalizeResultReference, normalizeResultInput, readEssayResult} from "../domain/essay_result.js?v=20261018-essay-review-comment-v1";
-import {EssayResultRepository} from "../domain/essay_result_repository.js?v=20261018-essay-review-comment-v1";
+import {ESSAY_RESULTS_COLLECTION, ESSAY_RESULT_QUESTIONS_SUBCOLLECTION} from "../../../config/firebase/essay_scoring_schema.js?v=20261104-fill-preassessment-v3";
+import {normalizeResultReference, normalizeResultInput, readEssayResult} from "../domain/essay_result.js?v=20261104-fill-preassessment-v3";
+import {EssayResultRepository} from "../domain/essay_result_repository.js?v=20261104-fill-preassessment-v3";
 
 const defaultServerTimestamp = () => firebaseOps.getFirebaseNamespace().firestore.FieldValue.serverTimestamp();
 

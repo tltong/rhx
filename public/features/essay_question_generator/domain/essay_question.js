@@ -1,5 +1,6 @@
-import {ESSAY_QUESTION_GENERATOR_COLLECTION, ESSAY_QUESTION_LEVELS, ESSAY_QUESTION_STANDARDS, ESSAY_QUESTION_DIFFICULTIES} from "../../../config/firebase/essay_question_generator_schema.js?v=20261017-essay-grade-min-words-v1";
-import {requireRecord, requireText, requireDate, normalizeWordCountRequirement} from "./essay_question_generator_config.js?v=20261017-essay-grade-min-words-v1";
+import {normalizeQuestionSupport, normalizeImagePrompt} from "./essay_question_support.js?v=20261101-essay-simple-images-v4";
+import {ESSAY_QUESTION_GENERATOR_COLLECTION, ESSAY_QUESTION_LEVELS, ESSAY_QUESTION_STANDARDS, ESSAY_QUESTION_DIFFICULTIES} from "../../../config/firebase/essay_question_generator_schema.js?v=20261101-essay-simple-images-v4";
+import {requireRecord, requireText, requireDate, normalizeWordCountRequirement} from "./essay_question_generator_config.js?v=20261101-essay-simple-images-v4";
 
 
 function normalizeDifficulty(value) {
@@ -28,8 +29,10 @@ function normalizeGenerationInput(input) {
 }
 function normalizeDraftInput(input) {
   return {...normalizeCriteria(input, {requireDifficulty: true}),
+    ...(input.support === undefined ? {} : {support: normalizeQuestionSupport(input.support)}),
     questionId: normalizeQuestionId(input.questionId),
     questionText: requireText(input.questionText, "questionText"),
+    ...(input.imagePrompt === undefined ? {} : {imagePrompt: normalizeImagePrompt(input.imagePrompt)}),
     seedUsed: requireText(input.seedUsed, "seedUsed"),
     wordCountRequirement: Object.freeze(normalizeWordCountRequirement(input.wordCountRequirement))};
 }
@@ -59,7 +62,10 @@ function normalizeGeneratedQuestion(response) {
     catch {throw new Error("Essay question LLM response must be valid JSON.");}
   }
   requireRecord(response, "Essay question LLM response");
-  return {questionText: requireText(response.questionText, "questionText")};
+  const question = {questionText: requireText(response.questionText, "questionText")};
+  // Optional image-prompt failures preserve the usable written question.
+  try {if (response.imagePrompt !== undefined) question.imagePrompt = normalizeImagePrompt(response.imagePrompt);} catch {}
+  return question;
 }
 function readQuestion(data, scope, questionId) {
   requireRecord(data, "Stored essay question");
@@ -67,8 +73,10 @@ function readQuestion(data, scope, questionId) {
     questionId: normalizeQuestionId(questionId), ...normalizeCriteria(scope),
     difficulty: normalizeDifficulty(data.difficulty),
     questionText: requireText(data.questionText, "questionText"),
+    ...(data.imagePrompt === undefined ? {} : {imagePrompt: normalizeImagePrompt(data.imagePrompt)}),
     seedUsed: requireText(data.seedUsed, "seedUsed"),
     wordCountRequirement: Object.freeze(normalizeWordCountRequirement(data.wordCountRequirement)),
+    ...(data.support === undefined ? {} : {support: normalizeQuestionSupport(data.support)}),
     generatedAt: requireDate(data.generatedAt, "generatedAt"),
   });
 }

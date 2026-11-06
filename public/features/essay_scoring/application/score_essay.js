@@ -1,6 +1,6 @@
-import {normalizeScoringInput, parseAssessment} from "../domain/essay_result.js?v=20261018-essay-review-comment-v1";
-import {buildEssayScoringPrompt} from "./build_essay_scoring_prompt.js?v=20261020-scoring-config-v1";
-import {createDefaultConfiguration} from "../domain/essay_scoring_config.js?v=20261020-scoring-config-v1";
+import {normalizeScoringInput, parseAssessment} from "../domain/essay_result.js?v=20261104-fill-preassessment-v3";
+import {buildEssayScoringPrompt} from "./build_essay_scoring_prompt.js?v=20261104-fill-preassessment-v3";
+import {createDefaultConfiguration} from "../domain/essay_scoring_config.js?v=20261104-fill-preassessment-v3";
 
 class ScoreEssay {
   constructor({getEssayQuestionById, generateLlmText, getEssayScoringConfig}) {

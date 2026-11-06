@@ -1,7 +1,8 @@
+import {AssessmentFramework} from "../domain/assessment_framework.js?v=20261104-fill-preassessment-v3";
 import {
   ASSESSMENT_FRAMEWORK_END_LEVEL_ID,
   assessmentFrameworkPreAssessmentScoreBands
-} from "../../../config/firebase/assessment_framework_schema.js?v=20260807-pre-assessment-level";
+} from "../../../config/firebase/assessment_framework_schema.js?v=20261104-fill-preassessment-v3";
 
 function requireIdentifier(value, fieldName) {
   const identifier = String(value ?? "").trim();
@@ -34,16 +35,18 @@ export class CalculatePreAssessmentLevel {
     this.assessmentFrameworkRepository = assessmentFrameworkRepository;
   }
 
-  async execute({ assessmentFrameworkId, score } = {}) {
+  async execute({ assessmentFrameworkId, score, frameworkSnapshot } = {}) {
     const normalizedAssessmentFrameworkId = requireIdentifier(
       assessmentFrameworkId,
       "assessmentFrameworkId"
     );
     const normalizedScore = normalizeScore(score);
-    const assessmentFramework =
-      await this.assessmentFrameworkRepository.getById(
-        normalizedAssessmentFrameworkId
-      );
+    const assessmentFramework = frameworkSnapshot
+      ? new AssessmentFramework(frameworkSnapshot)
+      : await this.assessmentFrameworkRepository.getById(normalizedAssessmentFrameworkId);
+    if (frameworkSnapshot && (assessmentFramework.id !== normalizedAssessmentFrameworkId || assessmentFramework.frameworkType !== "fillInTheBlanks")) {
+      throw new Error("The placement snapshot does not match its framework.");
+    }
 
     if (!assessmentFramework) {
       throw new Error(

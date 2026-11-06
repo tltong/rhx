@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {readFile} from "node:fs/promises";
-import {mountEssayQuestionGeneratorAdmin} from "./essay_question_generator_admin.js";
+import {mountEssayQuestionGeneratorAdmin} from "./essay_question_generator_admin.js?v=20261104-fill-preassessment-v3";
 import {createDefaultConfiguration, EssayQuestionGeneratorConfig} from "../../domain/essay_question_generator_config.js";
 
 class Element {
@@ -214,7 +214,7 @@ test("the page uses the shared admin guard, explicit field labels and a Site Adm
   for (const id of ids) assert.ok(html.includes('id="' + id + '"'), id);
   assert.match(html, /data-site-admin-page/);
   assert.match(html, /site_admin_page_loader\.js/);
-  assert.match(html, /essay_question_generator_admin\.js\?v=20261017-essay-grade-min-words-v1/);
+  assert.match(html, /essay_question_generator_admin\.js\?v=20261101-essay-image-prompt-preview-v6/);
   assert.ok(html.indexOf('id="essay-demo-panel"') > html.indexOf('id="essay-save-config"'));
   assert.match(html, /id="essay-demo-preview"[^>]*readonly/);
   assert.match(site, /essay_question_generator\/pages\/admin\/essay_question_generator_admin\.html/);
@@ -225,4 +225,24 @@ test("the page uses the shared admin guard, explicit field labels and a Site Adm
     assert.equal(field.children[0].attributes.get("for"), inputId);
     assert.equal(field.children[1], h.get(inputId));
   }
+});
+
+test("admin independently configures pictures and suggestion counts per standard", async () => {
+  const h = harness(); await h.page.ready;
+  const picture = h.get("essay-primary-grade-2-pictureEnabled"), words = h.get("essay-primary-grade-2-helpingWordsEnabled");
+  const count = h.get("essay-primary-grade-2-helpingWordCount");
+  assert.equal(picture.checked, false); assert.equal(words.checked, false); assert.equal(count.disabled, true);
+  picture.checked = true; await picture.edit(""); words.checked = true; await words.edit("");
+  assert.equal(count.disabled, false); await count.edit("4");
+  await h.get("essay-config-form").submit();
+  assert.deepEqual(h.saves[0].gradeSupport.primary[2], {pictureEnabled: true, helpingWordsEnabled: true, helpingWordCount: 4});
+  assert.equal(h.saves[0].gradeSupport.secondary[2].pictureEnabled, false);
+  h.page.dispose();
+});
+test("admin rejects invalid suggestion counts before saving settings", async () => {
+  const h = harness(); await h.page.ready;
+  const words = h.get("essay-primary-grade-2-helpingWordsEnabled"); words.checked = true; await words.edit("");
+  await h.get("essay-primary-grade-2-helpingWordCount").edit("0");
+  await h.get("essay-config-form").submit(); assert.equal(h.saves.length, 0);
+  assert.match(h.get("essay-status").textContent, /1 to 30/); h.page.dispose();
 });

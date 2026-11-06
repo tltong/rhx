@@ -1,13 +1,13 @@
-import {resolveTopicAssessmentFrameworkId} from "../../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
+import {resolveTopicAssessmentFrameworkId} from "../../syllabus/syllabus_module.js?v=20261105-topic-framework-v1";
 import {
   StudentAssessmentTopicProgress
-} from "../domain/student_assessment_topic_progress.js?v=20261018-essay-progression-v1";
+} from "../domain/student_assessment_topic_progress.js?v=20261104-fill-preassessment-v3";
 import {
   getPracticeScope,
   requireFunction,
   requireIdentifier,
   requireSyllabusTopic
-} from "./assessment_helpers.js?v=20260822-assessment-progression";
+} from "./assessment_helpers.js?v=20261104-fill-preassessment-v3";
 
 export class AssessPreAssessmentPractice {
   constructor({
@@ -76,8 +76,7 @@ export class AssessPreAssessmentPractice {
 
     const questionLanguages = [...new Set(practice.questions.map(question => question.language).filter(Boolean))];
     if (questionLanguages.length > 1) throw new Error("An assessed practice must use one language.");
-    const hasOverrides = Object.keys(syllabus.topics.find(topic => topic.id === topicId).assessmentFrameworkIds || {}).length > 0;
-    const language = questionLanguages[0] || (hasOverrides ? await this.getStudentSyllabusSubscriptionLanguage(normalizedStudentId, syllabusId) : null);
+    const language = questionLanguages[0] || await this.getStudentSyllabusSubscriptionLanguage(normalizedStudentId, syllabusId);
     const assessmentFrameworkId = requireIdentifier(resolveTopicAssessmentFrameworkId(syllabus, {topicId, language}), "Topic assessment framework ID");
     const levelCalculation = await this.calculatePreAssessmentLevel({
       assessmentFrameworkId,

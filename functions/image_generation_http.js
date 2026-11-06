@@ -3,10 +3,11 @@ const {getAuth} = require("firebase-admin/auth");
 const logger = require("firebase-functions/logger");
 const {randomUUID} = require("node:crypto");
 const {getFirebaseApp} = require("./utils/firebase/firebase_ops");
+const {deepseekApiKey} = require("./deepseek");
 const {openaiApiKey} = require("./utils/llm/openai_util");
 const feature = require("./features/image_generation/image_generation_module");
 
-function createImageGenerationHandler({verifyToken = token => getAuth(getFirebaseApp()).verifyIdToken(token, true), apis = feature, log = logger} = {}) {
+function createImageGenerationHandler({verifyToken = token => getAuth(getFirebaseApp()).verifyIdToken(token, true), apis = {...feature, prepareEssayQuestion: require("./features/essay_question_generator/application/prepare_essay_question").prepareEssayQuestion, createEssayPicture: require("./features/essay_question_generator/infrastructure/essay_picture_service").createEssayPicture, createFillInTheBlanksPicture: require("./features/fill_in_the_blanks_question_generator/infrastructure/passage_picture_service").createFillInTheBlanksPicture}, log = logger} = {}) {
   return async (req, res) => {
     const requestId = randomUUID(), startedAt = Date.now();
     res.set("Cache-Control", "no-store"); res.set("X-Request-ID", requestId);
@@ -19,7 +20,7 @@ function createImageGenerationHandler({verifyToken = token => getAuth(getFirebas
       const user = await verifyToken(token);
       const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
       if (!body || typeof body !== "object" || Array.isArray(body)) throw Object.assign(new Error("Provide a JSON request object."), {code: "invalid-argument"});
-      const actions = {generate: "generateImage", getConfig: "getImageGenerationConfig", saveConfig: "saveImageGenerationConfig"};
+      const actions = {generate: "generateImage", getConfig: "getImageGenerationConfig", saveConfig: "saveImageGenerationConfig", createEssayPicture: "createEssayPicture", prepareEssayQuestion: "prepareEssayQuestion", createFillInTheBlanksPicture: "createFillInTheBlanksPicture"};
       const method = Object.hasOwn(actions, body.action || "generate") ? actions[body.action || "generate"] : null;
       if (!method) throw Object.assign(new Error("Unknown image generation operation."), {code: "invalid-argument"});
       const result = await apis[method](body.input, {updatedBy: user.uid});
@@ -40,5 +41,5 @@ function createImageGenerationHandler({verifyToken = token => getAuth(getFirebas
   };
 }
 const generateLlmImage = onRequest({region: "us-central1", invoker: "public", memory: "1GiB", timeoutSeconds: 600,
-  secrets: [openaiApiKey], cors: ["https://readyherox.web.app", "https://readyherox.firebaseapp.com", /^http:\/\/(localhost|127\.0\.0\.1):\d+$/]}, createImageGenerationHandler());
+  secrets: [openaiApiKey, deepseekApiKey], cors: ["https://readyherox.web.app", "https://readyherox.firebaseapp.com", /^http:\/\/(localhost|127\.0\.0\.1):\d+$/]}, createImageGenerationHandler());
 module.exports = {generateLlmImage, createImageGenerationHandler};

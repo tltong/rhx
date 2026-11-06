@@ -83,8 +83,7 @@ class AssessPreAssessmentPractice {
 
     const questionLanguages = [...new Set(practice.questions.map(question => question.language).filter(Boolean))];
     if (questionLanguages.length > 1) throw new Error("An assessed practice must use one language.");
-    const hasOverrides = Object.keys(syllabus.topics.find(topic => topic.id === topicId).assessmentFrameworkIds || {}).length > 0;
-    const language = questionLanguages[0] || (hasOverrides ? await this.getStudentSyllabusSubscriptionLanguage(normalizedStudentId, syllabusId) : null);
+    const language = questionLanguages[0] || await this.getStudentSyllabusSubscriptionLanguage(normalizedStudentId, syllabusId);
     const assessmentFrameworkId = requireIdentifier(resolveTopicAssessmentFrameworkId(syllabus, {topicId, language}), "Topic assessment framework ID");
     const levelCalculation = await this.calculatePreAssessmentLevel({
       assessmentFrameworkId,

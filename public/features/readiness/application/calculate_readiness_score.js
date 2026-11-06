@@ -1,11 +1,12 @@
-import {requireTopicScope, requireReadinessScore, requireTimestamp} from "../domain/readiness_score.js?v=20261018-essay-completion-metrics-v1";
-import {normalizeDifficultyLevel} from "../domain/readiness_config.js?v=20261018-essay-completion-metrics-v1";
+import {requireTopicScope, requireReadinessScore, requireTimestamp} from "../domain/readiness_score.js?v=20261104-fill-firestore-v2";
+import {normalizeDifficultyLevel} from "../domain/readiness_config.js?v=20261104-fill-preassessment-v3";
 
 class CalculateReadinessScore {
   constructor({
     getReadinessConfig,
     listCompletedPractices,
     listCompletedEssayPractices = async () => ({practices: [], nextCursor: null}),
+    listCompletedFillInTheBlanksPractices = async () => ({practices: [], nextCursor: null}),
     getEssayResult,
     getEssayQuestionById,
     getPracticeById,
@@ -15,7 +16,7 @@ class CalculateReadinessScore {
   }) {
     this.getReadinessConfig = getReadinessConfig;
     this.listCompletedPractices = listCompletedPractices;
-    Object.assign(this, {listCompletedEssayPractices, getEssayResult, getEssayQuestionById});
+    Object.assign(this, {listCompletedEssayPractices, listCompletedFillInTheBlanksPractices, getEssayResult, getEssayQuestionById});
     this.getPracticeById = getPracticeById;
     this.getQuestionDifficulty = getQuestionDifficulty;
     this.assessmentPracticeType = assessmentPracticeType;
@@ -44,6 +45,14 @@ class CalculateReadinessScore {
       }
       cursor = page.nextCursor;
     } while (cursor);
+    cursor = null;
+    do {
+      const page = await this.listCompletedFillInTheBlanksPractices({...scope, limit: 100, cursor});
+      for (const completion of page.practices) if (completion.syllabusId === scope.syllabusId && completion.topicId === scope.topicId) {
+        completions.push({...completion, kind: "fillInTheBlanks", dateCompleted: completion.completedAt ?? completion.dateCompleted});
+      }
+      cursor = page.nextCursor;
+    } while (cursor);
     const newestFirst = [...completions].sort((first, second) => (
       requireTimestamp(second.dateCompleted, "dateCompleted").getTime()
         - requireTimestamp(first.dateCompleted, "dateCompleted").getTime()
@@ -54,6 +63,11 @@ class CalculateReadinessScore {
     const essayResults = new Map();
 
     for (const completion of newestFirst) {
+      if (completion.kind === "fillInTheBlanks") {
+        weightedScores.push(requireReadinessScore(completion.score) * (completion.type === "pre assessment" ? config.preAssessmentWeight : config.difficultyWeights[normalizeDifficultyLevel(completion.difficulty)]));
+        if (weightedScores.length === config.numberOfPractices) break;
+        continue;
+      }
       if (completion.kind === "essay") {
         if (!essayResults.has(completion.essayQuestionId)) {
           essayResults.set(completion.essayQuestionId, await this.getEssayResult({studentId: scope.studentId, questionId: completion.essayQuestionId}));

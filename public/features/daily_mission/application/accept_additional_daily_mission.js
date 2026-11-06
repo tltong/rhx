@@ -1,7 +1,7 @@
 import {
   practiceMissionRoute
-} from "./accept_core_daily_mission.js";
-import {missionPracticeType, missionTypeFields} from "../domain/mission_practice_type.js?v=20261018-additional-essay-v1";
+} from "./accept_core_daily_mission.js?v=20261104-fill-firestore-v2";
+import {missionPracticeType, missionTypeFields} from "../domain/mission_practice_type.js?v=20261104-fill-firestore-v2";
 
 function requireFunction(value, name) {
   if (typeof value !== "function") {
@@ -62,6 +62,8 @@ export class AcceptAdditionalDailyMission {
     dailyMissionRepository,
     getPracticeById,
     getAssignedEssayPractice = async () => null,
+    getAssignedFillInTheBlanksPractice = async () => null,
+    getCompletedFillInTheBlanksPractice = async () => null,
     getCompletedEssayPractice = async () => null,
     getCurrentDate = currentUtcDate
   } = {}) {
@@ -73,7 +75,7 @@ export class AcceptAdditionalDailyMission {
     }
 
     this.dailyMissionRepository = dailyMissionRepository;
-    Object.assign(this, {getAssignedEssayPractice, getCompletedEssayPractice});
+    Object.assign(this, {getAssignedEssayPractice, getCompletedEssayPractice, getAssignedFillInTheBlanksPractice, getCompletedFillInTheBlanksPractice});
     this.getPracticeById = requireFunction(
       getPracticeById,
       "getPracticeById"
@@ -86,7 +88,10 @@ export class AcceptAdditionalDailyMission {
     const normalizedPracticeId = requireDocumentId(practiceId, "practiceId");
     const type = missionPracticeType(practiceType);
     const reference = {studentId: normalizedStudentId, essayPracticeId: normalizedPracticeId};
-    const practice = type === "essay"
+    const fillReference = {studentId: normalizedStudentId, practiceId: normalizedPracticeId};
+    const practice = type === "fillInTheBlanks"
+      ? await this.getAssignedFillInTheBlanksPractice(fillReference) || await this.getCompletedFillInTheBlanksPractice(fillReference)
+      : type === "essay"
       ? await this.getAssignedEssayPractice(reference) || await this.getCompletedEssayPractice(reference)
       : await this.getPracticeById(normalizedPracticeId);
 
@@ -97,7 +102,7 @@ export class AcceptAdditionalDailyMission {
       );
     }
 
-    const {syllabusId, topicId} = type === "essay"
+    const {syllabusId, topicId} = type !== "normal"
       ? {syllabusId: requireDocumentId(practice.syllabusId, "syllabusId"), topicId: requireDocumentId(practice.topicId, "topicId")}
       : practiceMissionRoute(practice);
     const date = normalizeDateKey(await this.getCurrentDate());

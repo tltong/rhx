@@ -133,11 +133,28 @@ test("pending essay generation is shown up front and assignment refresh makes th
     acceptAdditionalDailyMission: async input => input, pauseCoreDailyMission: async () => {}, isTopicPausable: async () => false,
     navigate() {}, documentRef: fakeDocument});
   section.mount(container); await section.ready;
-  assert.ok(findByText(container, "Preparing your next essay…"));
-  assert.equal(findByText(container, "Mathematics - English — Preparing next essay").disabled, true);
+  assert.ok(findByText(container, "Preparing your next practice…"));
+  assert.equal(findByText(container, "Mathematics - English — Preparing next practice").disabled, true);
   assert.equal(findByText(container, "No more additional missions available today."), undefined);
   preparing = false; await section.refreshAvailability();
   assert.equal(findByText(container, "Mathematics - English").disabled, false);
+});
+
+test("fill-in-the-blanks generation updates availability and preserves type on acceptance", async () => {
+  let preparing = true; const accepts = [], navigations = [], container = new FakeElement("div");
+  const section = new AdditionalMissionSection({studentId: "student-1", syllabuses: [syllabus(["core-practice"])],
+    getNextCoreDailyMission: async () => coreMission(),
+    getAdditionalMissionAvailability: async () => preparing ? {missions: [], preparingFillInTheBlanks: true}
+      : {missions: [{practiceId: "fill-next", practiceType: "fillInTheBlanks", topicId: "topic-additional"}]},
+    acceptAdditionalDailyMission: async input => {accepts.push(input); return input;},
+    pauseCoreDailyMission: async () => {}, isTopicPausable: async () => false,
+    navigate: url => navigations.push(url), documentRef: fakeDocument});
+  section.mount(container); await section.ready;
+  assert.ok(findByText(container, "Preparing your next practice…"));
+  preparing = false; await section.refreshAvailability(); await section.loadMission("syllabus-1");
+  await section.acceptMission({practiceId: "fill-next", practiceType: "fillInTheBlanks", topicId: "topic-additional"});
+  assert.equal(accepts[0].practiceType, "fillInTheBlanks");
+  assert.equal(navigations[0], "/features/fill_in_the_blanks_practice_session/pages/practice/fill_in_the_blanks_practice.html?practiceId=fill-next");
 });
 
 test("pausing an additional essay passes its type through the existing pausing API", async () => {

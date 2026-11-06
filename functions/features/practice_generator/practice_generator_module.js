@@ -63,7 +63,6 @@ const {
   getStudentSyllabusSubscriptionLanguage,
 } = require("../syllabus_subscription/syllabus_subscription_module");
 const {
-  getSyllabusAssessmentFrameworkId,
   getTopicAssessmentFrameworkId,
 } = require("../syllabus/syllabus_module");
 const {
@@ -75,7 +74,6 @@ const {
 
 const generateAssessmentPracticeUseCase = new GenerateAssessmentPractice({
   getStudentTopicLevel,
-  getSyllabusAssessmentFrameworkId,
   getTopicAssessmentFrameworkId,
   getAssessmentLevelCriteria,
   getStudentSyllabusSubscriptionLanguage,

@@ -1,3 +1,4 @@
+const {AssessmentFramework} = require("../domain/assessment_framework");
 const {
   ASSESSMENT_FRAMEWORK_END_LEVEL_ID,
   assessmentFrameworkPreAssessmentScoreBands,
@@ -34,16 +35,18 @@ class CalculatePreAssessmentLevel {
     this.assessmentFrameworkRepository = assessmentFrameworkRepository;
   }
 
-  async execute({assessmentFrameworkId, score} = {}) {
+  async execute({assessmentFrameworkId, score, frameworkSnapshot} = {}) {
     const normalizedAssessmentFrameworkId = requireIdentifier(
       assessmentFrameworkId,
       "assessmentFrameworkId",
     );
     const normalizedScore = normalizeScore(score);
-    const assessmentFramework =
-      await this.assessmentFrameworkRepository.getById(
-        normalizedAssessmentFrameworkId,
-      );
+    const assessmentFramework = frameworkSnapshot
+      ? new AssessmentFramework(frameworkSnapshot)
+      : await this.assessmentFrameworkRepository.getById(normalizedAssessmentFrameworkId);
+    if (frameworkSnapshot && (assessmentFramework.id !== normalizedAssessmentFrameworkId || assessmentFramework.frameworkType !== "fillInTheBlanks")) {
+      throw new Error("The placement snapshot does not match its framework.");
+    }
 
     if (!assessmentFramework) {
       throw new Error(

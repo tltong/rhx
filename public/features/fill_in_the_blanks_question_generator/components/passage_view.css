@@ -1,0 +1,24 @@
+.fill-in-the-blanks-view { min-width: 0; }
+.fill-in-the-blanks-view .passage-text {
+  font-size: 1.15rem; line-height: 3; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.fill-in-the-blanks-view .blank-field {
+  display: inline-flex; vertical-align: middle; align-items: center; flex-wrap: wrap;
+  gap: 7px; margin: 5px; max-width: 100%; border-bottom: 2px solid #86b4bd; padding: 5px;
+}
+.fill-in-the-blanks-view .blank-field label { margin: 0; }
+.fill-in-the-blanks-view .blank-field input { width: 170px; min-width: 85px; }
+.fill-in-the-blanks-view .blank-field small { font-size: .8rem; white-space: nowrap; }
+.fill-in-the-blanks-view .blank-field [aria-invalid=true] { outline: 2px solid #b44224; }
+.fill-in-the-blanks-view .answer-correct,
+.fill-in-the-blanks-view .answer-incorrect { flex-basis: 100%; font-size: .9rem; line-height: 1.6; }
+.fill-in-the-blanks-view .answer-correct { color: #176335; }
+.fill-in-the-blanks-view .answer-incorrect { color: #9c311e; }
+.fill-in-the-blanks-view .picture-button { background: transparent; padding: 0; display: block; margin: auto; }
+.fill-in-the-blanks-view .passage-image { max-height: 340px; max-width: 100%; object-fit: contain; border-radius: 8px; }
+.fill-in-the-blanks-view figure { margin: 10px 0; }
+.fill-picture-dialog { max-width: 94vw; border: 1px solid #83a8b2; border-radius: 12px; }
+.fill-picture-dialog img { display: block; max-width: 85vw; max-height: 75vh; object-fit: contain; }
+@media (max-width: 550px) {
+  .fill-in-the-blanks-view .blank-field input { width: 140px; }
+}

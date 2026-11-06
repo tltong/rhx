@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import {test} from "node:test";
 import {readFile} from "node:fs/promises";
-import {mountEssayPractice} from "./essay_practice.js";
+import {mountEssayPractice} from "./essay_practice.js?v=20261104-fill-preassessment-v3";
 const html = await readFile(new URL("./essay_practice.html", import.meta.url), "utf8");
 class Element {
-  constructor() {this.hidden = false; this.disabled = false; this.textContent = ""; this.value = ""; this.children = []; this.listeners = new Map(); this.classList = {toggle() {}};}
+  constructor() {this.style = {}; this.dataset = {}; this.attributes = {}; this.hidden = false; this.disabled = false; this.textContent = ""; this.value = ""; this.children = []; this.listeners = new Map(); this.classList = {toggle() {}};}
+  setAttribute(name, value) {this.attributes[name] = value;}
   append(...children) {this.children.push(...children);}
   replaceChildren(...children) {this.children = children;}
   addEventListener(event, callback) {this.listeners.set(event, callback);}
@@ -136,4 +137,45 @@ test("polling stops after two minutes and leaves a manual refresh option", async
   const h = harness(); h.setSession({...assigned, status: "completed", practice: {...assigned.practice, essayText: "Saved"}});
   await h.auth({uid: "student"}); h.advance(121000); await h.tick();
   assert.equal(h.tasks.size, 0); assert.match(h.get("essay-status").textContent, /Refresh the result/); h.page.dispose();
+});
+
+test("picture loading finishes before the writing timer starts and suggestions remain optional", async () => {
+  const h = harness();
+  const question = {...assigned.question, questionId: "with-picture", support: {pictureStatus: "ready",
+    picture: {url: "https://firebasestorage.googleapis.com/v0/b/example/o/picture", description: "Friends clean a park."},
+    helpingWordsStatus: "ready", helpingWords: ["park", "helping friends"]}};
+  h.setSession({...assigned, question});
+  try {
+    await h.auth({uid: "student"}); assert.equal(h.get("essay-answer").disabled, true);
+    const image = h.get("essay-support").children[0].children[0].children[0];
+    h.advance(60000); image.onload(); assert.equal(h.get("essay-answer").disabled, false);
+    h.get("essay-answer").input("word ".repeat(100)); h.advance(5000);
+    await h.get("essay-form").submit(); assert.equal(h.submits[0].timeTakenSeconds, 5);
+    assert.equal(h.submits[0].essayText.includes("park"), false);
+  } finally {h.page.dispose();}
+});
+test("image-load failure reveals the saved scene description and permits writing", async () => {
+  const h = harness(); h.setSession({...assigned, question: {...assigned.question, support: {pictureStatus: "ready",
+    picture: {url: "https://firebasestorage.googleapis.com/v0/b/example/o/picture", description: "Friends clean a park."}, helpingWordsStatus: "failed", helpingWords: []}}});
+  try {
+    await h.auth({uid: "student"});
+    const figure = h.get("essay-support").children[0], image = figure.children[0].children[0];
+    image.onerror(); assert.equal(h.get("essay-answer").disabled, false);
+    assert.equal(figure.children[2].open, true);
+    assert.equal(figure.children[2].children[1].textContent, "Friends clean a park.");
+  } finally {h.page.dispose();}
+});
+
+test("new pictures need no scene description and use the written question when loading fails", async () => {
+  const h = harness(); h.setSession({...assigned, question: {...assigned.question, support: {pictureStatus: "ready",
+    picture: {url: "https://firebasestorage.googleapis.com/v0/b/example/o/picture", storagePath: "essay-question-images/question.png"},
+    helpingWordsStatus: "disabled", helpingWords: []}}});
+  try {
+    await h.auth({uid: "student"});
+    const figure = h.get("essay-support").children[0], image = figure.children[0].children[0];
+    assert.equal(image.alt, assigned.question.questionText);
+    assert.equal(figure.children.length, 2);
+    image.onerror(); assert.equal(h.get("essay-answer").disabled, false);
+    assert.equal(figure.children[1].textContent, "The picture could not load. Use the written question.");
+  } finally {h.page.dispose();}
 });

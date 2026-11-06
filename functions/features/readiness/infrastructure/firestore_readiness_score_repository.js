@@ -76,7 +76,7 @@ class FirestoreReadinessScoreRepository extends ReadinessScoreRepository {
     const latestDocument = this.getDocumentRef(collectionPath, documentId);
     const historyCollection = this.getCollectionRef(historyPath);
     const historyDocument = practiceId === null
-      ? historyCollection.doc() : historyCollection.doc(`${practiceType === "essay" ? "essay" : "practice"}-${practiceId}`);
+      ? historyCollection.doc() : historyCollection.doc(`${practiceType && practiceType !== "normal" ? practiceType : "practice"}-${practiceId}`);
     const timestamp = this.serverTimestamp();
     const latestRecord = {score, updatedAt: timestamp};
 

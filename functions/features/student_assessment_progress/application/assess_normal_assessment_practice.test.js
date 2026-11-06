@@ -122,8 +122,8 @@ test("advances using matching-difficulty scores completed after level entry", as
     async getSyllabusById() {
       return {
         id: "syllabus-1",
-        assessmentFrameworkId: "framework-1",
-        topics: [{id: "topic-1"}],
+        languages: ["English"],
+        topics: [{id: "topic-1", assessmentFrameworkIds: {english: "framework-1"}}],
       };
     },
     async getAssessmentLevelCriteria() {
@@ -197,8 +197,8 @@ test("does not advance twice when retried after the level transition", async () 
     async getSyllabusById() {
       return {
         id: "syllabus-1",
-        assessmentFrameworkId: "framework-1",
-        topics: [{id: "topic-1"}],
+        languages: ["English"],
+        topics: [{id: "topic-1", assessmentFrameworkIds: {english: "framework-1"}}],
       };
     },
     async getAssessmentLevelCriteria() {

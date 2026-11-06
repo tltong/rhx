@@ -1,20 +1,20 @@
-import {fillFrameworkSelect} from "../../../assessment_framework/components/framework_select.js?v=20261018-topic-framework-v1";
-import {createSyllabusLanguageKey} from "../../domain/syllabus.js?v=20261018-topic-framework-v1";
+import {fillFrameworkSelect} from "../../../assessment_framework/components/framework_select.js?v=20261105-topic-framework-v1";
+import {createSyllabusLanguageKey} from "../../domain/syllabus.js?v=20261105-topic-framework-v1";
 import {
   createSyllabusRecord,
   deleteSyllabusRecord,
   getSyllabusById,
   listSyllabuses,
   updateSyllabusRecord
-} from "../../syllabus_module.js?v=20261018-topic-framework-v1";
+} from "../../syllabus_module.js?v=20261105-topic-framework-v1";
 
 import {
   listSyllabusScopes
-} from "../../../syllabusscope/syllabusscope_module.js?v=20260718-syllabus-languages";
+} from "../../../syllabusscope/syllabusscope_module.js?v=20261104-fill-preassessment-v3";
 
 import {
   listAssessmentFrameworks
-} from "../../../assessment_framework/assessment_framework_module.js?v=20261018-topic-framework-v1";
+} from "../../../assessment_framework/assessment_framework_module.js?v=20261104-fill-preassessment-v3";
 
 const syllabusSelect = document.querySelector("#syllabus-select");
 const useNewSyllabusButton = document.querySelector("#use-new-syllabus");
@@ -24,7 +24,6 @@ const yearSelect = document.querySelector("#year-select");
 const subjectSelect = document.querySelector("#subject-select");
 const newSubjectInput = document.querySelector("#new-subject-input");
 const useNewSubjectButton = document.querySelector("#use-new-subject");
-const assessmentFrameworkSelect = document.querySelector("#assessment-framework-select");
 const activeInput = document.querySelector("#active-input");
 const languagesContainer = document.querySelector("#languages-container");
 const addTopicButton = document.querySelector("#add-topic");
@@ -79,7 +78,6 @@ function setBusy(isBusy) {
     subjectSelect,
     newSubjectInput,
     useNewSubjectButton,
-    assessmentFrameworkSelect,
     activeInput,
     addTopicButton,
     saveButton
@@ -290,10 +288,8 @@ function renderYearOptions(selectedYear = "") {
   yearSelect.value = selectedYear === "" ? "" : String(selectedYear);
 }
 
-function renderFrameworkOptions(frameworks, selectedFrameworkId = "") {
+function renderFrameworkOptions(frameworks) {
   assessmentFrameworks = frameworks;
-  fillFrameworkSelect(assessmentFrameworkSelect, frameworks, selectedFrameworkId, {placeholder: "No syllabus default"});
-
 }
 
 function getSubjectsFromSyllabuses(syllabuses) {
@@ -394,7 +390,6 @@ function resetForm() {
   renderLanguages();
   subjectSelect.value = "";
   newSubjectInput.value = "";
-  assessmentFrameworkSelect.value = "";
   activeInput.checked = false;
   confirmDeleteInput.checked = false;
   renderTopics();
@@ -413,13 +408,12 @@ function prepareNewSyllabus() {
   renderLanguages();
   subjectSelect.value = "";
   newSubjectInput.value = "";
-  assessmentFrameworkSelect.value = "";
   activeInput.checked = false;
   renderTopics();
   addTopicRow();
   updateScopeControls();
   updateDeleteControls();
-  setStatus("Ready to create a new syllabus. Select scope, subject, framework, and topics.");
+  setStatus("Ready to create a new syllabus. Select scope, subject, and a framework for each topic and language.");
 }
 
 function displaySyllabus(syllabus, message) {
@@ -437,7 +431,6 @@ function displaySyllabus(syllabus, message) {
   ensureSubjectOption(syllabus.subject);
   renderSubjectOptions(subjects, syllabus.subject || "");
   newSubjectInput.value = "";
-  assessmentFrameworkSelect.value = syllabus.assessmentFrameworkId || "";
   activeInput.checked = Boolean(syllabus.active);
   renderTopics(syllabus.topics || []);
   updateScopeControls();
@@ -519,7 +512,6 @@ async function saveSyllabus() {
   const level = levelSelect.value;
   const year = Number(yearSelect.value);
   const subject = normalizeText(subjectSelect.value);
-  const assessmentFrameworkId = assessmentFrameworkSelect.value || null;
 
   if (!country) {
     setStatus("Country is required.", true);
@@ -554,13 +546,12 @@ async function saveSyllabus() {
       subject,
       languages: readSelectedLanguages(),
       active: activeInput.checked,
-      assessmentFrameworkId,
       topics: readTopics()
     };
 
     if (changes.active) {
       for (const topic of changes.topics) for (const language of changes.languages) {
-        if (!topic.assessmentFrameworkIds[createSyllabusLanguageKey(language)] && !changes.assessmentFrameworkId) throw new Error("Select a framework for " + topic.topicName + " / " + language + " or configure a syllabus default.");
+        if (!topic.assessmentFrameworkIds[createSyllabusLanguageKey(language)]) throw new Error("Select a framework for " + topic.topicName + " / " + language + ".");
       }
     }
     loadedSyllabus = loadedSyllabus

@@ -1,4 +1,4 @@
-import {requireEssayMinimumWordCount} from "../domain/essay_word_count.js?v=20261018-essay-min-word-count-v1";
+import {requireEssayMinimumWordCount} from "../domain/essay_word_count.js?v=20261104-fill-preassessment-v3";
 
 class SubmitEssayPracticeSession {
   constructor({completeAssignedEssayPractice, getAssignedEssayPractice, getCompletedEssayPractice, getEssayQuestionById}) {

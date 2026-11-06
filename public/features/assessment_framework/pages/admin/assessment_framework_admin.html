@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Assessment Framework Admin</title>
     <script>document.documentElement.hidden = true;</script>
-    <link rel="stylesheet" href="./assessment_framework_admin.css?v=20260730-score-bands">
+    <link rel="stylesheet" href="./assessment_framework_admin.css?v=20261105-mcq-preassessment-adoption-v2">
     <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script>
     <script defer src="/__/firebase/init.js"></script>
-    <script type="module" src="/init_fb.js"></script>
+    <script type="module" src="/init_fb.js?v=20261104-fill-preassessment-v3"></script>
   </head>
   <body>
     <main class="page">
@@ -66,8 +66,21 @@
           </div>
         </section>
 
-        <label class="field"><span>Framework type</span><select id="framework-type"><option value="normal">Normal</option><option value="essay">Essay</option></select></label>
-        <p class="help">Essay levels contain one medium-difficulty question and do not use pre-assessment. Framework type is fixed after saving.</p>
+        <label class="field"><span>Framework type</span><select id="framework-type"><option value="normal">Normal</option><option value="essay">Essay</option><option value="fillInTheBlanks">Fill in the blanks</option></select></label><p id="fill-framework-help" hidden>Configure blanks per passage in the Fill-in-the-Blanks Generator grade settings. Each completed passage counts as one practice.</p>
+        <p class="help">Essay levels contain one question with a configurable difficulty and do not use pre-assessment. Framework type is fixed after saving.</p>
+        <section id="mcq-adoption-section" class="framework-section adoption-section" hidden>
+          <h2>Adopt settings from an MCQ framework</h2>
+          <p>Copy the end level, level names and sequence, minimum scores, and difficulty for each level. Your essay or passage counts stay unchanged. All copied settings remain editable.</p>
+          <label class="field">
+            <span>Normal (MCQ) framework</span>
+            <select id="mcq-framework-select"><option value="">Select normal (MCQ) framework</option></select>
+          </label>
+          <div class="adoption-actions">
+            <button id="apply-mcq-framework" type="button" disabled>Apply MCQ settings</button>
+            <button id="undo-mcq-framework" type="button" class="secondary" disabled>Undo application</button>
+          </div>
+          <p class="help">Apply copies settings into this form. Undo restores the values before the last application, including any unsaved level edits. Use Save Framework to save your changes. Saving or switching frameworks clears Undo.</p>
+        </section>
         <section class="levels-section">
           <div class="levels-header">
             <h2>Levels</h2>
@@ -94,7 +107,26 @@
           </div>
 
           <fieldset id="pre-assessment-fields" disabled>
-            <div class="pre-assessment-grid single-column">
+            <section id="mcq-pre-assessment-adoption" class="pre-assessment-group" hidden>
+              <h3>Adopt pre-assessment settings from an MCQ framework</h3>
+              <label class="field">
+                <span>MCQ framework with saved pre-assessment settings</span>
+                <select id="pre-assessment-mcq-framework-select"><option value="">Select MCQ pre-assessment source</option></select>
+              </label>
+              <div class="adoption-actions">
+                <button id="apply-mcq-pre-assessment" type="button" disabled>Apply MCQ pre-assessment</button>
+                <button id="undo-mcq-pre-assessment" type="button" class="secondary" disabled>Undo pre-assessment adoption</button>
+              </div>
+              <p class="help">Copies the score-to-level mapping using matching level names or sequence. Passage difficulty keeps your current value (Medium by default); MCQ question counts and difficulty percentages are not used for the single passage. Edit any copied mapping and click Save Pre-assessment. Undo is available until saving, changing levels, or switching frameworks.</p>
+            </section>
+            <div id="fill-pre-assessment-options" hidden>
+              <p>One passage. The number of blanks and optional image come from the grade settings in the Fill-in-the-Blanks Generator.</p>
+              <label class="field"><span>Passage difficulty</span><select id="fill-pre-assessment-difficulty">
+                <option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option>
+              </select></label>
+              <p>Placement uses the same score-band rules as MCQ. Map each band below to a starting level in this framework.</p>
+            </div>
+            <div id="mcq-pre-assessment-count" class="pre-assessment-grid single-column">
               <label class="field">
                 <span>Number of questions</span>
                 <input
@@ -107,7 +139,7 @@
               </label>
             </div>
 
-            <section class="pre-assessment-group">
+            <section id="mcq-pre-assessment-difficulty" class="pre-assessment-group">
               <div class="pre-assessment-group-header">
                 <h3>Difficulty split</h3>
                 <output id="difficulty-total">100%</output>
@@ -202,7 +234,7 @@
       id="site-admin-page-loader"
       type="module"
       data-site-admin-page
-      data-page-module="./assessment_framework_admin.js?v=20261018-topic-framework-v1"
+      data-page-module="./assessment_framework_admin.js?v=20261105-mcq-preassessment-adoption-v2"
       src="/features/site_admin/pages/common/site_admin_page_loader.js?v=20260827-site-admin-guard-v1"
     ></script>
   </body>

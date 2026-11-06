@@ -2,23 +2,23 @@ import {
   createStudentRecord,
   findStudentByUsername,
   signUpStudent
-} from "../../student_module.js?v=20261031-renewal-restart-v1";
+} from "../../student_module.js?v=20261104-fill-preassessment-v3";
 import {
   studentLevels
-} from "../../../../config/firebase/student_schema.js?v=20260825-student-pin-v1";
+} from "../../../../config/firebase/student_schema.js?v=20261104-fill-preassessment-v3";
 import {
   listSyllabusScopeCountries
-} from "../../../syllabusscope/syllabusscope_module.js?v=20260823-student-country-v1";
+} from "../../../syllabusscope/syllabusscope_module.js?v=20261104-fill-preassessment-v3";
 import {
   listStreamsByScope
-} from "../../../stream/stream_module.js?v=20260823-student-standard-stream-v1";
+} from "../../../stream/stream_module.js?v=20261104-fill-preassessment-v3";
 import {
   subscribeStudentToStreamSyllabuses
-} from "../../../stream_subscription/stream_subscription_module.js?v=20260826-student-stream-syllabuses-v1";
+} from "../../../stream_subscription/stream_subscription_module.js?v=20261104-fill-preassessment-v3";
 import {
   createStudentSubscription,
   subscriptionTypes
-} from "../../../syllabus_subscription/syllabus_subscription_module.js?v=20260829-student-trial-subscription-v1";
+} from "../../../syllabus_subscription/syllabus_subscription_module.js?v=20261104-fill-preassessment-v3";
 
 const STUDENT_EMAIL_DOMAIN = "rhx.com";
 const STUDENT_LANDING_URL =

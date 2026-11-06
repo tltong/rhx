@@ -1,4 +1,4 @@
-import {normalizeListInput} from "../domain/student_essay_practice.js?v=20261017-student-essay-practice-independent-v1";
+import {normalizeListInput} from "../domain/student_essay_practice.js?v=20261101-essay-support-v1";
 
 class ListAssignedEssayPractices {
   constructor(repository) {this.repository = repository;}

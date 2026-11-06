@@ -1,3 +1,4 @@
+const {normalizeSupportSettings} = require("./essay_question_support");
 const {ESSAY_QUESTION_LEVELS, ESSAY_QUESTION_STANDARDS, ESSAY_QUESTION_DIFFICULTIES} = require("../../../schema/essay_question_generator_schema");
 
 
@@ -49,10 +50,16 @@ function normalizeConfiguration(input) {
       "gradeWordCountRequirements." + level);
     return [level, Object.fromEntries(standards.map(standard => [standard, normalizeWordCountRequirement(grades[standard])]))];
   }));
+  const supportInput = requireKnownKeys(input.gradeSupport === undefined ? {} : input.gradeSupport, levels, "gradeSupport");
+  const gradeSupport = Object.fromEntries(levels.map(level => {
+    const grades = requireKnownKeys(supportInput[level] === undefined ? {} : supportInput[level], standards, "gradeSupport." + level);
+    return [level, Object.fromEntries(standards.map(standard => [standard, normalizeSupportSettings(grades[standard])]))];
+  }));
   return {
     additionalLlmInstructions: instruction(input.additionalLlmInstructions, "additionalLlmInstructions"),
     gradeInstructions,
     gradeWordCountRequirements,
+    gradeSupport,
     difficultyInstructions: Object.fromEntries(difficulties.map(difficulty =>
       [difficulty, instruction(difficultyInput[difficulty], "difficultyInstructions." + difficulty)])),
   };
@@ -76,6 +83,8 @@ class EssayQuestionGeneratorConfig {
       Object.freeze(grades);
     }
     Object.freeze(this.gradeWordCountRequirements);
+    for (const grades of Object.values(this.gradeSupport)) {Object.values(grades).forEach(Object.freeze); Object.freeze(grades);}
+    Object.freeze(this.gradeSupport);
     Object.freeze(this.difficultyInstructions);
     Object.freeze(this);
   }

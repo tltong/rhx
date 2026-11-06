@@ -2,30 +2,30 @@ import {
   getLlmPromptConfigById,
   getSyllabusTopicPromptInstructions,
   listLlmPromptConfigs
-} from "../llm_prompt_config/llm_prompt_config_module.js?v=20260801-syllabus-topic-instructions";
+} from "../llm_prompt_config/llm_prompt_config_module.js?v=20261104-fill-preassessment-v3";
 import {
   getSyllabusById,
   listSyllabuses
-} from "../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
+} from "../syllabus/syllabus_module.js?v=20261104-fill-preassessment-v3";
 import {
   getDiagramConfigForSyllabus,
   getTopicDiagramPercentage
-} from "../diagram_config/diagram_config_module.js?v=20260815-topic-percentage-api";
+} from "../diagram_config/diagram_config_module.js?v=20261104-fill-preassessment-v3";
 import {
   LlmPromptGenerator
-} from "./domain/llm_prompt_generator.js?v=20260822-previous-practice-variety";
+} from "./domain/llm_prompt_generator.js?v=20261104-fill-preassessment-v3";
 import {
   GenerateLlmPrompt
-} from "./application/generate_llm_prompt.js?v=20260801-syllabus-topic-instructions";
+} from "./application/generate_llm_prompt.js?v=20261104-fill-preassessment-v3";
 import {
   GenerateLlmPromptWithDiagram
-} from "./application/generate_llm_prompt_with_diagram.js?v=20260801-syllabus-topic-instructions";
+} from "./application/generate_llm_prompt_with_diagram.js?v=20261104-fill-preassessment-v3";
 import {
   GenerateLlmPromptFromPlan
-} from "./application/generate_llm_prompt_from_plan.js?v=20260801-syllabus-topic-instructions";
+} from "./application/generate_llm_prompt_from_plan.js?v=20261104-fill-preassessment-v3";
 import {
   LoadLlmPromptGeneratorOptions
-} from "./application/load_llm_prompt_generator_options.js?v=20260719-question-topics";
+} from "./application/load_llm_prompt_generator_options.js?v=20261104-fill-preassessment-v3";
 
 const promptGenerator = new LlmPromptGenerator();
 const generateLlmPromptUseCase = new GenerateLlmPrompt({
@@ -56,7 +56,7 @@ const loadLlmPromptGeneratorOptionsUseCase =
   });
 
 /**
- * @typedef {import("./domain/llm_prompt_generator.js").LlmPromptGenerationInput}
+ * @typedef {import("./domain/llm_prompt_generator.js?v=20261104-fill-preassessment-v3").LlmPromptGenerationInput}
  * LlmPromptGenerationInput
  */
 
@@ -103,7 +103,7 @@ async function generateLlmPromptWithDiagram(
 /**
  * @param {string} llmPromptConfigId
  * @param {string} syllabusId
- * @param {import("./domain/llm_prompt_generator.js").LlmPromptGenerationPlanInput} generationInput
+ * @param {import("./domain/llm_prompt_generator.js?v=20261104-fill-preassessment-v3").LlmPromptGenerationPlanInput} generationInput
  * @returns {Promise<string>}
  */
 async function generateLlmPromptFromPlan(

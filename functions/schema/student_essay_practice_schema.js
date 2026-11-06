@@ -22,6 +22,7 @@ const studentEssayPracticeSchema = {
       documentId: assignedEssayPracticeDocumentIdPattern,
       fields: {
         essayQuestionId: "string",
+        sourceEssayQuestionId: {type: "string", optional: true},
         syllabusId: "string",
         topicId: "string",
         assignedAt: "timestamp"
@@ -32,6 +33,7 @@ const studentEssayPracticeSchema = {
       documentId: completedEssayPracticeDocumentIdPattern,
       fields: {
         essayQuestionId: "string",
+        sourceEssayQuestionId: {type: "string", optional: true},
         syllabusId: "string",
         topicId: "string",
         assignedAt: "timestamp",

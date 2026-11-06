@@ -20,50 +20,50 @@
 import {
   findSyllabusScopeByCountry,
   listSyllabusScopes
-} from "../syllabusscope/syllabusscope_module.js?v=20260823-stream-feature";
+} from "../syllabusscope/syllabusscope_module.js?v=20261104-fill-preassessment-v3";
 import {
   getSyllabusById,
   listSyllabuses
-} from "../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
+} from "../syllabus/syllabus_module.js?v=20261104-fill-preassessment-v3";
 import {
   AttachSyllabusToYear
-} from "./application/attach_syllabus_to_year.js?v=20260823-stream-language-v1";
+} from "./application/attach_syllabus_to_year.js?v=20261104-fill-preassessment-v3";
 import {
   CreateStream
-} from "./application/create_stream.js?v=20260823-stream-language-v1";
+} from "./application/create_stream.js?v=20261104-fill-preassessment-v3";
 import {
   DeleteStream
-} from "./application/delete_stream.js?v=20260823-stream-feature";
+} from "./application/delete_stream.js?v=20261104-fill-preassessment-v3";
 import {
   DetachSyllabusFromYear
-} from "./application/detach_syllabus_from_year.js?v=20260823-stream-feature";
+} from "./application/detach_syllabus_from_year.js?v=20261104-fill-preassessment-v3";
 import {
   GetStream
-} from "./application/get_stream.js?v=20260823-stream-feature";
+} from "./application/get_stream.js?v=20261104-fill-preassessment-v3";
 import {
   ListEligibleSyllabuses
-} from "./application/list_eligible_syllabuses.js?v=20260823-stream-all-syllabuses-v2";
+} from "./application/list_eligible_syllabuses.js?v=20261104-fill-preassessment-v3";
 import {
   ListStreamCountries
-} from "./application/list_stream_countries.js?v=20260823-stream-feature";
+} from "./application/list_stream_countries.js?v=20261104-fill-preassessment-v3";
 import {
   ListStreamLevels
-} from "./application/list_stream_levels.js?v=20260823-stream-feature";
+} from "./application/list_stream_levels.js?v=20261104-fill-preassessment-v3";
 import {
   ListStreams
-} from "./application/list_streams.js?v=20260823-stream-feature";
+} from "./application/list_streams.js?v=20261104-fill-preassessment-v3";
 import {
   ListStreamsByScope
-} from "./application/list_streams_by_scope.js?v=20260823-student-standard-stream-v1";
+} from "./application/list_streams_by_scope.js?v=20261104-fill-preassessment-v3";
 import {
   ListStreamYears
-} from "./application/list_stream_years.js?v=20260823-stream-feature";
+} from "./application/list_stream_years.js?v=20261104-fill-preassessment-v3";
 import {
   RenameStream
-} from "./application/rename_stream.js?v=20260823-stream-feature";
+} from "./application/rename_stream.js?v=20261104-fill-preassessment-v3";
 import {
   FirestoreStreamRepository
-} from "./infrastructure/firestore_stream_repository.js?v=20260823-stream-language-v1";
+} from "./infrastructure/firestore_stream_repository.js?v=20261104-fill-preassessment-v3";
 
 const streamRepository = new FirestoreStreamRepository();
 const createStreamUseCase = new CreateStream({

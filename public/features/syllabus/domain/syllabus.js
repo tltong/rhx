@@ -1,4 +1,4 @@
-import {preAssessmentPracticeTypes} from "../../../config/firebase/syllabuses_schema.js?v=20261018-preassessment-essay-v1";
+import {preAssessmentPracticeTypes} from "../../../config/firebase/syllabuses_schema.js?v=20261105-topic-framework-v1";
 
 function requireText(value, fieldName) {
   const text = String(value ?? "").trim();
@@ -26,7 +26,7 @@ export class SyllabusTopicPreAssessmentPractice {
   } = {}) {
     this.language = requireText(language, "language");
     this.practiceId = requireText(practiceId, "practiceId");
-    if (!Object.values(preAssessmentPracticeTypes).includes(practiceType)) throw new Error("practiceType must be normal or essay.");
+    if (!Object.values(preAssessmentPracticeTypes).includes(practiceType)) throw new Error("Unknown topic practice type.");
     this.practiceType = practiceType;
   }
 }
@@ -153,7 +153,6 @@ export class Syllabus {
     subject,
     languages = [],
     active = false,
-    assessmentFrameworkId = null,
     topics = []
   }) {
     this.id = id;
@@ -163,7 +162,6 @@ export class Syllabus {
     this.subject = subject;
     this.languages = languages;
     this.active = active;
-    this.assessmentFrameworkId = assessmentFrameworkId;
     this.topics = topics.map((topic) => (
       topic instanceof SyllabusTopic ? topic : new SyllabusTopic(topic)
     ));
@@ -176,7 +174,6 @@ export class Syllabus {
     subject,
     languages,
     active,
-    assessmentFrameworkId,
     topics
   }) {
     if (country !== undefined) {
@@ -201,10 +198,6 @@ export class Syllabus {
 
     if (active !== undefined) {
       this.active = active;
-    }
-
-    if (assessmentFrameworkId !== undefined) {
-      this.assessmentFrameworkId = assessmentFrameworkId;
     }
 
     if (topics !== undefined) {
@@ -270,12 +263,11 @@ function normalizeTopicFrameworkIds(input = {}) {
 function resolveTopicAssessmentFrameworkId(syllabus, {topicId, language} = {}) {
   const topic = syllabus?.topics?.find(item => item.id === topicId);
   if (!topic) throw new Error("Topic does not belong to the syllabus.");
-  const overrides = normalizeTopicFrameworkIds(topic.assessmentFrameworkIds);
-  if (language && syllabus.languages?.length && !syllabus.languages.some(value => createSyllabusLanguageKey(value) === createSyllabusLanguageKey(language))) throw new Error("Language is not available for the syllabus.");
-  if (!language && Object.keys(overrides).length) throw new Error("Language is required to resolve a topic framework override.");
-  const key = language ? createSyllabusLanguageKey(language) : null;
-  const id = (key && Object.hasOwn(overrides, key) ? overrides[key] : null) || syllabus.assessmentFrameworkId;
-  return id || null;
+  if (typeof language !== "string" || !language.trim()) throw new Error("Language is required to resolve a topic assessment framework.");
+  const key = createSyllabusLanguageKey(language);
+  if (!syllabus.languages?.some(value => createSyllabusLanguageKey(value) === key)) throw new Error("Language is not available for the syllabus.");
+  const assignments = normalizeTopicFrameworkIds(topic.assessmentFrameworkIds);
+  return Object.hasOwn(assignments, key) ? assignments[key] : null;
 }
 
 export {normalizeTopicFrameworkIds, resolveTopicAssessmentFrameworkId};

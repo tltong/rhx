@@ -1,3 +1,4 @@
+const {listCompletedFillInTheBlanksPractices} = require("../student_fill_in_the_blanks_practice/student_fill_in_the_blanks_practice_module");
 /**
  * getReadinessConfig() -> Promise<ReadinessConfig|null>
  * saveReadinessConfig({difficultyWeights?, numberOfPractices?, preAssessmentWeight?}, {updatedBy})
@@ -78,7 +79,7 @@ const scoreRepository = new FirestoreReadinessScoreRepository();
 const calculateScore = new CalculateReadinessScore({
   getReadinessConfig,
   listCompletedPractices,
-  listCompletedEssayPractices, getEssayResult, getEssayQuestionById,
+  listCompletedEssayPractices, listCompletedFillInTheBlanksPractices, getEssayResult, getEssayQuestionById,
   getPracticeById,
   getQuestionDifficulty,
   assessmentPracticeType: practiceTypes.ASSESSMENT,

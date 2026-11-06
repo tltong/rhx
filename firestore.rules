@@ -71,9 +71,13 @@ function clientPreservesBillingState() {
     function sharedLearningCollection(collection) {
       return collection in ['questions', 'practices', 'essayPractices', 'essayResults'];
     }
+    function fillInTheBlanksStudentCollection(collection) {
+      return collection in ['studentFillInTheBlanksPractices', 'studentFillInTheBlanksPracticeGenerations', 'userUsedFillInTheBlanksPassages'];
+    }
     function protectedCollection(collection) {
-      return studentLearningCollection(collection) || sharedLearningCollection(collection)
-        || collection in ['subscriptions', 'stripeCustomers', 'paymentConfigs', 'siteAdmins', 'practiceResults'];
+      return studentLearningCollection(collection) || sharedLearningCollection(collection) || fillInTheBlanksStudentCollection(collection)
+        || collection in ['fillInTheBlanksQuestions', 'fillInTheBlanksPractices', 'fillInTheBlanksPracticeResults', 'fillInTheBlanksQuestionGenerator', 'fillInTheBlanksScoring', 'fillInTheBlanksDrafts', 'fillInTheBlanksPassageAssets']
+        || collection in ['subscriptions', 'stripeCustomers', 'paymentConfigs', 'siteAdmins', 'practiceResults', 'essayQuestionGenerator', 'essayQuestionAssets'];
     }
     function manualBilling(data) {
       return data.get('paymentProvider', null) == null
@@ -108,6 +112,62 @@ function clientPreservesBillingState() {
     match /paymentConfigs/{document} {
       allow read: if signedIn();
       allow write: if siteAdmin();
+    }
+    // Shared essay content is readable by signed-in users and immutable after creation.
+    match /essayQuestionGenerator/config {
+      allow read: if signedIn();
+      allow create, update: if siteAdmin();
+    }
+    match /essayQuestionGenerator/questionIndex/entries/{questionId} {
+      allow read: if signedIn();
+      allow create: if siteAdmin();
+    }
+    match /essayQuestionGenerator/{level}/standards/{standard}/languages/{language}/questions/{questionId} {
+      allow read: if signedIn();
+      allow create: if siteAdmin();
+    }
+    match /essayQuestionAssets/{questionId} {
+      // Paid generation progress and verified image metadata are server-owned.
+      allow read, write: if false;
+    }
+    // Administrators manage reusable content; student scores and transitions are server-owned.
+    match /fillInTheBlanksQuestions/{syllabusId}/topics/{topicId}/languages/{language}/passages/{passageId} {
+      allow read: if currentStudentHasBillingAccess();
+      allow create: if siteAdmin();
+      match /questionItems/{questionId} { allow read: if currentStudentHasBillingAccess(); allow create: if siteAdmin(); }
+      match /private/{document} { allow read: if siteAdmin(); allow create: if siteAdmin() && document == 'answerKey'; }
+    }
+    match /{path=**}/passages/{passageId} {
+      allow list: if siteAdmin() && resource.data.get('format', '') == 'fillInTheBlanks';
+    }
+    match /fillInTheBlanksPractices/{practiceId} { allow read: if currentStudentHasBillingAccess(); allow create: if siteAdmin(); }
+    match /fillInTheBlanksPracticeResults/{practiceId}/studentSubmissions/{studentId} {
+      allow read: if currentStudentHasBillingAccess() && mayReadStudent(studentId); allow write: if false;
+    }
+    match /fillInTheBlanksQuestionGenerator/{document=**} { allow read: if signedIn(); }
+    match /fillInTheBlanksQuestionGenerator/config { allow create, update: if siteAdmin(); }
+    match /fillInTheBlanksQuestionGenerator/passageIndex/entries/{passageId} { allow create: if siteAdmin(); }
+    match /fillInTheBlanksScoring/config { allow read: if signedIn(); allow create, update: if siteAdmin(); }
+    match /fillInTheBlanksDrafts/{passageId} { allow read, create, update: if siteAdmin(); }
+    match /fillInTheBlanksPassageAssets/{document=**} { allow read, write: if false; }
+    match /studentFillInTheBlanksPractices/{studentId}/submissions/{practiceId} {
+      allow create: if currentStudentHasBillingAccess() && mayWriteStudent(studentId)
+        && exists(/databases/$(database)/documents/studentFillInTheBlanksPractices/$(studentId)/assignedPractices/$(practiceId))
+        && request.resource.data.keys().hasOnly(['answers', 'timeTakenSeconds', 'submittedAt', 'markingStatus', 'requestId', 'requestedAt'])
+        && request.resource.data.answers is map && request.resource.data.answers.size() <= 100
+        && request.resource.data.timeTakenSeconds is number && request.resource.data.timeTakenSeconds >= 0
+        && request.resource.data.markingStatus == 'submitted'
+        && request.resource.data.submittedAt == request.time && request.resource.data.requestedAt == request.time
+        && request.resource.data.requestId is string && request.resource.data.requestId.size() > 0 && request.resource.data.requestId.size() <= 128;
+      allow update: if currentStudentHasBillingAccess() && mayWriteStudent(studentId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['requestId', 'requestedAt'])
+        && request.resource.data.requestedAt == request.time
+        && request.resource.data.requestId is string && request.resource.data.requestId.size() > 0 && request.resource.data.requestId.size() <= 128
+        && request.resource.data.requestId != resource.data.get('requestId', '');
+    }
+    match /{collection}/{studentId}/{document=**} {
+      allow read: if fillInTheBlanksStudentCollection(collection) && currentStudentHasBillingAccess() && mayReadStudent(studentId);
+      allow write: if false;
     }
     match /siteAdmins/{document} {
       allow read: if signedIn();

@@ -1,6 +1,6 @@
 import * as firebaseOps from "../../../utils/firebase/firebase_ops.js";
-import {ESSAY_SCORING_CONFIG_COLLECTION, ESSAY_SCORING_CONFIG_DOCUMENT_ID} from "../../../config/firebase/essay_scoring_schema.js?v=20261020-scoring-config-v1";
-import {normalizeConfiguration, requireAdministratorUid, EssayScoringConfig} from "../domain/essay_scoring_config.js?v=20261020-scoring-config-v1";
+import {ESSAY_SCORING_CONFIG_COLLECTION, ESSAY_SCORING_CONFIG_DOCUMENT_ID} from "../../../config/firebase/essay_scoring_schema.js?v=20261104-fill-preassessment-v3";
+import {normalizeConfiguration, requireAdministratorUid, EssayScoringConfig} from "../domain/essay_scoring_config.js?v=20261104-fill-preassessment-v3";
 
 class FirestoreEssayScoringConfigRepository {
   constructor({getFirestoreDb = firebaseOps.getFirestoreDb,

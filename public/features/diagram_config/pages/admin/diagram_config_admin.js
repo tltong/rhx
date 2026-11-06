@@ -2,7 +2,7 @@ import {
   getDiagramConfigForSyllabus,
   listDiagramConfigSyllabuses,
   saveDiagramConfigForSyllabus
-} from "../../diagram_config_module.js?v=20260724-diagram-config";
+} from "../../diagram_config_module.js?v=20261104-fill-preassessment-v3";
 
 const syllabusSelect = document.querySelector("#syllabus-select");
 const syllabusSummary = document.querySelector("#syllabus-summary");

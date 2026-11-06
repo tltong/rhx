@@ -26,19 +26,19 @@
  * Changes affect future marking; existing results are not automatically remarked.
  */
 
-import {getEssayQuestionById} from "../essay_question_generator/essay_question_generator_module.js?v=20261017-essay-grade-min-words-v1";
+import {getEssayQuestionById} from "../essay_question_generator/essay_question_generator_module.js?v=20261104-fill-preassessment-v3";
 import {generateLlmText} from "../../utils/llm/llm_util.js?v=20261015-deepseek-deadline-v1";
 import {requireCurrentFirebaseAuthUser} from "../../utils/firebase/firebase_auth.js";
-import {ScoreEssay} from "./application/score_essay.js?v=20261020-scoring-config-v1";
-import {ESSAY_SCORING_LEVELS, ESSAY_SCORING_GRADES} from "../../config/firebase/essay_scoring_schema.js?v=20261020-scoring-config-v1";
-import {createDefaultConfiguration} from "./domain/essay_scoring_config.js?v=20261020-scoring-config-v1";
-import {FirestoreEssayScoringConfigRepository} from "./infrastructure/firestore_essay_scoring_config_repository.js?v=20261020-scoring-config-v1";
-import {GetEssayScoringConfig} from "./application/get_essay_scoring_config.js?v=20261020-scoring-config-v1";
-import {SaveEssayScoringConfig} from "./application/save_essay_scoring_config.js?v=20261020-scoring-config-v1";
+import {ScoreEssay} from "./application/score_essay.js?v=20261104-fill-preassessment-v3";
+import {ESSAY_SCORING_LEVELS, ESSAY_SCORING_GRADES} from "../../config/firebase/essay_scoring_schema.js?v=20261104-fill-preassessment-v3";
+import {createDefaultConfiguration} from "./domain/essay_scoring_config.js?v=20261104-fill-preassessment-v3";
+import {FirestoreEssayScoringConfigRepository} from "./infrastructure/firestore_essay_scoring_config_repository.js?v=20261104-fill-preassessment-v3";
+import {GetEssayScoringConfig} from "./application/get_essay_scoring_config.js?v=20261104-fill-preassessment-v3";
+import {SaveEssayScoringConfig} from "./application/save_essay_scoring_config.js?v=20261104-fill-preassessment-v3";
 import {requireCurrentSiteAdmin} from "../site_admin/site_admin_module.js?v=20260827-site-admin-guard-v1";
-import {SaveEssayResult} from "./application/save_essay_result.js?v=20261018-essay-review-comment-v1";
-import {GetEssayResult} from "./application/get_essay_result.js?v=20261018-essay-review-comment-v1";
-import {FirestoreEssayResultRepository} from "./infrastructure/firestore_essay_result_repository.js?v=20261018-essay-review-comment-v1";
+import {SaveEssayResult} from "./application/save_essay_result.js?v=20261104-fill-preassessment-v3";
+import {GetEssayResult} from "./application/get_essay_result.js?v=20261104-fill-preassessment-v3";
+import {FirestoreEssayResultRepository} from "./infrastructure/firestore_essay_result_repository.js?v=20261104-fill-preassessment-v3";
 
 async function withCurrentAccount(operation) {
   const user = requireCurrentFirebaseAuthUser();

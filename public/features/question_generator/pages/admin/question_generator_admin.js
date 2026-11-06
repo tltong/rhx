@@ -3,13 +3,13 @@ import {
   generateQuestionsWithDiagram,
   loadQuestionGeneratorOptions,
   practiceTypes
-} from "../../question_generator_module.js?v=20260822-previous-practice-variety";
+} from "../../question_generator_module.js?v=20261104-fill-preassessment-v3";
 import {
   setMathText
-} from "../../../../utils/math/render_math.js?v=20260822-katex-math";
+} from "../../../../utils/math/render_math.js?v=20261104-fill-preassessment-v3";
 
 /**
- * @typedef {import("../../domain/question_generation.js").QuestionGenerationInput}
+ * @typedef {import("../../domain/question_generation.js?v=20261104-fill-preassessment-v3").QuestionGenerationInput}
  * QuestionGenerationInput
  */
 

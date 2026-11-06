@@ -74,6 +74,8 @@ class FirestoreTopicResetRepository {
     const {studentId, syllabusId, topicId} = resetScope(input), path = operation.path;
     if (typeof path !== "string") throw resetError("failed-precondition", "The reset plan contains an invalid student record path.");
     const prefixes = [
+      ...["assignedPractices", "completedPractices", "submissions", "completionProcessing"].map(kind => `studentFillInTheBlanksPractices/${studentId}/${kind}/`),
+      ...["completions", "initials"].map(kind => `studentFillInTheBlanksPracticeGenerations/${studentId}/${kind}/`),
       `studentPractices/${studentId}/assignedPractices/`, `studentPractices/${studentId}/completedPractices/`, `studentPractices/${studentId}/completionProcessing/`,
       `studentEssayPractices/${studentId}/assignedEssayPractices/`, `studentEssayPractices/${studentId}/completedEssayPractices/`,
       `studentEssayPractices/${studentId}/questionUsage/`,
@@ -86,12 +88,12 @@ class FirestoreTopicResetRepository {
     const below = prefix => path === prefix || path.startsWith(prefix + "/");
     const missionSubject = parts.length >= 6 && parts[0] === "studentDailyMissions" && parts[1] === studentId
       && parts[2] === "days" && parts[4] === "syllabuses" && parts[5] === syllabusId;
-    const missionRecord = ["acceptedDailyMissionPractices", "acceptedDailyMissionEssays", "acceptedAdditionalMissionPractices", "acceptedAdditionalMissionEssays"]
+    const missionRecord = ["acceptedDailyMissionPractices", "acceptedDailyMissionEssays", "acceptedAdditionalMissionPractices", "acceptedAdditionalMissionEssays", "acceptedDailyMissionFillInTheBlanksPractices", "acceptedAdditionalMissionFillInTheBlanksPractices"]
       .some(kind => parts.length === 4 && path.startsWith(missionRoot + kind + "/"))
       || ["pausedTopics", "missionStats"].some(kind => below(`${missionRoot}${kind}/${syllabusId}/topics/${topicId}`))
       || missionSubject && ["coreTopics", "additionalTopics"].includes(parts[6]) && parts[7] === topicId;
     const coreMission = operation.kind === "clearCoreMission" && missionSubject && parts.length === 6;
-    const practiceResult = parts.length >= 4 && parts[0] === "practiceResults" && parts[2] === "studentSubmissions" && parts[3] === studentId;
+    const practiceResult = parts.length >= 4 && ["practiceResults", "fillInTheBlanksPracticeResults"].includes(parts[0]) && parts[2] === "studentSubmissions" && parts[3] === studentId;
     if (typeof path !== "string" || path.split("/").some(part => !part || [".", ".."].includes(part))
         || path.split("/").length % 2 !== 0 || !["delete", "clearCoreMission"].includes(operation.kind)
         || !(operation.kind === "delete" && (prefixes.some(prefix => prefix.endsWith("/") ? path.startsWith(prefix) : below(prefix)) || missionRecord || practiceResult) || coreMission)) {

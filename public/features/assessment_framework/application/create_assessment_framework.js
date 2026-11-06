@@ -1,6 +1,6 @@
 import {
   AssessmentFramework
-} from "../domain/assessment_framework.js?v=20261018-topic-framework-v1";
+} from "../domain/assessment_framework.js?v=20261105-mcq-adoption-v1";
 
 export class CreateAssessmentFramework {
   constructor(assessmentFrameworkRepository) {

@@ -1,3 +1,4 @@
+const {resolveTopicAssessmentFrameworkId} = require("../../syllabus/syllabus_module");
 function normalizeSelection(input) {
   if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("Essay generation input must be an object.");
   const result = {};
@@ -24,7 +25,12 @@ class GenerateEssayPractice {
     if (!["primary", "secondary"].includes(level) || !Number.isInteger(standard) || standard < 1 || standard > 6) {
       throw new Error("Essay practices require a primary/secondary syllabus with grade 1-6.");
     }
-    return {syllabus, topic, language, level, standard};
+    const frameworkId = resolveTopicAssessmentFrameworkId(syllabus, {topicId: topic.id, language});
+    if (!frameworkId) throw new Error("Select an assessment framework for this topic and language before generating a practice.");
+    const framework = await this.getAssessmentFrameworkById(frameworkId);
+    if (!framework) throw new Error("The topic assessment framework could not be found.");
+    if (framework.frameworkType !== "essay") throw new Error("This topic requires an essay assessment framework.");
+    return {syllabus, topic, language, level, standard, framework};
   }
   async execute(input, context) {
     const request = normalizeSelection(input);
@@ -32,11 +38,14 @@ class GenerateEssayPractice {
     const assertAccess = administrator.assertAccess ?? (() => {});
     const selected = await this.context(request);
     assertAccess();
-    const {syllabus, topic, language, level, standard} = selected;
+    const {syllabus, topic, language, level, standard, framework} = selected;
+    const firstLevel = [...framework.levels].sort((a, b) => a.sequenceOrder - b.sequenceOrder)[0];
+    const difficulty = String(firstLevel?.criteria?.difficultyLevel || "").toLowerCase();
+    if (!["easy", "medium", "hard"].includes(difficulty)) throw new Error("Configure the first essay framework level and its difficulty before generating a practice.");
     const seed = await this.getRandomQuestionSeedEntry({vertical: "theme", level, grade: standard});
     assertAccess();
     const question = await this.generateEssayQuestion({
-      level, standard, language, difficulty: "medium", seed, save: true,
+      level, standard, language, difficulty, seed, save: true,
     }, {updatedBy: administrator.uid});
     assertAccess();
     const practice = await this.createEssayPractice({essayQuestionId: question.questionId});

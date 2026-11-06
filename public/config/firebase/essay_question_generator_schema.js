@@ -20,6 +20,7 @@ const essayQuestionGeneratorConfigSchema = {
     gradeWordCountRequirements: {type: "map", fields: Object.fromEntries(Object.values(ESSAY_QUESTION_LEVELS).map(level =>
       [level, {type: "map", fields: Object.fromEntries(ESSAY_QUESTION_STANDARDS.map(standard =>
         [String(standard), wordCountRequirementSchema]))}]))},
+    gradeSupport: {type: "map", fields: Object.fromEntries(Object.values(ESSAY_QUESTION_LEVELS).map(level => [level, {type: "map", fields: Object.fromEntries(ESSAY_QUESTION_STANDARDS.map(standard => [String(standard), {type: "map", fields: {pictureEnabled: {type: "boolean", default: false}, helpingWordsEnabled: {type: "boolean", default: false}, helpingWordCount: {type: "integer", minimum: 1, maximum: 30, default: 5}}}]))}]))},
     difficultyInstructions: {type: "map", fields: Object.fromEntries(Object.values(ESSAY_QUESTION_DIFFICULTIES).map(difficulty =>
       [difficulty, {type: "string", default: ""}]))},
     updatedAt: "timestamp",
@@ -31,6 +32,8 @@ const essayQuestionSchema = {
   documentId: "[questionId]",
   fields: {
     questionText: "string",
+    imagePrompt: {type: "string", optional: true, description: "Image-generation prompt derived from the written question."},
+    support: {type: "map", optional: true, description: "Versioned settings, picture reference, suggestion entries and generation outcomes."},
     difficulty: {type: "string", enum: Object.values(ESSAY_QUESTION_DIFFICULTIES)},
     seedUsed: "string",
     wordCountRequirement: wordCountRequirementSchema,

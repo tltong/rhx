@@ -66,6 +66,10 @@ function harness(Generator, Repository) {
     return {practices, nextCursor: offset + practices.length < all.length ? String(offset + practices.length) : null};
   };}
   const deps = {
+    getSyllabusById: async () => ({languages: [originalQuestion.language], topics: [{id: source.topicId, assessmentFrameworkIds: controls.missingFramework ? {} : {[originalQuestion.language.toLowerCase()]: "essay-framework"}}]}),
+    getAssessmentFrameworkById: async () => ({frameworkType: controls.frameworkType || "essay", levels: controls.levels || [
+      {id: "first", sequenceOrder: 1, criteria: {difficultyLevel: "medium"}}]}),
+    getStudentTopicLevel: async () => controls.currentLevelId || null,
     repository,
     requireAdministrator: async context => {calls.push(["access"]); return {uid: context?.updatedBy, assertAccess() {
       if (!access) throw new Error("The signed-in account changed.");
@@ -497,5 +501,52 @@ for (const [layer, Generator, Repository] of [["backend", BackendGenerator, Back
     await assert.rejects(h.run(), /previously generated essay assignment could not be found/);
     assert.equal(h.count("generate"), 1); assert.equal(h.count("assign"), 1);
     assert.equal(h.documents.get(generationPath).status, "completed");
+  });
+}
+
+for (const [layer, Generator, Repository] of [["backend", BackendGenerator, BackendRepository], ["web", WebGenerator, WebRepository]]) {
+  test(layer + ": a missing or incompatible topic framework prevents another paid essay", async () => {
+    for (const change of [{missingFramework: true}, {frameworkType: "normal"}]) {
+      const h = harness(Generator, Repository); Object.assign(h.controls, change);
+      await assert.rejects(h.run(), /assessment framework/);
+      assert.equal(h.count("generate"), 0); assert.equal(h.count("assign"), 0);
+    }
+  });
+}
+
+for (const [layer, Generator, Repository] of [["backend", BackendGenerator, BackendRepository], ["web", WebGenerator, WebRepository]]) {
+  test(layer + ": next essay difficulty follows the current framework level rather than the completed question", async () => {
+    for (const difficultyLevel of ["Easy", "Medium", "Hard"]) {
+      const h = harness(Generator, Repository);
+      h.controls.levels = [{id: "first", sequenceOrder: 1, criteria: {difficultyLevel: "medium"}},
+        {id: "second", sequenceOrder: 2, criteria: {difficultyLevel}}];
+      h.controls.currentLevelId = "second";
+      const result = await h.run();
+      const generated = h.calls.find(call => call[0] === "generate")[1];
+      assert.equal(generated.difficulty, difficultyLevel.toLowerCase());
+      assert.equal(h.questions.get(result.essayQuestionId).difficulty, difficultyLevel.toLowerCase());
+    }
+  });
+  test(layer + ": a changed level difficulty replaces a saved draft before assignment", async () => {
+    const h = harness(Generator, Repository); h.controls.saveFailure = new Error("Save unavailable");
+    await assert.rejects(h.run(), /Save unavailable/);
+    assert.equal(h.documents.get(generationPath).draft.difficulty, "medium");
+    h.controls.saveFailure = null;
+    h.controls.levels = [{id: "first", sequenceOrder: 1, criteria: {difficultyLevel: "hard"}}];
+    const result = await h.run();
+    assert.equal(h.questions.get(result.essayQuestionId).difficulty, "hard");
+    assert.equal(h.count("generate"), 2);
+  });
+  test(layer + ": reaching the end level records completion and performs no generation on replay", async () => {
+    const h = harness(Generator, Repository); h.controls.currentLevelId = "endLevel";
+    assert.equal(await h.run(), null); assert.equal(await h.run(), null);
+    assert.equal(h.count("generate"), 0); assert.equal(h.count("assign"), 0);
+    assert.equal(h.documents.get(generationPath).status, "completed");
+    assert.equal(h.documents.get(generationPath).outcome, "framework-completed");
+  });
+  test(layer + ": an unknown current level prevents generation rather than reverting to the first level", async () => {
+    const h = harness(Generator, Repository); h.controls.currentLevelId = "missing";
+    await assert.rejects(h.run(), /current level is not available/);
+    assert.equal(h.count("generate"), 0); assert.equal(h.count("assign"), 0);
   });
 }

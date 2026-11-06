@@ -1,3 +1,4 @@
+import {listAssignedFillInTheBlanksPractices, listCompletedFillInTheBlanksPractices, getAssignedFillInTheBlanksPractice, getCompletedFillInTheBlanksPractice} from "../student_fill_in_the_blanks_practice/student_fill_in_the_blanks_practice_module.js?v=20261104-fill-preassessment-v3";
 /**
  * listAdditionalMissions({studentId, syllabusId}) -> [{practiceId, practiceType: "normal"|"essay", topicId}]
  * getAdditionalMissionAvailability({studentId, syllabusId}) -> {missions, preparingEssay}
@@ -5,9 +6,9 @@
  * acceptAdditionalDailyMission accepts optional practiceType (default normal).
  * One additional mission per topic per day is shared across both practice types.
  */
-import {GetAdditionalMissionAvailability} from "./application/get_additional_mission_availability.js?v=20261018-additional-essay-v1";
-import {listAssignedEssayPractices, listCompletedEssayPractices, getAssignedEssayPractice, getCompletedEssayPractice} from "../student_essay_practice/student_essay_practice_module.js?v=20261018-essay-reuse-v1";
-import {ListAdditionalMissions} from "./application/list_additional_missions.js?v=20261018-additional-essay-v1";
+import {GetAdditionalMissionAvailability} from "./application/get_additional_mission_availability.js?v=20261104-fill-firestore-v2";
+import {listAssignedEssayPractices, listCompletedEssayPractices, getAssignedEssayPractice, getCompletedEssayPractice} from "../student_essay_practice/student_essay_practice_module.js?v=20261104-fill-preassessment-v3";
+import {ListAdditionalMissions} from "./application/list_additional_missions.js?v=20261104-fill-preassessment-v3";
 /**
  * Essay core missions include practiceType: "essay"; practiceId is the student essay attempt ID.
  * Omitted practiceType means a normal practice. Submission completes an essay mission before grading.
@@ -100,44 +101,44 @@ import {ListAdditionalMissions} from "./application/list_additional_missions.js?
  */
 import {
   AcceptCoreDailyMission
-} from "./application/accept_core_daily_mission.js";
+} from "./application/accept_core_daily_mission.js?v=20261104-fill-firestore-v2";
 import {
   AcceptAdditionalDailyMission
-} from "./application/accept_additional_daily_mission.js?v=20261018-additional-essay-v1";
+} from "./application/accept_additional_daily_mission.js?v=20261104-fill-firestore-v2";
 import {
   CheckPausedTopicValidity
-} from "./application/check_paused_topic_validity.js";
+} from "./application/check_paused_topic_validity.js?v=20261104-fill-preassessment-v3";
 import {
   GetNextCoreDailyMission
-} from "./application/get_next_core_daily_mission.js?v=20261018-essay-session-v1";
-import {GetAcceptedAdditionalMissionForPractice} from "./application/get_accepted_additional_mission_for_practice.js?v=20261018-essay-session-v1";
+} from "./application/get_next_core_daily_mission.js?v=20261104-fill-preassessment-v3";
+import {GetAcceptedAdditionalMissionForPractice} from "./application/get_accepted_additional_mission_for_practice.js?v=20261104-fill-firestore-v2";
 import {
   GetAcceptedDailyMissionForPractice
-} from "./application/get_accepted_daily_mission_for_practice.js?v=20261018-essay-session-v1";
+} from "./application/get_accepted_daily_mission_for_practice.js?v=20261104-fill-firestore-v2";
 import {
   IsTopicPaused
-} from "./application/is_topic_paused.js";
+} from "./application/is_topic_paused.js?v=20261104-fill-preassessment-v3";
 import {
   ListAdditionalMissionPracticeIds
-} from "./application/list_additional_mission_practice_ids.js?v=20261018-additional-essay-v1";
+} from "./application/list_additional_mission_practice_ids.js?v=20261104-fill-preassessment-v3";
 import {
   PauseCoreDailyMission
-} from "./application/pause_core_daily_mission.js?v=20261018-essay-session-v1";
+} from "./application/pause_core_daily_mission.js?v=20261104-fill-firestore-v2";
 import {
   UnpauseTopic
-} from "./application/unpause_topic.js";
+} from "./application/unpause_topic.js?v=20261104-fill-preassessment-v3";
 import {
   FirestoreDailyMissionRepository
-} from "./infrastructure/firestore_daily_mission_repository.js?v=20261018-essay-reuse-v1";
+} from "./infrastructure/firestore_daily_mission_repository.js?v=20261104-fill-preassessment-v3";
 import {
   getPracticeById
-} from "../practice/practice_module.js?v=20260824-completed-practices";
+} from "../practice/practice_module.js?v=20261104-fill-preassessment-v3";
 import {
   listAssignedPracticeIds
-} from "../student_practice/student_practice_module.js?v=20261018-topic-reset-v1";
+} from "../student_practice/student_practice_module.js?v=20261104-fill-preassessment-v3";
 import {
   isTopicPausable
-} from "../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
+} from "../syllabus/syllabus_module.js?v=20261104-fill-preassessment-v3";
 
 const dailyMissionRepository = new FirestoreDailyMissionRepository();
 const getAcceptedAdditionalMissionForPracticeUseCase = new GetAcceptedAdditionalMissionForPractice({dailyMissionRepository});
@@ -154,7 +155,7 @@ const isTopicPausedUseCase = new IsTopicPaused({
 const getNextCoreDailyMissionUseCase = new GetNextCoreDailyMission({
   dailyMissionRepository,
   listAssignedPracticeIds,
-  listAssignedEssayPractices,
+  listAssignedEssayPractices, listAssignedFillInTheBlanksPractices,
   getPracticeById,
   checkPausedTopicValidity: runPausedTopicValidityCheck
 });
@@ -164,13 +165,13 @@ const acceptCoreDailyMissionUseCase = new AcceptCoreDailyMission({
     getNextCoreDailyMissionUseCase.execute(input)
   ),
   getPracticeById,
-  getAssignedEssayPractice, getCompletedEssayPractice
+  getAssignedEssayPractice, getCompletedEssayPractice, getAssignedFillInTheBlanksPractice, getCompletedFillInTheBlanksPractice
 });
 const pauseCoreDailyMissionUseCase = new PauseCoreDailyMission({
   dailyMissionRepository,
   getPracticeById,
   isTopicPausable,
-  getAssignedEssayPractice
+  getAssignedEssayPractice, getAssignedFillInTheBlanksPractice, getCompletedFillInTheBlanksPractice
 });
 const listAdditionalMissionPracticeIdsUseCase =
   new ListAdditionalMissionPracticeIds({
@@ -182,14 +183,14 @@ const listAdditionalMissionPracticeIdsUseCase =
 const acceptAdditionalDailyMissionUseCase =
   new AcceptAdditionalDailyMission({
     dailyMissionRepository,
-    getAssignedEssayPractice, getCompletedEssayPractice,
+    getAssignedEssayPractice, getCompletedEssayPractice, getAssignedFillInTheBlanksPractice, getCompletedFillInTheBlanksPractice,
     getPracticeById
   });
 const listAdditionalMissionsUseCase = new ListAdditionalMissions({dailyMissionRepository, listAssignedPracticeIds,
-  listAssignedEssayPractices, getPracticeById, checkPausedTopicValidity: runPausedTopicValidityCheck});
+  listAssignedEssayPractices, listAssignedFillInTheBlanksPractices, getPracticeById, checkPausedTopicValidity: runPausedTopicValidityCheck});
 async function listAdditionalMissions(input) {return listAdditionalMissionsUseCase.execute(input);}
 const additionalMissionAvailability = new GetAdditionalMissionAvailability({listAdditionalMissions,
-  dailyMissionRepository, listCompletedEssayPractices, checkPausedTopicValidity: runPausedTopicValidityCheck,
+  dailyMissionRepository, listCompletedEssayPractices, listCompletedFillInTheBlanksPractices, checkPausedTopicValidity: runPausedTopicValidityCheck,
   getCurrentDate: () => new Date().toISOString().slice(0, 10)});
 async function getAdditionalMissionAvailability(input) {return additionalMissionAvailability.execute(input);}
 const unpauseTopicUseCase = new UnpauseTopic({

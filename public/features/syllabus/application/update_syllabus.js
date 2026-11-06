@@ -1,4 +1,4 @@
-import {validateTopicFrameworks} from "./validate_topic_frameworks.js?v=20261018-topic-framework-v1";
+import {validateTopicFrameworks} from "./validate_topic_frameworks.js?v=20261105-topic-framework-v1";
 export class UpdateSyllabus {
   constructor(syllabusRepository, {getAssessmentFrameworkById} = {}) {
     this.getAssessmentFrameworkById = getAssessmentFrameworkById;

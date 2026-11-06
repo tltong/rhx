@@ -1,13 +1,15 @@
-import {generateEssayPractice, loadEssayPractice} from "../../../essay_practice_generator/essay_practice_generator_module.js?v=20261018-topic-framework-v1";
-import {createSyllabusLanguageKey} from "../../../syllabus/domain/syllabus.js?v=20261018-topic-framework-v1";
+import {generateFillInTheBlanksPractice, loadFillInTheBlanksPractice} from "../../../fill_in_the_blanks_practice_generator/fill_in_the_blanks_practice_generator_module.js?v=20261105-chinese-count-v1";
+import {mountFillInTheBlanksPassage} from "../../../fill_in_the_blanks_question_generator/components/passage_view.js?v=20261105-chinese-count-v1";
+import {generateEssayPractice, loadEssayPractice} from "../../../essay_practice_generator/essay_practice_generator_module.js?v=20261105-mcq-adoption-v1";
+import {createSyllabusLanguageKey} from "../../../syllabus/domain/syllabus.js?v=20261105-topic-framework-v1";
 import {
   generatePreAssessmentPractice,
   loadPreAssessmentGeneratorOptions,
   loadPreAssessmentPractice
-} from "../../practice_generator_module.js?v=20261018-essay-progression-v1";
+} from "../../practice_generator_module.js?v=20261105-topic-framework-v1";
 import {
   setMathText
-} from "../../../../utils/math/render_math.js?v=20260822-katex-math";
+} from "../../../../utils/math/render_math.js?v=20261104-fill-preassessment-v3";
 
 const practiceTypeSelect = document.querySelector("#practice-type-select");
 const practiceTypeHelp = document.querySelector("#practice-type-help");
@@ -83,14 +85,14 @@ function getExistingAssignment() {
 
 function selectedFramework() {
   const syllabus = getSelectedSyllabus(), topic = getSelectedTopic();
-  const override = languageSelect.value && topic?.assessmentFrameworkIds?.[createSyllabusLanguageKey(languageSelect.value)];
-  const id = override || syllabus?.assessmentFrameworkId;
-  return {id, override, type: syllabus?.frameworkTypes?.[id] || "normal"};
+  const id = languageSelect.value && topic?.assessmentFrameworkIds?.[createSyllabusLanguageKey(languageSelect.value)];
+  return {id, type: syllabus?.frameworkTypes?.[id] || null};
 }
 
 function selectAttachedPracticeType() {
   const framework = selectedFramework();
-  practiceTypeSelect.value = framework.override || framework.type === "essay" ? framework.type : getExistingAssignment()?.practiceType || (framework.id ? "normal" : "essay");
+  practiceTypeSelect.value = framework.type || "";
+  practiceTypeSelect.disabled = true;
 }
 
 function updateGenerateButton() {
@@ -102,20 +104,22 @@ function updateGenerateButton() {
 
   const essay = practiceTypeSelect.value === "essay";
   const framework = selectedFramework();
-  const lacksFramework = !essay && getSelectedSyllabus() && !framework.id;
-  const wrongType = framework.override && ((essay ? "essay" : "normal") !== framework.type);
-  practiceTypeHelp.textContent = essay
-    ? "One medium-difficulty essay question, attached to this topic and language. Students receive it when they subscribe."
+  const lacksFramework = !framework.id || !framework.type;
+  const wrongType = framework.type && (practiceTypeSelect.value !== framework.type);
+  practiceTypeHelp.textContent = practiceTypeSelect.value === "fillInTheBlanks" ? "One pre-assessment passage using the framework's configured difficulty and score-to-level mapping. Blank count comes from grade settings." : essay
+    ? "One essay question using the first framework level's difficulty, attached to this topic and language. Students receive it when they subscribe."
     : lacksFramework
-      ? "Normal practice requires an assessment framework. Choose essay practice or configure a framework."
+      ? "Select an assessment framework for this topic and language in Syllabus administration."
       : "Normal practice uses the assessment framework's pre-assessment settings.";
+  if (lacksFramework) practiceTypeHelp.textContent = "Select an assessment framework for this topic and language in Syllabus administration.";
+  practiceTypeSelect.disabled = true;
   if (wrongType) practiceTypeHelp.textContent = "Choose " + framework.type + " practice to match this topic framework.";
   generateButton.disabled = pageBusy || !hasSelection || Boolean(lacksFramework) || Boolean(wrongType);
 
   if (!pageBusy) {
     generateButton.textContent = getExistingAssignment()
       ? "Regenerate and Replace"
-      : essay ? "Generate Essay Practice" : "Generate Normal Pre-Assessment";
+      : practiceTypeSelect.value === "fillInTheBlanks" ? "Generate Fill-in-the-Blanks Pre-assessment" : essay ? "Generate Essay Practice" : "Generate Normal Pre-Assessment";
   }
 }
 
@@ -392,8 +396,13 @@ function renderQuestions(questions = []) {
 
 function renderResult(result) {
   practiceId.textContent = result.practice.id;
+  if (result.passage) {
+    clearQuestions(); resultsSummary.textContent = "Fill-in-the-blanks / " + result.passage.difficulty + " / " + result.passage.questionCount + " questions";
+    allocationSummary.hidden = true; mountFillInTheBlanksPassage({root: questionsContainer, passage: result.passage, readOnly: true});
+    resultsSection.hidden = false; return;
+  }
   if (result.practiceType === "essay") {
-    resultsSummary.textContent = [result.topicName, result.language, "Essay / Medium / 1 question",
+    resultsSummary.textContent = [result.topicName, result.language, "Essay / " + String(result.questions?.[0]?.difficulty || "unknown") + " / 1 question",
       result.replacement.replaced ? "Replaced previous attachment" : "New attachment"].join(" / ");
     allocationSummary.hidden = true;
     renderQuestions(result.questions);
@@ -414,6 +423,7 @@ function renderResult(result) {
 }
 
 function renderExistingPractice(result) {
+  if (result.passage) {renderResult(result); return;}
   practiceId.textContent = result.practice.id;
   resultsSummary.textContent = [
     result.practiceType === "essay" ? "Existing essay practice" : "Existing normal practice",
@@ -445,7 +455,7 @@ async function displayExistingPractice() {
   resultsSection.hidden = false;
 
   try {
-    const loader = assignment.practiceType === "essay" ? loadEssayPractice : loadPreAssessmentPractice;
+    const loader = assignment.practiceType === "fillInTheBlanks" ? loadFillInTheBlanksPractice : assignment.practiceType === "essay" ? loadEssayPractice : loadPreAssessmentPractice;
     const result = await loader({
       syllabusId,
       topicId,
@@ -481,7 +491,7 @@ function recordAssignment(result) {
 
   topic.preAssessmentPractices = {
     ...(topic.preAssessmentPractices || {}),
-    [createSyllabusLanguageKey(result.language)]: {...result.assignment}
+    [createSyllabusLanguageKey(result.language || languageSelect.value)]: {...result.assignment}
   };
 }
 
@@ -494,7 +504,7 @@ async function generatePractice() {
 
   try {
     const essay = practiceTypeSelect.value === "essay";
-    const generator = essay ? generateEssayPractice : generatePreAssessmentPractice;
+    const generator = practiceTypeSelect.value === "fillInTheBlanks" ? generateFillInTheBlanksPractice : essay ? generateEssayPractice : generatePreAssessmentPractice;
     const result = await generator({
       syllabusId: syllabusSelect.value,
       topicId: topicSelect.value,
@@ -505,7 +515,7 @@ async function generatePractice() {
     renderResult(result);
     updateAssignmentMessage();
     setStatus(
-      essay ? "Essay practice generated and attached to the syllabus topic."
+      practiceTypeSelect.value === "fillInTheBlanks" ? "Fill-in-the-blanks pre-assessment generated and attached to the syllabus topic." : essay ? "Essay practice generated and attached to the syllabus topic."
         : result.replacement.replaced
           ? "Normal pre-assessment generated and attached, replacing the previous attachment."
           : "Normal pre-assessment generated and attached to the syllabus topic."

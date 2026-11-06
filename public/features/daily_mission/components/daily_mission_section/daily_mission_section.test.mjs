@@ -486,3 +486,18 @@ test("a submitted essay counts as a completed accepted mission before grading fi
   section.mount(container); await section.ready;
   assert.equal(section.availabilityBySyllabusId.get("syllabus-1").hasMission, false);
 });
+
+test("a fill-in-the-blanks mission preserves assignment identity and opens its own page", async () => {
+  const mission = {studentId: "student-1", syllabusId: "syllabus-1", topicId: "topic-1", practiceId: "fill-attempt", practiceType: "fillInTheBlanks", date: "2026-11-03", isAccepted: false};
+  const navigations = [], accepts = [], container = new FakeElement("div");
+  const section = new DailyMissionSection({studentId: "student-1", syllabuses: [syllabus()],
+    getNextCoreDailyMission: async () => mission,
+    acceptCoreDailyMission: async input => {accepts.push(input); return {...mission, isAccepted: true};},
+    pauseCoreDailyMission: async () => {}, isTopicPausable: async () => false,
+    navigate: url => navigations.push(url), documentRef: fakeDocument});
+  section.mount(container); await section.ready; await section.loadMission("syllabus-1");
+  assert.ok(findByText(container, "Fractions — Fill-in-the-blanks assessment"));
+  await findByText(container, "Accept Mission").click();
+  assert.deepEqual(accepts, [{studentId: "student-1", practiceId: "fill-attempt", practiceType: "fillInTheBlanks"}]);
+  assert.equal(navigations[0], "/features/fill_in_the_blanks_practice_session/pages/practice/fill_in_the_blanks_practice.html?practiceId=fill-attempt");
+});

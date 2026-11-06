@@ -1,4 +1,5 @@
-import {getCompletedEssayPractice} from "../student_essay_practice/student_essay_practice_module.js?v=20261018-essay-reuse-v1";
+import {getCompletedFillInTheBlanksPractice} from "../student_fill_in_the_blanks_practice/student_fill_in_the_blanks_practice_module.js?v=20261104-fill-preassessment-v3";
+import {getCompletedEssayPractice} from "../student_essay_practice/student_essay_practice_module.js?v=20261104-fill-preassessment-v3";
 /**
  * Feature APIs; none are Firebase callable endpoints.
  * awardAssessmentLevelUp({studentId, practiceId})
@@ -68,30 +69,30 @@ import {getCompletedEssayPractice} from "../student_essay_practice/student_essay
  */
 
 /** Reads require sign-in; writes require a site administrator. */
-import {DEFAULT_REWARD_CONFIG, RewardCategory} from "../../config/firebase/reward_schema.js?v=20261013-recent-reward-activities-v1";
-import {FirestoreStudentRewardRepository} from "./infrastructure/firestore_student_reward_repository.js?v=20261013-recent-reward-activities-v1";
-import {AwardAdditionalMissionCompletion} from "./application/award_additional_mission_completion.js?v=20261018-additional-essay-v1";
-import {AwardDailyMissionCompletion} from "./application/award_daily_mission_completion.js?v=20261018-essay-session-v1";
-import {AwardAssessmentLevelUp} from "./application/award_assessment_level_up.js?v=20261018-essay-progression-v1";
-import {getStudentPracticeAssessment} from "../student_assessment_progress/student_assessment_progress_module.js?v=20261018-essay-progression-v1";
-import {AwardStudentLogin} from "./application/award_student_login.js?v=20261010-login-reward-api-v1";
-import {getStudentLoginRecord, listStudentLoginHistory} from "../student_login/student_login_module.js?v=20261010-login-reward-api-v1";
-import {getAcceptedAdditionalMissionForPractice, getAcceptedDailyMissionForPractice} from "../daily_mission/daily_mission_module.js?v=20261018-essay-reuse-v1";
-import {listCompletedPracticeIds} from "../student_practice/student_practice_module.js?v=20261018-topic-reset-v1";
-import {SaveStudentReward} from "./application/save_student_reward.js?v=20261013-recent-reward-activities-v1";
-import {GetStudentRewardTotal} from "./application/get_student_reward_total.js?v=20261013-recent-reward-activities-v1";
-import {WatchStudentRewardTotal} from "./application/watch_student_reward_total.js?v=20261013-recent-reward-activities-v1";
-import {GetStudentRewardCategoryTotal} from "./application/get_student_reward_category_total.js?v=20261013-recent-reward-activities-v1";
-import {ListStudentRewardHistory} from "./application/list_student_reward_history.js?v=20261013-recent-reward-activities-v1";
-import {ListRecentStudentRewardActivities} from "./application/list_recent_student_reward_activities.js?v=20261013-recent-reward-activities-v1";
-import {FirestoreRewardConfigRepository} from "./infrastructure/firestore_reward_config_repository.js?v=20261013-recent-reward-activities-v1";
-import {getAssessmentFrameworkById, ASSESSMENT_FRAMEWORK_END_LEVEL_ID} from "../assessment_framework/assessment_framework_module.js?v=20261018-topic-framework-v1";
+import {DEFAULT_REWARD_CONFIG, RewardCategory} from "../../config/firebase/reward_schema.js?v=20261104-fill-preassessment-v3";
+import {FirestoreStudentRewardRepository} from "./infrastructure/firestore_student_reward_repository.js?v=20261104-fill-preassessment-v3";
+import {AwardAdditionalMissionCompletion} from "./application/award_additional_mission_completion.js?v=20261104-fill-preassessment-v3";
+import {AwardDailyMissionCompletion} from "./application/award_daily_mission_completion.js?v=20261104-fill-preassessment-v3";
+import {AwardAssessmentLevelUp} from "./application/award_assessment_level_up.js?v=20261104-fill-preassessment-v3";
+import {getStudentPracticeAssessment} from "../student_assessment_progress/student_assessment_progress_module.js?v=20261104-fill-preassessment-v3";
+import {AwardStudentLogin} from "./application/award_student_login.js?v=20261104-fill-preassessment-v3";
+import {getStudentLoginRecord, listStudentLoginHistory} from "../student_login/student_login_module.js?v=20261104-fill-preassessment-v3";
+import {getAcceptedAdditionalMissionForPractice, getAcceptedDailyMissionForPractice} from "../daily_mission/daily_mission_module.js?v=20261104-fill-preassessment-v3";
+import {listCompletedPracticeIds} from "../student_practice/student_practice_module.js?v=20261104-fill-preassessment-v3";
+import {SaveStudentReward} from "./application/save_student_reward.js?v=20261104-fill-preassessment-v3";
+import {GetStudentRewardTotal} from "./application/get_student_reward_total.js?v=20261104-fill-preassessment-v3";
+import {WatchStudentRewardTotal} from "./application/watch_student_reward_total.js?v=20261104-fill-preassessment-v3";
+import {GetStudentRewardCategoryTotal} from "./application/get_student_reward_category_total.js?v=20261104-fill-preassessment-v3";
+import {ListStudentRewardHistory} from "./application/list_student_reward_history.js?v=20261104-fill-preassessment-v3";
+import {ListRecentStudentRewardActivities} from "./application/list_recent_student_reward_activities.js?v=20261104-fill-preassessment-v3";
+import {FirestoreRewardConfigRepository} from "./infrastructure/firestore_reward_config_repository.js?v=20261104-fill-preassessment-v3";
+import {getAssessmentFrameworkById, ASSESSMENT_FRAMEWORK_END_LEVEL_ID} from "../assessment_framework/assessment_framework_module.js?v=20261104-fill-preassessment-v3";
 import {requireCurrentSiteAdmin} from "../site_admin/site_admin_module.js?v=20260827-site-admin-guard-v1";
 import {requireCurrentFirebaseAuthUser} from "../../utils/firebase/firebase_auth.js";
-import {GetRewardConfig} from "./application/get_reward_config.js?v=20261013-recent-reward-activities-v1";
-import {GetAssessmentFrameworkRewardConfig} from "./application/get_assessment_framework_reward_config.js?v=20261013-recent-reward-activities-v1";
-import {SaveRewardConfig} from "./application/save_reward_config.js?v=20261013-recent-reward-activities-v1";
-import {SaveAssessmentFrameworkRewardConfig} from "./application/save_assessment_framework_reward_config.js?v=20261013-recent-reward-activities-v1";
+import {GetRewardConfig} from "./application/get_reward_config.js?v=20261104-fill-preassessment-v3";
+import {GetAssessmentFrameworkRewardConfig} from "./application/get_assessment_framework_reward_config.js?v=20261104-fill-preassessment-v3";
+import {SaveRewardConfig} from "./application/save_reward_config.js?v=20261104-fill-preassessment-v3";
+import {SaveAssessmentFrameworkRewardConfig} from "./application/save_assessment_framework_reward_config.js?v=20261104-fill-preassessment-v3";
 
 const repository = new FirestoreRewardConfigRepository();
 const studentRepository = new FirestoreStudentRewardRepository();
@@ -103,7 +104,7 @@ const listHistory = new ListStudentRewardHistory(studentRepository);
 const listRecentActivities = new ListRecentStudentRewardActivities(studentRepository);
 const getConfig = new GetRewardConfig(repository);
 const awardLevelUp = new AwardAssessmentLevelUp({
-  studentRewardRepository: studentRepository, getStudentPracticeAssessment, listCompletedPracticeIds, getCompletedEssayPractice,
+  studentRewardRepository: studentRepository, getStudentPracticeAssessment, listCompletedPracticeIds, getCompletedEssayPractice, getCompletedFillInTheBlanksPractice,
   getAssessmentFrameworkRewardConfig, authorizeWrite: requireRewardAdministrator,
 });
 const awardLogin = new AwardStudentLogin({
@@ -112,11 +113,11 @@ const awardLogin = new AwardStudentLogin({
 });
 const awardAdditionalMission = new AwardAdditionalMissionCompletion({
   studentRewardRepository: studentRepository, getAcceptedAdditionalMissionForPractice,
-  listCompletedPracticeIds, getCompletedEssayPractice, getRewardConfig, authorizeWrite: requireRewardAdministrator,
+  listCompletedPracticeIds, getCompletedEssayPractice, getCompletedFillInTheBlanksPractice, getRewardConfig, authorizeWrite: requireRewardAdministrator,
 });
 const awardDailyMission = new AwardDailyMissionCompletion({
   studentRewardRepository: studentRepository, getAcceptedDailyMissionForPractice,
-  listCompletedPracticeIds, getCompletedEssayPractice, getRewardConfig, authorizeWrite: requireRewardAdministrator,
+  listCompletedPracticeIds, getCompletedEssayPractice, getCompletedFillInTheBlanksPractice, getRewardConfig, authorizeWrite: requireRewardAdministrator,
 });
 const saveConfig = new SaveRewardConfig(repository, requireRewardAdministrator);
 const getFrameworkConfig = new GetAssessmentFrameworkRewardConfig(repository);

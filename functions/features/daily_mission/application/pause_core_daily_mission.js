@@ -61,6 +61,8 @@ class PauseCoreDailyMission {
   constructor({
     dailyMissionRepository,
     getAssignedEssayPractice = async () => null,
+    getAssignedFillInTheBlanksPractice = async () => null,
+    getCompletedFillInTheBlanksPractice = async () => null,
     getCompletedEssayPractice = async () => null,
     getPracticeById,
     isTopicPausable,
@@ -74,7 +76,7 @@ class PauseCoreDailyMission {
     }
 
     this.dailyMissionRepository = dailyMissionRepository;
-    Object.assign(this, {getAssignedEssayPractice, getCompletedEssayPractice});
+    Object.assign(this, {getAssignedEssayPractice, getCompletedEssayPractice, getAssignedFillInTheBlanksPractice, getCompletedFillInTheBlanksPractice});
     this.getPracticeById = requireFunction(
       getPracticeById,
       "getPracticeById",
@@ -88,7 +90,10 @@ class PauseCoreDailyMission {
     const normalizedPracticeId = requireDocumentId(practiceId, "practiceId");
     const type = missionPracticeType(practiceType);
     const essayReference = {studentId: normalizedStudentId, essayPracticeId: normalizedPracticeId};
-    const practice = type === "essay"
+    const fillReference = {studentId: normalizedStudentId, practiceId: normalizedPracticeId};
+    const practice = type === "fillInTheBlanks"
+      ? await this.getAssignedFillInTheBlanksPractice(fillReference) || await this.getCompletedFillInTheBlanksPractice(fillReference)
+      : type === "essay"
       ? await this.getAssignedEssayPractice(essayReference)
       : await this.getPracticeById(normalizedPracticeId);
 
@@ -99,7 +104,7 @@ class PauseCoreDailyMission {
       );
     }
 
-    const {syllabusId, topicId} = type === "essay"
+    const {syllabusId, topicId} = type !== "normal"
       ? {syllabusId: requireDocumentId(practice.syllabusId, "syllabusId"), topicId: requireDocumentId(practice.topicId, "topicId")}
       : practiceMissionRoute(practice);
     const pausable = await this.isTopicPausable(syllabusId, topicId);

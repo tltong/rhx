@@ -1,4 +1,4 @@
-export const assessmentFrameworkTypes = Object.freeze({NORMAL: "normal", ESSAY: "essay"});
+export const assessmentFrameworkTypes = Object.freeze({NORMAL: "normal", ESSAY: "essay", FILL_IN_THE_BLANKS: "fillInTheBlanks"});
 export const ASSESSMENT_FRAMEWORKS_COLLECTION = "assessmentFrameworks";
 export const ASSESSMENT_FRAMEWORK_LEVELS_SUBCOLLECTION = "levels";
 export const ASSESSMENT_FRAMEWORK_PRE_ASSESSMENT_SUBCOLLECTION =
@@ -80,7 +80,8 @@ export const assessmentFrameworkSchema = {
       collection: ASSESSMENT_FRAMEWORK_PRE_ASSESSMENT_SUBCOLLECTION,
       documentId: assessmentFrameworkPreAssessmentDocumentIdPattern,
       fields: {
-        numberOfQuestions: "number",
+        difficultyLevel: "easy|medium|hard (fillInTheBlanks only, default medium)",
+        numberOfQuestions: "number (normal MCQ only)",
         difficultySplit: {
           type: "map",
           fields: {

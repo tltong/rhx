@@ -1,4 +1,4 @@
-import {resolveTopicAssessmentFrameworkId} from "../../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
+import {resolveTopicAssessmentFrameworkId} from "../../syllabus/syllabus_module.js?v=20261105-topic-framework-v1";
 function requireIdentifier(value, fieldName) {
   const identifier = String(value ?? "").trim();
 
@@ -78,7 +78,7 @@ export class LoadPreAssessmentContext {
 
     const assessmentFrameworkId = requireIdentifier(
       resolveTopicAssessmentFrameworkId(syllabus, {topicId, language}),
-      "syllabus.assessmentFrameworkId"
+      "Topic assessment framework ID"
     );
     const [
       assessmentFramework,
@@ -96,6 +96,7 @@ export class LoadPreAssessmentContext {
       throw new Error("Assessment framework could not be found.");
     }
 
+    if (assessmentFramework.frameworkType === "fillInTheBlanks") throw new Error("Generate a fill-in-the-blanks starting practice for this framework.");
     if (assessmentFramework.frameworkType === "essay") throw new Error("Essay frameworks do not use pre-assessment. Generate an essay practice instead.");
     if (!assessmentFramework.preAssessment) {
       throw new Error(

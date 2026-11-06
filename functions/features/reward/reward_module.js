@@ -1,3 +1,4 @@
+const {getCompletedFillInTheBlanksPractice} = require("../student_fill_in_the_blanks_practice/student_fill_in_the_blanks_practice_module");
 const {getCompletedEssayPractice} = require("../student_essay_practice/student_essay_practice_module");
 /**
  * Feature APIs; none are Firebase callable endpoints.
@@ -99,7 +100,7 @@ const listHistory = new ListStudentRewardHistory(studentRepository);
 const listRecentActivities = new ListRecentStudentRewardActivities(studentRepository);
 const getConfig = new GetRewardConfig(repository);
 const awardLevelUp = new AwardAssessmentLevelUp({
-  studentRewardRepository: studentRepository, getStudentPracticeAssessment, listCompletedPracticeIds, getCompletedEssayPractice,
+  studentRewardRepository: studentRepository, getStudentPracticeAssessment, listCompletedPracticeIds, getCompletedEssayPractice, getCompletedFillInTheBlanksPractice,
   getAssessmentFrameworkRewardConfig,
 });
 const awardLogin = new AwardStudentLogin({
@@ -108,11 +109,11 @@ const awardLogin = new AwardStudentLogin({
 });
 const awardAdditionalMission = new AwardAdditionalMissionCompletion({
   studentRewardRepository: studentRepository, getAcceptedAdditionalMissionForPractice,
-  listCompletedPracticeIds, getCompletedEssayPractice, getRewardConfig,
+  listCompletedPracticeIds, getCompletedEssayPractice, getCompletedFillInTheBlanksPractice, getRewardConfig,
 });
 const awardDailyMission = new AwardDailyMissionCompletion({
   studentRewardRepository: studentRepository, getAcceptedDailyMissionForPractice,
-  listCompletedPracticeIds, getCompletedEssayPractice, getRewardConfig,
+  listCompletedPracticeIds, getCompletedEssayPractice, getCompletedFillInTheBlanksPractice, getRewardConfig,
 });
 const saveConfig = new SaveRewardConfig(repository, requireRewardAdministrator);
 const getFrameworkConfig = new GetAssessmentFrameworkRewardConfig(repository);

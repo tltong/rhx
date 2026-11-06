@@ -149,78 +149,77 @@
  */
 import {
   assignTopicPreAssessmentPractice,
-  getSyllabusAssessmentFrameworkId,
   getTopicAssessmentFrameworkId,
   getSyllabusById,
   getTopicPreAssessmentPractice,
   listSyllabuses
-} from "../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
+} from "../syllabus/syllabus_module.js?v=20261105-topic-framework-v1";
 import {
   ASSESSMENT_FRAMEWORK_END_LEVEL_ID,
   getAssessmentLevelCriteria,
   getAssessmentFrameworkById
-} from "../assessment_framework/assessment_framework_module.js?v=20261018-topic-framework-v1";
+} from "../assessment_framework/assessment_framework_module.js?v=20261104-fill-preassessment-v3";
 import {
   getDiagramConfigForSyllabus,
   getTopicDiagramPercentage
-} from "../diagram_config/diagram_config_module.js?v=20260815-assessment-practice";
+} from "../diagram_config/diagram_config_module.js?v=20261104-fill-preassessment-v3";
 import {
   getDefaultLlmPromptConfig
-} from "../llm_prompt_config/llm_prompt_config_module.js?v=20260731-practice-replacement";
+} from "../llm_prompt_config/llm_prompt_config_module.js?v=20261104-fill-preassessment-v3";
 import {
   generatePlannedQuestions,
   generateQuestions,
   generateQuestionsWithDiagram
-} from "../question_generator/question_generator_module.js?v=20260822-previous-practice-variety";
+} from "../question_generator/question_generator_module.js?v=20261104-fill-preassessment-v3";
 import {
   createPractice,
   deletePractice,
   getPracticeById,
   practiceTypes
-} from "../practice/practice_module.js?v=20260816-practice-question-ids";
+} from "../practice/practice_module.js?v=20261104-fill-preassessment-v3";
 import {
   getQuestionsForPractice,
   listQuestionsByTopic
-} from "../question/question_module.js?v=20260822-assessment-reuse";
+} from "../question/question_module.js?v=20261104-fill-preassessment-v3";
 import {
   assignPracticeToStudent,
   listAssignedPracticeIds,
   listCompletedPracticeIds
-} from "../student_practice/student_practice_module.js?v=20261018-topic-reset-v1";
+} from "../student_practice/student_practice_module.js?v=20261104-fill-preassessment-v3";
 import {
   deletePreAssessmentQuestion,
   getPreAssessmentQuestion
-} from "../pre_assessment_question/pre_assessment_question_module.js?v=20260822-saved-question-ids";
+} from "../pre_assessment_question/pre_assessment_question_module.js?v=20261104-fill-preassessment-v3";
 import {
   GeneratePreAssessmentPractice
-} from "./application/generate_pre_assessment_practice.js?v=20261018-preassessment-essay-v1";
+} from "./application/generate_pre_assessment_practice.js?v=20261104-fill-preassessment-v3";
 import {
   GeneratePreAssessmentQuestions
-} from "./application/generate_pre_assessment_questions.js?v=20260731-planned-question-batches";
+} from "./application/generate_pre_assessment_questions.js?v=20261104-fill-preassessment-v3";
 import {
   LoadPreAssessmentContext
-} from "./application/load_pre_assessment_context.js?v=20261018-topic-framework-v1";
+} from "./application/load_pre_assessment_context.js?v=20261105-topic-framework-v1";
 import {
   LoadPreAssessmentGeneratorOptions
-} from "./application/load_pre_assessment_generator_options.js?v=20261018-topic-framework-v1";
+} from "./application/load_pre_assessment_generator_options.js?v=20261105-topic-framework-v1";
 import {
   LoadPreAssessmentPractice
-} from "./application/load_pre_assessment_practice.js?v=20261018-preassessment-essay-v1";
+} from "./application/load_pre_assessment_practice.js?v=20261104-fill-preassessment-v3";
 import {
   allocatePreAssessmentQuestions
-} from "./domain/pre_assessment_allocation.js?v=20260731-practice-replacement";
+} from "./domain/pre_assessment_allocation.js?v=20261104-fill-preassessment-v3";
 import {
   getStudentSyllabusSubscriptionLanguage
-} from "../syllabus_subscription/syllabus_subscription_module.js?v=20260815-language-lookup";
+} from "../syllabus_subscription/syllabus_subscription_module.js?v=20261104-fill-preassessment-v3";
 import {
   getStudentTopicLevel
-} from "../student_assessment_progress/student_assessment_progress_module.js?v=20261018-essay-progression-v1";
+} from "../student_assessment_progress/student_assessment_progress_module.js?v=20261105-topic-framework-v1";
 import {
   GenerateAssessmentPractice
-} from "./application/generate_assessment_practice.js?v=20261018-topic-reset-v1";
+} from "./application/generate_assessment_practice.js?v=20261105-topic-framework-v1";
 import {
   allocateAssessmentQuestions
-} from "./domain/assessment_question_allocation.js?v=20260815-assessment-practice";
+} from "./domain/assessment_question_allocation.js?v=20261104-fill-preassessment-v3";
 
 /**
  * @typedef {Object} GeneratePreAssessmentPracticeInput
@@ -238,7 +237,6 @@ const loadPreAssessmentContextUseCase = new LoadPreAssessmentContext({
 });
 const generateAssessmentPracticeUseCase = new GenerateAssessmentPractice({
   getStudentTopicLevel,
-  getSyllabusAssessmentFrameworkId,
   getTopicAssessmentFrameworkId,
   getAssessmentLevelCriteria,
   getStudentSyllabusSubscriptionLanguage,
@@ -305,7 +303,7 @@ async function generatePreAssessmentPractice(input) {
  * @param {{studentId: string, syllabusId: string, topicId: string}} input
  */
 async function generateAssessmentPractice(input) {
-  const {captureTopicPracticeGuard} = await import("../../utils/student_topic_reset_guard.js?v=20261018-topic-reset-v1");
+  const {captureTopicPracticeGuard} = await import("../../utils/student_topic_reset_guard.js?v=20261104-fill-preassessment-v3");
   const resetGuard = await captureTopicPracticeGuard(input);
   return generateAssessmentPracticeUseCase.execute(input, {resetGuard});
 }

@@ -1,4 +1,4 @@
-import {requireTopicScope} from "../domain/readiness_score.js?v=20261007-readiness-completion-v1";
+import {requireTopicScope} from "../domain/readiness_score.js?v=20261104-fill-firestore-v2";
 
 class GetReadinessScoreHistory {
   constructor(repository) {

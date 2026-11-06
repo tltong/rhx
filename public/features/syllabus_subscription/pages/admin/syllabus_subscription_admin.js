@@ -1,10 +1,10 @@
 import {
   listStudents
-} from "../../../student/student_module.js?v=20261031-renewal-restart-v1";
+} from "../../../student/student_module.js?v=20261104-fill-preassessment-v3";
 
 import {
   getSyllabusById
-} from "../../../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
+} from "../../../syllabus/syllabus_module.js?v=20261104-fill-preassessment-v3";
 
 import {
   activateSyllabus,
@@ -13,7 +13,7 @@ import {
   listStudentSyllabusSubscriptions,
   subscribeSyllabus,
   unsubscribeSyllabus
-} from "../../syllabus_subscription_module.js?v=20260823-student-availability-page-v1";
+} from "../../syllabus_subscription_module.js?v=20261104-fill-preassessment-v3";
 
 const studentsContainer = document.querySelector("#students-container");
 const syllabusesContainer = document.querySelector("#syllabuses-container");

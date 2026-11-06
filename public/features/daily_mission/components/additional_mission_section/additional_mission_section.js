@@ -1,3 +1,4 @@
+const FILL_PRACTICE_URL = "/features/fill_in_the_blanks_practice_session/pages/practice/fill_in_the_blanks_practice.html";
 const ESSAY_PRACTICE_URL = "/features/essay_practice_session/pages/essay_practice/essay_practice.html";
 const DEFAULT_COMMENCE_PRACTICE_URL =
   "/features/practice_session/pages/commence_practice/commence_practice.html";
@@ -264,10 +265,10 @@ export class AdditionalMissionSection {
       const availability = this.availabilityBySyllabusId.get(syllabusId);
       const label = syllabusLabel(this.syllabusById.get(syllabusId));
 
-      button.textContent = availability?.preparingEssay ? `${label} — Preparing next essay` : availability?.hasMission === false
+      button.textContent = availability?.preparingEssay ? `${label} — Preparing next practice` : availability?.hasMission === false
         ? `${label} — No more missions today`
         : label;
-      button.title = availability?.preparingEssay ? "Preparing your next essay…" : availability?.error
+      button.title = availability?.preparingEssay ? "Preparing your next practice…" : availability?.error
         ? "Could not check mission availability"
         : availability?.hasMission === false
           ? "No more additional missions available for this subject today"
@@ -287,7 +288,7 @@ export class AdditionalMissionSection {
       ? "Could not check Additional Mission availability. Select a subject to retry."
       : this.syllabuses.length === 0
         ? "No active subjects are available."
-        : preparingEssay ? "Preparing your next essay…" : exhausted
+        : preparingEssay ? "Preparing your next practice…" : exhausted
           ? "No more additional missions available today."
           : "Complete a Daily Mission to unlock additional practice.";
     this.availabilitySummary.className = hasError
@@ -326,7 +327,7 @@ export class AdditionalMissionSection {
 
     if (availability?.preparingEssay) {
       this.selectSubject(syllabusId); this.currentMission = null; this.actionButtons = []; this.result.replaceChildren();
-      this.setStatus("Preparing your next essay…"); return;
+      this.setStatus("Preparing your next practice…"); return;
     }
 
     if (availability?.hasMission === false) {
@@ -461,7 +462,12 @@ export class AdditionalMissionSection {
   }
 
   async findAvailability(syllabusId) {
-    if (this.getAdditionalMissionAvailability) return this.getAdditionalMissionAvailability({studentId: this.studentId, syllabusId});
+    if (this.getAdditionalMissionAvailability) {
+      const result = await this.getAdditionalMissionAvailability({studentId: this.studentId, syllabusId});
+      if (result.fillInTheBlanksGenerationError) throw new Error(result.fillInTheBlanksGenerationError.message + " Open your last result to retry preparation.");
+      // Keep the legacy internal pending flag while supporting either generated format.
+      return {...result, preparingEssay: Boolean(result.preparingEssay || result.preparingFillInTheBlanks)};
+    }
     return {missions: await this.findMissions(syllabusId), preparingEssay: false};
   }
 
@@ -507,7 +513,7 @@ export class AdditionalMissionSection {
 
     card.className = "daily-mission-card additional-mission-card";
     eyebrow.className = "daily-mission-eyebrow";
-    eyebrow.textContent = mission.practiceType === "essay" ? "Suggested additional essay mission" : "Suggested additional mission";
+    eyebrow.textContent = mission.practiceType === "fillInTheBlanks" ? "Suggested additional fill-in-the-blanks mission" : mission.practiceType === "essay" ? "Suggested additional essay mission" : "Suggested additional mission";
     heading.textContent = findTopicName(syllabus, mission.topicId);
     actions.className = "daily-mission-actions";
     startButton.type = "button";
@@ -545,7 +551,7 @@ export class AdditionalMissionSection {
       throw new Error("The selected syllabus is unavailable.");
     }
 
-    if (availability?.preparingEssay) {this.setStatus("Preparing your next essay…"); return;}
+    if (availability?.preparingEssay) {this.setStatus("Preparing your next practice…"); return;}
     if (availability?.unlocked !== true) {
       this.setStatus(
         "Complete today's Daily Mission for this subject first."
@@ -589,7 +595,7 @@ export class AdditionalMissionSection {
       this.renderAvailability();
 
       if (preparingEssay && missions.length === 0) {
-        this.setStatus("Preparing your next essay…"); return;
+        this.setStatus("Preparing your next practice…"); return;
       } else if (missions.length === 0) {
         this.renderEmpty(syllabus);
       } else {
@@ -621,10 +627,12 @@ export class AdditionalMissionSection {
       const accepted = await this.acceptAdditionalDailyMission({
         studentId: this.studentId,
         practiceId: mission.practiceId,
-        ...(mission.practiceType === "essay" ? {practiceType: "essay"} : {})
+        ...(mission.practiceType && mission.practiceType !== "normal" ? {practiceType: mission.practiceType} : {})
       });
 
-      this.navigate((accepted.practiceType ?? mission.practiceType) === "essay"
+      this.navigate((accepted.practiceType ?? mission.practiceType) === "fillInTheBlanks"
+        ? FILL_PRACTICE_URL + "?practiceId=" + encodeURIComponent(accepted.practiceId)
+        : (accepted.practiceType ?? mission.practiceType) === "essay"
         ? ESSAY_PRACTICE_URL + "?essayPracticeId=" + encodeURIComponent(accepted.practiceId)
         : createCommencePracticeUrl(accepted.practiceId, this.commencePracticeUrl));
     } catch (error) {
@@ -652,7 +660,7 @@ export class AdditionalMissionSection {
       await this.pauseCoreDailyMission({
         studentId: this.studentId,
         practiceId: mission.practiceId,
-        ...(mission.practiceType === "essay" ? {practiceType: "essay"} : {})
+        ...(mission.practiceType && mission.practiceType !== "normal" ? {practiceType: mission.practiceType} : {})
       });
 
       try {

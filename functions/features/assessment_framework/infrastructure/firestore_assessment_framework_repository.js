@@ -47,7 +47,7 @@ function toAssessmentFrameworkLevel(data) {
   });
 }
 
-function toAssessmentFrameworkPreAssessment(data) {
+function toAssessmentFrameworkPreAssessment(data, frameworkType) {
   if (!data) {
     return null;
   }
@@ -56,7 +56,8 @@ function toAssessmentFrameworkPreAssessment(data) {
     numberOfQuestions: data.numberOfQuestions,
     difficultySplit: data.difficultySplit,
     scoreLevelSplit: data.scoreLevelSplit,
-  });
+    difficultyLevel: data.difficultyLevel,
+  }, frameworkType);
 }
 
 function toAssessmentFramework(data, levels, preAssessment = null) {
@@ -104,7 +105,7 @@ class FirestoreAssessmentFrameworkRepository
     ]);
     const levels = levelRecords.map(toAssessmentFrameworkLevel);
     const preAssessment = toAssessmentFrameworkPreAssessment(
-      preAssessmentRecord,
+      preAssessmentRecord, data.frameworkType,
     );
 
     return toAssessmentFramework(

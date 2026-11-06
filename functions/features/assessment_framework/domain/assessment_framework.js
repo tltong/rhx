@@ -150,7 +150,14 @@ class AssessmentFrameworkPreAssessment {
     numberOfQuestions,
     difficultySplit,
     scoreLevelSplit,
-  }) {
+    difficultyLevel,
+  }, frameworkType = "normal") {
+    if (frameworkType === "fillInTheBlanks") {
+      this.difficultyLevel = String(difficultyLevel ?? "medium").toLowerCase();
+      if (!["easy", "medium", "hard"].includes(this.difficultyLevel)) throw new Error("Unknown pre-assessment difficulty.");
+      this.scoreLevelSplit = normalizeScoreLevelSplit(scoreLevelSplit);
+      Object.freeze(this); return;
+    }
     this.numberOfQuestions = requirePositiveInteger(
       numberOfQuestions,
       "numberOfQuestions",
@@ -196,16 +203,22 @@ class AssessmentFramework {
     );
     this.preAssessment = preAssessment === null
       ? null
-      : preAssessment instanceof AssessmentFrameworkPreAssessment
-        ? preAssessment
-        : new AssessmentFrameworkPreAssessment(preAssessment);
+      : new AssessmentFrameworkPreAssessment(preAssessment, this.frameworkType);
 
     if (this.frameworkType === assessmentFrameworkTypes.ESSAY) {
       if (this.preAssessment) throw new Error("Essay frameworks do not use pre-assessment.");
       for (const level of this.levels) {
-        if (level.criteria.questionsPerPractice !== 1 || level.criteria.difficultyLevel.toLowerCase() !== "medium") throw new Error("Essay levels require one medium-difficulty question per practice.");
+        if (level.criteria.questionsPerPractice !== 1 || !["easy", "medium", "hard"].includes(level.criteria.difficultyLevel.toLowerCase())) throw new Error("Essay levels require one question per practice with Easy, Medium or Hard difficulty.");
         requirePositiveInteger(level.criteria.requiredPracticeCount, "requiredPracticeCount");
         normalizePercentage(level.criteria.minimumScore, "minimumScore");
+      }
+    }
+
+    if (this.frameworkType === assessmentFrameworkTypes.FILL_IN_THE_BLANKS) {
+      for (const level of this.levels) {
+        requirePositiveInteger(level.criteria.requiredPracticeCount, "requiredPracticeCount");
+        normalizePercentage(level.criteria.minimumScore, "minimumScore");
+        if (!["easy", "medium", "hard"].includes(level.criteria.difficultyLevel.toLowerCase())) throw new Error("Unknown fill-in-the-blanks difficulty.");
       }
     }
 

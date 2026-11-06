@@ -1,3 +1,4 @@
+const {normalizeQuestionSupport, normalizeImagePrompt} = require("./essay_question_support");
 const {ESSAY_QUESTION_GENERATOR_COLLECTION, ESSAY_QUESTION_LEVELS, ESSAY_QUESTION_STANDARDS, ESSAY_QUESTION_DIFFICULTIES} = require("../../../schema/essay_question_generator_schema");
 const {requireRecord, requireText, requireDate, normalizeWordCountRequirement} = require("./essay_question_generator_config");
 
@@ -28,8 +29,10 @@ function normalizeGenerationInput(input) {
 }
 function normalizeDraftInput(input) {
   return {...normalizeCriteria(input, {requireDifficulty: true}),
+    ...(input.support === undefined ? {} : {support: normalizeQuestionSupport(input.support)}),
     questionId: normalizeQuestionId(input.questionId),
     questionText: requireText(input.questionText, "questionText"),
+    ...(input.imagePrompt === undefined ? {} : {imagePrompt: normalizeImagePrompt(input.imagePrompt)}),
     seedUsed: requireText(input.seedUsed, "seedUsed"),
     wordCountRequirement: Object.freeze(normalizeWordCountRequirement(input.wordCountRequirement))};
 }
@@ -59,7 +62,10 @@ function normalizeGeneratedQuestion(response) {
     catch {throw new Error("Essay question LLM response must be valid JSON.");}
   }
   requireRecord(response, "Essay question LLM response");
-  return {questionText: requireText(response.questionText, "questionText")};
+  const question = {questionText: requireText(response.questionText, "questionText")};
+  // Optional image-prompt failures preserve the usable written question.
+  try {if (response.imagePrompt !== undefined) question.imagePrompt = normalizeImagePrompt(response.imagePrompt);} catch {}
+  return question;
 }
 function readQuestion(data, scope, questionId) {
   requireRecord(data, "Stored essay question");
@@ -67,8 +73,10 @@ function readQuestion(data, scope, questionId) {
     questionId: normalizeQuestionId(questionId), ...normalizeCriteria(scope),
     difficulty: normalizeDifficulty(data.difficulty),
     questionText: requireText(data.questionText, "questionText"),
+    ...(data.imagePrompt === undefined ? {} : {imagePrompt: normalizeImagePrompt(data.imagePrompt)}),
     seedUsed: requireText(data.seedUsed, "seedUsed"),
     wordCountRequirement: Object.freeze(normalizeWordCountRequirement(data.wordCountRequirement)),
+    ...(data.support === undefined ? {} : {support: normalizeQuestionSupport(data.support)}),
     generatedAt: requireDate(data.generatedAt, "generatedAt"),
   });
 }

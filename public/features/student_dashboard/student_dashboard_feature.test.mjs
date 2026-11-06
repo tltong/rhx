@@ -104,18 +104,18 @@ test("student dashboard combines progress and practice history", async () => {
     getSyllabusById: async () => ({
       id: "syllabus-1",
       subject: "Mathematics",
-      assessmentFrameworkId: "framework-1",
+      languages: ["English"],
       topics: [
         {
           id: "topic-1",
-          topicName: "Numbers",
+          topicName: "Numbers", assessmentFrameworkIds: {english: "framework-1"},
           preAssessmentPractices: {
             english: {language: "English", practiceId: "practice-1"},
           },
         },
         {
           id: "topic-2",
-          topicName: "Shapes",
+          topicName: "Shapes", assessmentFrameworkIds: {english: "framework-1"},
           preAssessmentPractices: {
             english: {language: "English", practiceId: "practice-2"},
           },
@@ -228,10 +228,10 @@ function dashboardFixture(
       {syllabusId: "science", language: "English"}
     ],
     getSyllabusById: async (id) => ({
-      id, subject: id, assessmentFrameworkId: "framework-1",
+      id, subject: id, languages: ["English"],
       topics: [
-        {id: "shared-topic", topicName: "Topic One", preAssessmentPractices: {}},
-        {id: "second-topic", topicName: "Topic Two", preAssessmentPractices: {}}
+        {id: "shared-topic", topicName: "Topic One", assessmentFrameworkIds: {english: "framework-1"}, preAssessmentPractices: {}},
+        {id: "second-topic", topicName: "Topic Two", assessmentFrameworkIds: {english: "framework-1"}, preAssessmentPractices: {}}
       ]
     }),
     listCompletedPractices: async () => [],
@@ -432,7 +432,7 @@ test("essay topics without an essay framework retain their grade and leave level
     getStudentById: async () => ({id: "student", name: "Student", level: "primary", country: "Malaysia", yearOfRegistration: 2026, standardAtYearOfRegistration: 3}),
     getStudentStreamSubscription: async () => null, getStreamById: async () => null,
     listActiveStudentSyllabusSubscriptions: async () => [{syllabusId: "language", language: "English"}],
-    getSyllabusById: async () => ({id: "language", subject: "English", topics: [{id: "writing", topicName: "Writing",
+    getSyllabusById: async () => ({id: "language", subject: "English", languages: ["English"], topics: [{id: "writing", topicName: "Writing",
       preAssessmentPractices: {english: {practiceId: "shared-essay-practice", practiceType: "essay", language: "English"}}}]}),
     listCompletedPractices: async () => [], getPracticeById: async () => assert.fail("No normal lookup"),
     listCompletedEssayPractices: async ({cursor}) => cursor ? {practices: [completion], nextCursor: null} : {practices: [], nextCursor: "next"},
@@ -445,8 +445,8 @@ test("essay topics without an essay framework retain their grade and leave level
   });
   const dashboard = await useCase.execute("student");
   const topic = dashboard.syllabuses[0].topics[0];
-  assert.equal(topic.preAssessmentState, "completed"); assert.equal(topic.currentLevelName, "Not applicable");
-  assert.equal(dashboard.syllabuses[0].error, null);
+  assert.equal(topic.currentLevelName, "Not determined");
+  assert.match(dashboard.syllabuses[0].error, /not configured/);
   assert.deepEqual(topic.completedPractices[0], {practiceId: "student-attempt", essayQuestionId: "essay-question", practiceType: "essay",
     dateCompleted: completion.completedAt, difficulty: null, score: 85});
   useCase.getEssayResult = async () => ({answer: "A different answer", score: 95});
@@ -495,3 +495,30 @@ for (const [savedLevel, expectedName, expectedPercentage] of [["level-1", "Start
     assert.deepEqual(levelReads[0], {studentId: "student", syllabusId: "language", topicId: "writing"});
   });
 }
+test("fill-in-the-blanks placement stays undetermined until its own pre-assessment is marked and placed", async () => {
+  let completions = [], savedLevel = null;
+  const useCase = new GetStudentDashboard({
+    getStudentById: async () => ({id: "student", name: "Student", level: "primary", country: "Malaysia", yearOfRegistration: 2026, standardAtYearOfRegistration: 3}),
+    getStudentStreamSubscription: async () => null, getStreamById: async () => null,
+    listActiveStudentSyllabusSubscriptions: async () => [{syllabusId: "language", language: "English"}],
+    getSyllabusById: async () => ({id: "language", subject: "English", languages: ["English"], assessmentFrameworkId: "fill-framework",
+      topics: [{id: "vocabulary", topicName: "Vocabulary", assessmentFrameworkIds: {english: "fill-framework"}, preAssessmentPractices: {english: {practiceId: "pre", practiceType: "fillInTheBlanks", language: "English"}}}]}),
+    getAssessmentFrameworkById: async () => ({...framework, id: "fill-framework", frameworkType: "fillInTheBlanks", preAssessment: {difficultyLevel: "medium"}}),
+    getFillInTheBlanksPracticeById: async () => ({id: "pre", type: "pre assessment"}),
+    listCompletedPractices: async () => [], getPracticeById: async () => assert.fail("No MCQ practice lookup"),
+    listCompletedFillInTheBlanksPractices: async () => ({practices: completions, nextCursor: null}),
+    getStudentTopicLevel: async () => savedLevel, getReadinessScore: async () => null, getSubjectReadinessScore: async () => null,
+    getTopicReliabilityScore: async () => null, getSubjectReliabilityScore: async () => null,
+    now: () => new Date("2026-10-18"), endLevelId: "endLevel",
+  });
+  const topic = async () => (await useCase.execute("student")).syllabuses[0].topics[0];
+  assert.equal((await topic()).currentLevelName, "Not determined");
+  completions = [{practiceId: "other", syllabusId: "language", topicId: "vocabulary", type: "assessment", difficulty: "easy", score: 80, completedAt: new Date("2026-10-18")}];
+  assert.equal((await topic()).preAssessmentState, "not-completed");
+  completions = [{...completions[0], practiceId: "pre", type: "pre assessment"}];
+  assert.equal((await topic()).currentLevelName, "Pending calculation");
+  savedLevel = "level-2";
+  assert.equal((await topic()).currentLevelName, "Developing");
+  completions = [];
+  assert.equal((await topic()).currentLevelName, "Developing", "Established progress survives a later template change");
+});

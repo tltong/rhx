@@ -1,13 +1,15 @@
-import {listCompletedEssayPractices} from "../student_essay_practice/student_essay_practice_module.js?v=20261018-essay-reuse-v1";
-import {getEssayPracticeById} from "../essay_practice/essay_practice_module.js?v=20261018-preassessment-essay-v1";
-import {getEssayResult} from "../essay_scoring/essay_scoring_module.js?v=20261018-essay-review-comment-v1";
+import {listCompletedFillInTheBlanksPractices} from "../student_fill_in_the_blanks_practice/student_fill_in_the_blanks_practice_module.js?v=20261104-fill-preassessment-v3";
+import {getFillInTheBlanksPracticeById} from "../fill_in_the_blanks_practice/fill_in_the_blanks_practice_module.js?v=20261104-fill-preassessment-v3";
+import {listCompletedEssayPractices} from "../student_essay_practice/student_essay_practice_module.js?v=20261104-fill-preassessment-v3";
+import {getEssayPracticeById} from "../essay_practice/essay_practice_module.js?v=20261104-fill-preassessment-v3";
+import {getEssayResult} from "../essay_scoring/essay_scoring_module.js?v=20261104-fill-preassessment-v3";
 /**
  * getStudentDashboard(studentId: string)
  *   -> Promise<{
  *     student: {id, name, country, level, currentGrade},
  *     stream: {id, name}|null,
  *     syllabuses: Array<{
- *       syllabusId, subject, language, frameworkName,
+ *       syllabusId, subject, language, frameworkNames,
  *       readinessScore: number|null, readinessUnavailable: boolean,
  *       reliabilityScore: number|null, reliabilityUnavailable: boolean,
  *       topics: Array<{
@@ -43,50 +45,50 @@ import {getEssayResult} from "../essay_scoring/essay_scoring_module.js?v=2026101
 import {
   ASSESSMENT_FRAMEWORK_END_LEVEL_ID,
   getAssessmentFrameworkById
-} from "../assessment_framework/assessment_framework_module.js?v=20261018-topic-framework-v1";
+} from "../assessment_framework/assessment_framework_module.js?v=20261105-mcq-adoption-v1";
 import {
   getPracticeById,
   practiceTypes
-} from "../practice/practice_module.js?v=20260824-completed-practices";
+} from "../practice/practice_module.js?v=20261104-fill-preassessment-v3";
 import {
   getQuestionDifficulty
-} from "../question/question_module.js?v=20260824-completed-practices";
+} from "../question/question_module.js?v=20261104-fill-preassessment-v3";
 import {
   getStudentById
-} from "../student/student_module.js?v=20261031-renewal-restart-v1";
+} from "../student/student_module.js?v=20261104-fill-preassessment-v3";
 import {
   getStudentTopicLevel
-} from "../student_assessment_progress/student_assessment_progress_module.js?v=20261018-essay-progression-v1";
+} from "../student_assessment_progress/student_assessment_progress_module.js?v=20261105-mcq-adoption-v1";
 import {
   getReadinessScore,
   getSubjectReadinessScore
-} from "../readiness/readiness_module.js?v=20261018-essay-reuse-v1";
+} from "../readiness/readiness_module.js?v=20261104-fill-preassessment-v3";
 import {
   getTopicReliabilityScore,
   getSubjectReliabilityScore
-} from "../reliability/reliability_module.js?v=20261018-essay-reuse-v1";
+} from "../reliability/reliability_module.js?v=20261104-fill-preassessment-v3";
 import {
   listCompletedPractices
-} from "../student_practice/student_practice_module.js?v=20261018-topic-reset-v1";
+} from "../student_practice/student_practice_module.js?v=20261104-fill-preassessment-v3";
 import {
   getStreamById
-} from "../stream/stream_module.js?v=20260823-student-dashboard-v1";
+} from "../stream/stream_module.js?v=20261104-fill-preassessment-v3";
 import {
   getStudentStreamSubscription
-} from "../stream_subscription/stream_subscription_module.js?v=20260823-student-dashboard-v1";
+} from "../stream_subscription/stream_subscription_module.js?v=20261104-fill-preassessment-v3";
 import {
   getSyllabusById
-} from "../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
+} from "../syllabus/syllabus_module.js?v=20261105-mcq-adoption-v1";
 import {
   listActiveStudentSyllabusSubscriptions
-} from "../syllabus_subscription/syllabus_subscription_module.js?v=20260823-student-dashboard-v1";
+} from "../syllabus_subscription/syllabus_subscription_module.js?v=20261104-fill-preassessment-v3";
 import {
   GetStudentDashboard
-} from "./application/get_student_dashboard.js?v=20261019-essay-level-display-v1";
+} from "./application/get_student_dashboard.js?v=20261105-mcq-adoption-v1";
 import {
   createSyllabusProgressPane,
   renderSyllabusProgressPane
-} from "./components/syllabus_progress_pane/syllabus_progress_pane.js?v=20261018-essay-session-v1";
+} from "./components/syllabus_progress_pane/syllabus_progress_pane.js?v=20261105-topic-framework-v1";
 
 const getStudentDashboardUseCase = new GetStudentDashboard({
   getStudentById,
@@ -95,7 +97,7 @@ const getStudentDashboardUseCase = new GetStudentDashboard({
   listActiveStudentSyllabusSubscriptions,
   getSyllabusById,
   listCompletedPractices,
-  listCompletedEssayPractices, getEssayPracticeById, getEssayResult,
+  listCompletedEssayPractices, listCompletedFillInTheBlanksPractices, getFillInTheBlanksPracticeById, getEssayPracticeById, getEssayResult,
   getPracticeById,
   getQuestionDifficulty,
   preAssessmentPracticeType: practiceTypes.PRE_ASSESSMENT,

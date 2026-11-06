@@ -111,3 +111,16 @@ test("HTTP errors correlate request IDs and hide provider secrets and raw respon
   assert.equal(res.statusCode, 502); assert.ok(res.payload.requestId);
   assert.equal(JSON.stringify([logs, res.payload]).includes("key-secret"), false);
 });
+test("passage pictures reuse the existing image endpoint and retain administrator authorization", async () => {
+  const calls = [];
+  const handler = createImageGenerationHandler({verifyToken: async () => ({uid: "admin"}),
+    apis: {createFillInTheBlanksPicture: async (input, context) => {calls.push({input, context}); return {storagePath: "picture.png"};}},
+    log: {info() {}, error() {}}});
+  const res = response();
+  await handler({method: "POST", headers: {authorization: "Bearer token"},
+    body: {action: "createFillInTheBlanksPicture", input: {passageId: "passage"}}}, res);
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(calls, [{input: {passageId: "passage"}, context: {updatedBy: "admin"}}]);
+  const {createFillInTheBlanksPicture} = require("../fill_in_the_blanks_question_generator/infrastructure/passage_picture_service");
+  await assert.rejects(createFillInTheBlanksPicture({passageId: "passage"}, {}), /Sign in/);
+});

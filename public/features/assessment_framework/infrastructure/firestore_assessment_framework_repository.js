@@ -2,8 +2,8 @@ import {
   AssessmentFramework,
   AssessmentFrameworkLevel,
   AssessmentFrameworkPreAssessment
-} from "../domain/assessment_framework.js?v=20261018-topic-framework-v1";
-import { AssessmentFrameworkRepository } from "../domain/assessment_framework_repository.js";
+} from "../domain/assessment_framework.js?v=20261105-mcq-adoption-v1";
+import { AssessmentFrameworkRepository } from "../domain/assessment_framework_repository.js?v=20261104-fill-preassessment-v3";
 import {
   ASSESSMENT_FRAMEWORKS_COLLECTION,
   ASSESSMENT_FRAMEWORK_END_LEVEL_ID,
@@ -12,7 +12,7 @@ import {
   ASSESSMENT_FRAMEWORK_PRE_ASSESSMENT_SUBCOLLECTION,
   assessmentFrameworkPreAssessmentDifficultyLevels,
   assessmentFrameworkPreAssessmentScoreBands
-} from "../../../config/firebase/assessment_framework_schema.js?v=20260730-score-bands";
+} from "../../../config/firebase/assessment_framework_schema.js?v=20261104-fill-preassessment-v3";
 import {
   createDocument,
   deleteDocument,
@@ -189,7 +189,7 @@ function normalizeScoreLevelSplit(scoreLevelSplit = {}, levelIds) {
   );
 }
 
-function normalizePreAssessment(preAssessment, levels) {
+function normalizePreAssessment(preAssessment, levels, frameworkType = "normal") {
   const levelIds = new Set(levels.map((level) => level.id));
 
   if (levelIds.size === 0) {
@@ -198,6 +198,10 @@ function normalizePreAssessment(preAssessment, levels) {
     );
   }
 
+  if (frameworkType === "fillInTheBlanks") return new AssessmentFrameworkPreAssessment({
+    difficultyLevel: preAssessment.difficultyLevel,
+    scoreLevelSplit: normalizeScoreLevelSplit(preAssessment.scoreLevelSplit, levelIds)
+  }, frameworkType);
   return new AssessmentFrameworkPreAssessment({
     numberOfQuestions: requirePositiveInteger(
       preAssessment.numberOfQuestions,
@@ -213,12 +217,12 @@ function normalizePreAssessment(preAssessment, levels) {
   });
 }
 
-function toAssessmentFrameworkPreAssessment(data, levels) {
+function toAssessmentFrameworkPreAssessment(data, levels, frameworkType) {
   return normalizePreAssessment({
     numberOfQuestions: data.numberOfQuestions,
     difficultySplit: data.difficultySplit,
-    scoreLevelSplit: data.scoreLevelSplit
-  }, levels);
+    scoreLevelSplit: data.scoreLevelSplit, difficultyLevel: data.difficultyLevel
+  }, levels, frameworkType);
 }
 
 function toAssessmentFramework(data, levels = [], preAssessment = null) {
@@ -256,6 +260,7 @@ function toAssessmentFrameworkLevelRecord(level) {
 }
 
 function toAssessmentFrameworkPreAssessmentRecord(preAssessment) {
+  if (preAssessment.difficultyLevel) return {difficultyLevel: preAssessment.difficultyLevel, scoreLevelSplit: {...preAssessment.scoreLevelSplit}};
   return {
     numberOfQuestions: preAssessment.numberOfQuestions,
     difficultySplit: { ...preAssessment.difficultySplit },
@@ -284,7 +289,7 @@ export class FirestoreAssessmentFrameworkRepository
     ]);
     const levels = normalizeLevels(levelRecords);
     const preAssessment = preAssessmentRecord
-      ? toAssessmentFrameworkPreAssessment(preAssessmentRecord, levels)
+      ? toAssessmentFrameworkPreAssessment(preAssessmentRecord, levels, data.frameworkType)
       : null;
 
     return toAssessmentFramework(data, levels, preAssessment);
@@ -302,12 +307,13 @@ export class FirestoreAssessmentFrameworkRepository
   }
 
   async save(assessmentFramework) {
+    if (assessmentFramework.frameworkType === "fillInTheBlanks") new AssessmentFramework({...assessmentFramework});
     if (assessmentFramework.frameworkType === "essay") {
       if (assessmentFramework.preAssessment) throw new Error("Essay frameworks do not use pre-assessment.");
       for (const level of assessmentFramework.levels || []) {
         const c = level.criteria;
         if (!Number.isInteger(c?.requiredPracticeCount) || c.requiredPracticeCount < 1 || !Number.isFinite(c.minimumScore) || c.minimumScore < 0 || c.minimumScore > 100
-            || c.questionsPerPractice !== 1 || String(c.difficultyLevel).toLowerCase() !== "medium") throw new Error("Essay levels require a positive essay count, score 0-100, and one medium-difficulty question.");
+            || c.questionsPerPractice !== 1 || !["easy", "medium", "hard"].includes(String(c.difficultyLevel).toLowerCase())) throw new Error("Essay levels require a positive essay count, score 0-100, and one question with Easy, Medium or Hard difficulty.");
       }
     }
     const frameworkRecord = toAssessmentFrameworkRecord(assessmentFramework);
@@ -334,13 +340,14 @@ export class FirestoreAssessmentFrameworkRepository
   }
 
   async replaceLevels(assessmentFramework) {
+    if (assessmentFramework.frameworkType === "fillInTheBlanks") new AssessmentFramework({...assessmentFramework});
     const levelsPath = getLevelsCollectionPath(assessmentFramework.id);
     const existingLevels = await readCollection(levelsPath);
     const normalizedLevels = normalizeLevels(assessmentFramework.levels || []);
     if (assessmentFramework.preAssessment) {
       normalizePreAssessment(
         assessmentFramework.preAssessment,
-        normalizedLevels
+        normalizedLevels, assessmentFramework.frameworkType
       );
     }
     const nextLevelIds = new Set(normalizedLevels.map((level) => level.id));
@@ -367,7 +374,7 @@ export class FirestoreAssessmentFrameworkRepository
     if (assessmentFramework.frameworkType === "essay") throw new Error("Essay frameworks do not use pre-assessment.");
     const normalizedPreAssessment = normalizePreAssessment(
       preAssessment,
-      assessmentFramework.levels || []
+      assessmentFramework.levels || [], assessmentFramework.frameworkType
     );
     const preAssessmentPath = getPreAssessmentCollectionPath(
       assessmentFramework.id

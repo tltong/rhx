@@ -22,9 +22,13 @@ function buildEssayScoringPrompt(question, answer, configuration = createDefault
     difficulty: question.difficulty,
     question: question.questionText,
     wordCountRequirement: question.wordCountRequirement ?? {minWords: null},
+    ...(question.support ? {
+      helpingSuggestions: question.support.helpingWords ?? [],
+    } : {}),
     answer,
   };
-  const replacements = {scoringInstructions: buildEssayScoringInstructions({level: question.level, grade: question.standard}, configuration),
+  const pictureRules = question.support ? "\n\nRequired picture composition rules: use the written question as the marking reference. Allow invented names, dialogue, feelings and surrounding events. Do not require specific objects or actions from the image or infer visual facts from generation prompts. Helping suggestions are optional; do not deduct marks for unused suggestions." : "";
+  const replacements = {scoringInstructions: buildEssayScoringInstructions({level: question.level, grade: question.standard}, configuration) + pictureRules,
     essayDataJson: JSON.stringify(reference, null, 2)};
   return ESSAY_SCORING_PROMPT_TEMPLATE.replace(/\{\{(scoringInstructions|essayDataJson)\}\}/g, (_match, key) => replacements[key]);
 }

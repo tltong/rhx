@@ -27,20 +27,21 @@
  * Web essay APIs require sign-in. No new Firebase callable endpoints.
  *
  */
-import {getEssayQuestionById} from "../essay_question_generator/essay_question_generator_module.js?v=20261017-essay-grade-min-words-v1";
+import {getEssayQuestionById, prepareEssayQuestionForAssignment} from "../essay_question_generator/essay_question_generator_module.js?v=20261104-fill-preassessment-v3";
 import {requireCurrentFirebaseAuthUser} from "../../utils/firebase/firebase_auth.js";
-import {FirestoreStudentEssayPracticeRepository} from "./infrastructure/firestore_student_essay_practice_repository.js?v=20261018-essay-reuse-v1";
-import {AssignEssayPracticeToStudent} from "./application/assign_essay_practice_to_student.js?v=20261018-essay-session-v1";
-import {CompleteAssignedEssayPractice} from "./application/complete_assigned_essay_practice.js?v=20261018-essay-session-v1";
-import {GetAssignedEssayPractice} from "./application/get_assigned_essay_practice.js?v=20261018-essay-session-v1";
-import {GetCompletedEssayPractice} from "./application/get_completed_essay_practice.js?v=20261018-essay-session-v1";
-import {ListAssignedEssayPractices} from "./application/list_assigned_essay_practices.js?v=20261018-essay-session-v1";
-import {ListCompletedEssayPractices} from "./application/list_completed_essay_practices.js?v=20261018-essay-session-v1";
+import {FirestoreStudentEssayPracticeRepository} from "./infrastructure/firestore_student_essay_practice_repository.js?v=20261104-fill-preassessment-v3";
+import {AssignEssayPracticeToStudent} from "./application/assign_essay_practice_to_student.js?v=20261101-essay-support-v1";
+import {CompleteAssignedEssayPractice} from "./application/complete_assigned_essay_practice.js?v=20261101-essay-support-v1";
+import {GetAssignedEssayPractice} from "./application/get_assigned_essay_practice.js?v=20261101-essay-support-v1";
+import {GetCompletedEssayPractice} from "./application/get_completed_essay_practice.js?v=20261101-essay-support-v1";
+import {ListAssignedEssayPractices} from "./application/list_assigned_essay_practices.js?v=20261101-essay-support-v1";
+import {ListCompletedEssayPractices} from "./application/list_completed_essay_practices.js?v=20261101-essay-support-v1";
 
 
 const studentEssayPracticeRepository = new FirestoreStudentEssayPracticeRepository();
 const assignEssayPracticeUseCase = new AssignEssayPracticeToStudent({
   repository: studentEssayPracticeRepository, getEssayQuestionById,
+  prepareQuestion: prepareEssayQuestionForAssignment,
 });
 const completeEssayPracticeUseCase = new CompleteAssignedEssayPractice(studentEssayPracticeRepository);
 const getAssignedEssayPracticeUseCase = new GetAssignedEssayPractice(studentEssayPracticeRepository);

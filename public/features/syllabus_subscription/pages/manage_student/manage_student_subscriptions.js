@@ -1,14 +1,14 @@
 import {
   getGuardianById,
   onGuardianAuthStateChanged
-} from "../../../guardian/guardian_module.js?v=20260827-guardian-access-v1";
+} from "../../../guardian/guardian_module.js?v=20261104-fill-preassessment-v3";
 import {
   getGuardianStudentLink,
   guardianStudentLinkStates
-} from "../../../guardian_student_link/guardian_student_link_module.js?v=20260827-guardian-access-v1";
+} from "../../../guardian_student_link/guardian_student_link_module.js?v=20261104-fill-preassessment-v3";
 import {
   getSyllabusById
-} from "../../../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
+} from "../../../syllabus/syllabus_module.js?v=20261104-fill-preassessment-v3";
 import {
   activateSyllabus,
   deactivateSyllabus,
@@ -16,7 +16,7 @@ import {
   listStudentSyllabusSubscriptions,
   subscribeSyllabus,
   unsubscribeSyllabus
-} from "../../syllabus_subscription_module.js?v=20260827-student-subscriptions-v1";
+} from "../../syllabus_subscription_module.js?v=20261104-fill-preassessment-v3";
 const GUARDIAN_SIGN_IN_URL =
   "/features/guardian/pages/sign_in/sign_in.html";
 

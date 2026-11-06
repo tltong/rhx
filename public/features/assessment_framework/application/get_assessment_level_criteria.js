@@ -85,6 +85,6 @@ export class GetAssessmentLevelCriteria {
       );
     }
 
-    return Object.freeze({...toAssessmentLevelCriteria(normalizedFrameworkId, level), ...(assessmentFramework.frameworkType === "essay" ? {frameworkType: "essay"} : {})});
+    return Object.freeze({...toAssessmentLevelCriteria(normalizedFrameworkId, level), ...(["essay", "fillInTheBlanks"].includes(assessmentFramework.frameworkType) ? {frameworkType: assessmentFramework.frameworkType} : {})});
   }
 }

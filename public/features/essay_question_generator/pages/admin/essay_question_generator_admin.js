@@ -1,9 +1,9 @@
 import {
   ESSAY_QUESTION_LEVELS, ESSAY_QUESTION_STANDARDS, ESSAY_QUESTION_DIFFICULTIES,
   createDefaultConfiguration, getEssayQuestionGeneratorConfig, saveEssayQuestionGeneratorConfig,
-} from "../../essay_question_generator_module.js?v=20261017-essay-grade-min-words-v1";
-import {normalizeConfiguration} from "../../domain/essay_question_generator_config.js?v=20261017-essay-grade-min-words-v1";
-import {mountEssayQuestionDemo} from "./essay_question_demo.js?v=20261017-essay-grade-min-words-v1";
+} from "../../essay_question_generator_module.js?v=20261104-fill-preassessment-v3";
+import {normalizeConfiguration} from "../../domain/essay_question_generator_config.js?v=20261101-essay-simple-images-v4";
+import {mountEssayQuestionDemo} from "./essay_question_demo.js?v=20261104-fill-preassessment-v3";
 
 export function mountEssayQuestionGeneratorAdmin({
   root = document, getConfig = getEssayQuestionGeneratorConfig, saveConfig = saveEssayQuestionGeneratorConfig,
@@ -16,7 +16,7 @@ export function mountEssayQuestionGeneratorAdmin({
   const updatedAt = byId("essay-updated-at");
   const saveButton = byId("essay-save-config");
   const retryButton = byId("essay-retry-load");
-  const grades = new Map(), wordCounts = new Map(), difficulties = new Map(), listeners = [];
+  const supports = new Map(), grades = new Map(), wordCounts = new Map(), difficulties = new Map(), listeners = [];
   let busy = false, loaded = false, disposed = false, dirty = false, demoBusy = false;
   let demo = null;
   function listen(element, event, handler) {
@@ -64,12 +64,25 @@ export function mountEssayQuestionGeneratorAdmin({
     field.error.textContent = message; field.error.hidden = valid;
     return valid;
   }
+  function addSupport(level, standard, container) {
+    const fields = {};
+    for (const [key, title, type] of [["pictureEnabled", "Include a generated picture", "checkbox"],
+      ["helpingWordsEnabled", "Include helping suggestions", "checkbox"], ["helpingWordCount", "Number of suggestions (words or short phrases)", "number"]]) {
+      const label = root.createElement("label"), input = root.createElement("input");
+      input.id = "essay-" + level + "-grade-" + standard + "-" + key;
+      input.type = type; input.disabled = true; label.setAttribute("for", input.id);
+      if (type === "number") {input.min = "1"; input.max = "30"; input.step = "1";}
+      label.textContent = title; container.append(label, input); fields[key] = input;
+    }
+    supports.set(level + ":" + standard, fields);
+  }
   for (const level of Object.values(ESSAY_QUESTION_LEVELS)) {
     const fields = new Map(), counts = new Map();
     for (const standard of ESSAY_QUESTION_STANDARDS) {
       const minimum = addMinimumWords(level, standard);
       fields.set(standard, addInstruction(byId("essay-" + level + "-instructions"),
         "essay-" + level + "-grade-" + standard, "Grade " + standard, minimum.element));
+      addSupport(level, standard, minimum.element);
       counts.set(standard, minimum);
     }
     grades.set(level, fields);
@@ -81,9 +94,10 @@ export function mountEssayQuestionGeneratorAdmin({
   }
   const minimumFields = [...wordCounts.values()].flatMap(fields => [...fields.values()]);
   const inputs = [common, ...[...grades.values()].flatMap(fields => [...fields.values()]), ...difficulties.values(),
-    ...minimumFields.map(field => field.input)];
+    ...minimumFields.map(field => field.input), ...[...supports.values()].flatMap(fields => Object.values(fields))];
   function updateControls() {
     for (const input of inputs) input.disabled = disposed || busy || demoBusy || !loaded;
+    for (const fields of supports.values()) fields.helpingWordCount.disabled ||= !fields.helpingWordsEnabled.checked;
     saveButton.disabled = disposed || busy || demoBusy || !loaded;
     retryButton.disabled = disposed || busy || demoBusy;
     form.setAttribute("aria-busy", String(busy));
@@ -100,11 +114,23 @@ export function mountEssayQuestionGeneratorAdmin({
       const value = values.gradeWordCountRequirements[level][standard].minWords;
       field.input.value = value === null ? "" : String(value); validateMinimum(field);
     }
+    for (const [key, fields] of supports) {
+      const [level, standard] = key.split(":"); const support = values.gradeSupport[level][standard];
+      fields.pictureEnabled.checked = support.pictureEnabled;
+      fields.helpingWordsEnabled.checked = support.helpingWordsEnabled;
+      fields.helpingWordCount.value = String(support.helpingWordCount);
+    }
     updatedAt.textContent = config ? "Last saved: " + config.updatedAt.toLocaleString() : "Never saved";
     dirty = false;
   }
   function readForm() {
     return normalizeConfiguration({
+      gradeSupport: Object.fromEntries(Object.values(ESSAY_QUESTION_LEVELS).map(level => [level,
+        Object.fromEntries(ESSAY_QUESTION_STANDARDS.map(standard => {
+          const fields = supports.get(level + ":" + standard);
+          return [standard, {pictureEnabled: fields.pictureEnabled.checked, helpingWordsEnabled: fields.helpingWordsEnabled.checked,
+            helpingWordCount: Number(fields.helpingWordCount.value)}];
+        }))])),
       additionalLlmInstructions: common.value,
       gradeInstructions: Object.fromEntries([...grades].map(([level, fields]) =>
         [level, Object.fromEntries([...fields].map(([standard, input]) => [standard, input.value]))])),

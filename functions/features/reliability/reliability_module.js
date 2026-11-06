@@ -1,3 +1,4 @@
+const {listCompletedFillInTheBlanksPractices} = require("../student_fill_in_the_blanks_practice/student_fill_in_the_blanks_practice_module");
 /**
  * Feature APIs; none are Firebase callable endpoints.
  * getReliabilityConfig() -> Promise<ReliabilityConfig|null>
@@ -49,7 +50,7 @@ const saveTopic = new SaveTopicReliabilityScore(scoreRepository);
 const getSubject = new GetSubjectReliabilityScore(scoreRepository);
 const saveSubject = new SaveSubjectReliabilityScore(scoreRepository);
 const calculateTopic = new CalculateTopicReliabilityScore({
-  getReliabilityConfig, getSyllabusById, listCompletedPracticeIds, getPracticeById, listCompletedEssayPractices,
+  getReliabilityConfig, getSyllabusById, listCompletedPracticeIds, getPracticeById, listCompletedEssayPractices, listCompletedFillInTheBlanksPractices,
 });
 const calculateSubject = new CalculateSubjectReliabilityScore({
   getSyllabusById, getTopicReliabilityScore,

@@ -1,5 +1,5 @@
-import {ESSAY_SCORING_LEVELS, ESSAY_SCORING_GRADES} from "../../../config/firebase/essay_scoring_schema.js?v=20261020-scoring-config-v1";
-import {DEFAULT_ESSAY_MARKING_INSTRUCTIONS} from "../config/essay_scoring_prompt_template.js?v=20261020-scoring-config-v1";
+import {ESSAY_SCORING_LEVELS, ESSAY_SCORING_GRADES} from "../../../config/firebase/essay_scoring_schema.js?v=20261104-fill-preassessment-v3";
+import {DEFAULT_ESSAY_MARKING_INSTRUCTIONS} from "../config/essay_scoring_prompt_template.js?v=20261104-fill-preassessment-v3";
 
 function requireRecord(value, name) {
   if (!value || typeof value !== "object" || Array.isArray(value)

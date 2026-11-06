@@ -1,12 +1,12 @@
-export function fillFrameworkSelect(select, frameworks, selectedId = "", {documentRef = document, placeholder = "Use syllabus default"} = {}) {
+export function fillFrameworkSelect(select, frameworks, selectedId = "", {documentRef = document, placeholder = "Select topic framework"} = {}) {
   select.replaceChildren();
   const defaultOption = documentRef.createElement("option");
   defaultOption.value = "";
   defaultOption.textContent = placeholder;
   select.append(defaultOption);
-  for (const type of ["normal", "essay"]) {
+  for (const type of ["normal", "essay", "fillInTheBlanks"]) {
     const group = documentRef.createElement("optgroup");
-    group.label = type === "essay" ? "Essay" : "Normal";
+    group.label = type === "essay" ? "Essay" : type === "fillInTheBlanks" ? "Fill in the blanks" : "Multiple choice";
     for (const framework of frameworks.filter(item => (item.frameworkType || "normal") === type)) {
       const option = documentRef.createElement("option");
       option.value = framework.id; option.textContent = framework.name;

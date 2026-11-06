@@ -3,7 +3,7 @@
  * No new Firebase endpoints and no dependency on Question Seed Generator.
  *
  * getEssayQuestionGeneratorConfig() -> Promise<Config|null>
- * saveEssayQuestionGeneratorConfig({additionalLlmInstructions, gradeInstructions, difficultyInstructions, gradeWordCountRequirements})
+ * saveEssayQuestionGeneratorConfig({additionalLlmInstructions, gradeInstructions, difficultyInstructions, gradeWordCountRequirements, gradeSupport})
  *   -> Promise<Config>. Replaces the complete config; missing instructions default to "", minimums to null.
  *   gradeWordCountRequirements: {primary: {"1".."6": {minWords}}, secondary: {"1".."6": {minWords}}}.
  * generateEssayQuestion({level, standard, language, difficulty, seed, save?}) -> Promise<EssayQuestion|EssayQuestionDraft>
@@ -12,7 +12,7 @@
  *   save defaults to true. false returns a draft with an allocated questionId and no writes.
  * saveEssayQuestion(draft, context) -> Promise<EssayQuestion>
  *   Saves the draft and lookup atomically. Retrying an identical draft does not duplicate it.
- *   Draft: {questionId, level, standard, language, difficulty, questionText, seedUsed, wordCountRequirement}.
+ *   Draft: {questionId, level, standard, language, difficulty, questionText, imagePrompt?, seedUsed, wordCountRequirement}.
  *   wordCountRequirement: {minWords: positive safe integer|null}; retained from generation, not recomputed on save.
  * getEssayQuestionById(questionId) -> Promise<EssayQuestion|null>
  * listEssayQuestions({level, standard, language, difficulty?, limit, cursor?})
@@ -22,7 +22,11 @@
  *   Uniform reservoir sampling scans all matches in bounded pages.
  *
  * level: primary|secondary; standard: integer 1-6; difficulty: easy|medium|hard.
- * EssayQuestion: {questionId, level, standard, language, difficulty, questionText, seedUsed, wordCountRequirement, generatedAt}.
+ * EssayQuestion: {questionId, level, standard, language, difficulty, questionText, imagePrompt?, seedUsed, wordCountRequirement, generatedAt}.
+ * prepareEssayQuestionForAssignment(questionId) -> compatible immutable question for a new assignment.
+ * Optional support is configured per level/standard, generated once, saved and reused with the question.
+ * The question and optional imagePrompt are generated together in one text call. No image inspection call.
+ * Picture and suggestion failures independently fall back to the complete written task.
  * Config: common instructions + primary/secondary grades 1-6 + easy/medium/hard instructions,
  *   updatedAt and updatedBy. Defaults are read-only until explicitly saved.
  * Older configs, drafts and questions without word-count fields read as minWords: null without writes.
@@ -48,7 +52,8 @@ const generateEssayLlmText = generateLlmText;
 const repository = new FirestoreEssayQuestionGeneratorRepository();
 const getConfig = new GetEssayQuestionGeneratorConfig(repository);
 const saveConfig = new SaveEssayQuestionGeneratorConfig(repository, requireAdministrator);
-const generateQuestion = new GenerateEssayQuestion({repository, requireAdministrator, generateLlmText: generateEssayLlmText});
+const generateQuestion = new GenerateEssayQuestion({repository, requireAdministrator, generateLlmText: generateEssayLlmText,
+  createPicture: input => require("./infrastructure/essay_picture_service").createEssayPicture(input, {trusted: true})});
 const saveQuestion = new SaveEssayQuestion(repository, requireAdministrator);
 const getQuestion = new GetEssayQuestionById(repository);
 const listQuestions = new ListEssayQuestions(repository);
@@ -59,7 +64,10 @@ async function saveEssayQuestionGeneratorConfig(input, context) {return saveConf
 async function generateEssayQuestion(input, context) {return generateQuestion.execute(input, context);}
 async function saveEssayQuestion(input, context) {return saveQuestion.execute(input, context);}
 async function getEssayQuestionById(questionId) {return getQuestion.execute(questionId);}
+async function prepareEssayQuestionForAssignment(questionId, context) {
+  return require("./application/prepare_essay_question").prepareEssayQuestion({questionId}, context);
+}
 async function listEssayQuestions(input) {return listQuestions.execute(input);}
 async function getRandomEssayQuestion(input) {return getRandomQuestion.execute(input);}
 
-module.exports = {ESSAY_QUESTION_LEVELS, ESSAY_QUESTION_STANDARDS, ESSAY_QUESTION_DIFFICULTIES, createDefaultConfiguration, getEssayQuestionGeneratorConfig, saveEssayQuestionGeneratorConfig, generateEssayQuestion, saveEssayQuestion, getEssayQuestionById, listEssayQuestions, getRandomEssayQuestion};
+module.exports = {ESSAY_QUESTION_LEVELS, ESSAY_QUESTION_STANDARDS, ESSAY_QUESTION_DIFFICULTIES, createDefaultConfiguration, getEssayQuestionGeneratorConfig, saveEssayQuestionGeneratorConfig, generateEssayQuestion, saveEssayQuestion, getEssayQuestionById, listEssayQuestions, getRandomEssayQuestion, prepareEssayQuestionForAssignment};

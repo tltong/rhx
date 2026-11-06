@@ -20,7 +20,7 @@ const studentAssessmentProgressSchema = {
         syllabusId: "string", topicId: "string", assessmentFrameworkId: "string",
         previousLevelId: "string|null", levelId: "string", reachedLevelIds: "string[]",
         assessed: "boolean", levelChanged: "boolean", isFrameworkCompleted: "boolean",
-        practiceType: "string", score: "number", reason: "string|null", levelName: "string|null",
+        practiceType: "string", assessmentType: "assessment|pre assessment (optional)", score: "number", reason: "string|null", levelName: "string|null",
         assessedAt: "timestamp",
         eligiblePracticeCount: "integer (optional)", qualifyingPracticeCount: "integer (optional)",
         requiredPracticeCount: "integer (optional)", minimumScore: "number (optional)",

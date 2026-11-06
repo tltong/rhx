@@ -1,27 +1,28 @@
-import {watchStudentEssayPracticeUpdates} from "../../../student_essay_practice/student_essay_practice_module.js?v=20261018-essay-reuse-v1";
-import {EssayPracticeRefreshController} from "./essay_practice_refresh_controller.js?v=20261018-additional-essay-v1";
+import {watchStudentFillInTheBlanksPracticeUpdates} from "../../../student_fill_in_the_blanks_practice/student_fill_in_the_blanks_practice_module.js?v=20261104-fill-preassessment-v3";
+import {watchStudentEssayPracticeUpdates} from "../../../student_essay_practice/student_essay_practice_module.js?v=20261104-fill-preassessment-v3";
+import {EssayPracticeRefreshController} from "./essay_practice_refresh_controller.js?v=20261104-fill-preassessment-v3";
 import {
   clearCurrentStudent,
   onStudentAuthStateChanged,
   signOutStudent
-} from "../../student_module.js?v=20261031-renewal-restart-v1";
+} from "../../student_module.js?v=20261104-fill-preassessment-v3";
 import {
   getStudentDashboard
-} from "../../../student_dashboard/student_dashboard_module.js?v=20261019-essay-level-display-v1";
+} from "../../../student_dashboard/student_dashboard_module.js?v=20261105-mcq-adoption-v1";
 import {
   recordStudentLogin
-} from "../../../student_login/student_login_module.js?v=20261010-login-rewards-v1";
+} from "../../../student_login/student_login_module.js?v=20261104-fill-preassessment-v3";
 import {
   DEFAULT_REWARD_CONFIG,
   getRewardConfig,
   listRecentStudentRewardActivities,
   watchStudentRewardTotal
-} from "../../../reward/reward_module.js?v=20261018-essay-progression-v1";
+} from "../../../reward/reward_module.js?v=20261104-fill-preassessment-v3";
 import {
   completionProcessingStages,
   completionProcessingStatuses,
   watchPracticeCompletionProcessing
-} from "../../../student_practice/student_practice_module.js?v=20261018-topic-reset-v1";
+} from "../../../student_practice/student_practice_module.js?v=20261104-fill-preassessment-v3";
 import {
   acceptAdditionalDailyMission,
   acceptCoreDailyMission,
@@ -31,25 +32,25 @@ import {
   getAdditionalMissionAvailability,
   pauseCoreDailyMission,
   unpauseTopic
-} from "../../../daily_mission/daily_mission_module.js?v=20261018-essay-reuse-v1";
+} from "../../../daily_mission/daily_mission_module.js?v=20261104-fill-preassessment-v3";
 import {
   isTopicPausable
-} from "../../../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
+} from "../../../syllabus/syllabus_module.js?v=20261105-mcq-adoption-v1";
 import {
   getPracticeById
-} from "../../../practice/practice_module.js?v=20260824-completed-practices";
+} from "../../../practice/practice_module.js?v=20261104-fill-preassessment-v3";
 import {
   DailyMissionSection
-} from "../../../daily_mission/components/daily_mission_section/daily_mission_section.js?v=20261020-essay-mission-label-v1";
+} from "../../../daily_mission/components/daily_mission_section/daily_mission_section.js?v=20261104-fill-firestore-v2";
 import {
   AdditionalMissionSection
-} from "../../../daily_mission/components/additional_mission_section/additional_mission_section.js?v=20261018-additional-essay-v1";
+} from "../../../daily_mission/components/additional_mission_section/additional_mission_section.js?v=20261104-fill-firestore-v2";
 import {
   CompletionProcessingRefreshController
-} from "./completion_processing_refresh_controller.js?v=20261009-reliability-landing-v1";
+} from "./completion_processing_refresh_controller.js?v=20261104-fill-preassessment-v3";
 import {
   StudentCoinBalanceController
-} from "./student_coin_balance_controller.js?v=20261013-recent-reward-activities-v1";
+} from "./student_coin_balance_controller.js?v=20261104-fill-preassessment-v3";
 
 const INDEX_URL = "/index.html";
 const COMPLETED_PRACTICE_QUERY_PARAMETER = "completedPracticeId";
@@ -271,6 +272,7 @@ function createHistoryField(label, value) {
 }
 
 function getPracticeHistoryType(practice) {
+  if (practice.practiceType === "fillInTheBlanks") return "Fill-in-the-blanks assessment";
   if (practice.practiceType === "essay") return "Essay assessment";
   if (practice.practiceType === "pre assessment") {
     return "First assessment";
@@ -318,7 +320,9 @@ function createCompletedPracticeHistory(
 
     item.className = "practice-history-item";
     action.className = "history-result-link";
-    action.href = practice.practiceType === "essay"
+    action.href = practice.practiceType === "fillInTheBlanks"
+      ? "/features/fill_in_the_blanks_practice_session/pages/practice/fill_in_the_blanks_practice.html?practiceId=" + encodeURIComponent(practice.practiceId)
+      : practice.practiceType === "essay"
       ? "/features/essay_practice_session/pages/essay_practice/essay_practice.html?essayPracticeId=" + encodeURIComponent(practice.practiceId)
       : createPracticeResultUrl(studentId, practice.practiceId);
     action.textContent = "View result";
@@ -697,11 +701,17 @@ const essayPracticeRefreshController = new EssayPracticeRefreshController({
   onError: error => console.error("Could not refresh essay mission availability.", error),
 });
 
+const fillInTheBlanksRefreshController = new EssayPracticeRefreshController({
+  watchUpdates: watchStudentFillInTheBlanksPracticeUpdates, refreshDashboard: loadAndRenderDashboard,
+  onError: error => console.error("Could not refresh fill-in-the-blanks availability.", error),
+});
+
 async function handleAuthState(authUser) {
   if (!authUser) {
     authenticatedStudentId = null;
     studentCoinBalanceController.stop();
     essayPracticeRefreshController.stop();
+    fillInTheBlanksRefreshController.stop();
     completionProcessingRefreshController.stop();
     window.location.replace(INDEX_URL);
     return;
@@ -714,6 +724,7 @@ async function handleAuthState(authUser) {
   studentCoinBalanceController.stop();
 
   essayPracticeRefreshController.stop();
+    fillInTheBlanksRefreshController.stop();
   completionProcessingRefreshController.stop();
   authenticatedStudentId = authUser.uid;
   setStatus("Loading your dashboard...");
@@ -728,6 +739,7 @@ async function handleAuthState(authUser) {
     }
     studentCoinBalanceController.start({studentId: authUser.uid});
     essayPracticeRefreshController.start(authUser.uid);
+    fillInTheBlanksRefreshController.start(authUser.uid);
 
     void recordStudentLogin({studentId: authUser.uid}).catch((error) => {
       console.error("Could not record the student login.", error);
@@ -773,6 +785,7 @@ logOffButton.addEventListener("click", async () => {
     await signOutStudent();
     studentCoinBalanceController.stop();
     essayPracticeRefreshController.stop();
+    fillInTheBlanksRefreshController.stop();
     clearCurrentStudent();
     window.location.replace(INDEX_URL);
   } catch (error) {
@@ -785,5 +798,6 @@ logOffButton.addEventListener("click", async () => {
 window.addEventListener("beforeunload", () => {
   studentCoinBalanceController.stop();
   essayPracticeRefreshController.stop();
+    fillInTheBlanksRefreshController.stop();
   completionProcessingRefreshController.stop();
 });

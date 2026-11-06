@@ -1,3 +1,4 @@
+import {listCompletedFillInTheBlanksPractices} from "../student_fill_in_the_blanks_practice/student_fill_in_the_blanks_practice_module.js?v=20261104-fill-preassessment-v3";
 /**
  * Feature APIs; none are Firebase callable endpoints.
  * getReliabilityConfig() -> Promise<ReliabilityConfig|null>
@@ -24,23 +25,23 @@
  * SubjectReliabilityScore: {score, updatedAt: Date}
  */
 /** Reads and score APIs require a signed-in user. Configuration writes require a site administrator. */
-import {DEFAULT_PERCENTAGE_PER_PRACTICE} from "../../config/firebase/reliability_schema.js?v=20261008-reliability-v1";
-import {FirestoreReliabilityConfigRepository} from "./infrastructure/firestore_reliability_config_repository.js?v=20261008-reliability-v1";
-import {FirestoreReliabilityScoreRepository} from "./infrastructure/firestore_reliability_score_repository.js?v=20261008-reliability-v1";
-import {getSyllabusById} from "../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
-import {listCompletedPracticeIds} from "../student_practice/student_practice_module.js?v=20261018-topic-reset-v1";
-import {listCompletedEssayPractices} from "../student_essay_practice/student_essay_practice_module.js?v=20261018-essay-reuse-v1";
-import {getPracticeById} from "../practice/practice_module.js?v=20260824-completed-practices";
+import {DEFAULT_PERCENTAGE_PER_PRACTICE} from "../../config/firebase/reliability_schema.js?v=20261104-fill-preassessment-v3";
+import {FirestoreReliabilityConfigRepository} from "./infrastructure/firestore_reliability_config_repository.js?v=20261104-fill-preassessment-v3";
+import {FirestoreReliabilityScoreRepository} from "./infrastructure/firestore_reliability_score_repository.js?v=20261104-fill-preassessment-v3";
+import {getSyllabusById} from "../syllabus/syllabus_module.js?v=20261104-fill-preassessment-v3";
+import {listCompletedPracticeIds} from "../student_practice/student_practice_module.js?v=20261104-fill-preassessment-v3";
+import {listCompletedEssayPractices} from "../student_essay_practice/student_essay_practice_module.js?v=20261104-fill-preassessment-v3";
+import {getPracticeById} from "../practice/practice_module.js?v=20261104-fill-preassessment-v3";
 import {requireCurrentSiteAdmin} from "../site_admin/site_admin_module.js?v=20260827-site-admin-guard-v1";
 import {requireCurrentFirebaseAuthUser} from "../../utils/firebase/firebase_auth.js";
-import {GetReliabilityConfig} from "./application/get_reliability_config.js?v=20261008-reliability-v1";
-import {SaveReliabilityConfig} from "./application/save_reliability_config.js?v=20261008-reliability-v1";
-import {CalculateTopicReliabilityScore} from "./application/calculate_topic_reliability_score.js?v=20261018-essay-completion-metrics-v1";
-import {CalculateSubjectReliabilityScore} from "./application/calculate_subject_reliability_score.js?v=20261008-reliability-v1";
-import {SaveTopicReliabilityScore} from "./application/save_topic_reliability_score.js?v=20261008-reliability-v1";
-import {GetTopicReliabilityScore} from "./application/get_topic_reliability_score.js?v=20261008-reliability-v1";
-import {SaveSubjectReliabilityScore} from "./application/save_subject_reliability_score.js?v=20261008-reliability-v1";
-import {GetSubjectReliabilityScore} from "./application/get_subject_reliability_score.js?v=20261008-reliability-v1";
+import {GetReliabilityConfig} from "./application/get_reliability_config.js?v=20261104-fill-preassessment-v3";
+import {SaveReliabilityConfig} from "./application/save_reliability_config.js?v=20261104-fill-preassessment-v3";
+import {CalculateTopicReliabilityScore} from "./application/calculate_topic_reliability_score.js?v=20261104-fill-preassessment-v3";
+import {CalculateSubjectReliabilityScore} from "./application/calculate_subject_reliability_score.js?v=20261104-fill-preassessment-v3";
+import {SaveTopicReliabilityScore} from "./application/save_topic_reliability_score.js?v=20261104-fill-preassessment-v3";
+import {GetTopicReliabilityScore} from "./application/get_topic_reliability_score.js?v=20261104-fill-preassessment-v3";
+import {SaveSubjectReliabilityScore} from "./application/save_subject_reliability_score.js?v=20261104-fill-preassessment-v3";
+import {GetSubjectReliabilityScore} from "./application/get_subject_reliability_score.js?v=20261104-fill-preassessment-v3";
 
 const configRepository = new FirestoreReliabilityConfigRepository();
 const scoreRepository = new FirestoreReliabilityScoreRepository();
@@ -51,7 +52,7 @@ const saveTopic = new SaveTopicReliabilityScore(scoreRepository);
 const getSubject = new GetSubjectReliabilityScore(scoreRepository);
 const saveSubject = new SaveSubjectReliabilityScore(scoreRepository);
 const calculateTopic = new CalculateTopicReliabilityScore({
-  getReliabilityConfig, getSyllabusById, listCompletedPracticeIds, getPracticeById, listCompletedEssayPractices,
+  getReliabilityConfig, getSyllabusById, listCompletedPracticeIds, getPracticeById, listCompletedEssayPractices, listCompletedFillInTheBlanksPractices,
 });
 const calculateSubject = new CalculateSubjectReliabilityScore({
   getSyllabusById, getTopicReliabilityScore,

@@ -1,16 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {mountEssayQuestionDemo} from "./essay_question_demo.js";
+import {ESSAY_IMAGE_PROMPT_INSTRUCTIONS} from "../../config/essay_question_prompt_template.js";
+import {mountEssayQuestionDemo} from "./essay_question_demo.js?v=20261104-fill-preassessment-v3";
 
 class Element {
   constructor() {
     this.value = ""; this.textContent = ""; this.hidden = false; this.disabled = false; this.children = [];
-    this.listeners = new Map(); this.attributes = new Map(); this.classes = new Set();
+    this.style = {}; this.dataset = {}; this.listeners = new Map(); this.attributes = new Map(); this.classes = new Set();
     this.classList = {toggle: (name, active) => active ? this.classes.add(name) : this.classes.delete(name)};
   }
   addEventListener(event, callback) {this.listeners.set(event, callback);}
   removeEventListener(event, callback) {if (this.listeners.get(event) === callback) this.listeners.delete(event);}
   setAttribute(name, value) {this.attributes.set(name, value);}
+  append(...children) {this.children.push(...children);}
   replaceChildren(...children) {this.children = children;}
   async edit(value, event = "change") {
     assert.equal(this.disabled, false, "Cannot edit disabled field");
@@ -20,7 +22,7 @@ class Element {
   async submit() {return this.listeners.get("submit")?.({preventDefault() {}});}
 }
 const names = ["panel", "form", "help", "level", "standard", "language", "difficulty", "seed", "language-status",
-  "reload-languages", "get-seed", "generate", "progress", "status", "result", "result-meta", "preview", "save-question"];
+  "reload-languages", "get-seed", "generate", "progress", "status", "result", "result-meta", "preview", "save-question", "support", "picture-heading", "picture-status", "helping-status", "image-prompts", "image-prompts-note", "image-prompt-instructions", "image-prompt"];
 const combined = "Theme: Friendship\nSetting: School\nType: Narrative";
 const asDraft = input => ({questionId: "draft-1", level: input.level, standard: input.standard,
   language: input.language, difficulty: input.difficulty, seedUsed: input.seed, questionText: "Write about a surprising act of friendship.",
@@ -228,4 +230,132 @@ test("disposed demos ignore late language, seed, generation and save responses",
     assert.equal(h.get("preview").value, previous);
     assert.equal(h.get("generate").disabled, true); assert.equal(h.get("save-question").disabled, true);
   }
+});
+
+function withPicture(input, pictureStatus = "ready") {
+  return {...asDraft(input), support: {version: 1,
+    settings: {pictureEnabled: pictureStatus !== "disabled", helpingWordsEnabled: false, helpingWordCount: 5},
+    pictureStatus, picture: pictureStatus === "ready" ? {storagePath: "essay-question-images/draft-1.png",
+      url: "https://firebasestorage.googleapis.com/v0/b/example/o/picture.png?alt=media&token=test",
+      description: "Children help a friend in a school playground."} : null,
+    helpingWordsStatus: "disabled", helpingWords: []}};
+}
+
+test("generation preview displays the applicable picture and keeps it with the saved question", async () => {
+  const h = harness({generateQuestion: async input => withPicture(input)});
+  try {
+    await h.readyInput(); await h.get("form").submit();
+    assert.equal(h.get("picture-heading").hidden, false);
+    assert.equal(h.get("picture-status").hidden, true);
+    const image = h.get("support").children[0].children[0].children[0];
+    assert.equal(image.src, withPicture(h.calls.generations[0]).support.picture.url);
+    assert.equal(image.alt, "Children help a friend in a school playground.");
+    image.onload();
+    await h.get("save-question").click();
+    assert.deepEqual(h.calls.saves[0].support.picture, withPicture(h.calls.generations[0]).support.picture);
+    assert.equal(h.get("support").children[0].children[0].children[0], image);
+  } finally {h.page.dispose();}
+});
+
+test("a later text-only generation removes the previous picture and explains the applicable setting or failure", async () => {
+  let state = "ready";
+  const h = harness({generateQuestion: async input => withPicture(input, state)});
+  try {
+    await h.readyInput(); await h.get("form").submit();
+    assert.equal(h.get("support").children.length, 1);
+    state = "failed"; await h.get("form").submit();
+    assert.equal(h.get("support").children.length, 0); assert.equal(h.get("picture-heading").hidden, true);
+    assert.match(h.get("picture-status").textContent, /could not be generated/);
+    assert.equal(h.get("save-question").disabled, false);
+    state = "disabled"; await h.get("form").submit();
+    assert.equal(h.get("support").children.length, 0);
+    assert.match(h.get("picture-status").textContent, /Enable pictures in the grade settings/);
+  } finally {h.page.dispose();}
+});
+
+test("changing generation parameters clears image content and the next preview renders the picture again", async () => {
+  const h = harness({generateQuestion: async input => withPicture(input)});
+  try {
+    await h.readyInput(); await h.get("form").submit();
+    await h.get("standard").edit("4");
+    assert.equal(h.get("support").children.length, 0); assert.equal(h.get("picture-heading").hidden, true);
+    assert.equal(h.get("picture-status").hidden, true);
+    await h.get("form").submit();
+    assert.equal(h.get("picture-heading").hidden, false); assert.equal(h.get("support").children.length, 1);
+  } finally {h.page.dispose();}
+});
+
+function withSuggestions(input, status = "ready", pictureStatus = "disabled") {
+  const generated = withPicture(input, pictureStatus);
+  generated.support.settings.helpingWordsEnabled = status !== "disabled";
+  generated.support.settings.helpingWordCount = 3;
+  generated.support.helpingWordsStatus = status;
+  generated.support.helpingWords = status === "ready" ? ["friendship", "helping others", "kindness"] : [];
+  return generated;
+}
+test("preview shows the exact helping suggestions with the picture and retains them on save", async () => {
+  const h = harness({generateQuestion: async input => withSuggestions(input, "ready", "ready")});
+  try {
+    await h.readyInput(); await h.get("form").submit();
+    const children = h.get("support").children, suggestions = children[1];
+    assert.equal(children.length, 2); assert.equal(h.get("picture-heading").hidden, false);
+    assert.equal(suggestions.children[0].textContent, "Helping suggestions (3)");
+    assert.deepEqual(suggestions.children[2].children.map(item => item.textContent), ["friendship", "helping others", "kindness"]);
+    assert.equal(h.get("helping-status").hidden, true);
+    await h.get("save-question").click();
+    assert.deepEqual(h.calls.saves[0].support.helpingWords, ["friendship", "helping others", "kindness"]);
+  } finally {h.page.dispose();}
+});
+test("suggestions preview works without a picture and clears when suggestions fail or are disabled", async () => {
+  let state = "ready";
+  const h = harness({generateQuestion: async input => withSuggestions(input, state)});
+  try {
+    await h.readyInput(); await h.get("form").submit();
+    assert.equal(h.get("picture-heading").hidden, true);
+    assert.equal(h.get("support").children[0].children[0].textContent, "Helping suggestions (3)");
+    await h.get("standard").edit("4");
+    assert.equal(h.get("support").children.length, 0); assert.equal(h.get("helping-status").hidden, true);
+    state = "failed"; await h.get("form").submit();
+    assert.equal(h.get("support").children.length, 0);
+    assert.match(h.get("helping-status").textContent, /could not be generated/);
+    assert.equal(h.get("save-question").disabled, false);
+    state = "disabled"; await h.get("form").submit();
+    assert.match(h.get("helping-status").textContent, /Enable helping suggestions in the grade settings/);
+    assert.equal(h.get("support").children.length, 0);
+  } finally {h.page.dispose();}
+});
+
+test("preview shows the shared LLM instruction and the exact returned image prompt through saving", async () => {
+  const imagePrompt = 'Children helping a friend.\nதமிழ் <img src=x onerror="alert(1)">';
+  const h = harness({generateQuestion: async input => ({...withPicture(input, "failed"), imagePrompt})});
+  try {
+    await h.readyInput(); assert.equal(h.get("image-prompts").hidden, true);
+    await h.get("form").submit();
+    assert.equal(h.get("image-prompts").hidden, false);
+    assert.equal(h.get("image-prompt-instructions").value, ESSAY_IMAGE_PROMPT_INSTRUCTIONS);
+    assert.equal(h.get("image-prompt").value, imagePrompt);
+    assert.deepEqual(h.get("image-prompt").children, []);
+    assert.match(h.get("image-prompts-note").textContent, /image-specific instructions/);
+    await h.get("save-question").click();
+    assert.equal(h.calls.saves[0].imagePrompt, imagePrompt);
+    assert.equal(h.get("image-prompt").value, imagePrompt);
+  } finally {h.page.dispose();}
+});
+test("missing and disabled image prompts are explained and stale prompt details clear with parameters", async () => {
+  let disabled = false;
+  const h = harness({generateQuestion: async input => withPicture(input, disabled ? "disabled" : "failed")});
+  try {
+    await h.readyInput(); await h.get("form").submit();
+    assert.equal(h.get("image-prompt-instructions").value, ESSAY_IMAGE_PROMPT_INSTRUCTIONS);
+    assert.equal(h.get("image-prompt").value, "");
+    assert.match(h.get("image-prompt").placeholder, /did not return/);
+    await h.get("standard").edit("4");
+    assert.equal(h.get("image-prompts").hidden, true);
+    assert.equal(h.get("image-prompt-instructions").value, "");
+    disabled = true; await h.get("form").submit();
+    assert.equal(h.get("image-prompts").hidden, false);
+    assert.equal(h.get("image-prompt-instructions").value, "");
+    assert.equal(h.get("image-prompt").value, "");
+    assert.match(h.get("image-prompts-note").textContent, /Pictures are disabled/);
+  } finally {h.page.dispose();}
 });

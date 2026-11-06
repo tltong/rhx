@@ -1,4 +1,4 @@
-import {createSyllabusLanguageKey, resolveTopicAssessmentFrameworkId} from "../domain/syllabus.js?v=20261018-topic-framework-v1";
+import {createSyllabusLanguageKey, resolveTopicAssessmentFrameworkId} from "../domain/syllabus.js?v=20261105-topic-framework-v1";
 
 function requireId(value, name) {
   if (typeof value !== "string" || !value.trim() || value.includes("/") || [".", ".."].includes(value.trim())) throw new Error(name + " must be a valid document ID.");
@@ -32,10 +32,14 @@ class AssignTopicAssessmentFramework {
   async execute(input, {assertAccess = () => {}} = {}) {
     const scope = await topicScope(this.repository, input, assertAccess);
     const assessmentFrameworkId = input.assessmentFrameworkId === null ? null : requireId(input.assessmentFrameworkId, "assessmentFrameworkId");
+    const topic = scope.syllabus.topics.find(item => item.id === scope.topicId);
+    const attached = topic.preAssessmentPractices?.[createSyllabusLanguageKey(scope.language)];
+    if (!assessmentFrameworkId && (scope.syllabus.active || attached)) throw new Error("An active topic or attached practice requires an assessment framework.");
     if (assessmentFrameworkId) {
       const framework = await this.getAssessmentFrameworkById(assessmentFrameworkId);
       assertAccess();
       if (!framework) throw new Error("Assessment framework could not be found.");
+      if (attached && (attached.practiceType || "normal") !== (framework.frameworkType || "normal")) throw new Error("The attached practice type does not match this framework. Remove the attachment before changing question type.");
     }
     await this.repository.assignTopicAssessmentFramework({...scope, assessmentFrameworkId}, {assertAccess});
     assertAccess();

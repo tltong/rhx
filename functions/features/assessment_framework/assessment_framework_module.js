@@ -4,7 +4,7 @@
  * AssessmentFramework output:
  * {
  *   id: string,
- *   frameworkType: "normal"|"essay",
+ *   frameworkType: "normal"|"essay"|"fillInTheBlanks",
  *   name: string,
  *   endLevelName: string,
  *   levels: Array<{

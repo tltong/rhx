@@ -97,8 +97,7 @@ function createEmptyAvoidQuestionTexts() {
 export class GenerateAssessmentPractice {
   constructor({
     getStudentTopicLevel,
-    getTopicAssessmentFrameworkId = null,
-    getSyllabusAssessmentFrameworkId,
+    getTopicAssessmentFrameworkId,
     getAssessmentLevelCriteria,
     getStudentSyllabusSubscriptionLanguage,
     getTopicDiagramPercentage,
@@ -121,11 +120,7 @@ export class GenerateAssessmentPractice {
       getStudentTopicLevel,
       "getStudentTopicLevel"
     );
-    this.getTopicAssessmentFrameworkId = getTopicAssessmentFrameworkId;
-    this.getSyllabusAssessmentFrameworkId = requireFunction(
-      getSyllabusAssessmentFrameworkId,
-      "getSyllabusAssessmentFrameworkId"
-    );
+    this.getTopicAssessmentFrameworkId = requireFunction(getTopicAssessmentFrameworkId, "getTopicAssessmentFrameworkId");
     this.getAssessmentLevelCriteria = requireFunction(
       getAssessmentLevelCriteria,
       "getAssessmentLevelCriteria"
@@ -491,12 +486,10 @@ export class GenerateAssessmentPractice {
     const topicId = requireIdentifier(input.topicId, "topicId");
     const [
       storedLevelId,
-      storedAssessmentFrameworkId,
       storedLanguage,
       diagramPercentage
     ] = await Promise.all([
       this.getStudentTopicLevel({ studentId, syllabusId, topicId }),
-      this.getTopicAssessmentFrameworkId ? null : this.getSyllabusAssessmentFrameworkId(syllabusId),
       this.getStudentSyllabusSubscriptionLanguage(studentId, syllabusId),
       this.getTopicDiagramPercentage(syllabusId, topicId)
     ]);
@@ -512,7 +505,7 @@ export class GenerateAssessmentPractice {
     }
 
     const assessmentFrameworkId = requireIdentifier(
-      this.getTopicAssessmentFrameworkId ? await this.getTopicAssessmentFrameworkId({syllabusId, topicId, language: storedLanguage}) : storedAssessmentFrameworkId,
+      await this.getTopicAssessmentFrameworkId({syllabusId, topicId, language: storedLanguage}),
       "Topic assessment framework ID"
     );
     const language = requireIdentifier(
@@ -526,6 +519,7 @@ export class GenerateAssessmentPractice {
       }),
       "Assessment level criteria"
     );
+    if (levelCriteria.frameworkType === "fillInTheBlanks") throw new Error("Use the fill-in-the-blanks practice generator for this framework.");
     if (levelCriteria.frameworkType === "essay") throw new Error("Use the essay practice generator for an essay framework.");
     const criteria = requireObject(
       levelCriteria.criteria,

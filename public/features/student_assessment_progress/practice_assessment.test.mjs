@@ -88,7 +88,8 @@ function input(type = "pre assessment", practiceId = scope.practiceId) {
 }
 function dependencies(f) {
   return {studentAssessmentProgressRepository: f.repository,
-    getSyllabusById: async () => ({id: "math", assessmentFrameworkId: "framework-1", topics: [{id: "fractions"}]}),
+    getStudentSyllabusSubscriptionLanguage: async () => "English",
+    getSyllabusById: async () => ({id: "math", languages: ["English"], topics: [{id: "fractions", assessmentFrameworkIds: {english: "framework-1"}}]}),
   };
 }
 
@@ -258,6 +259,18 @@ for (const [layer, Repository, EssayAssessment, Calculation, web] of [
     };
   }
 
+  test(layer + ": essay progression requires the configured difficulty for the current level", async () => {
+    const h = essayHarness({required: 1});
+    h.configured.levels[0].criteria.difficultyLevel = "Hard";
+    h.add("old-medium", 100);
+    assert.equal((await h.run("old-medium")).reason, "practice-difficulty-mismatch");
+    assert.equal(h.writes.length, 0);
+    h.assessor.getEssayQuestionById = async () => ({language: "English", difficulty: "hard"});
+    h.add("new-hard", 100);
+    const result = await h.run("new-hard");
+    assert.equal(result.assessed, true); assert.equal(result.levelId, "bridge");
+  });
+
   test(layer + ": essays start at first level without pre-assessment and use the topic/language framework", async () => {
     const h = essayHarness(); h.add("first", 100);
     const first = await h.run("first");
@@ -317,7 +330,7 @@ for (const [layer, Repository, EssayAssessment, Calculation, web] of [
   test(layer + ": missing and normal frameworks skip essay progression without affecting the completion", async () => {
     const h = essayHarness({frameworkType: "normal"}); h.add("a");
     assert.equal((await h.run("a")).reason, "essay-assessment-framework-required");
-    h.assessor.getSyllabusById = async () => ({topics: [{id: "fractions"}]});
+    h.assessor.getSyllabusById = async () => ({languages: ["English"], topics: [{id: "fractions"}]});
     assert.equal((await h.run("a")).reason, "assessment-framework-not-configured");
     assert.equal(h.writes.length, 0);
   });

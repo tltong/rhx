@@ -1,10 +1,11 @@
+const {getAssessmentFrameworkById} = require("../assessment_framework/assessment_framework_module");
 /**
- * Generates one medium-difficulty essay practice and attaches it to a syllabus topic/language.
+ * Generates one essay practice at the first framework level's difficulty and attaches it to a syllabus topic/language.
  * generateEssayPractice({syllabusId, topicId, language}, backendContext?)
  *   -> Promise<{practice, assignment, question, questions, syllabusId, topicId, topicName, language, replacement}>
  * loadEssayPractice({syllabusId, topicId, language}) -> Promise<object|null>
  * Level and grade come from the syllabus; the seed is one matching random theme.
- * No Assessment Framework dependency, no student assignment and no Firebase endpoints.
+ * Uses the topic/language essay framework; no student assignment or Firebase endpoints.
  * Backend generation requires trusted {updatedBy}; web generation requires a verified site administrator.
  */
 const {getSyllabusById, assignTopicPreAssessmentPractice} = require("../syllabus/syllabus_module");
@@ -19,7 +20,7 @@ async function administratorAccess(context) {
 }
 
 const generator = new GenerateEssayPractice({
-  getSyllabusById, assignTopicPreAssessmentPractice, getRandomQuestionSeedEntry,
+  getAssessmentFrameworkById, getSyllabusById, assignTopicPreAssessmentPractice, getRandomQuestionSeedEntry,
   generateEssayQuestion, getEssayQuestionById, createEssayPractice, getEssayPracticeById,
   requireAdministrator: administratorAccess,
 });

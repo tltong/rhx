@@ -10,8 +10,8 @@
     <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script>
     <script defer src="/__/firebase/init.js"></script>
-    <script type="module" src="/init_fb.js"></script>
-    <link rel="stylesheet" href="./essay_question_generator_admin.css?v=20261017-essay-grade-min-words-v1">
+    <script type="module" src="/init_fb.js?v=20261104-fill-preassessment-v3"></script>
+    <link rel="stylesheet" href="./essay_question_generator_admin.css?v=20261101-essay-simple-images-v4">
   </head>
   <body>
     <main class="page-shell" id="essay-question-generator-admin">
@@ -36,7 +36,7 @@
 
         <div class="section-heading">
           <h2>Grade instructions</h2>
-          <p class="help-text">Configure additional instructions and minimum essay words for each grade. Leave the minimum blank for no word-count requirement. Set word counts here; word counts in additional instructions are ignored.</p>
+          <p class="help-text">Configure instructions, minimum essay words, pictures and helping suggestions for each grade. Picture and suggestion settings apply across all languages. Changes affect future assignments; existing assignments keep their original content. Leave the minimum blank for no word-count requirement. Set word counts here; word counts in additional instructions are ignored.</p>
         </div>
         <div class="grade-grid">
           <section class="panel" aria-labelledby="essay-primary-heading">
@@ -120,6 +120,18 @@
           <p id="essay-demo-result-meta" class="help-text"></p>
           <label for="essay-demo-preview">Question preview</label>
           <textarea id="essay-demo-preview" rows="8" dir="auto" readonly></textarea>
+          <h3 id="essay-demo-picture-heading" hidden>Generated picture</h3>
+          <p id="essay-demo-picture-status" class="help-text" role="status" aria-live="polite" hidden></p>
+          <div id="essay-demo-support" aria-label="Generated picture and helping suggestions"></div>
+          <p id="essay-demo-helping-status" class="help-text" role="status" aria-live="polite" hidden></p>
+          <section id="essay-demo-image-prompts" aria-labelledby="essay-demo-image-prompts-heading" hidden>
+            <h3 id="essay-demo-image-prompts-heading">Image-generation prompt details</h3>
+            <p id="essay-demo-image-prompts-note" class="help-text" role="status" aria-live="polite"></p>
+            <label for="essay-demo-image-prompt-instructions">Instruction to LLM to generate the image-generation prompt</label>
+            <textarea id="essay-demo-image-prompt-instructions" rows="7" readonly dir="auto" aria-describedby="essay-demo-image-prompts-note"></textarea>
+            <label for="essay-demo-image-prompt">Generated image-generation prompt</label>
+            <textarea id="essay-demo-image-prompt" rows="6" readonly dir="auto" aria-describedby="essay-demo-image-prompts-note"></textarea>
+          </section>
           <div class="demo-actions">
             <button id="essay-demo-save-question" type="button" disabled>Save question</button>
           </div>
@@ -130,7 +142,7 @@
       id="site-admin-page-loader"
       type="module"
       data-site-admin-page
-      data-page-module="./essay_question_generator_admin.js?v=20261017-essay-grade-min-words-v1"
+      data-page-module="./essay_question_generator_admin.js?v=20261104-fill-preassessment-v3"
       src="/features/site_admin/pages/common/site_admin_page_loader.js?v=20260827-site-admin-guard-v1"
     ></script>
   </body>

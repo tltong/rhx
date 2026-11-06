@@ -7,7 +7,7 @@ import {createSyllabusLanguageKey} from "../../domain/syllabus.js";
 
 class Element {
   constructor(tag = "div", values = {}) {Object.assign(this, {tag, children: [], dataset: {}, value: "", checked: false, disabled: false, hidden: false, textContent: "", listeners: new Map(), className: "", classList: {toggle() {}, remove() {}}}, values);}
-  append(...children) {children.forEach(child => {child.parent = this; this.children.push(child);});}
+  append(...children) {children.forEach(child => {child.parent = this; child.parentElement = this; this.children.push(child);});}
   replaceChildren(...children) {this.children = []; this.append(...children);}
   addEventListener(event, listener) {this.listeners.set(event, listener);}
   matches(selector) {
@@ -36,7 +36,7 @@ function template(kind) {
       new Element("div", {dataset: {role: "subtopics"}}), action("remove-topic"), action("add-subtopic"));
     if (kind === "subtopic") row.append(field("subtopicName"), action("remove-subtopic"));
     if (kind === "level") row.append(...["levelName", "sequenceOrder", "requiredPracticeCount", "minimumScore", "questionsPerPractice"].map(name => field(name)), field("difficultyLevel", "select"),
-      new Element("span", {dataset: {label: "practice-count"}}), action("move-up"), action("move-down"), action("remove-level"));
+      new Element("span", {dataset: {label: "practice-count"}}), new Element("div", {dataset: {fieldContainer: "questionsPerPractice"}}), new Element("div", {dataset: {fieldContainer: "difficultyLevel"}}), action("move-up"), action("move-down"), action("remove-level"));
     fragment.append(row); return fragment;
   }}};
 }
@@ -48,15 +48,15 @@ function documentFixture() {
   const document = {querySelector: selector => get(selector.slice(1)), querySelectorAll: () => difficulties, createElement: tag => new Element(tag)};
   return {get, document};
 }
-const names = [{id: "normal", name: "Normal framework"}, {id: "essay", name: "Essay framework", frameworkType: "essay"}];
+const names = [{id: "fill", name: "Fill framework", frameworkType: "fillInTheBlanks"},{id: "normal", name: "Normal framework"}, {id: "essay", name: "Essay framework", frameworkType: "essay"}];
 test("framework dropdown groups Normal and Essay and retains a missing configured reference", () => {
   const {document} = documentFixture(), select = new Element("select");
   fillFrameworkSelect(select, names, "missing", {documentRef: document});
-  assert.deepEqual(select.children.filter(child => child.tag === "optgroup").map(group => group.label), ["Normal", "Essay"]);
-  assert.equal(select.children[0].textContent, "Use syllabus default");
+  assert.deepEqual(select.children.filter(child => child.tag === "optgroup").map(group => group.label), ["Multiple choice", "Essay", "Fill in the blanks"]);
+  assert.equal(select.children[0].textContent, "Select topic framework");
   assert.equal(select.value, "missing"); assert.match(select.children.at(-1).textContent, /Unavailable/);
 });
-test("syllabus admin renders topic/language overrides, saves them and restores default inheritance", async () => {
+test("syllabus admin renders topic/language overrides, saves them and allows empty mappings only on inactive drafts", async () => {
   const {get, document} = documentFixture(), saves = [];
   const syllabus = {id: "syllabus", country: "Malaysia", level: "primary", year: 3, subject: "Language", assessmentFrameworkId: "normal", languages: ["English", "Bahasa Melayu"],
     topics: [{id: "writing", topicName: "Writing", pausable: false, subtopics: {}, preAssessmentPractices: {}, assessmentFrameworkIds: {english: "essay"}}]};
@@ -76,9 +76,11 @@ test("syllabus admin renders topic/language overrides, saves them and restores d
   selects = get("topics-container").querySelectorAll("select[data-framework-language]");
   selects.find(select => select.dataset.frameworkLanguage === "english").value = ""; await get("save-syllabus").click();
   assert.deepEqual(saves[1].topics[0].assessmentFrameworkIds, {bahasa_melayu: "essay"});
-  assert.equal(saves[1].assessmentFrameworkId, "normal");
+  assert.equal(Object.hasOwn(saves[1], "assessmentFrameworkId"), false);
+  get("active-input").checked = true; await get("save-syllabus").click();
+  assert.equal(saves.length, 2); assert.match(get("status-message").textContent, /Select a framework/);
 });
-test("framework admin saves essay levels with configurable count/score, fixed medium difficulty and no pre-assessment editor", async () => {
+test("framework admin saves essay levels with configurable count/score, configurable difficulty and no pre-assessment editor", async () => {
   const {get, document} = documentFixture(), saves = [];
   get("framework-type").value = "normal";
   const source = (await readFile(new URL("../../../assessment_framework/pages/admin/assessment_framework_admin.js", import.meta.url), "utf8"))
@@ -96,12 +98,13 @@ test("framework admin saves essay levels with configurable count/score, fixed me
   assert.equal(get("pre-assessment-section").hidden, true);
   assert.equal(row.querySelector("[data-field='questionsPerPractice']").value, 1);
   assert.equal(row.querySelector("[data-field='difficultyLevel']").value, "Medium");
-  assert.equal(row.querySelector("[data-field='difficultyLevel']").disabled, true);
+  assert.equal(row.querySelector("[data-field='difficultyLevel']").disabled, false);
+  row.querySelector("[data-field='difficultyLevel']").value = "Hard";
   row.querySelector("[data-field='levelName']").value = "Starting";
   row.querySelector("[data-field='requiredPracticeCount']").value = 4;
   row.querySelector("[data-field='minimumScore']").value = 85;
   get("framework-end-level-name").value = "Ready";
   await get("save-framework").click();
   assert.equal(saves[0].frameworkType, "essay");
-  assert.deepEqual(saves[0].levels[0].criteria, {requiredPracticeCount: 4, minimumScore: 85, questionsPerPractice: 1, difficultyLevel: "medium"});
+  assert.deepEqual(saves[0].levels[0].criteria, {requiredPracticeCount: 4, minimumScore: 85, questionsPerPractice: 1, difficultyLevel: "Hard"});
 });

@@ -90,6 +90,11 @@ class FirestoreEssayGenerationRepository {
     }, context);
   }
 
+  async finishWithoutAssignment(input, leaseToken, context) {
+    return this.updateOwned(input, leaseToken, state => ({status: "completed", nextEssayPracticeId: state.nextEssayPracticeId,
+      outcome: "framework-completed"}), context);
+  }
+
   async fail(input, leaseToken, context) {
     return this.updateOwned(input, leaseToken, state => ({status: "failed", nextEssayPracticeId: state.nextEssayPracticeId,
       ...(state.draft ? {draft: state.draft} : {}),

@@ -1,3 +1,4 @@
+import {listCompletedFillInTheBlanksPractices} from "../student_fill_in_the_blanks_practice/student_fill_in_the_blanks_practice_module.js?v=20261104-fill-preassessment-v3";
 /**
  * getReadinessConfig() -> Promise<ReadinessConfig|null>
  * saveReadinessConfig({difficultyWeights?, numberOfPractices?, preAssessmentWeight?})
@@ -46,32 +47,32 @@ import {
   DEFAULT_DIFFICULTY_WEIGHTS,
   DEFAULT_NUMBER_OF_PRACTICES,
   DEFAULT_PRE_ASSESSMENT_WEIGHT
-} from "../../config/firebase/readiness_config_schema.js?v=20261006-readiness-feature-api-v1";
-import {GetReadinessConfig} from "./application/get_readiness_config.js?v=20261006-readiness-feature-api-v1";
-import {SaveReadinessConfig} from "./application/save_readiness_config.js?v=20261006-readiness-feature-api-v1";
-import {GetDifficultyWeight} from "./application/get_difficulty_weight.js?v=20261006-readiness-feature-api-v1";
-import {GetReadinessParameter} from "./application/get_readiness_parameter.js?v=20261006-readiness-feature-api-v1";
+} from "../../config/firebase/readiness_config_schema.js?v=20261104-fill-preassessment-v3";
+import {GetReadinessConfig} from "./application/get_readiness_config.js?v=20261104-fill-preassessment-v3";
+import {SaveReadinessConfig} from "./application/save_readiness_config.js?v=20261104-fill-preassessment-v3";
+import {GetDifficultyWeight} from "./application/get_difficulty_weight.js?v=20261104-fill-preassessment-v3";
+import {GetReadinessParameter} from "./application/get_readiness_parameter.js?v=20261104-fill-preassessment-v3";
 import {
   FirestoreReadinessConfigRepository
-} from "./infrastructure/firestore_readiness_config_repository.js?v=20261006-readiness-feature-api-v1";
+} from "./infrastructure/firestore_readiness_config_repository.js?v=20261104-fill-preassessment-v3";
 import {requireCurrentSiteAdmin} from "../site_admin/site_admin_module.js?v=20260827-site-admin-guard-v1";
 import {requireCurrentFirebaseAuthUser} from "../../utils/firebase/firebase_auth.js";
-import {CalculateReadinessScore} from "./application/calculate_readiness_score.js?v=20261018-essay-completion-metrics-v1";
-import {CalculateSubjectReadinessScore} from "./application/calculate_subject_readiness_score.js?v=20261008-subject-readiness-v1";
-import {SaveReadinessScore} from "./application/save_readiness_score.js?v=20261018-essay-completion-metrics-v1";
-import {GetReadinessScore} from "./application/get_readiness_score.js?v=20261007-readiness-completion-v1";
-import {GetReadinessScoreHistory} from "./application/get_readiness_score_history.js?v=20261007-readiness-completion-v1";
-import {SaveSubjectReadinessScore} from "./application/save_subject_readiness_score.js?v=20261018-essay-completion-metrics-v1";
-import {GetSubjectReadinessScore} from "./application/get_subject_readiness_score.js?v=20261008-subject-readiness-v2";
-import {GetSubjectReadinessScoreHistory} from "./application/get_subject_readiness_score_history.js?v=20261008-subject-readiness-v2";
-import {FirestoreReadinessScoreRepository} from "./infrastructure/firestore_readiness_score_repository.js?v=20261018-essay-completion-metrics-v1";
-import {listCompletedPractices} from "../student_practice/student_practice_module.js?v=20261018-topic-reset-v1";
-import {listCompletedEssayPractices} from "../student_essay_practice/student_essay_practice_module.js?v=20261018-essay-reuse-v1";
-import {getEssayResult} from "../essay_scoring/essay_scoring_module.js?v=20261018-essay-review-comment-v1";
-import {getEssayQuestionById} from "../essay_question_generator/essay_question_generator_module.js?v=20261017-essay-grade-min-words-v1";
-import {getPracticeById, practiceTypes} from "../practice/practice_module.js?v=20260816-practice-question-ids";
-import {getQuestionDifficulty} from "../question/question_module.js?v=20260822-assessment-progression";
-import {getSyllabusById} from "../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
+import {CalculateReadinessScore} from "./application/calculate_readiness_score.js?v=20261104-fill-preassessment-v3";
+import {CalculateSubjectReadinessScore} from "./application/calculate_subject_readiness_score.js?v=20261104-fill-firestore-v2";
+import {SaveReadinessScore} from "./application/save_readiness_score.js?v=20261104-fill-firestore-v2";
+import {GetReadinessScore} from "./application/get_readiness_score.js?v=20261104-fill-firestore-v2";
+import {GetReadinessScoreHistory} from "./application/get_readiness_score_history.js?v=20261104-fill-firestore-v2";
+import {SaveSubjectReadinessScore} from "./application/save_subject_readiness_score.js?v=20261104-fill-firestore-v2";
+import {GetSubjectReadinessScore} from "./application/get_subject_readiness_score.js?v=20261104-fill-firestore-v2";
+import {GetSubjectReadinessScoreHistory} from "./application/get_subject_readiness_score_history.js?v=20261104-fill-firestore-v2";
+import {FirestoreReadinessScoreRepository} from "./infrastructure/firestore_readiness_score_repository.js?v=20261104-fill-preassessment-v3";
+import {listCompletedPractices} from "../student_practice/student_practice_module.js?v=20261104-fill-preassessment-v3";
+import {listCompletedEssayPractices} from "../student_essay_practice/student_essay_practice_module.js?v=20261104-fill-preassessment-v3";
+import {getEssayResult} from "../essay_scoring/essay_scoring_module.js?v=20261104-fill-preassessment-v3";
+import {getEssayQuestionById} from "../essay_question_generator/essay_question_generator_module.js?v=20261104-fill-preassessment-v3";
+import {getPracticeById, practiceTypes} from "../practice/practice_module.js?v=20261104-fill-preassessment-v3";
+import {getQuestionDifficulty} from "../question/question_module.js?v=20261104-fill-preassessment-v3";
+import {getSyllabusById} from "../syllabus/syllabus_module.js?v=20261104-fill-preassessment-v3";
 
 const repository = new FirestoreReadinessConfigRepository();
 const getConfig = new GetReadinessConfig(repository);
@@ -83,7 +84,7 @@ const scoreRepository = new FirestoreReadinessScoreRepository();
 const calculateScore = new CalculateReadinessScore({
   getReadinessConfig,
   listCompletedPractices,
-  listCompletedEssayPractices, getEssayResult, getEssayQuestionById,
+  listCompletedEssayPractices, listCompletedFillInTheBlanksPractices, getEssayResult, getEssayQuestionById,
   getPracticeById,
   getQuestionDifficulty,
   assessmentPracticeType: practiceTypes.ASSESSMENT,

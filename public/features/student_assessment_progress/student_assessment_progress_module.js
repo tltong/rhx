@@ -1,9 +1,9 @@
-import {AssessStudentEssayPractice} from "./application/assess_student_essay_practice.js?v=20261018-essay-progression-v1";
-import {getCompletedEssayPractice} from "../student_essay_practice/student_essay_practice_module.js?v=20261018-essay-reuse-v1";
-import {getEssayQuestionById} from "../essay_question_generator/essay_question_generator_module.js?v=20261017-essay-grade-min-words-v1";
-import {getEssayResult} from "../essay_scoring/essay_scoring_module.js?v=20261018-topic-reset-v1";
+import {AssessStudentEssayPractice} from "./application/assess_student_essay_practice.js?v=20261105-mcq-adoption-v1";
+import {getCompletedEssayPractice} from "../student_essay_practice/student_essay_practice_module.js?v=20261104-fill-preassessment-v3";
+import {getEssayQuestionById} from "../essay_question_generator/essay_question_generator_module.js?v=20261104-fill-preassessment-v3";
+import {getEssayResult} from "../essay_scoring/essay_scoring_module.js?v=20261104-fill-preassessment-v3";
 import {requireCurrentSiteAdmin} from "../site_admin/site_admin_module.js?v=20260827-site-admin-guard-v1";
-import {getStudentSyllabusSubscriptionLanguage} from "../syllabus_subscription/syllabus_subscription_module.js";
+import {getStudentSyllabusSubscriptionLanguage} from "../syllabus_subscription/syllabus_subscription_module.js?v=20261104-fill-preassessment-v3";
 /**
  * Public API
  *
@@ -49,38 +49,38 @@ import {
   calculateAssessmentProgression,
   calculatePreAssessmentLevel,
   getAssessmentLevelCriteria
-} from "../assessment_framework/assessment_framework_module.js?v=20261018-topic-framework-v1";
+} from "../assessment_framework/assessment_framework_module.js?v=20261105-mcq-adoption-v1";
 import {
   getPracticeById,
   practiceTypes
-} from "../practice/practice_module.js?v=20260816-practice-question-ids";
+} from "../practice/practice_module.js?v=20261104-fill-preassessment-v3";
 import {
   getPracticeResult
-} from "../practice_result/practice_result_module.js?v=20261018-topic-reset-v1";
+} from "../practice_result/practice_result_module.js?v=20261104-fill-preassessment-v3";
 import {
   getQuestionDifficulty
-} from "../question/question_module.js?v=20260822-assessment-progression";
-import {getSyllabusById} from "../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
+} from "../question/question_module.js?v=20261104-fill-preassessment-v3";
+import {getSyllabusById} from "../syllabus/syllabus_module.js?v=20261105-mcq-adoption-v1";
 import {
   AssessStudentPractice
-} from "./application/assess_student_practice.js?v=20260822-assessment-progression";
+} from "./application/assess_student_practice.js?v=20261104-fill-preassessment-v3";
 import {
   AssessPreAssessmentPractice
-} from "./application/assess_pre_assessment_practice.js?v=20261018-essay-progression-v1";
+} from "./application/assess_pre_assessment_practice.js?v=20261105-topic-framework-v1";
 import {
   AssessNormalAssessmentPractice
-} from "./application/assess_normal_assessment_practice.js?v=20261018-essay-progression-v1";
+} from "./application/assess_normal_assessment_practice.js?v=20261105-topic-framework-v1";
 import {
   listCompletedPracticeIds
-} from "../student_practice/student_practice_module.js?v=20261018-topic-reset-v1";
-import {GetStudentPracticeAssessment} from "./application/get_student_practice_assessment.js?v=20261010-level-rewards-v1";
+} from "../student_practice/student_practice_module.js?v=20261104-fill-preassessment-v3";
+import {GetStudentPracticeAssessment} from "./application/get_student_practice_assessment.js?v=20261104-fill-preassessment-v3";
 import {requireCurrentFirebaseAuthUser} from "../../utils/firebase/firebase_auth.js";
 import {
   GetStudentTopicLevel
-} from "./application/get_student_topic_level.js?v=20260814-student-topic-level";
+} from "./application/get_student_topic_level.js?v=20261104-fill-preassessment-v3";
 import {
   FirestoreStudentAssessmentProgressRepository
-} from "./infrastructure/firestore_student_assessment_progress_repository.js?v=20261018-essay-progression-v1";
+} from "./infrastructure/firestore_student_assessment_progress_repository.js?v=20261104-fill-preassessment-v3";
 
 const studentAssessmentProgressRepository =
   new FirestoreStudentAssessmentProgressRepository();

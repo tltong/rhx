@@ -2,15 +2,15 @@ import assert from "node:assert/strict";
 import {after, beforeEach, test} from "node:test";
 import {createRequire} from "node:module";
 import {readFile} from "node:fs/promises";
-import * as web from "./essay_practice_generator_module.js";
-import * as webPractice from "../essay_practice/essay_practice_module.js";
-import * as webSyllabus from "../syllabus/syllabus_module.js";
+import * as web from "./essay_practice_generator_module.js?v=20261104-fill-preassessment-v3";
+import * as webPractice from "../essay_practice/essay_practice_module.js?v=20261104-fill-preassessment-v3";
+import * as webSyllabus from "../syllabus/syllabus_module.js?v=20261104-fill-preassessment-v3";
 import * as webSchema from "../../config/firebase/syllabuses_schema.js";
-import * as webPracticeSchema from "../../config/firebase/essay_practice_schema.js";
+import * as webPracticeSchema from "../../config/firebase/essay_practice_schema.js?v=20261104-fill-preassessment-v3";
 import * as webLlm from "../../utils/llm/llm_util.js?v=20261015-deepseek-deadline-v1";
-import * as webNextEssay from "../student_essay_practice_generator/student_essay_practice_generator_module.js";
-import {GeneratePreAssessmentPractice} from "../practice_generator/application/generate_pre_assessment_practice.js";
-import {LoadPreAssessmentGeneratorOptions} from "../practice_generator/application/load_pre_assessment_generator_options.js";
+import * as webNextEssay from "../student_essay_practice_generator/student_essay_practice_generator_module.js?v=20261104-fill-preassessment-v3";
+import {GeneratePreAssessmentPractice} from "../practice_generator/application/generate_pre_assessment_practice.js?v=20261104-fill-preassessment-v3";
+import {LoadPreAssessmentGeneratorOptions} from "../practice_generator/application/load_pre_assessment_generator_options.js?v=20261104-fill-preassessment-v3";
 
 const require = createRequire(import.meta.url);
 const ops = require("../../../functions/utils/firebase/firebase_ops");
@@ -139,7 +139,10 @@ const selection = changes => ({syllabusId: "syllabus-1", topicId: "topic-1", lan
 const trusted = {updatedBy: administrator.uid};
 function seed() {
   put("syllabuses/syllabus-1", {country: "Malaysia", level: "primary", year: 3, subject: "English", languages: ["English", "Malay"], active: true});
-  put(topicPath, {topicName: "Writing", pausable: false, subtopics: {sub: "Stories"}});
+  put(topicPath, {topicName: "Writing", pausable: false, subtopics: {sub: "Stories"}, assessmentFrameworkIds: {english: "essay-framework", malay: "normal-framework"}});
+  put("assessmentFrameworks/essay-framework", {name: "Essay", frameworkType: "essay", endLevelName: "Ready"});
+  put("assessmentFrameworks/essay-framework/levels/first", {levelName: "First", sequenceOrder: 1, criteria: {requiredPracticeCount: 2, minimumScore: 70, questionsPerPractice: 1, difficultyLevel: "medium"}});
+  put("assessmentFrameworks/normal-framework", {name: "MCQ", frameworkType: "normal", endLevelName: "Ready"});
   put("questionSeedGenerator/theme", {entries: [
     {value: "Helping a neighbour", associations: {primary: [3]}},
     {value: "WRONG_GRADE", associations: {secondary: [6]}},
@@ -246,7 +249,7 @@ test("essay completion saves topic and subject metrics and retries failed genera
 test("backend/web schemas and normal/essay enums match", () => {
   for (const key of Object.keys(backendSchema)) assert.deepEqual(webSchema[key], backendSchema[key]);
   for (const key of Object.keys(backendPracticeSchema)) assert.deepEqual(webPracticeSchema[key], backendPracticeSchema[key]);
-  assert.deepEqual(backendSyllabus.preAssessmentPracticeTypes, {NORMAL: "normal", ESSAY: "essay"});
+  assert.deepEqual(backendSyllabus.preAssessmentPracticeTypes, {NORMAL: "normal", ESSAY: "essay", FILL_IN_THE_BLANKS: "fillInTheBlanks"});
   assert.deepEqual(webPracticeSchema.essayPracticeSchema.fields, {essayQuestionId: "string"});
 });
 
@@ -265,10 +268,20 @@ for (const [layer, api, practice, syllabus] of [
       {language: "English", practiceId: result.practice.id, practiceType: "essay"});
     assert.equal(docs.get(topicPath).pausable, false); assert.deepEqual(docs.get(topicPath).subtopics, {sub: "Stories"});
     assert.ok(writes.every(item => !/studentPractices|studentEssayPractices/.test(item.path)));
-    assert.ok(reads.every(path => !/assessmentFramework|diagramConfig/.test(path)));
+    assert.ok(reads.some(path => path === "assessmentFrameworks/essay-framework"));
+    assert.ok(reads.every(path => !/diagramConfig/.test(path)));
     assert.equal(llmCalls.length, 1);
     assert.deepEqual((await api.loadEssayPractice(selection())).practice, result.practice);
     assert.deepEqual((await practice.getEssayPracticeById(result.practice.id)), result.practice);
+  });
+
+  test(layer + ": the initial essay uses the first framework level difficulty", async () => {
+    for (const difficultyLevel of ["easy", "hard"]) {
+      put("assessmentFrameworks/essay-framework/levels/first", {levelName: "First", sequenceOrder: 1,
+        criteria: {requiredPracticeCount: 2, minimumScore: 70, questionsPerPractice: 1, difficultyLevel}});
+      const result = await generate(selection({difficulty: "medium"}));
+      assert.equal(result.question.difficulty, difficultyLevel);
+    }
   });
 
   test(layer + ": typed attachment writes preserve other languages and topic fields", async () => {
@@ -280,21 +293,29 @@ for (const [layer, api, practice, syllabus] of [
     assert.equal(topic.getPreAssessmentPractice("English").practiceType, "essay");
     assert.equal(topic.pausable, false); assert.deepEqual({...topic.subtopics}, {sub: "Stories"});
     const count = writes.length;
-    await assert.rejects(() => syllabus.assignTopicPreAssessmentPractice("syllabus-1", "topic-1", "English", "p", "invalid"), /practiceType/);
+    await assert.rejects(() => syllabus.assignTopicPreAssessmentPractice("syllabus-1", "topic-1", "English", "p", "invalid"), /practiceType|practice type/);
     await assert.rejects(() => syllabus.assignTopicPreAssessmentPractice("syllabus-1", "missing", "English", "p", "essay"), /topic could not be found/);
     await assert.rejects(() => syllabus.assignTopicPreAssessmentPractice("syllabus-1", "topic-1", "French", "p", "essay"), /Language/);
     assert.equal(writes.length, count);
   });
 
-  test(layer + ": legacy attachments default to normal and switching types replaces only that language", async () => {
+  test(layer + ": legacy attachment types are preserved and incompatible replacements are rejected", async () => {
     put(topicPath, {...docs.get(topicPath), preAssessmentPractices: {english: {language: "English", practiceId: "legacy"}}});
     assert.equal((await syllabus.getSyllabusById("syllabus-1")).topics[0].getPreAssessmentPractice("English").practiceType, "normal");
+    const before = structuredClone(docs.get(topicPath));
+    await assert.rejects(() => syllabus.assignTopicPreAssessmentPractice("syllabus-1", "topic-1", "English", "new-normal"), /does not match/);
+    assert.deepEqual(docs.get(topicPath), before);
     const result = await generate(selection());
     assert.equal(docs.get(topicPath).preAssessmentPractices.english.practiceType, "essay");
-    await syllabus.assignTopicPreAssessmentPractice("syllabus-1", "topic-1", "English", "new-normal");
-    assert.equal(docs.get(topicPath).preAssessmentPractices.english.practiceType, "normal");
-    assert.equal(docs.get(topicPath).preAssessmentPractices.english.practiceId, "new-normal");
     assert.ok(docs.has("essayPractices/" + result.practice.id));
+  });
+
+  test(layer + ": missing or wrong topic framework prevents paid generation and writes", async () => {
+    for (const assessmentFrameworkIds of [{}, {english: "normal-framework"}]) {
+      put(topicPath, {...docs.get(topicPath), assessmentFrameworkIds});
+      await assert.rejects(() => generate(selection()), /assessment framework/);
+      assert.deepEqual(llmCalls, []); assert.deepEqual(writes, []);
+    }
   });
 
   test(layer + ": regeneration retains the previous essay and question for assigned students", async () => {
@@ -324,7 +345,7 @@ for (const [layer, api, practice, syllabus] of [
   });
 
   test(layer + ": generation and attachment failures preserve the existing syllabus attachment", async () => {
-    await syllabus.assignTopicPreAssessmentPractice("syllabus-1", "topic-1", "English", "previous-normal");
+    await syllabus.assignTopicPreAssessmentPractice("syllabus-1", "topic-1", "English", "previous-essay", "essay");
     const before = structuredClone(docs.get(topicPath));
     response = new Error("AI unavailable");
     await assert.rejects(() => generate(selection()), /AI unavailable/);
@@ -337,7 +358,7 @@ for (const [layer, api, practice, syllabus] of [
 
 test("subscription routes mixed topics to normal and essay assignment, safely retries and preserves completed essays", async () => {
   const generated = await backend.generateEssayPractice(selection(), trusted);
-  put("syllabuses/syllabus-1/topics/topic-2", {topicName: "Reading", preAssessmentPractices: {
+  put("syllabuses/syllabus-1/topics/topic-2", {topicName: "Reading", assessmentFrameworkIds: {english: "normal-framework"}, preAssessmentPractices: {
     english: {language: "English", practiceId: "normal-1"},
   }});
   put("practices/normal-1", {type: "pre assessment", dateGenerated: now,
@@ -359,7 +380,7 @@ test("subscription validates all essay attachments before writing any student as
   put(topicPath, {...docs.get(topicPath), preAssessmentPractices: {english: {
     language: "English", practiceId: "missing-essay", practiceType: "essay",
   }}});
-  put("syllabuses/syllabus-1/topics/topic-2", {topicName: "Normal", preAssessmentPractices: {
+  put("syllabuses/syllabus-1/topics/topic-2", {topicName: "Normal", assessmentFrameworkIds: {english: "normal-framework"}, preAssessmentPractices: {
     english: {language: "English", practiceId: "normal-1"},
   }});
   await assert.rejects(() => assignSubscriptionPreAssessmentPractices({studentId: "student-1", syllabusId: "syllabus-1", language: "English"}), /Essay practice.*not found/);
@@ -369,7 +390,7 @@ test("subscription validates all essay attachments before writing any student as
 test("subscription rejects missing topic/language attachments and unknown types without assignments", async () => {
   await assert.rejects(() => assignSubscriptionPreAssessmentPractices({studentId: "student-1", syllabusId: "syllabus-1", language: "English"}), /No English/);
   put(topicPath, {...docs.get(topicPath), preAssessmentPractices: {english: {language: "English", practiceId: "p", practiceType: "unknown"}}});
-  await assert.rejects(() => assignSubscriptionPreAssessmentPractices({studentId: "student-1", syllabusId: "syllabus-1", language: "English"}), /practiceType/);
+  await assert.rejects(() => assignSubscriptionPreAssessmentPractices({studentId: "student-1", syllabusId: "syllabus-1", language: "English"}), /practiceType|practice type/);
   assert.deepEqual(writes, []);
 });
 
@@ -395,7 +416,7 @@ test("admin options include subjects without frameworks for essay generation", a
   const options = new LoadPreAssessmentGeneratorOptions(async () => [{
     id: "s", topics: [{id: "t", topicName: "Writing"}], languages: ["English"], level: "primary", year: 3,
   }]);
-  assert.equal((await options.execute()).syllabuses[0].assessmentFrameworkId, null);
+  assert.equal(Object.hasOwn((await options.execute()).syllabuses[0], "assessmentFrameworkId"), false);
 });
 
 test("web rejects non-admin generation and account changes prevent attaching an essay", async () => {
@@ -436,3 +457,14 @@ test("subscription skips completed essay assignments when completion races with 
   assert.equal(assigned, 1); assert.equal(lookupCount, 2);
 });
 
+
+test("subscription retry preserves a completed question prepared under newer support settings", async () => {
+  const saved = {studentId: "student", syllabusId: "syllabus", topicId: "topic", essayQuestionId: "prepared", sourceEssayQuestionId: "original"};
+  const result = await assignSubscriptionPreAssessmentPractices({studentId: "student", syllabusId: "syllabus", language: "Tamil"}, {
+    getFramework: async () => ({frameworkType: "essay"}),
+    getSyllabus: async () => ({languages: ["Tamil"], topics: [{id: "topic", assessmentFrameworkIds: {tamil: "essay-framework"}, getPreAssessmentPractice: () => ({practiceType: "essay", practiceId: "shared"})}]}),
+    getEssayPractice: async () => ({essayQuestionId: "original"}), getEssayQuestion: async () => ({questionId: "original"}),
+    getCompletedEssay: async () => saved, assignEssayPractice: async () => assert.fail("Completed content must not be reassigned"),
+  });
+  assert.equal(result[0], saved);
+});

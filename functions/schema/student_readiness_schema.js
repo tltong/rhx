@@ -26,9 +26,9 @@ const studentReadinessSchema = {
             practiceId: {
               type: "string",
               optional: true,
-              references: "practices/{practiceId} or studentEssayPractices/{studentId}/completedEssayPractices/{practiceId}",
+              references: "practices/{practiceId} or studentEssayPractices/{studentId}/completedEssayPractices/{practiceId} or studentFillInTheBlanksPractices/{studentId}/completedPractices/{practiceId}",
             },
-            practiceType: {type: "string", enum: ["normal", "essay"], optional: true},
+            practiceType: {type: "string", enum: ["normal", "essay", "fillInTheBlanks"], optional: true},
           },
         },
         topics: {
@@ -48,9 +48,9 @@ const studentReadinessSchema = {
                 practiceId: {
                   type: "string",
                   optional: true,
-                  references: "practices/{practiceId} or studentEssayPractices/{studentId}/completedEssayPractices/{practiceId}",
+                  references: "practices/{practiceId} or studentEssayPractices/{studentId}/completedEssayPractices/{practiceId} or studentFillInTheBlanksPractices/{studentId}/completedPractices/{practiceId}",
                 },
-                practiceType: {type: "string", enum: ["normal", "essay"], optional: true},
+                practiceType: {type: "string", enum: ["normal", "essay", "fillInTheBlanks"], optional: true},
               },
             },
           },

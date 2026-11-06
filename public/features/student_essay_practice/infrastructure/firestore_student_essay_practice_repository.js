@@ -1,9 +1,9 @@
 import * as firebaseOps from "../../../utils/firebase/firebase_ops.js";
-import {guardStudentMaintenance} from "../../../utils/student_topic_reset_guard.js?v=20261018-topic-reset-v1";
+import {guardStudentMaintenance} from "../../../utils/student_topic_reset_guard.js?v=20261104-fill-preassessment-v3";
 import {STUDENT_ESSAY_PRACTICES_COLLECTION, ASSIGNED_ESSAY_PRACTICES_SUBCOLLECTION,
-  COMPLETED_ESSAY_PRACTICES_SUBCOLLECTION, ESSAY_QUESTION_USAGE_SUBCOLLECTION} from "../../../config/firebase/student_essay_practice_schema.js?v=20261018-essay-reuse-v1";
+  COMPLETED_ESSAY_PRACTICES_SUBCOLLECTION, ESSAY_QUESTION_USAGE_SUBCOLLECTION} from "../../../config/firebase/student_essay_practice_schema.js?v=20261101-essay-support-v1";
 import {normalizeAssignment, normalizeCompletion, normalizeReference, normalizeListInput,
-  readAssignment, readCompletion, sameAssignment, encodeCursor, decodeCursor} from "../domain/student_essay_practice.js?v=20261018-essay-session-v1";
+  readAssignment, readCompletion, sameAssignment, encodeCursor, decodeCursor} from "../domain/student_essay_practice.js?v=20261101-essay-support-v1";
 
 const defaultServerTimestamp = () => firebaseOps.getFirebaseNamespace().firestore.FieldValue.serverTimestamp();
 const defaultDocumentId = () => firebaseOps.getFirebaseNamespace().firestore.FieldPath.documentId();
@@ -73,6 +73,7 @@ class FirestoreStudentEssayPracticeRepository {
       if (!usage.exists) this.recordQuestionUsage(transaction, usageRef, assignment, assigned.id);
       transaction.set(db.collection(STUDENT_ESSAY_PRACTICES_COLLECTION).doc(reference.studentId), {}, {merge: true});
       transaction.set(assigned, {
+        ...(assignment.sourceEssayQuestionId ? {sourceEssayQuestionId: assignment.sourceEssayQuestionId} : {}),
         essayQuestionId: assignment.essayQuestionId, syllabusId: assignment.syllabusId,
         topicId: assignment.topicId, assignedAt: this.serverTimestamp(),
       });
@@ -116,6 +117,7 @@ class FirestoreStudentEssayPracticeRepository {
       const savedAssignment = stored;
       if (!usage.exists) this.recordQuestionUsage(transaction, usageRef, stored, reference.essayPracticeId);
       transaction.set(completed, {
+        ...(savedAssignment.sourceEssayQuestionId ? {sourceEssayQuestionId: savedAssignment.sourceEssayQuestionId} : {}),
         essayQuestionId: savedAssignment.essayQuestionId, syllabusId: savedAssignment.syllabusId,
         topicId: savedAssignment.topicId, assignedAt: savedAssignment.assignedAt,
         completedAt: this.serverTimestamp(),

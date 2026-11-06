@@ -74,6 +74,8 @@ class AcceptCoreDailyMission {
     dailyMissionRepository,
     getNextCoreDailyMission,
     getAssignedEssayPractice = async () => null,
+    getAssignedFillInTheBlanksPractice = async () => null,
+    getCompletedFillInTheBlanksPractice = async () => null,
     getCompletedEssayPractice = async () => null,
     getPracticeById,
   } = {}) {
@@ -85,7 +87,7 @@ class AcceptCoreDailyMission {
     }
 
     this.dailyMissionRepository = dailyMissionRepository;
-    Object.assign(this, {getAssignedEssayPractice, getCompletedEssayPractice});
+    Object.assign(this, {getAssignedEssayPractice, getCompletedEssayPractice, getAssignedFillInTheBlanksPractice, getCompletedFillInTheBlanksPractice});
     this.getNextCoreDailyMission = requireFunction(
       getNextCoreDailyMission,
       "getNextCoreDailyMission",
@@ -101,7 +103,10 @@ class AcceptCoreDailyMission {
     const normalizedPracticeId = requireDocumentId(practiceId, "practiceId");
     const type = missionPracticeType(practiceType);
     const essayReference = {studentId: normalizedStudentId, essayPracticeId: normalizedPracticeId};
-    const practice = type === "essay"
+    const fillReference = {studentId: normalizedStudentId, practiceId: normalizedPracticeId};
+    const practice = type === "fillInTheBlanks"
+      ? await this.getAssignedFillInTheBlanksPractice(fillReference) || await this.getCompletedFillInTheBlanksPractice(fillReference)
+      : type === "essay"
       ? await this.getAssignedEssayPractice(essayReference) || await this.getCompletedEssayPractice(essayReference)
       : await this.getPracticeById(normalizedPracticeId);
 
@@ -112,7 +117,7 @@ class AcceptCoreDailyMission {
       );
     }
 
-    const {syllabusId, topicId} = type === "essay"
+    const {syllabusId, topicId} = type !== "normal"
       ? {syllabusId: requireDocumentId(practice.syllabusId, "syllabusId"), topicId: requireDocumentId(practice.topicId, "topicId")}
       : practiceMissionRoute(practice);
     const mission = await this.getNextCoreDailyMission({

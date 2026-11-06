@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import {after, beforeEach, test} from "node:test";
 import {createRequire} from "node:module";
-import * as web from "./readiness_module.js";
+import * as web from "./readiness_module.js?v=20261104-fill-preassessment-v3";
 import * as webSchema from "../../config/firebase/student_readiness_schema.js";
-import {CalculateReadinessScore as WebCalculator} from "./application/calculate_readiness_score.js";
+import {CalculateReadinessScore as WebCalculator} from "./application/calculate_readiness_score.js?v=20261104-fill-preassessment-v3";
 
 const require = createRequire(import.meta.url);
 const backendSchema = require("../../../functions/schema/student_readiness_schema.js");
@@ -256,8 +256,8 @@ test("score schemas match in backend and web and keep latest and history records
   assert.deepEqual(topic.fields, {score: {type: "number", minimum: 0}, updatedAt: "timestamp"});
   assert.deepEqual(topic.subcollections.history.fields, {
     score: {type: "number", minimum: 0}, savedAt: "timestamp",
-    practiceId: {type: "string", optional: true, references: "practices/{practiceId} or studentEssayPractices/{studentId}/completedEssayPractices/{practiceId}"},
-    practiceType: {type: "string", enum: ["normal", "essay"], optional: true},
+    practiceId: {type: "string", optional: true, references: "practices/{practiceId} or studentEssayPractices/{studentId}/completedEssayPractices/{practiceId} or studentFillInTheBlanksPractices/{studentId}/completedPractices/{practiceId}"},
+    practiceType: {type: "string", enum: ["normal", "essay", "fillInTheBlanks"], optional: true},
   });
   const subject = webSchema.studentReadinessSchema.subcollections.syllabuses;
   assert.deepEqual(subject.fields, topic.fields);

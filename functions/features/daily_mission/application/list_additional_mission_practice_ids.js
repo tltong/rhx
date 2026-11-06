@@ -108,6 +108,7 @@ class ListAdditionalMissionPracticeIds {
     dailyMissionRepository,
     listAssignedPracticeIds,
     listAssignedEssayPractices = async () => ({practices: [], nextCursor: null}),
+    listAssignedFillInTheBlanksPractices = async () => ({practices: [], nextCursor: null}),
     getPracticeById,
     checkPausedTopicValidity,
     getCurrentDate = currentUtcDate,
@@ -126,6 +127,7 @@ class ListAdditionalMissionPracticeIds {
 
     this.dailyMissionRepository = dailyMissionRepository;
     this.listAssignedEssayPractices = listAssignedEssayPractices;
+    this.listAssignedFillInTheBlanksPractices = listAssignedFillInTheBlanksPractices;
     this.listAssignedPracticeIds = requireFunction(
       listAssignedPracticeIds,
       "listAssignedPracticeIds",
@@ -226,6 +228,19 @@ class ListAdditionalMissionPracticeIds {
       } while (cursor);
     }
 
+    if (includeEssays) {
+      let fillCursor = null;
+      do {
+        const page = await this.listAssignedFillInTheBlanksPractices({...input, limit: 100, cursor: fillCursor});
+        for (const assignment of page.practices) {
+          if (assignment.syllabusId === normalizedSyllabusId && !pausedTopics.has(assignment.topicId) && !(coreMission.practiceType === "fillInTheBlanks" && assignment.practiceId === corePracticeId)) {
+            candidates.push({topicId: assignment.topicId, practiceId: assignment.practiceId, practiceType: "fillInTheBlanks"});
+          }
+        }
+        fillCursor = page.nextCursor;
+      } while (fillCursor);
+    }
+
     if (candidates.length === 0) {
       return Object.freeze([]);
     }
@@ -276,8 +291,8 @@ class ListAdditionalMissionPracticeIds {
 
     return Object.freeze(topics.map(({topicId, practiceIds}) => Object.freeze(
       [...practiceIds].sort((first, second) => compareStable(
-        first.practiceType === "essay" ? `essay|${first.practiceId}` : first.practiceId,
-        second.practiceType === "essay" ? `essay|${second.practiceId}` : second.practiceId,
+        first.practiceType && first.practiceType !== "normal" ? `${first.practiceType}|${first.practiceId}` : first.practiceId,
+        second.practiceType && second.practiceType !== "normal" ? `${second.practiceType}|${second.practiceId}` : second.practiceId,
         `${seed}|${topicId}|practice`,
       ))[0]
     )));

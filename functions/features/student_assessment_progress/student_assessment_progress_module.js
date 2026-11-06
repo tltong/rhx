@@ -133,3 +133,13 @@ module.exports = {
   getStudentPracticeAssessment,
   getStudentTopicLevel,
 };
+
+// Trusted completion processing for fill-in-the-blanks uses the shared progression store.
+const {AssessStudentFillInTheBlanksPractice} = require("./application/assess_student_fill_in_the_blanks_practice");
+const fillAssessment = new AssessStudentFillInTheBlanksPractice({studentAssessmentProgressRepository,
+  ...require("../student_fill_in_the_blanks_practice/student_fill_in_the_blanks_practice_module"),
+  ...require("../fill_in_the_blanks_question_generator/fill_in_the_blanks_question_generator_module"),
+  ...require("../fill_in_the_blanks_scoring/fill_in_the_blanks_scoring_module"),
+  ...require("../fill_in_the_blanks_practice/fill_in_the_blanks_practice_module"),
+  getSyllabusById, getAssessmentLevelCriteria, calculateAssessmentProgression, calculatePreAssessmentLevel});
+module.exports.assessStudentFillInTheBlanksPractice = input => fillAssessment.execute(input);

@@ -36,9 +36,9 @@ function harness(options = {}) {
     questionText: "Write about a helpful friend.", wordCountRequirement: {minWords: 150}};
   const syllabuses = options.syllabuses || [
     {id: "normal-syllabus", country: "Malaysia", level: "primary", year: 3, subject: "Reading",
-      assessmentFrameworkId: "framework", languages: ["English"], topics: [{id: "topic-1", topicName: "Reading", preAssessmentPractices: {}}]},
+      frameworkTypes: {framework: "normal"}, languages: ["English"], topics: [{id: "topic-1", topicName: "Reading", assessmentFrameworkIds: {english: "framework"}, preAssessmentPractices: {}}]},
     {id: "essay-syllabus", country: "Malaysia", level: "primary", year: 3, subject: "Writing",
-      assessmentFrameworkId: null, languages: ["English"], topics: [{id: "topic-1", topicName: "Writing", preAssessmentPractices: {}}]},
+      frameworkTypes: {essay: "essay"}, languages: ["English"], topics: [{id: "topic-1", topicName: "Writing", assessmentFrameworkIds: {english: "essay"}, preAssessmentPractices: {}}]},
   ];
   const calls = {normal: [], essay: [], loadNormal: [], loadEssay: []};
   const normalResult = {practice: {id: "normal-p"}, assignment: {language: "English", practiceId: "normal-p", practiceType: "normal"},
@@ -64,19 +64,19 @@ function harness(options = {}) {
   vm.runInContext(code, context);
   return {get, calls, syllabuses, context, ready: flush(), normalResult, essayResult};
 }
-test("page keeps subjects without a framework available and offers one medium essay attached to the syllabus", async () => {
+test("page derives essay generation from the topic framework", async () => {
   const h = harness(); await h.ready;
   assert.deepEqual(h.get("syllabus-select").children.slice(1).map(item => item.value), ["normal-syllabus", "essay-syllabus"]);
   await h.get("syllabus-select").edit("essay-syllabus");
   assert.equal(h.get("practice-type-select").value, "essay");
   assert.equal(h.get("generate-practice").disabled, false);
-  assert.match(h.get("practice-type-help").textContent, /medium-difficulty/);
+  assert.match(h.get("practice-type-help").textContent, /framework level/);
   await h.get("generate-practice").click();
   assert.equal(h.calls.essay.length, 1); assert.equal(h.calls.normal.length, 0);
   assert.deepEqual(JSON.parse(JSON.stringify(h.calls.essay[0])), {syllabusId: "essay-syllabus", topicId: "topic-1", language: "English"});
   assert.equal(h.get("allocation-summary").hidden, true);
   assert.equal(h.get("questions-container").children.length, 1);
-  assert.match(h.get("results-summary").textContent, /Essay.*Medium.*1 question/);
+  assert.match(h.get("results-summary").textContent, /Essay.*medium.*1 question/);
   assert.match(h.get("status-message").textContent, /attached to the syllabus/);
   assert.equal(h.syllabuses[1].topics[0].preAssessmentPractices.english.practiceType, "essay");
 });
@@ -93,39 +93,35 @@ test("normal mode keeps the current generator, allocation and MCQ preview", asyn
   assert.equal(h.syllabuses[0].topics[0].preAssessmentPractices.english.practiceType, "normal");
 });
 
-test("normal generation is disabled without a framework but switching to essay enables it", async () => {
+test("missing topic assignment blocks all generation even with a legacy syllabus default", async () => {
   const h = harness(); await h.ready;
+  delete h.syllabuses[1].topics[0].assessmentFrameworkIds.english;
+  h.syllabuses[1].assessmentFrameworkId = "framework";
   await h.get("syllabus-select").edit("essay-syllabus");
-  await h.get("practice-type-select").edit("normal");
   assert.equal(h.get("generate-practice").disabled, true);
-  assert.match(h.get("practice-type-help").textContent, /requires an assessment framework/);
-  await h.get("practice-type-select").edit("essay");
-  assert.equal(h.get("generate-practice").disabled, false);
+  assert.match(h.get("practice-type-help").textContent, /Select an assessment framework for this topic/);
+  assert.equal(h.get("practice-type-select").disabled, true);
 });
 
-test("an existing essay is previewed through its own loader and can be replaced by normal practice", async () => {
+test("an incompatible legacy attachment cannot select a different question type", async () => {
   const h = harness(); await h.ready;
   h.syllabuses[0].topics[0].preAssessmentPractices.english = {language: "English", practiceId: "old-essay", practiceType: "essay"};
   await h.get("syllabus-select").edit("normal-syllabus");
-  assert.equal(h.get("practice-type-select").value, "essay");
-  assert.equal(h.calls.loadEssay.length, 1); assert.equal(h.calls.loadNormal.length, 0);
-  assert.match(h.get("results-summary").textContent, /Existing essay practice/);
-  await h.get("practice-type-select").edit("normal");
-  assert.match(h.get("assignment-message").textContent, /retained/);
+  assert.equal(h.get("practice-type-select").value, "normal");
+  assert.equal(h.get("practice-type-select").disabled, true);
+  assert.equal(h.calls.loadEssay.length, 1);
   await h.get("generate-practice").click();
   assert.equal(h.calls.normal.length, 1);
   assert.equal(h.syllabuses[0].topics[0].preAssessmentPractices.english.practiceType, "normal");
 });
 
-test("legacy attachments preview as normal and the admin can switch that topic to essay", async () => {
+test("legacy MCQ attachments use their topic's MCQ framework", async () => {
   const h = harness(); await h.ready;
   h.syllabuses[0].topics[0].preAssessmentPractices.english = {language: "English", practiceId: "old-normal"};
   await h.get("syllabus-select").edit("normal-syllabus");
   assert.equal(h.calls.loadNormal.length, 1);
-  await h.get("practice-type-select").edit("essay");
-  await h.get("generate-practice").click();
-  assert.equal(h.calls.essay.length, 1);
-  assert.equal(h.syllabuses[0].topics[0].preAssessmentPractices.english.practiceType, "essay");
+  assert.equal(h.get("practice-type-select").value, "normal");
+  assert.equal(h.get("practice-type-select").disabled, true);
 });
 
 test("generation freezes the selection and failures display an error without changing the attachment", async () => {

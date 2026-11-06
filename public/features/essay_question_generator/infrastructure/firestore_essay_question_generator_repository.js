@@ -1,8 +1,9 @@
+import {normalizeQuestionSupport, normalizeImagePrompt} from "../domain/essay_question_support.js?v=20261101-essay-simple-images-v4";
 import * as firebaseOps from "../../../utils/firebase/firebase_ops.js";
-import {ESSAY_QUESTION_GENERATOR_COLLECTION, ESSAY_QUESTION_CONFIG_DOCUMENT_ID, ESSAY_QUESTION_INDEX_DOCUMENT_ID} from "../../../config/firebase/essay_question_generator_schema.js?v=20261017-essay-grade-min-words-v1";
-import {EssayQuestionGeneratorConfig, normalizeConfiguration, requireAdministratorUid, normalizeWordCountRequirement} from "../domain/essay_question_generator_config.js?v=20261017-essay-grade-min-words-v1";
-import {normalizeGenerationInput, normalizeGeneratedQuestion, normalizeQuestionId, questionCollectionPath, scopeFromQuestionPath, readQuestion, normalizeListInput, decodeCursor, encodeCursor} from "../domain/essay_question.js?v=20261017-essay-grade-min-words-v1";
-import {EssayQuestionGeneratorRepository} from "../domain/essay_question_generator_repository.js?v=20261017-essay-grade-min-words-v1";
+import {ESSAY_QUESTION_GENERATOR_COLLECTION, ESSAY_QUESTION_CONFIG_DOCUMENT_ID, ESSAY_QUESTION_INDEX_DOCUMENT_ID} from "../../../config/firebase/essay_question_generator_schema.js?v=20261101-essay-simple-images-v4";
+import {EssayQuestionGeneratorConfig, normalizeConfiguration, requireAdministratorUid, normalizeWordCountRequirement} from "../domain/essay_question_generator_config.js?v=20261101-essay-simple-images-v4";
+import {normalizeGenerationInput, normalizeGeneratedQuestion, normalizeQuestionId, questionCollectionPath, scopeFromQuestionPath, readQuestion, normalizeListInput, decodeCursor, encodeCursor} from "../domain/essay_question.js?v=20261101-essay-simple-images-v4";
+import {EssayQuestionGeneratorRepository} from "../domain/essay_question_generator_repository.js?v=20261104-fill-preassessment-v3";
 
 
 class FirestoreEssayQuestionGeneratorRepository extends EssayQuestionGeneratorRepository {
@@ -37,14 +38,16 @@ class FirestoreEssayQuestionGeneratorRepository extends EssayQuestionGeneratorRe
   async saveQuestion(input, {beforeWrite = () => {}} = {}) {
     const criteria = normalizeGenerationInput(input);
     const {questionText} = normalizeGeneratedQuestion(input);
+    const imagePrompt = normalizeImagePrompt(input.imagePrompt);
     const wordCountRequirement = normalizeWordCountRequirement(input.wordCountRequirement);
+    const support = normalizeQuestionSupport(input.support);
     beforeWrite();
     const db = this.getFirestoreDb();
     const reference = db.collection(questionCollectionPath(criteria)).doc(
       input.questionId === undefined ? this.createQuestionId(criteria) : normalizeQuestionId(input.questionId));
     const index = db.collection(ESSAY_QUESTION_GENERATOR_COLLECTION).doc(ESSAY_QUESTION_INDEX_DOCUMENT_ID)
       .collection("entries").doc(reference.id);
-    const data = {questionText, difficulty: criteria.difficulty, seedUsed: criteria.seed,
+    const data = {...(support === undefined ? {} : {support}), ...(imagePrompt === undefined ? {} : {imagePrompt}), questionText, difficulty: criteria.difficulty, seedUsed: criteria.seed,
       wordCountRequirement, generatedAt: this.serverTimestamp()};
     await db.runTransaction(async transaction => {
       beforeWrite();
@@ -54,6 +57,8 @@ class FirestoreEssayQuestionGeneratorRepository extends EssayQuestionGeneratorRe
         const stored = existingQuestion.data();
         if (input.questionId !== undefined && existingIndex.exists && existingQuestion.exists
             && existingIndex.data().documentPath === reference.path
+            && JSON.stringify(normalizeQuestionSupport(stored.support)) === JSON.stringify(support)
+            && normalizeImagePrompt(stored.imagePrompt) === imagePrompt
             && stored.questionText === data.questionText && stored.difficulty === data.difficulty
             && stored.seedUsed === data.seedUsed
             && normalizeWordCountRequirement(stored.wordCountRequirement).minWords === wordCountRequirement.minWords) return;

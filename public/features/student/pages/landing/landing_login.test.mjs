@@ -12,6 +12,7 @@ function fixture({dashboard = true, dashboardError = null, loginError = null, pe
   const statuses = [];
   const coinEvents = [];
   const essayEvents = [];
+  const fillEvents = [];
   const scope = {
     authenticatedStudentId: null,
     INDEX_URL: "/index.html",
@@ -22,6 +23,7 @@ function fixture({dashboard = true, dashboardError = null, loginError = null, pe
       stop: () => coinEvents.push(["stop"]),
       start: ({studentId}) => coinEvents.push(["start", studentId]),
     },
+    fillInTheBlanksRefreshController: {stop: () => fillEvents.push(["stop"]), start: studentId => fillEvents.push(["start", studentId])},
     essayPracticeRefreshController: {
       stop: () => essayEvents.push(["stop"]),
       start: studentId => essayEvents.push(["start", studentId]),
@@ -46,7 +48,7 @@ function fixture({dashboard = true, dashboardError = null, loginError = null, pe
     getPracticeById: async () => ({questions: [{syllabusId: "math", topicId: "fractions"}]}),
   };
   runInNewContext(handleAuth, scope);
-  return {scope, events, errors, statuses, coinEvents, essayEvents};
+  return {scope, events, errors, statuses, coinEvents, essayEvents, fillEvents};
 }
 
 test("a returning authenticated student watches coins and records login after the dashboard loads", async () => {
@@ -57,6 +59,14 @@ test("a returning authenticated student watches coins and records login after th
   assert.equal(events.filter(([action]) => action === "login").length, 1);
   assert.deepEqual(coinEvents, [["stop"], ["start", "student-1"]]);
   assert.deepEqual(essayEvents, [["stop"], ["start", "student-1"]]);
+});
+
+test("fill-in-the-blanks live updates start for the active student and stop on sign-out", async () => {
+  const {scope, fillEvents} = fixture();
+  await scope.handleAuthState({uid: "student-1"});
+  assert.deepEqual(fillEvents, [["stop"], ["start", "student-1"]]);
+  await scope.handleAuthState(null);
+  assert.deepEqual(fillEvents.at(-1), ["stop"]);
 });
 
 test("signed-out users and missing student dashboards do not record logins", async () => {

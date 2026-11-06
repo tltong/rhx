@@ -1,7 +1,7 @@
-import {listStudents} from "../../../student/student_module.js?v=20261031-renewal-restart-v1";
-import {listSyllabuses} from "../../../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
+import {listStudents} from "../../../student/student_module.js?v=20261104-fill-preassessment-v3";
+import {listSyllabuses} from "../../../syllabus/syllabus_module.js?v=20261104-fill-preassessment-v3";
 import {previewStudentTopicPracticeReset, requestStudentTopicPracticeReset, getStudentTopicPracticeResetStatus}
-  from "../../student_topic_practice_reset_module.js?v=20261018-topic-reset-v1";
+  from "../../student_topic_practice_reset_module.js?v=20261104-fill-preassessment-v3";
 import {onFirebaseAuthStateChanged} from "../../../../utils/firebase/firebase_auth.js";
 
 const labels = {assignedPractices: "Assigned practices", completedPractices: "Completed practices and answers", practiceResults: "Practice results and answers", completionProcessing: "Practice processing records",

@@ -75,6 +75,7 @@ class FirestoreStudentEssayPracticeRepository {
       if (!usage.exists) this.recordQuestionUsage(transaction, usageRef, assignment, assigned.id);
       transaction.set(db.collection(STUDENT_ESSAY_PRACTICES_COLLECTION).doc(reference.studentId), {}, {merge: true});
       transaction.set(assigned, {
+        ...(assignment.sourceEssayQuestionId ? {sourceEssayQuestionId: assignment.sourceEssayQuestionId} : {}),
         essayQuestionId: assignment.essayQuestionId, syllabusId: assignment.syllabusId,
         topicId: assignment.topicId, assignedAt: this.serverTimestamp(),
       });
@@ -118,6 +119,7 @@ class FirestoreStudentEssayPracticeRepository {
       const savedAssignment = stored;
       if (!usage.exists) this.recordQuestionUsage(transaction, usageRef, stored, reference.essayPracticeId);
       transaction.set(completed, {
+        ...(savedAssignment.sourceEssayQuestionId ? {sourceEssayQuestionId: savedAssignment.sourceEssayQuestionId} : {}),
         essayQuestionId: savedAssignment.essayQuestionId, syllabusId: savedAssignment.syllabusId,
         topicId: savedAssignment.topicId, assignedAt: savedAssignment.assignedAt,
         completedAt: this.serverTimestamp(),

@@ -1,4 +1,4 @@
-import {normalizeListInput} from "../domain/essay_question.js?v=20261017-essay-grade-min-words-v1";
+import {normalizeListInput} from "../domain/essay_question.js?v=20261101-essay-simple-images-v4";
 
 
 class ListEssayQuestions {

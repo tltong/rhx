@@ -179,8 +179,7 @@ class AssessNormalAssessmentPractice {
     );
     const questionLanguages = [...new Set(practice.questions.map(question => question.language).filter(Boolean))];
     if (questionLanguages.length > 1) throw new Error("An assessed practice must use one language.");
-    const hasOverrides = Object.keys(syllabus.topics.find(topic => topic.id === topicId).assessmentFrameworkIds || {}).length > 0;
-    const language = questionLanguages[0] || (hasOverrides ? await this.getStudentSyllabusSubscriptionLanguage(normalizedStudentId, syllabusId) : null);
+    const language = questionLanguages[0] || await this.getStudentSyllabusSubscriptionLanguage(normalizedStudentId, syllabusId);
     const assessmentFrameworkId = requireIdentifier(resolveTopicAssessmentFrameworkId(syllabus, {topicId, language}), "Topic assessment framework ID");
     const existingProgress =
       await this.studentAssessmentProgressRepository.getByTopic(
@@ -220,6 +219,7 @@ class AssessNormalAssessmentPractice {
       levelCriteria = baseline;
     }
 
+    if (levelCriteria.frameworkType === "fillInTheBlanks") throw new Error("Fill-in-the-blanks frameworks require fill-in-the-blanks assessment.");
     if (levelCriteria.frameworkType === "essay") throw new Error("Essay frameworks require essay assessment.");
 
     const levelEnteredAt = existingProgress

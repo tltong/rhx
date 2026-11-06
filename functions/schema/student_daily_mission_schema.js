@@ -21,6 +21,8 @@ const studentDailyMissionSchema = {
   documentId: studentDailyMissionDocumentIdPattern,
   fields: {},
   subcollections: {
+    acceptedDailyMissionFillInTheBlanksPractices: {collection: "acceptedDailyMissionFillInTheBlanksPractices", documentId: "[practiceId]", fields: {missionDate: "string", syllabusId: "string", topicId: "string", practiceType: "fillInTheBlanks"}},
+    acceptedAdditionalMissionFillInTheBlanksPractices: {collection: "acceptedAdditionalMissionFillInTheBlanksPractices", documentId: "[practiceId]", fields: {missionDate: "string", syllabusId: "string", topicId: "string", practiceType: "fillInTheBlanks"}},
     acceptedAdditionalMissionEssays: {
       collection: "acceptedAdditionalMissionEssays", documentId: "[student_essay_practice_id]",
       fields: {missionDate: "string", syllabusId: "string", topicId: "string", practiceType: "essay"},
@@ -62,7 +64,7 @@ const studentDailyMissionSchema = {
               fields: {
                 topicId: "string",
                 practiceId: "string",
-                practiceType: {type: "enum", values: ["normal", "essay"], default: "normal"}
+                practiceType: {type: "enum", values: ["normal", "essay", "fillInTheBlanks"], default: "normal"}
               }
             }
           },
@@ -84,6 +86,7 @@ const studentDailyMissionSchema = {
               documentId: studentDailyMissionTopicDocumentIdPattern,
               fields: {},
               subcollections: {
+                fillInTheBlanksPractices: {collection: "fillInTheBlanksPractices", documentId: "[practiceId]", fields: {practiceType: "fillInTheBlanks"}},
                 essays: {collection: "essays", documentId: "[student_essay_practice_id]", fields: {practiceType: "essay"}},
                 practices: {
                   collection: STUDENT_DAILY_MISSION_PRACTICES_SUBCOLLECTION,

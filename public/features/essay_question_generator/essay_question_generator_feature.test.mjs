@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import {after, beforeEach, test} from "node:test";
 import {createRequire} from "node:module";
 import {readFile} from "node:fs/promises";
-import * as web from "./essay_question_generator_module.js";
+import * as web from "./essay_question_generator_module.js?v=20261104-fill-preassessment-v3";
 import * as webSchema from "../../config/firebase/essay_question_generator_schema.js";
 import * as webLlm from "../../utils/llm/llm_util.js?v=20261015-deepseek-deadline-v1";
 import {GetRandomEssayQuestion as WebRandom} from "./application/get_random_essay_question.js";
@@ -108,7 +108,7 @@ webLlm.registerLlmProvider("deepseek", {call() {throw new Error("Use generateLlm
 const backend = require("../../../functions/features/essay_question_generator/essay_question_generator_module");
 const backendSchema = require("../../../functions/schema/essay_question_generator_schema");
 const {GetRandomEssayQuestion: BackendRandom} = require("../../../functions/features/essay_question_generator/application/get_random_essay_question");
-const apis = ["getEssayQuestionGeneratorConfig", "saveEssayQuestionGeneratorConfig", "generateEssayQuestion", "saveEssayQuestion",
+const apis = ["prepareEssayQuestionForAssignment", "getEssayQuestionGeneratorConfig", "saveEssayQuestionGeneratorConfig", "generateEssayQuestion", "saveEssayQuestion",
   "getEssayQuestionById", "listEssayQuestions", "getRandomEssayQuestion"];
 const scope = {level: "primary", standard: 3, language: "English"};
 const generation = changes => ({...scope, difficulty: "medium", seed: "Theme: Friendship\nSetting: School\nType: Narrative", ...changes});
@@ -138,7 +138,7 @@ after(() => {
   if (originalFirebase === undefined) delete globalThis.firebase; else globalThis.firebase = originalFirebase;
 });
 
-test("backend and web have matching schemas, enums and seven feature APIs, independent of the seed feature", async () => {
+test("backend and web have matching schemas, enums and matching feature APIs, independent of the seed feature", async () => {
   for (const key of Object.keys(webSchema)) assert.deepEqual(webSchema[key], backendSchema[key]);
   for (const api of [backend, web]) for (const name of apis) assert.equal(typeof api[name], "function");
   assert.deepEqual(web.ESSAY_QUESTION_DIFFICULTIES, {EASY: "easy", MEDIUM: "medium", HARD: "hard"});
@@ -178,7 +178,7 @@ for (const [layer, api, Random] of [["backend", backend, BackendRandom], ["web",
     assert.ok(Object.isFrozen(saved.gradeInstructions.primary));
     assert.deepEqual(await api.getEssayQuestionGeneratorConfig(), saved);
     assert.deepEqual(Object.keys(documents.get(configPath)).sort(),
-      ["additionalLlmInstructions", "difficultyInstructions", "gradeInstructions", "gradeWordCountRequirements", "updatedAt", "updatedBy"]);
+      ["additionalLlmInstructions", "difficultyInstructions", "gradeInstructions", "gradeSupport", "gradeWordCountRequirements", "updatedAt", "updatedBy"]);
     assert.equal(writes[0].options.merge, false);
     const cleared = await invoke(api, "saveEssayQuestionGeneratorConfig", {});
     assert.deepEqual(cleared.gradeInstructions, configuration().gradeInstructions);
@@ -219,7 +219,7 @@ for (const [layer, api, Random] of [["backend", backend, BackendRandom], ["web",
     const questionPath = questionCollectionPath(scope) + "/" + saved.questionId;
     assert.deepEqual(writes.map(write => write.path), [questionPath, indexPath(saved.questionId)]);
     assert.deepEqual(documents.get(indexPath(saved.questionId)), {documentPath: questionPath});
-    assert.deepEqual(Object.keys(documents.get(questionPath)).sort(), ["difficulty", "generatedAt", "questionText", "seedUsed", "wordCountRequirement"]);
+    assert.deepEqual(Object.keys(documents.get(questionPath)).sort(), ["difficulty", "generatedAt", "questionText", "seedUsed", "support", "wordCountRequirement"]);
     assert.deepEqual(await api.getEssayQuestionById(saved.questionId), saved);
   });
   test(layer + ": grade minimums round trip independently, default to null and remain immutable on saved models", async () => {
@@ -323,6 +323,17 @@ for (const [layer, api, Random] of [["backend", backend, BackendRandom], ["web",
     const saved = await invoke(api, "saveEssayQuestion", draft);
     assert.equal(saved.questionId, draft.questionId); assert.equal(writes.length, 2);
     assert.deepEqual(llmCalls, []);
+  });
+  test(layer + ": image prompts persist through preview save, lookup and listing without additional generation", async () => {
+    const draft = {...generation(), questionId: "prompt-question", questionText: "Write about friends helping at school.",
+      seedUsed: "Friendship", imagePrompt: "Children helping a friend in a school playground.", wordCountRequirement: {minWords: null}};
+    const saved = await invoke(api, "saveEssayQuestion", draft);
+    assert.equal(saved.imagePrompt, draft.imagePrompt);
+    assert.equal((await api.getEssayQuestionById(saved.questionId)).imagePrompt, draft.imagePrompt);
+    assert.equal((await api.listEssayQuestions({...draft, limit: 5})).questions[0].imagePrompt, draft.imagePrompt);
+    assert.deepEqual(await invoke(api, "saveEssayQuestion", draft), saved);
+    await assert.rejects(invoke(api, "saveEssayQuestion", {...draft, imagePrompt: "A different scene"}), /already exists/);
+    assert.equal(llmCalls.length, 0);
   });
   test(layer + ": invalid drafts fail before authorization and save failures leave no partial records", async () => {
     for (const draft of [null, questionDraft({questionId: undefined}), questionDraft({questionText: " "}),
@@ -479,4 +490,19 @@ test("web rejects changed accounts during reads and stops random sampling after 
     await assert.rejects(operation, /changed/);
   }
   assert.deepEqual(writes, []);
+});
+
+test("admin image-prompt instructions match the image-specific instructions sent by both generators", async () => {
+  const webTemplate = await import("./config/essay_question_prompt_template.js");
+  const backendTemplate = require("../../../functions/features/essay_question_generator/config/essay_question_prompt_template");
+  const webBuilder = await import("./application/build_essay_question_prompt.js");
+  const backendBuilder = require("../../../functions/features/essay_question_generator/application/build_essay_question_prompt");
+  assert.equal(webTemplate.ESSAY_IMAGE_PROMPT_INSTRUCTIONS, backendTemplate.ESSAY_IMAGE_PROMPT_INSTRUCTIONS);
+  const config = backend.createDefaultConfiguration();
+  for (const builder of [webBuilder.buildEssayQuestionPrompt, backendBuilder.buildEssayQuestionPrompt]) {
+    config.gradeSupport.primary[3].pictureEnabled = true;
+    assert.ok(builder(generation(), config).includes(webTemplate.ESSAY_IMAGE_PROMPT_INSTRUCTIONS));
+    config.gradeSupport.primary[3].pictureEnabled = false;
+    assert.ok(!builder(generation(), config).includes(webTemplate.ESSAY_IMAGE_PROMPT_INSTRUCTIONS));
+  }
 });

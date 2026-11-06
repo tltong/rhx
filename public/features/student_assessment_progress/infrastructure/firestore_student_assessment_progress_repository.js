@@ -1,10 +1,10 @@
-import {guardStudentMaintenance} from "../../../utils/student_topic_reset_guard.js?v=20261018-topic-reset-v1";
+import {guardStudentMaintenance} from "../../../utils/student_topic_reset_guard.js?v=20261104-fill-preassessment-v3";
 import {
   STUDENT_PRACTICE_ASSESSMENTS_SUBCOLLECTION,
   STUDENT_ASSESSMENT_PROGRESS_COLLECTION,
   STUDENT_ASSESSMENT_SYLLABUSES_SUBCOLLECTION,
   STUDENT_ASSESSMENT_TOPICS_SUBCOLLECTION
-} from "../../../config/firebase/student_assessment_progress_schema.js?v=20261018-essay-progression-v1";
+} from "../../../config/firebase/student_assessment_progress_schema.js?v=20261104-fill-preassessment-v3";
 import {
   getDocumentRef,
   getFirestoreDb,
@@ -12,12 +12,12 @@ import {
 } from "../../../utils/firebase/firebase_ops.js";
 import {
   StudentAssessmentTopicProgress
-} from "../domain/student_assessment_topic_progress.js?v=20261018-essay-progression-v1";
+} from "../domain/student_assessment_topic_progress.js?v=20261104-fill-preassessment-v3";
 import {
   StudentAssessmentProgressRepository
-} from "../domain/student_assessment_progress_repository.js?v=20261018-essay-progression-v1";
+} from "../domain/student_assessment_progress_repository.js?v=20261104-fill-preassessment-v3";
 
-import {PracticeAssessment, requirePracticeAssessmentScope} from "../domain/practice_assessment.js?v=20261010-level-rewards-v1";
+import {PracticeAssessment, requirePracticeAssessmentScope} from "../domain/practice_assessment.js?v=20261104-fill-preassessment-v3";
 
 function syllabusCollectionPath(studentId) {
   return [
@@ -95,12 +95,14 @@ export class FirestoreStudentAssessmentProgressRepository
     return data === null ? null : new PracticeAssessment({...data, ...scope});
   }
 
-  async listEssayAssessmentScores(input) {
+  async listEssayAssessmentScores(input) {return this.listAssessmentScores({...input, practiceType: "essay"});}
+
+  async listAssessmentScores(input) {
     const collection = [STUDENT_ASSESSMENT_PROGRESS_COLLECTION, input.studentId, STUDENT_PRACTICE_ASSESSMENTS_SUBCOLLECTION].join("/");
-    const snapshot = await this.getFirestoreDb().collection(collection).where("practiceType", "==", "essay").get();
+    const snapshot = await this.getFirestoreDb().collection(collection).where("practiceType", "==", input.practiceType ?? "essay").get();
     return snapshot.docs.map(doc => new PracticeAssessment({...doc.data(), studentId: input.studentId, practiceId: doc.id}))
       .filter(record => record.syllabusId === input.syllabusId && record.topicId === input.topicId
-        && record.assessmentFrameworkId === input.assessmentFrameworkId && record.previousLevelId === input.levelId)
+        && record.assessmentFrameworkId === input.assessmentFrameworkId && record.previousLevelId === input.levelId && record.assessmentType !== "pre assessment")
       .map(record => record.score);
   }
 
@@ -121,11 +123,11 @@ export class FirestoreStudentAssessmentProgressRepository
       if (sourceCompletion) {
         const db = this.getFirestoreDb();
         await guardStudentMaintenance(transaction, db.collection("studentPracticeResets").doc(outcome.studentId));
-        const source = await transaction.get(db.collection("studentEssayPractices").doc(outcome.studentId)
-          .collection("completedEssayPractices").doc(outcome.practiceId));
+        const source = await transaction.get(db.collection(sourceCompletion.practiceType === "fillInTheBlanks" ? "studentFillInTheBlanksPractices" : "studentEssayPractices").doc(outcome.studentId)
+          .collection(sourceCompletion.practiceType === "fillInTheBlanks" ? "completedPractices" : "completedEssayPractices").doc(outcome.practiceId));
         const date = source.data()?.completedAt?.toDate?.() ?? source.data()?.completedAt;
         if (!source.exists || !(date instanceof Date) || date.getTime() !== sourceCompletion.completedAt.getTime()
-            || source.data().essayQuestionId !== sourceCompletion.essayQuestionId
+            || (sourceCompletion.practiceType === "fillInTheBlanks" ? source.data().passageId !== sourceCompletion.passageId : source.data().essayQuestionId !== sourceCompletion.essayQuestionId)
             || source.data().syllabusId !== outcome.syllabusId || source.data().topicId !== outcome.topicId) {
           throw Object.assign(new Error("The source essay was removed or reset."), {code: "topic-practice-reset"});
         }

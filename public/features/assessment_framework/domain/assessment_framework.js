@@ -1,4 +1,4 @@
-import {assessmentFrameworkTypes} from "../../../config/firebase/assessment_framework_schema.js?v=20261018-topic-framework-v1";
+import {assessmentFrameworkTypes} from "../../../config/firebase/assessment_framework_schema.js?v=20261104-fill-preassessment-v3";
 export class AssessmentFrameworkLevel {
   constructor({
     id,
@@ -37,8 +37,14 @@ export class AssessmentFrameworkPreAssessment {
   constructor({
     numberOfQuestions,
     difficultySplit = {},
-    scoreLevelSplit = {}
-  }) {
+    scoreLevelSplit = {},
+    difficultyLevel
+  }, frameworkType = "normal") {
+    if (frameworkType === "fillInTheBlanks") {
+      this.difficultyLevel = String(difficultyLevel ?? "medium").toLowerCase();
+      if (!["easy", "medium", "hard"].includes(this.difficultyLevel)) throw new Error("Unknown pre-assessment difficulty.");
+      this.scoreLevelSplit = scoreLevelSplit; return;
+    }
     this.numberOfQuestions = numberOfQuestions;
     this.difficultySplit = difficultySplit;
     this.scoreLevelSplit = scoreLevelSplit;
@@ -65,12 +71,27 @@ export class AssessmentFramework {
   }
 
   validateEssayCriteria() {
+    if (this.frameworkType === "fillInTheBlanks") {
+      if (this.preAssessment) {
+        this.preAssessment = new AssessmentFrameworkPreAssessment(this.preAssessment, this.frameworkType);
+        const ids = new Set([...this.levels.map(level => level.id), "endLevel"]);
+        for (const field of ["under40Percent", "over40Percent", "over50Percent", "over60Percent", "over70Percent", "over80Percent", "over90Percent"]) {
+          if (!ids.has(this.preAssessment.scoreLevelSplit[field])) throw new Error("scoreLevelSplit." + field + " references an unknown level.");
+        }
+      }
+      for (const level of this.levels) {
+        const c = level.criteria;
+        if (!Number.isSafeInteger(c?.requiredPracticeCount) || c.requiredPracticeCount < 1 || !Number.isFinite(c.minimumScore) || c.minimumScore < 0 || c.minimumScore > 100
+            || !["easy", "medium", "hard"].includes(String(c.difficultyLevel).toLowerCase())) throw new Error("Fill-in-the-blanks levels require a positive passage count, score 0-100 and a valid difficulty.");
+      }
+      return;
+    }
     if (this.frameworkType !== "essay") return;
     if (this.preAssessment) throw new Error("Essay frameworks do not use pre-assessment.");
     for (const level of this.levels) {
       const criteria = level.criteria;
       if (!Number.isInteger(criteria?.requiredPracticeCount) || criteria.requiredPracticeCount < 1 || !Number.isFinite(criteria.minimumScore) || criteria.minimumScore < 0 || criteria.minimumScore > 100
-          || criteria.questionsPerPractice !== 1 || String(criteria.difficultyLevel).toLowerCase() !== "medium") throw new Error("Essay levels require a positive essay count, score 0-100, and one medium-difficulty question.");
+          || criteria.questionsPerPractice !== 1 || !["easy", "medium", "hard"].includes(String(criteria.difficultyLevel).toLowerCase())) throw new Error("Essay levels require a positive essay count, score 0-100, and one question with Easy, Medium or Hard difficulty.");
     }
   }
 

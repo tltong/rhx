@@ -1,6 +1,6 @@
 import {
   llmPromptConfigYearNumbers
-} from "../../../../config/firebase/llm_prompt_config_schema.js?v=20260717-llm-prompt-config";
+} from "../../../../config/firebase/llm_prompt_config_schema.js?v=20261104-fill-preassessment-v3";
 import {
   createLlmPromptConfigRecord,
   deleteLlmPromptConfigRecord,
@@ -14,7 +14,7 @@ import {
   setSyllabusPromptInstructions,
   setTopicPromptInstructions,
   updateLlmPromptConfigRecord
-} from "../../llm_prompt_config_module.js?v=20260801-syllabus-instruction-admin";
+} from "../../llm_prompt_config_module.js?v=20261104-fill-preassessment-v3";
 
 const configSelect = document.querySelector("#config-select");
 const newConfigIdentifierInput = document.querySelector("#new-config-identifier");

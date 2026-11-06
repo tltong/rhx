@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fill-in-the-Blanks Question Generator</title>
+<link rel="stylesheet" href="./fill_in_the_blanks_admin.css?v=20261104-fill-firestore-v2">
+<script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script><script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
+<script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+<script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script><script defer src="/__/firebase/init.js"></script></head>
+<body><main class="page-shell"><a href="/features/site_admin/pages/site_admin/site_admin.html">Back to Site Admin</a>
+<h1>Fill-in-the-Blanks Question Generator</h1><p>Configure passages by grade and preview generated questions and images.</p>
+<p id="fill-status" class="status" role="status" aria-live="polite">Checking administrator access…</p><button id="fill-reload" type="button" class="secondary">Reload settings</button>
+<div id="fill-admin-content" hidden>
+<form id="fill-config-form" class="panel"><h2>Generation settings</h2>
+<label for="fill-common">Common LLM instructions</label><textarea id="fill-common" rows="4"></textarea>
+<p class="help">Use instructions to control passage length and teaching style. The grade setting controls the exact number of blanks.</p>
+<div class="grid"><div><label for="fill-history-mode">Previous scenario summaries</label><select id="fill-history-mode"><option value="recent">Most recent</option><option value="all">All</option></select></div>
+<div><label for="fill-history-count">Number of previous summaries</label><input id="fill-history-count" type="number" min="1" max="1000000" value="20" required></div></div>
+<p class="help">History is shared across topics and languages for the same school level, grade and difficulty.</p>
+<h2>Grade settings</h2><div id="fill-grade-settings"></div><h2>Difficulty instructions</h2><div id="fill-difficulty-settings"></div>
+<button type="submit">Save generation settings</button></form>
+<form id="fill-scoring-form" class="panel"><h2>Marking settings</h2><p class="help">Saved model answers are checked first. Unmatched nonempty answers are checked together by the LLM. Correct spelling and the required word count are mandatory.</p>
+<label for="fill-marking">Additional marking instructions</label><textarea id="fill-marking" rows="4"></textarea><button type="submit">Save marking settings</button></form>
+<section class="panel"><h2>Try passage generation</h2><p class="help">Preview only. The generated question and image are not saved. Images follow the selected grade settings.</p><form id="fill-demo-form">
+<div class="grid"><div><label for="fill-syllabus">Syllabus / grade</label><select id="fill-syllabus" required></select></div>
+<div><label for="fill-topic">Topic</label><select id="fill-topic" required></select></div>
+<div><label for="fill-language">Language</label><select id="fill-language" required></select></div>
+<div><label for="fill-difficulty">Difficulty</label><select id="fill-difficulty"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></div></div>
+<p id="fill-demo-note" class="help">Generation uses saved settings. No seed is required.</p><button id="fill-generate" type="submit">Generate preview</button>
+</form>
+<div id="fill-preview" hidden><h2>Generated question preview</h2><p id="fill-preview-image-status" class="help"></p><p id="fill-summary"></p><div id="fill-passage-preview"></div>
+<h3>Model answers</h3><ol id="fill-model-answers"></ol><label for="fill-image-prompt">Image generation prompt</label><textarea id="fill-image-prompt" rows="4" readonly></textarea>
+</div></section>
+</div></main><script type="module" src="./fill_in_the_blanks_admin.js?v=20261105-chinese-count-v1"></script></body></html>

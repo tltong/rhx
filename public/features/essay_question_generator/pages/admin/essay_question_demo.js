@@ -1,9 +1,11 @@
+import {ESSAY_IMAGE_PROMPT_INSTRUCTIONS} from "../../config/essay_question_prompt_template.js?v=20261101-essay-image-prompt-preview-v6";
+import {renderEssayQuestionSupport} from "../../components/essay_question_support_view.js?v=20261101-essay-simple-images-v4";
 import {
   ESSAY_QUESTION_LEVELS, ESSAY_QUESTION_STANDARDS, generateEssayQuestion, saveEssayQuestion,
-} from "../../essay_question_generator_module.js?v=20261017-essay-grade-min-words-v1";
-import {normalizeGenerationInput, normalizeDraftInput} from "../../domain/essay_question.js?v=20261017-essay-grade-min-words-v1";
-import {getCombinedQuestionSeed} from "../../../question_seed_generator/question_seed_generator_module.js?v=20261017-seed-association-order-v1";
-import {listSyllabusScopeLanguages} from "../../../syllabusscope/syllabusscope_module.js?v=20261014-scope-languages-v1";
+} from "../../essay_question_generator_module.js?v=20261104-fill-preassessment-v3";
+import {normalizeGenerationInput, normalizeDraftInput} from "../../domain/essay_question.js?v=20261101-essay-simple-images-v4";
+import {getCombinedQuestionSeed} from "../../../question_seed_generator/question_seed_generator_module.js?v=20261104-fill-preassessment-v3";
+import {listSyllabusScopeLanguages} from "../../../syllabusscope/syllabusscope_module.js?v=20261104-fill-preassessment-v3";
 
 export function mountEssayQuestionDemo({
   root = document, generateQuestion = generateEssayQuestion, saveQuestion = saveEssayQuestion,
@@ -21,6 +23,7 @@ export function mountEssayQuestionDemo({
   const fields = [level, standard, language, difficulty, seed], listeners = [];
   let configuration = {loaded: false, busy: false, dirty: false};
   let action = "", disposed = false, loadingLanguages = false, languagesLoaded = false;
+  let disposeSupport = () => {};
   let draft = null, seedScope = null, saved = false;
 
   function listen(element, event, callback) {
@@ -65,7 +68,72 @@ export function mountEssayQuestionDemo({
     updateControls();
   }
   function clearPreview() {
+    clearSupportPreview();
     draft = null; saved = false; preview.value = ""; meta.textContent = ""; result.hidden = true;
+  }
+  function clearSupportPreview() {
+    disposeSupport(); disposeSupport = () => {};
+    const container = byId("essay-demo-support");
+    container?.replaceChildren();
+    if (container?.dataset) delete container.dataset.supportKey;
+    const heading = byId("essay-demo-picture-heading"), pictureStatus = byId("essay-demo-picture-status");
+    if (heading) heading.hidden = true;
+    if (pictureStatus) setStatus(pictureStatus, "");
+    const helpingStatus = byId("essay-demo-helping-status");
+    if (helpingStatus) setStatus(helpingStatus, "");
+    const details = byId("essay-demo-image-prompts");
+    if (details) details.hidden = true;
+    for (const id of ["essay-demo-image-prompt-instructions", "essay-demo-image-prompt"]) {
+      const field = byId(id); if (field) {field.value = ""; field.placeholder = "";}
+    }
+    const note = byId("essay-demo-image-prompts-note"); if (note) note.textContent = "";
+  }
+  function renderImagePromptDetails(question) {
+    const details = byId("essay-demo-image-prompts");
+    if (!details) return;
+    const requested = Boolean(question.support?.settings.pictureEnabled || question.imagePrompt);
+    const disabled = question.support?.settings.pictureEnabled === false;
+    const instructions = byId("essay-demo-image-prompt-instructions"), output = byId("essay-demo-image-prompt");
+    if (instructions) {
+      instructions.value = requested ? ESSAY_IMAGE_PROMPT_INSTRUCTIONS : "";
+      instructions.placeholder = disabled ? "Not requested: pictures are disabled." : "Instructions are unavailable for this question.";
+    }
+    if (output) {
+      output.value = question.imagePrompt || "";
+      output.placeholder = requested ? "The LLM did not return an image-generation prompt." : "No image-generation prompt was requested.";
+    }
+    const note = byId("essay-demo-image-prompts-note");
+    if (note) note.textContent = requested
+      ? "The essay question and image prompt are generated together in one LLM request. The first field shows the image-specific instructions from that request; the second shows the returned prompt."
+      : disabled ? "Pictures are disabled for this level and standard, so no image-generation prompt was requested."
+        : "Image-prompt details are unavailable for this question.";
+    details.hidden = false;
+  }
+  function renderSupportPreview(question) {
+    clearSupportPreview();
+    renderImagePromptDetails(question);
+    const support = question.support;
+    const heading = byId("essay-demo-picture-heading"), pictureStatus = byId("essay-demo-picture-status");
+    if (heading) heading.hidden = support?.pictureStatus !== "ready";
+    if (pictureStatus) {
+      const message = support?.pictureStatus === "failed"
+        ? "A picture was requested but could not be generated. The text question is ready."
+        : support?.pictureStatus === "disabled"
+          ? "Pictures are disabled for this level and standard. Enable pictures in the grade settings above and save before generating."
+          : "";
+      setStatus(pictureStatus, message);
+    }
+    const helpingStatus = byId("essay-demo-helping-status");
+    if (helpingStatus) {
+      const message = support?.helpingWordsStatus === "failed"
+        ? "Helping suggestions were requested but could not be generated. The question is ready to use."
+        : support?.helpingWordsStatus === "disabled"
+          ? "Helping suggestions are disabled for this level and standard. Enable helping suggestions in the grade settings above and save before generating."
+          : "";
+      setStatus(helpingStatus, message);
+    }
+    disposeSupport = renderEssayQuestionSupport({root, container: byId("essay-demo-support"), question,
+      helpingWordsHeading: "Helping suggestions (" + (support?.helpingWords?.length ?? 0) + ")"});
   }
   function edited(event) {
     if (disposed || action) return;
@@ -137,6 +205,7 @@ export function mountEssayQuestionDemo({
         throw new Error("The generated question does not match the selected parameters. Try generating again.");
       }
       draft = generated; saved = false;
+      renderSupportPreview(generated);
       preview.value = generated.questionText; result.hidden = false;
       meta.textContent = (generated.level === "primary" ? "Primary" : "Secondary") + " · Grade " + generated.standard
         + " · " + generated.language + " · " + generated.difficulty;
@@ -167,6 +236,6 @@ export function mountEssayQuestionDemo({
   return {
     ready: loadLanguages(),
     setConfigurationState(value) {configuration = {...value}; updateControls();},
-    dispose() {disposed = true; listeners.forEach(remove => remove()); updateControls();},
+    dispose() {disposeSupport(); disposed = true; listeners.forEach(remove => remove()); updateControls();},
   };
 }

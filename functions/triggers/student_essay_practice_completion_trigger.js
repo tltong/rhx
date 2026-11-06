@@ -1,6 +1,7 @@
 const {onDocumentCreated} = require("firebase-functions/v2/firestore");
 const logger = require("firebase-functions/logger");
 const {withTopicResetGuard} = require("../utils/student_topic_reset_guard");
+const {openaiApiKey} = require("../utils/llm/openai_util");
 const {deepseekApiKey} = require("../deepseek");
 const {getCompletedEssayPractice, claimEssayPracticeScoring, setEssayPracticeScoringStatus} = require("../features/student_essay_practice/student_essay_practice_module");
 const {scoreEssay, saveEssayResult, getEssayResult} = require("../features/essay_scoring/essay_scoring_module");
@@ -106,7 +107,7 @@ async function scoreCompletedStudentEssay(input, {
 const onStudentEssayPracticeCompleted = onDocumentCreated({
   document: "studentEssayPractices/{studentId}/completedEssayPractices/{essayPracticeId}",
   region: "us-central1", memory: "1GiB", timeoutSeconds: 540,
-  secrets: [deepseekApiKey], retry: true,
+  secrets: [deepseekApiKey, openaiApiKey], retry: true,
 }, async event => {
   const source = event.data?.data();
   if (!source) return null;

@@ -1,7 +1,7 @@
 export const SYLLABUSES_COLLECTION = "syllabuses";
 export const SYLLABUS_TOPICS_SUBCOLLECTION = "topics";
 
-export const preAssessmentPracticeTypes = Object.freeze({NORMAL: "normal", ESSAY: "essay"});
+export const preAssessmentPracticeTypes = Object.freeze({NORMAL: "normal", ESSAY: "essay", FILL_IN_THE_BLANKS: "fillInTheBlanks"});
 
 export const syllabusDocumentIdPattern = "[auto_generated_id]";
 export const syllabusTopicDocumentIdPattern = "[auto_generated_id]";
@@ -26,11 +26,6 @@ export const syllabusesSchema = {
     active: {
       type: "boolean",
       default: false
-    },
-    assessmentFrameworkId: {
-      type: "string",
-      pattern: syllabusAssessmentFrameworkIdPattern,
-      references: "assessmentFrameworks/{assessmentFrameworkId}"
     }
   },
   subcollections: {
@@ -39,7 +34,7 @@ export const syllabusesSchema = {
       documentId: syllabusTopicDocumentIdPattern,
       fields: {
         topicName: "string",
-        assessmentFrameworkIds: {type: "map", entries: {[syllabusPreAssessmentLanguageKeyPattern]: {type: "string", references: "assessmentFrameworks/{assessmentFrameworkId}"}}},
+        assessmentFrameworkIds: {type: "map", description: "Required per topic/language on active syllabuses; framework type determines question format.", entries: {[syllabusPreAssessmentLanguageKeyPattern]: {type: "string", references: "assessmentFrameworks/{assessmentFrameworkId}"}}},
         pausable: {
           type: "boolean",
           default: true
@@ -67,7 +62,8 @@ export const syllabusesSchema = {
                   pattern: syllabusPreAssessmentPracticeIdPattern,
                   referencesByPracticeType: {
                     normal: "practices/{practiceId}",
-                    essay: "essayPractices/{practiceId}"
+                    essay: "essayPractices/{practiceId}",
+                    fillInTheBlanks: "fillInTheBlanksPractices/{practiceId}"
                   }
                 }
               }

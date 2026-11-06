@@ -76,3 +76,6 @@ exports.pruneStudentLoginHistoryDaily = pruneStudentLoginHistoryDaily;
 exports.onStudentLoginRecorded = onStudentLoginRecorded;
 exports.studentTopicPracticeReset = require("./student_topic_practice_reset_http").studentTopicPracticeReset;
 exports.manageStripeRenewalRecovery = require("./stripe_renewal_recovery").manageStripeRenewalRecovery;
+
+exports.onStudentFillInTheBlanksPracticeSubmitted = require("./triggers/student_fill_in_the_blanks_practice_submission_trigger").onStudentFillInTheBlanksPracticeSubmitted;
+exports.onStudentFillInTheBlanksPracticeCompleted = require("./triggers/student_fill_in_the_blanks_practice_completion_trigger").onStudentFillInTheBlanksPracticeCompleted;

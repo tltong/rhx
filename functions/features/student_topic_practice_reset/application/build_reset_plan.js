@@ -23,7 +23,7 @@ class BuildResetPlan {
     };
     const matches = data => data?.syllabusId === syllabusId && data?.topicId === topicId;
     const assessments = await list(`studentAssessmentProgress/${studentId}/practiceAssessments`);
-    const normalIds = new Set(assessments.filter(doc => matches(doc.data())).map(doc => doc.id));
+    const normalIds = new Set(assessments.filter(doc => matches(doc.data()) && !["essay", "fillInTheBlanks"].includes(doc.data().practiceType)).map(doc => doc.id));
     for (const kind of ["acceptedDailyMissionPractices", "acceptedAdditionalMissionPractices"]) {
       for (const doc of await list(`studentDailyMissions/${studentId}/${kind}`)) if (matches(doc.data())) normalIds.add(doc.id);
     }
@@ -67,15 +67,30 @@ class BuildResetPlan {
     for (const doc of await list(`studentEssayPracticeGenerations/${studentId}/completions`)) {
       if (essayIds.has(doc.id) || essayIds.has(doc.data().nextEssayPracticeId)) await tree(doc.ref.path, "essayGeneration");
     }
+    const fillIds = new Set();
+    for (const kind of ["assignedPractices", "completedPractices"]) {
+      for (const doc of await list(`studentFillInTheBlanksPractices/${studentId}/${kind}`)) if (matches(doc.data())) {
+        fillIds.add(doc.id); add(doc.ref.path, "fillInTheBlanksPractices");
+      }
+    }
+    for (const practiceId of fillIds) {
+      await tree(`studentFillInTheBlanksPractices/${studentId}/submissions/${practiceId}`, "fillInTheBlanksSubmissions");
+      await tree(`studentFillInTheBlanksPractices/${studentId}/completionProcessing/${practiceId}`, "fillInTheBlanksProcessing");
+      await tree(`fillInTheBlanksPracticeResults/${practiceId}/studentSubmissions/${studentId}`, "fillInTheBlanksResults");
+    }
+    for (const kind of ["completions", "initials"]) for (const doc of await list(`studentFillInTheBlanksPracticeGenerations/${studentId}/${kind}`)) {
+      if (matches(doc.data()) || fillIds.has(doc.id) || fillIds.has(doc.data().nextPracticeId)) await tree(doc.ref.path, "fillInTheBlanksGeneration");
+    }
+    // Retain passage usage: resetting progress must not repeat a previously seen passage.
     await tree(`studentAssessmentProgress/${studentId}/syllabuses/${syllabusId}/topics/${topicId}`, "topicProgression");
     await tree(`studentReadiness/${studentId}/syllabuses/${syllabusId}/topics/${topicId}`, "topicReadiness");
     await tree(`reliability/${studentId}/syllabuses/${syllabusId}/topics/${topicId}`, "topicReliability");
     for (const doc of await list(`studentReadiness/${studentId}/syllabuses/${syllabusId}/history`)) {
       const data = doc.data();
-      if ((data.practiceType === "essay" ? essayIds : normalIds).has(data.practiceId)) add(doc.ref.path, "subjectReadinessHistory");
+      if ((data.practiceType === "fillInTheBlanks" ? fillIds : data.practiceType === "essay" ? essayIds : normalIds).has(data.practiceId)) add(doc.ref.path, "subjectReadinessHistory");
     }
     const missions = `studentDailyMissions/${studentId}`;
-    for (const kind of ["acceptedDailyMissionPractices", "acceptedDailyMissionEssays", "acceptedAdditionalMissionPractices", "acceptedAdditionalMissionEssays"]) {
+    for (const kind of ["acceptedDailyMissionPractices", "acceptedDailyMissionEssays", "acceptedAdditionalMissionPractices", "acceptedAdditionalMissionEssays", "acceptedDailyMissionFillInTheBlanksPractices", "acceptedAdditionalMissionFillInTheBlanksPractices"]) {
       for (const doc of await list(`${missions}/${kind}`)) if (matches(doc.data())) add(doc.ref.path, "missionRecords");
     }
     await eachBatch(await db.collection(`${missions}/days`).listDocuments(), async day => {

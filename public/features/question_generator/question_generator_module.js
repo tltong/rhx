@@ -113,20 +113,20 @@ import {
   generateLlmPromptFromPlan,
   generateLlmPromptWithDiagram,
   loadLlmPromptGeneratorOptions
-} from "../llm_prompt_generator/llm_prompt_generator_module.js?v=20260822-previous-practice-variety";
+} from "../llm_prompt_generator/llm_prompt_generator_module.js?v=20261104-fill-preassessment-v3";
 import {
   getSyllabusById
-} from "../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
+} from "../syllabus/syllabus_module.js?v=20261104-fill-preassessment-v3";
 import {
   practiceTypes,
   writeQuestions
-} from "../question/question_module.js?v=20260822-assessment-reuse";
+} from "../question/question_module.js?v=20261104-fill-preassessment-v3";
 import {
   writePreAssessmentQuestions
-} from "../pre_assessment_question/pre_assessment_question_module.js?v=20260822-saved-question-ids";
+} from "../pre_assessment_question/pre_assessment_question_module.js?v=20261104-fill-preassessment-v3";
 import {
   renderMermaidDiagram
-} from "../diagram_generator/diagram_generator_module.js?v=20260822-xychart-labels";
+} from "../diagram_generator/diagram_generator_module.js?v=20261104-fill-preassessment-v3";
 import {
   generateLlmText
 } from "../../utils/llm/llm_ops.js?v=20260724-thinking-disabled";
@@ -135,23 +135,23 @@ import {
 } from "../../utils/llm/deepseek_util.js?v=20260822-question-temperature";
 import {
   GenerateQuestions
-} from "./application/generate_questions.js?v=20260822-previous-practice-variety";
+} from "./application/generate_questions.js?v=20261104-fill-preassessment-v3";
 import {
   GeneratePlannedQuestions
-} from "./application/generate_planned_questions.js?v=20260731-planned-question-batches";
+} from "./application/generate_planned_questions.js?v=20261104-fill-preassessment-v3";
 import {
   LoadQuestionGeneratorOptions
-} from "./application/load_question_generator_options.js?v=20260722-question-generator";
+} from "./application/load_question_generator_options.js?v=20261104-fill-preassessment-v3";
 import {
   WriteGeneratedQuestions
-} from "./application/write_generated_questions.js?v=20260731-question-writer-routing";
+} from "./application/write_generated_questions.js?v=20261104-fill-preassessment-v3";
 
 /**
- * @typedef {import("./domain/question_generation.js").QuestionGenerationInput}
+ * @typedef {import("./domain/question_generation.js?v=20261104-fill-preassessment-v3").QuestionGenerationInput}
  * QuestionGenerationInput
  */
 /**
- * @typedef {import("./domain/question_generation.js").QuestionGenerationResult}
+ * @typedef {import("./domain/question_generation.js?v=20261104-fill-preassessment-v3").QuestionGenerationResult}
  * QuestionGenerationResult
  */
 
@@ -230,7 +230,7 @@ async function generateQuestionsWithDiagram(
 /**
  * @param {string} llmPromptConfigId
  * @param {string} syllabusId
- * @param {import("./domain/question_generation.js").PlannedQuestionGenerationInput} generationInput
+ * @param {import("./domain/question_generation.js?v=20261104-fill-preassessment-v3").PlannedQuestionGenerationInput} generationInput
  * @returns {Promise<QuestionGenerationResult & {batches: Object[]}>}
  */
 async function generatePlannedQuestions(

@@ -1,5 +1,5 @@
-import {normalizeDraftInput} from "../domain/essay_question.js?v=20261017-essay-grade-min-words-v1";
-import {requireAdministratorUid} from "../domain/essay_question_generator_config.js?v=20261017-essay-grade-min-words-v1";
+import {normalizeDraftInput} from "../domain/essay_question.js?v=20261101-essay-simple-images-v4";
+import {requireAdministratorUid} from "../domain/essay_question_generator_config.js?v=20261101-essay-simple-images-v4";
 
 class SaveEssayQuestion {
   constructor(repository, requireAdministrator) {Object.assign(this, {repository, requireAdministrator});}

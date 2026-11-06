@@ -1,5 +1,5 @@
 const {guardStudentMaintenance} = require("../../../utils/student_topic_reset_guard");
-const {missionPracticeType, missionTypeFields} = require("../domain/mission_practice_type");
+const {missionPracticeType, missionTypeFields, studentPracticeRoot, studentPracticeKind} = require("../domain/mission_practice_type");
 const {STUDENT_ESSAY_PRACTICES_COLLECTION, ASSIGNED_ESSAY_PRACTICES_SUBCOLLECTION, COMPLETED_ESSAY_PRACTICES_SUBCOLLECTION} = require("../../../schema/student_essay_practice_schema");
 const {
   STUDENT_DAILY_MISSIONS_COLLECTION,
@@ -29,10 +29,12 @@ const {
 const {requireAcceptedDailyMissionScope, requireAcceptedDailyMissionContext} = require("../domain/accepted_daily_mission");
 
 function coreLookupCollection(type) {
+  if (type === "fillInTheBlanks") return "acceptedDailyMissionFillInTheBlanksPractices";
   return missionPracticeType(type) === "essay" ? "acceptedDailyMissionEssays" : STUDENT_DAILY_MISSION_ACCEPTED_PRACTICES_SUBCOLLECTION;
 }
 
 function additionalLookupCollection(type) {
+  if (type === "fillInTheBlanks") return "acceptedAdditionalMissionFillInTheBlanksPractices";
   return missionPracticeType(type) === "essay" ? "acceptedAdditionalMissionEssays" : STUDENT_DAILY_MISSION_ACCEPTED_ADDITIONAL_PRACTICES_SUBCOLLECTION;
 }
 
@@ -118,7 +120,7 @@ function additionalPracticesCollectionPath(
   return [
     additionalTopicsCollectionPath(studentId, date, syllabusId),
     topicId,
-    missionPracticeType(practiceType) === "essay" ? "essays" : STUDENT_DAILY_MISSION_PRACTICES_SUBCOLLECTION,
+    missionPracticeType(practiceType) === "fillInTheBlanks" ? "fillInTheBlanksPractices" : missionPracticeType(practiceType) === "essay" ? "essays" : STUDENT_DAILY_MISSION_PRACTICES_SUBCOLLECTION,
   ].join("/");
 }
 
@@ -217,7 +219,7 @@ class FirestoreDailyMissionRepository extends DailyMissionRepository {
       return accepted !== null && accepted !== undefined ? context : null;
     }
 
-    if (scope.practiceType === "essay") return null;
+    if (scope.practiceType && scope.practiceType !== "normal") return null;
 
     // Older accepted additional missions predate the lookup. Do not backfill on reads.
     const daysPath = [studentDailyMissionPath(scope.studentId), STUDENT_DAILY_MISSION_DAYS_SUBCOLLECTION].join("/");
@@ -280,6 +282,14 @@ class FirestoreDailyMissionRepository extends DailyMissionRepository {
     return null;
   }
 
+  async getFillInTheBlanksCompletionProcessing({studentId, practiceId}) {
+    return this.readDocument("studentFillInTheBlanksPractices/" + requireDocumentId(studentId, "studentId") + "/completionProcessing", requireDocumentId(practiceId, "practiceId"));
+  }
+
+  async getFillInTheBlanksGenerationStatus({studentId, practiceId}) {
+    return this.readDocument("studentFillInTheBlanksPracticeGenerations/" + requireDocumentId(studentId, "studentId") + "/completions", requireDocumentId(practiceId, "practiceId"));
+  }
+
   async getEssayGenerationStatus({studentId, essayPracticeId}) {
     return this.readDocument("studentEssayPracticeGenerations/" + requireDocumentId(studentId, "studentId") + "/completions",
       requireDocumentId(essayPracticeId, "essayPracticeId"));
@@ -290,9 +300,9 @@ class FirestoreDailyMissionRepository extends DailyMissionRepository {
     const normalizedPracticeId = requireDocumentId(practiceId, "practiceId");
     const completedPractice = await this.readDocument(
       [
-        missionPracticeType(practiceType) === "essay" ? STUDENT_ESSAY_PRACTICES_COLLECTION : STUDENT_PRACTICES_COLLECTION,
+        studentPracticeRoot(missionPracticeType(practiceType)),
         normalizedStudentId,
-        missionPracticeType(practiceType) === "essay" ? COMPLETED_ESSAY_PRACTICES_SUBCOLLECTION : COMPLETED_PRACTICES_SUBCOLLECTION,
+        studentPracticeKind(missionPracticeType(practiceType), true),
       ].join("/"),
       normalizedPracticeId,
     );
@@ -341,19 +351,19 @@ class FirestoreDailyMissionRepository extends DailyMissionRepository {
       const corePracticeId = requireDocumentId(coreMission.practiceId, "coreMission.practiceId");
       const coreType = missionPracticeType(coreMission.practiceType);
       const completedCore = await transaction.get(this.getDocumentRef([
-        coreType === "essay" ? STUDENT_ESSAY_PRACTICES_COLLECTION : STUDENT_PRACTICES_COLLECTION,
-        normalizedStudentId, coreType === "essay" ? COMPLETED_ESSAY_PRACTICES_SUBCOLLECTION : COMPLETED_PRACTICES_SUBCOLLECTION,
+        studentPracticeRoot(coreType),
+        normalizedStudentId, studentPracticeKind(coreType, true),
       ].join("/"), corePracticeId));
       if (!completedCore.exists) throw createCodedError("failed-precondition", "Complete today's Daily Mission for this subject first.");
       if (coreType === type && normalizedPracticeId === corePracticeId) {
         throw createCodedError("failed-precondition", "The Daily Mission practice cannot also be an Additional Mission.");
       }
       const assigned = await transaction.get(this.getDocumentRef([
-        type === "essay" ? STUDENT_ESSAY_PRACTICES_COLLECTION : STUDENT_PRACTICES_COLLECTION, normalizedStudentId,
-        type === "essay" ? ASSIGNED_ESSAY_PRACTICES_SUBCOLLECTION : ASSIGNED_PRACTICES_SUBCOLLECTION,
+        studentPracticeRoot(type), normalizedStudentId,
+        studentPracticeKind(type),
       ].join("/"), normalizedPracticeId));
       if (!assigned.exists) throw createCodedError("failed-precondition", "The additional mission practice is no longer assigned.");
-      if (type === "essay" && (assigned.data()?.syllabusId !== normalizedSyllabusId || assigned.data()?.topicId !== normalizedTopicId)) {
+      if (type !== "normal" && (assigned.data()?.syllabusId !== normalizedSyllabusId || assigned.data()?.topicId !== normalizedTopicId)) {
         throw createCodedError("failed-precondition", "The essay assignment does not match the mission topic.");
       }
       const paused = await transaction.get(this.getDocumentRef(pausedTopicsCollectionPath(normalizedStudentId, normalizedSyllabusId), normalizedTopicId));
@@ -438,9 +448,9 @@ class FirestoreDailyMissionRepository extends DailyMissionRepository {
     );
     const assignedPracticeDocument = this.getDocumentRef(
       [
-        type === "essay" ? STUDENT_ESSAY_PRACTICES_COLLECTION : STUDENT_PRACTICES_COLLECTION,
+        studentPracticeRoot(type),
         normalizedStudentId,
-        type === "essay" ? ASSIGNED_ESSAY_PRACTICES_SUBCOLLECTION : ASSIGNED_PRACTICES_SUBCOLLECTION,
+        studentPracticeKind(type),
       ].join("/"),
       normalizedPracticeId,
     );
@@ -516,7 +526,7 @@ class FirestoreDailyMissionRepository extends DailyMissionRepository {
         );
       }
 
-      if (type === "essay" && (assignedSnapshot.data()?.syllabusId !== normalizedSyllabusId || assignedSnapshot.data()?.topicId !== normalizedTopicId)) {
+      if (type !== "normal" && (assignedSnapshot.data()?.syllabusId !== normalizedSyllabusId || assignedSnapshot.data()?.topicId !== normalizedTopicId)) {
         throw createCodedError("failed-precondition", "The essay assignment does not match the mission topic.");
       }
 

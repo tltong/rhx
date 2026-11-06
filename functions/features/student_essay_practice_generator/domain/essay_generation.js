@@ -1,3 +1,4 @@
+const {normalizeQuestionSupport, normalizeImagePrompt} = require("../../essay_question_generator/domain/essay_question_support");
 function requireIdentifier(value, name) {
   if (typeof value !== "string" || !value.trim()) throw new Error(name + " is required.");
   const id = value.trim();
@@ -19,13 +20,15 @@ function themeKey(value) {
   return value.normalize("NFKC").trim().replace(/\s+/g, " ").toLowerCase();
 }
 
-function questionCriteria(question) {
+function questionCriteria(question, difficulty = "medium") {
+  difficulty = String(difficulty).toLowerCase();
+  if (!["easy", "medium", "hard"].includes(difficulty)) throw new Error("The essay framework level has an invalid difficulty.");
   if (!question || !["primary", "secondary"].includes(question.level)
       || !Number.isInteger(question.standard) || question.standard < 1 || question.standard > 6
       || typeof question.language !== "string" || !question.language.trim()) {
     throw new Error("The source essay question has invalid level, grade or language.");
   }
-  return {level: question.level, standard: question.standard, language: question.language.trim(), difficulty: "medium"};
+  return {level: question.level, standard: question.standard, language: question.language.trim(), difficulty};
 }
 
 function normalizeDraft(draft, criteria, seed) {
@@ -37,7 +40,8 @@ function normalizeDraft(draft, criteria, seed) {
       || themeKey(draft.seedUsed) !== themeKey(seed)) throw new Error("The generated essay draft does not match the requested question.");
   const minWords = draft.wordCountRequirement?.minWords ?? null;
   if (minWords !== null && (!Number.isSafeInteger(minWords) || minWords < 1)) throw new Error("The essay minimum word count is invalid.");
-  return {questionId: draft.questionId, ...criteria, questionText: draft.questionText.trim(),
+  return {...(draft.support === undefined ? {} : {support: normalizeQuestionSupport(draft.support)}),
+    ...(draft.imagePrompt === undefined ? {} : {imagePrompt: normalizeImagePrompt(draft.imagePrompt)}), questionId: draft.questionId, ...criteria, questionText: draft.questionText.trim(),
     seedUsed: draft.seedUsed.trim(), wordCountRequirement: {minWords}};
 }
 

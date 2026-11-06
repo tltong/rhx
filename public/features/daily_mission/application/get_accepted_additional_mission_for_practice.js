@@ -1,4 +1,4 @@
-import {requireAcceptedDailyMissionScope} from "../domain/accepted_daily_mission.js?v=20261010-accepted-daily-mission-v1";
+import {requireAcceptedDailyMissionScope} from "../domain/accepted_daily_mission.js?v=20261104-fill-firestore-v2";
 
 class GetAcceptedAdditionalMissionForPractice {
   constructor({dailyMissionRepository} = {}) {

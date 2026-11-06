@@ -1,3 +1,4 @@
+const {normalizeQuestionSupport, normalizeImagePrompt} = require("../domain/essay_question_support");
 const {FieldValue, FieldPath} = require("firebase-admin/firestore");
 const firebaseOps = require("../../../utils/firebase/firebase_ops");
 const {ESSAY_QUESTION_GENERATOR_COLLECTION, ESSAY_QUESTION_CONFIG_DOCUMENT_ID, ESSAY_QUESTION_INDEX_DOCUMENT_ID} = require("../../../schema/essay_question_generator_schema");
@@ -38,14 +39,16 @@ class FirestoreEssayQuestionGeneratorRepository extends EssayQuestionGeneratorRe
   async saveQuestion(input, {beforeWrite = () => {}} = {}) {
     const criteria = normalizeGenerationInput(input);
     const {questionText} = normalizeGeneratedQuestion(input);
+    const imagePrompt = normalizeImagePrompt(input.imagePrompt);
     const wordCountRequirement = normalizeWordCountRequirement(input.wordCountRequirement);
+    const support = normalizeQuestionSupport(input.support);
     beforeWrite();
     const db = this.getFirestoreDb();
     const reference = db.collection(questionCollectionPath(criteria)).doc(
       input.questionId === undefined ? this.createQuestionId(criteria) : normalizeQuestionId(input.questionId));
     const index = db.collection(ESSAY_QUESTION_GENERATOR_COLLECTION).doc(ESSAY_QUESTION_INDEX_DOCUMENT_ID)
       .collection("entries").doc(reference.id);
-    const data = {questionText, difficulty: criteria.difficulty, seedUsed: criteria.seed,
+    const data = {...(support === undefined ? {} : {support}), ...(imagePrompt === undefined ? {} : {imagePrompt}), questionText, difficulty: criteria.difficulty, seedUsed: criteria.seed,
       wordCountRequirement, generatedAt: this.serverTimestamp()};
     await db.runTransaction(async transaction => {
       beforeWrite();
@@ -55,6 +58,8 @@ class FirestoreEssayQuestionGeneratorRepository extends EssayQuestionGeneratorRe
         const stored = existingQuestion.data();
         if (input.questionId !== undefined && existingIndex.exists && existingQuestion.exists
             && existingIndex.data().documentPath === reference.path
+            && JSON.stringify(normalizeQuestionSupport(stored.support)) === JSON.stringify(support)
+            && normalizeImagePrompt(stored.imagePrompt) === imagePrompt
             && stored.questionText === data.questionText && stored.difficulty === data.difficulty
             && stored.seedUsed === data.seedUsed
             && normalizeWordCountRequirement(stored.wordCountRequirement).minWords === wordCountRequirement.minWords) return;

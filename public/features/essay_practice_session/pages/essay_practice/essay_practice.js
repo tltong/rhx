@@ -1,4 +1,5 @@
-import {getEssayWordCount} from "../../domain/essay_word_count.js?v=20261018-essay-min-word-count-v1";
+import {renderEssayQuestionSupport} from "../../../essay_question_generator/components/essay_question_support_view.js?v=20261101-essay-simple-images-v4";
+import {getEssayWordCount} from "../../domain/essay_word_count.js?v=20261104-fill-preassessment-v3";
 
 const SIGN_IN_URL = "/features/student/pages/sign_in/sign_in.html";
 
@@ -14,7 +15,7 @@ export function mountEssayPractice({
   const essayPracticeId = params.get("essayPracticeId")?.trim();
   const requestedStudentId = params.get("studentId")?.trim();
   let studentId = null, session = null, busy = false, revision = 0, timer = null, disposed = false;
-  let wordCountError = false;
+  let wordCountError = false, supportViewDispose = () => {}, questionReady = true;
   let startedAt = now(), pollUntil = 0;
   function stopPolling() {if (timer !== null) cancel(timer); timer = null;}
   function showStatus(message, isError = false) {
@@ -27,11 +28,14 @@ export function mountEssayPractice({
     const message = count.minWords === null ? `${count.wordCount} words`
       : `${count.wordCount} / ${count.minWords} words minimum${count.meetsMinimum ? " — minimum reached" : ` — ${count.minWords - count.wordCount} more needed`}`;
     if (get("essay-word-count").textContent !== message) get("essay-word-count").textContent = message;
-    submit.disabled = busy || session?.status !== "assigned" || !count.meetsMinimum;
+    submit.disabled = !questionReady || busy || session?.status !== "assigned" || !count.meetsMinimum;
     return count;
   }
   function reset() {
     stopPolling();
+    supportViewDispose();
+    if (get("essay-support")?.dataset) delete get("essay-support").dataset.supportKey;
+    questionReady = true;
     session = null;
     busy = false;
     wordCountError = false;
@@ -45,7 +49,15 @@ export function mountEssayPractice({
     updateWordCount();
   }
   function render(data) {
+    const firstRender = !session || session.question.questionId !== data.question.questionId;
     session = data;
+    if (firstRender) {
+      supportViewDispose(); questionReady = !get("essay-support");
+      answer.disabled = !questionReady;
+      supportViewDispose = renderEssayQuestionSupport({root, container: get("essay-support"), question: data.question, onReady: () => {
+        questionReady = true; startedAt = now(); answer.disabled = data.status !== "assigned"; updateWordCount();
+      }});
+    }
     const {question, practice, result} = data;
     get("essay-summary").textContent = `${question.level} / Grade ${question.standard} / ${question.language} / ${question.difficulty}`;
     get("essay-question").textContent = question.questionText;
@@ -115,7 +127,7 @@ export function mountEssayPractice({
   }
   async function submitEssay(event) {
     event.preventDefault();
-    if (busy || !studentId || session?.status !== "assigned" || !answer.value.trim()) return;
+    if (!questionReady || busy || !studentId || session?.status !== "assigned" || !answer.value.trim()) return;
     const count = updateWordCount();
     if (!count.meetsMinimum) {
       wordCountError = true;
@@ -170,7 +182,7 @@ export function mountEssayPractice({
   return {
     hasUnsavedAnswer: () => !form.hidden && Boolean(answer.value.trim()),
     dispose() {
-      disposed = true; revision += 1; stopPolling(); unsubscribe?.();
+      supportViewDispose(); disposed = true; revision += 1; stopPolling(); unsubscribe?.();
       form.removeEventListener("submit", submitEssay); answer.removeEventListener("input", onInput);
       refresh.removeEventListener("click", onRefresh);
     },
@@ -179,8 +191,8 @@ export function mountEssayPractice({
 
 if (typeof window !== "undefined" && typeof document !== "undefined") {
   const [{loadEssayPracticeSession, submitEssayPracticeSession}, {onStudentAuthStateChanged}] = await Promise.all([
-    import("../../essay_practice_session_module.js?v=20261031-renewal-restart-v1"),
-    import("../../../student/student_module.js?v=20261031-renewal-restart-v1"),
+    import("../../essay_practice_session_module.js?v=20261104-fill-preassessment-v3"),
+    import("../../../student/student_module.js?v=20261104-fill-preassessment-v3"),
   ]);
   const page = mountEssayPractice({loadSession: loadEssayPracticeSession, submitSession: submitEssayPracticeSession, onAuthChanged: onStudentAuthStateChanged});
   window.addEventListener("beforeunload", event => {if (page.hasUnsavedAnswer()) {event.preventDefault(); event.returnValue = "";}});

@@ -1,15 +1,17 @@
-import {DEFAULT_PERCENTAGE_PER_PRACTICE} from "../../../config/firebase/reliability_schema.js?v=20261018-essay-completion-metrics-v1";
-import {requirePercentagePerPractice} from "../domain/reliability_config.js?v=20261018-essay-completion-metrics-v1";
-import {requireIdentifier, requireTopicScope, requireReliabilityScore} from "../domain/reliability_score.js?v=20261018-essay-completion-metrics-v1";
+import {DEFAULT_PERCENTAGE_PER_PRACTICE} from "../../../config/firebase/reliability_schema.js?v=20261104-fill-preassessment-v3";
+import {requirePercentagePerPractice} from "../domain/reliability_config.js?v=20261104-fill-preassessment-v3";
+import {requireIdentifier, requireTopicScope, requireReliabilityScore} from "../domain/reliability_score.js?v=20261104-fill-preassessment-v3";
 
 class CalculateTopicReliabilityScore {
   constructor({getReliabilityConfig, getSyllabusById, listCompletedPracticeIds, getPracticeById,
-    listCompletedEssayPractices = async () => ({practices: [], nextCursor: null})}) {
+    listCompletedEssayPractices = async () => ({practices: [], nextCursor: null}),
+    listCompletedFillInTheBlanksPractices = async () => ({practices: [], nextCursor: null})}) {
     this.getReliabilityConfig = getReliabilityConfig;
     this.getSyllabusById = getSyllabusById;
     this.listCompletedPracticeIds = listCompletedPracticeIds;
     this.getPracticeById = getPracticeById;
     this.listCompletedEssayPractices = listCompletedEssayPractices;
+    this.listCompletedFillInTheBlanksPractices = listCompletedFillInTheBlanksPractices;
   }
 
   async execute(input) {
@@ -48,7 +50,13 @@ class CalculateTopicReliabilityScore {
       cursor = page.nextCursor;
     } while (cursor);
     // Each submitted essay counts once, independently of whether grading has finished.
-    const completedPracticeCount = normalPracticeCount + essayIds.size;
+    const fillIds = new Set(); cursor = null;
+    do {
+      const page = await this.listCompletedFillInTheBlanksPractices({...scope, limit: 100, cursor});
+      for (const practice of page.practices) if (practice.syllabusId === scope.syllabusId && practice.topicId === scope.topicId) fillIds.add(practice.practiceId);
+      cursor = page.nextCursor;
+    } while (cursor);
+    const completedPracticeCount = normalPracticeCount + essayIds.size + fillIds.size;
 
     return Object.freeze({
       score: requireReliabilityScore(Math.min(100, completedPracticeCount * percentagePerPractice)),

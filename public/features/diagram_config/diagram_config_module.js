@@ -1,22 +1,22 @@
 import {
   getSyllabusById,
   listSyllabuses
-} from "../syllabus/syllabus_module.js?v=20261018-topic-framework-v1";
+} from "../syllabus/syllabus_module.js?v=20261104-fill-preassessment-v3";
 import {
   GetDiagramConfig
-} from "./application/get_diagram_config.js?v=20260724-diagram-config";
+} from "./application/get_diagram_config.js?v=20261104-fill-preassessment-v3";
 import {
   GetTopicDiagramPercentage
-} from "./application/get_topic_diagram_percentage.js?v=20260815-topic-percentage-api";
+} from "./application/get_topic_diagram_percentage.js?v=20261104-fill-preassessment-v3";
 import {
   ListDiagramConfigSyllabuses
-} from "./application/list_diagram_config_syllabuses.js?v=20260724-diagram-config";
+} from "./application/list_diagram_config_syllabuses.js?v=20261104-fill-preassessment-v3";
 import {
   SaveDiagramConfig
-} from "./application/save_diagram_config.js?v=20260724-diagram-config";
+} from "./application/save_diagram_config.js?v=20261104-fill-preassessment-v3";
 import {
   FirestoreDiagramConfigRepository
-} from "./infrastructure/firestore_diagram_config_repository.js?v=20260724-diagram-config";
+} from "./infrastructure/firestore_diagram_config_repository.js?v=20261104-fill-preassessment-v3";
 
 const diagramConfigRepository = new FirestoreDiagramConfigRepository();
 const getDiagramConfigUseCase = new GetDiagramConfig({
