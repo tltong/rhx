@@ -1,12 +1,12 @@
 import {fillFrameworkSelect} from "../../../assessment_framework/components/framework_select.js?v=20261105-topic-framework-v1";
-import {createSyllabusLanguageKey} from "../../domain/syllabus.js?v=20261105-topic-framework-v1";
+import {createSyllabusLanguageKey} from "../../domain/syllabus.js?v=20261106-topic-tutor-v1";
 import {
   createSyllabusRecord,
   deleteSyllabusRecord,
   getSyllabusById,
   listSyllabuses,
   updateSyllabusRecord
-} from "../../syllabus_module.js?v=20261105-topic-framework-v1";
+} from "../../syllabus_module.js?v=20261106-topic-tutor-v1";
 
 import {
   listSyllabusScopes
@@ -88,6 +88,7 @@ function setBusy(isBusy) {
     input.disabled = isBusy || input.dataset.unavailable === "true";
   });
   topicsContainer.querySelectorAll("select[data-framework-language]").forEach(select => {select.disabled = isBusy;});
+  topicsContainer.querySelectorAll("input[data-field='tutorEnabled']").forEach(input => {input.disabled = isBusy;});
   updateScopeControls();
   updateDeleteControls();
 }
@@ -360,6 +361,7 @@ function addTopicRow(topic = {}) {
   row.dataset.topicId = topic.id || "";
   row.querySelector("[data-field='topicName']").value = topic.topicName || "";
   row.querySelector("[data-field='pausable']").checked = topic.pausable ?? true;
+  row.querySelector("[data-field='tutorEnabled']").checked = topic.tutorEnabled ?? true;
   row.querySelector("[data-action='remove-topic']").addEventListener("click", () => {
     row.remove();
   });
@@ -499,6 +501,7 @@ function readTopics() {
         id: topicId,
         topicName,
         pausable: topicRow.querySelector("[data-field='pausable']").checked,
+        tutorEnabled: topicRow.querySelector("[data-field='tutorEnabled']").checked,
         subtopics,
         assessmentFrameworkIds: readTopicFrameworks(topicRow),
         preAssessmentPractices:

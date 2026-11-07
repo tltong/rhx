@@ -33,7 +33,9 @@
  * Reads and returns the saved set first. If none exists, generates, validates,
  * saves and returns a new set through the existing generation workflow.
  * An omitted count is read from configuration once before selecting the set.
- * With an explicit count, cached sets require no source question or config reads.
+ * All question/set/answer APIs check the source topic's current tutor setting,
+ * including cached sets. Disabled topics reject with code tutor-disabled before
+ * any LLM call or cache migration. Explicit counts need no tutor config read.
  * Matching legacy sets are copied to the new path on access, preserving timestamps.
  * Read failures and corrupt saved data propagate without triggering generation.
  *
@@ -62,16 +64,19 @@ import {GenerateTutorMiniQuestionSet} from "./application/generate_tutor_mini_qu
 import {GetTutorMiniQuestionSet} from "./application/get_tutor_mini_question_set.js?v=20261015-tutor-count-variants-v1";
 import {getQuestionById} from "../question/question_module.js?v=20261015-question-by-id";
 import {getPreAssessmentQuestionById} from "../pre_assessment_question/pre_assessment_question_module.js?v=20261015-practice-result-review-v1";
-import {GetTutorQuestionById} from "./application/get_tutor_question_by_id.js?v=20261015-practice-result-review-v1";
+import {GetTutorQuestionById} from "./application/get_tutor_question_by_id.js?v=20261106-topic-tutor-v1";
 import {generateLlmText} from "../../utils/llm/llm_util.js?v=20261015-deepseek-deadline-v1";
 import {CheckTutorMiniQuestionAnswer} from "./application/check_tutor_mini_question_answer.js?v=20261015-tutor-count-variants-v1";
+import {normalizeTutorSetReference} from "./domain/tutor_mini_question_set.js?v=20261015-tutor-count-variants-v1";
+import {normalizeTutorAnswerCheckInput} from "./domain/tutor_answer.js?v=20261015-tutor-count-variants-v1";
+import {isTopicTutorEnabled} from "../syllabus/syllabus_module.js?v=20261106-topic-tutor-v1";
 
 const repository = new FirestoreTutorConfigRepository();
 const getConfig = new GetTutorConfig(repository);
 const saveConfig = new SaveTutorConfig(repository, requireTutorAdministrator);
 const setRepository = new FirestoreTutorMiniQuestionSetRepository();
 const getSourceQuestion = new GetTutorQuestionById({
-  getQuestionById, getPreAssessmentQuestionById,
+  getQuestionById, getPreAssessmentQuestionById, isTopicTutorEnabled,
 });
 // Tutor generation can exceed Firebase Hosting's 60-second request timeout.
 // Use the existing direct HTTP function route for generation and answer checks;
@@ -126,11 +131,24 @@ async function generateTutorMiniQuestionSet(input) {
 }
 
 async function getTutorMiniQuestionSet(input) {
-  return getSet.execute(input, {assertAccess: requireTutorSetAccess()});
+  const assertAccess = requireTutorSetAccess();
+  const reference = normalizeTutorSetReference(input);
+  await requireTutorQuestion(reference.questionId, assertAccess);
+  return getSet.execute(reference, {assertAccess});
 }
 
 async function checkTutorMiniQuestionAnswer(input) {
-  return checkAnswer.execute(input, {assertAccess: requireTutorSetAccess()});
+  const assertAccess = requireTutorSetAccess();
+  const request = normalizeTutorAnswerCheckInput(input);
+  await requireTutorQuestion(request.questionId, assertAccess);
+  return checkAnswer.execute(request, {assertAccess});
+}
+
+async function requireTutorQuestion(questionId, assertAccess) {
+  const question = await getSourceQuestion.execute(questionId);
+  assertAccess();
+  if (!question) throw new Error("Question " + questionId + " was not found.");
+  return question;
 }
 
 async function getTutorQuestionById(questionId) {

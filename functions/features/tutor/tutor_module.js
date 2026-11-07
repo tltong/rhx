@@ -33,7 +33,9 @@
  * Reads and returns the saved set first. If none exists, generates, validates,
  * saves and returns a new set through the existing generation workflow.
  * An omitted count is read from configuration once before selecting the set.
- * With an explicit count, cached sets require no source question or config reads.
+ * All question/set/answer APIs check the source topic's current tutor setting,
+ * including cached sets. Disabled topics reject with code tutor-disabled before
+ * any LLM call or cache migration. Explicit counts need no tutor config read.
  * Matching legacy sets are copied to the new path on access, preserving timestamps.
  * Read failures and corrupt saved data propagate without triggering generation.
  *
@@ -64,6 +66,9 @@ const {getPreAssessmentQuestionById} = require("../pre_assessment_question/pre_a
 const {GetTutorQuestionById} = require("./application/get_tutor_question_by_id");
 const {generateLlmText} = require("../../utils/llm/llm_ops");
 const {CheckTutorMiniQuestionAnswer} = require("./application/check_tutor_mini_question_answer");
+const {normalizeTutorSetReference} = require("./domain/tutor_mini_question_set");
+const {normalizeTutorAnswerCheckInput} = require("./domain/tutor_answer");
+const {isTopicTutorEnabled} = require("../syllabus/syllabus_module");
 
 const repository = new FirestoreTutorConfigRepository();
 const getConfig = new GetTutorConfig(repository);
@@ -72,7 +77,7 @@ const saveConfig = new SaveTutorConfig(repository, context => ({
 }));
 const setRepository = new FirestoreTutorMiniQuestionSetRepository();
 const getSourceQuestion = new GetTutorQuestionById({
-  getQuestionById, getPreAssessmentQuestionById,
+  getQuestionById, getPreAssessmentQuestionById, isTopicTutorEnabled,
 });
 const generateSet = new GenerateTutorMiniQuestionSet({
   getQuestionById: getTutorQuestionById, getTutorConfig, generateLlmText, repository: setRepository,
@@ -97,11 +102,21 @@ async function generateTutorMiniQuestionSet(input) {
 }
 
 async function getTutorMiniQuestionSet(input) {
-  return getSet.execute(input);
+  const reference = normalizeTutorSetReference(input);
+  await requireTutorQuestion(reference.questionId);
+  return getSet.execute(reference);
 }
 
 async function checkTutorMiniQuestionAnswer(input) {
-  return checkAnswer.execute(input);
+  const request = normalizeTutorAnswerCheckInput(input);
+  await requireTutorQuestion(request.questionId);
+  return checkAnswer.execute(request);
+}
+
+async function requireTutorQuestion(questionId) {
+  const question = await getSourceQuestion.execute(questionId);
+  if (!question) throw new Error("Question " + questionId + " was not found.");
+  return question;
 }
 
 async function getTutorQuestionById(questionId) {

@@ -7,14 +7,15 @@
  * Framework type determines the topic question type. Web binding writes require a site administrator.
  */
 import {getAssessmentFrameworkById} from "../assessment_framework/assessment_framework_module.js?v=20261105-mcq-adoption-v1";
-import {resolveTopicAssessmentFrameworkId} from "./domain/syllabus.js?v=20261105-topic-framework-v1";
+import {resolveTopicAssessmentFrameworkId} from "./domain/syllabus.js?v=20261106-topic-tutor-v1";
 import {requireCurrentSiteAdmin} from "../site_admin/site_admin_module.js";
 import {requireCurrentFirebaseAuthUser} from "../../utils/firebase/firebase_auth.js";
+import {IsTopicTutorEnabled} from "./application/is_topic_tutor_enabled.js?v=20261106-topic-tutor-v1";
 import {AssignTopicAssessmentFramework, GetTopicAssessmentFrameworkId} from "./application/topic_assessment_framework.js?v=20261105-topic-framework-v1";
-import {preAssessmentPracticeTypes} from "../../config/firebase/syllabuses_schema.js?v=20261105-topic-framework-v1";
+import {preAssessmentPracticeTypes} from "../../config/firebase/syllabuses_schema.js?v=20261106-topic-tutor-v1";
 import {
   FirestoreSyllabusRepository
-} from "./infrastructure/firestore_syllabus_repository.js?v=20261105-topic-framework-v1";
+} from "./infrastructure/firestore_syllabus_repository.js?v=20261106-topic-tutor-v1";
 import {
   GetSyllabus
 } from "./application/get_syllabus.js?v=20261104-fill-preassessment-v3";
@@ -23,7 +24,7 @@ import {
 } from "./application/list_syllabuses.js?v=20261104-fill-preassessment-v3";
 import {
   CreateSyllabus
-} from "./application/create_syllabus.js?v=20261105-topic-framework-v1";
+} from "./application/create_syllabus.js?v=20261106-topic-tutor-v1";
 import {
   UpdateSyllabus
 } from "./application/update_syllabus.js?v=20261105-topic-framework-v1";
@@ -54,6 +55,7 @@ import {
 } from "./application/is_topic_pausable.js?v=20261104-fill-preassessment-v3";
 
 const syllabusRepository = new FirestoreSyllabusRepository();
+const isTopicTutorEnabledUseCase = new IsTopicTutorEnabled(syllabusRepository);
 const topicFrameworkReader = new GetTopicAssessmentFrameworkId(syllabusRepository);
 const topicFrameworkWriter = new AssignTopicAssessmentFramework({repository: syllabusRepository, getAssessmentFrameworkById});
 async function getTopicAssessmentFrameworkId(input) {return topicFrameworkReader.execute(input);}
@@ -101,6 +103,11 @@ async function getSyllabusById(syllabusId) {
  */
 async function isTopicPausable(syllabusId, topicId) {
   return isTopicPausableUseCase.execute(syllabusId, topicId);
+}
+
+/** Guided MCQ review setting for all topic languages. Missing fields default to true. */
+async function isTopicTutorEnabled(syllabusId, topicId) {
+  return isTopicTutorEnabledUseCase.execute(syllabusId, topicId);
 }
 
 async function listSyllabuses() {
@@ -185,6 +192,7 @@ export {
   preAssessmentPracticeTypes,
   getSyllabusById,
   isTopicPausable,
+  isTopicTutorEnabled,
   listSyllabuses,
   findSyllabusesByScope,
   createSyllabusRecord,

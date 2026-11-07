@@ -80,6 +80,7 @@ function normalizeQuestion(question, index) {
     selectedOption,
     correctAnswer,
     isCorrect: question.isCorrect,
+    tutorEnabled: question.tutorEnabled === true,
     explanation: String(question.explanation ?? "").trim(),
     hasDiagram,
     svg: hasDiagram ? svg : "",

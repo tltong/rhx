@@ -39,6 +39,11 @@ const syllabusesSchema = {
           type: "boolean",
           default: true
         },
+        tutorEnabled: {
+          type: "boolean",
+          default: true,
+          description: "Enables guided MCQ review for this topic in all languages. Missing fields retain existing tutor access."
+        },
         subtopics: {
           type: "map",
           entries: {

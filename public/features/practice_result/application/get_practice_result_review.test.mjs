@@ -26,6 +26,7 @@ function createResult() {
 
 test("GetPracticeResultReview composes answers and explanations", async () => {
   const useCase = new GetPracticeResultReview({
+    isTopicTutorEnabled: async () => true,
     practiceResultRepository: {
       getById: async () => createResult(),
     },
@@ -63,6 +64,7 @@ test("GetPracticeResultReview composes answers and explanations", async () => {
 test("GetPracticeResultReview returns null before loading questions", async () => {
   let practiceRead = false;
   const useCase = new GetPracticeResultReview({
+    isTopicTutorEnabled: async () => true,
     practiceResultRepository: {getById: async () => null},
     getPracticeById: async () => {
       practiceRead = true;

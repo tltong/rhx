@@ -5,12 +5,13 @@
  *   -> Promise<PracticeResultReview|null>
  *
  * PracticeResultReview contains the result summary and ordered reviewed
- * questions with selectedOption, correctAnswer, isCorrect, and explanation.
+ * questions with selectedOption, correctAnswer, isCorrect, tutorEnabled and explanation.
  */
 const {
   getPracticeById,
   practiceTypes,
 } = require("../practice/practice_module");
+const {isTopicTutorEnabled} = require("../syllabus/syllabus_module");
 const {
   checkPreAssessmentQuestionAnswers,
   getPreAssessmentQuestion,
@@ -65,6 +66,7 @@ const getPracticeResultUseCase = new GetPracticeResult(
 const getPracticeResultReviewUseCase = new GetPracticeResultReview({
   practiceResultRepository,
   getPracticeById,
+  isTopicTutorEnabled,
   questionLoaders: {
     [practiceTypes.ASSESSMENT]: loadAssessmentReviewQuestions,
     [practiceTypes.PRE_ASSESSMENT]: loadPreAssessmentReviewQuestions,

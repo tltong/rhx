@@ -1,7 +1,7 @@
 import {
   getTutorConfig, getTutorMiniQuestionSet, checkTutorMiniQuestionAnswer,
   getTutorQuestionById,
-} from "../../tutor_module.js?v=20261015-tutor-count-variants-v1";
+} from "../../tutor_module.js?v=20261106-topic-tutor-v1";
 import {onStudentAuthStateChanged} from "../../../student/student_module.js?v=20261031-renewal-restart-v1";
 import {setMathText} from "../../../../utils/math/render_math.js?v=20260822-katex-math";
 
@@ -284,7 +284,7 @@ export function mountQuestionReview({
       el("review-preparation").hidden = true;
       el("review-load-error").hidden = false;
       el("review-error-message").textContent = error.message || "Could not prepare your guided questions.";
-      el("retry-review").hidden = !questionId;
+      el("retry-review").hidden = !questionId || error.code === "tutor-disabled";
       el("retry-review").disabled = false;
     }
   }

@@ -34,10 +34,12 @@ class GetPracticeResultReview {
   constructor({
     practiceResultRepository,
     getPracticeById,
+    isTopicTutorEnabled,
     questionLoaders,
   } = {}) {
     this.practiceResultRepository = practiceResultRepository;
     this.getPracticeById = requireFunction(getPracticeById, "getPracticeById");
+    this.isTopicTutorEnabled = requireFunction(isTopicTutorEnabled, "isTopicTutorEnabled");
     this.questionLoaders = questionLoaders || {};
   }
 
@@ -72,7 +74,22 @@ class GetPracticeResultReview {
       throw new Error("Practice review question count is inconsistent.");
     }
 
-    const reviewedQuestions = questions.map((questionValue, index) => {
+    // Resolve once per topic for this response. A policy read failure hides the
+    // optional tutor action while preserving the student's marks/explanations.
+    const topicSettings = new Map();
+    const tutorEnabledFor = (question, reference) => {
+      const syllabusId = question.syllabusId || reference.syllabusId;
+      const topicId = question.topicId || reference.topicId;
+      if (!syllabusId || !topicId) return false;
+      const key = JSON.stringify([syllabusId, topicId]);
+      if (!topicSettings.has(key)) {
+        topicSettings.set(key, Promise.resolve()
+          .then(() => this.isTopicTutorEnabled(syllabusId, topicId))
+          .then(enabled => enabled === true, () => false));
+      }
+      return topicSettings.get(key);
+    };
+    const reviewedQuestions = await Promise.all(questions.map(async (questionValue, index) => {
       const reference = practice.questions[index];
       const question = requireQuestion(questionValue, reference, index);
       const answer = result.answers[reference.questionId];
@@ -90,11 +107,12 @@ class GetPracticeResultReview {
         selectedOption: answer.selectedOption,
         correctAnswer: answer.correctAnswer,
         isCorrect: answer.isCorrect,
+        tutorEnabled: await tutorEnabledFor(question, reference),
         explanation: question.explanation,
         hasDiagram: question.hasDiagram,
         svg: question.svg,
       };
-    });
+    }));
 
     return new PracticeResultReview({
       practiceId: result.practiceId,

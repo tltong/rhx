@@ -125,6 +125,8 @@ async function generateLlmText(prompt, options) {
 }
 backendOps.readDocument = readDocument;
 backendOps.readCollectionIds = readIds;
+backendOps.readCollection = async collection => Promise.all((await readIds(collection))
+  .map(id => readDocument(collection, id)));
 backendOps.writeDocument = writeDocument;
 backendOps.createDocumentIfAbsent = async (collection, id, data) => {
   if (documents.has(collection + "/" + id)) throw Object.assign(new Error("Already exists"), {code: "already-exists"});
@@ -203,6 +205,9 @@ beforeEach(() => {
   llmResponse = null; llmFailure = null; writeFailure = null;
   readFailurePath = null; omitSavedDocument = false; onLlm = null; onRead = null;
   auth.currentUser = {...student};
+  documents.set("syllabuses/math", {country: "Malaysia", level: "primary", year: 4,
+    subject: "Mathematics", languages: ["English", "Bahasa Melayu", "中文"]});
+  documents.set("syllabuses/math/topics/geometry", {topicName: "Geometry"});
 });
 after(() => {
   Object.assign(backendOps, originalOps);
@@ -366,7 +371,8 @@ for (const [layer, api] of [["backend", backend], ["web", web]]) {
     assert.equal(writes.length, 0);
   });
 
-  test(layer + ": answer-check API reads the existing set without storing student answers", async () => {
+  test(layer + ": answer-check API checks topic policy and reads the set without storing student answers", async () => {
+    seedQuestion();
     const reference = {questionId: "q", language: "English", miniQuestionCount: 3};
     const path = setPath(reference);
     documents.set(path, {
@@ -379,11 +385,12 @@ for (const [layer, api] of [["backend", backend], ["web", web]]) {
     assert.deepEqual(await api.checkTutorMiniQuestionAnswer({...reference, sequence: 3, answer: "90"}), {isCorrect: false});
     assert.equal(llmCalls.length, 2);
     assert.equal(writes.length, 0);
-    assert.ok(events.filter(event => event.startsWith("read:")).every(event => event === "read:" + path));
-    assert.equal(documents.size, 1);
+    assert.equal(events.filter(event => event === "read:" + path).length, 3);
+    assert.ok(events.some(event => event === "read:syllabuses/math"));
+    assert.equal(documents.has("tutor/config"), false);
   });
 
-  test(layer + ": getter generates and saves a missing set, then reuses it without question or config reads", async () => {
+  test(layer + ": getter reuses a saved set after checking current topic policy without config or LLM calls", async () => {
     seedQuestion();
     documents.set("tutor/config", configuration());
     const reference = {questionId: "q", language: "English", miniQuestionCount: 3};
@@ -393,15 +400,13 @@ for (const [layer, api] of [["backend", backend], ["web", web]]) {
     assert.ok(saved.miniQuestions.every(q => q.answerExplanation.length > 0));
     assert.equal(llmCalls.length, 1);
     assert.equal(writes.length, 1);
-    assert.equal(events[0], "read:" + writes[0].path);
-    // A stored set remains reusable even when source data or configuration
-    // is unavailable. Only an actual cache miss enters the generation flow.
-    for (const path of [...documents.keys()]) {
-      if (path !== writes[0].path) documents.delete(path);
-    }
+    // Cached answers still require source/topic policy, but not tutor config.
+    documents.delete("tutor/config");
     events.length = 0;
     assert.deepEqual(await api.getTutorMiniQuestionSet(reference), saved);
-    assert.deepEqual(events, ["read:" + writes[0].path]);
+    assert.ok(events.includes("read:" + writes[0].path));
+    assert.ok(events.includes("read:syllabuses/math"));
+    assert.equal(events.includes("read:tutor/config"), false);
     assert.equal(llmCalls.length, 1);
     assert.equal(writes.length, 1);
   });
@@ -424,7 +429,8 @@ for (const [layer, api] of [["backend", backend], ["web", web]]) {
     assert.equal(writes.length, 3);
   });
 
-  test(layer + ": feature lookup migrates matching legacy data without question, config or LLM reads", async () => {
+  test(layer + ": legacy migration checks topic policy without tutor config or LLM calls", async () => {
+    seedQuestion();
     const reference = {questionId: "q", language: "English", miniQuestionCount: 3};
     const legacyPath = "tutor/" + await backendDocumentId(reference);
     const legacy = {...reference, ...response(), configUpdatedAt: baseTime, generatedAt: new Date(0)};
@@ -438,7 +444,8 @@ for (const [layer, api] of [["backend", backend], ["web", web]]) {
     assert.equal(writes.length, 1);
     assert.deepEqual(await api.checkTutorMiniQuestionAnswer({...reference, sequence: 3, answer: "60"}), {isCorrect: true});
     assert.equal(writes.length, 1);
-    assert.equal(events.some(event => event === "read:tutor/config" || event.startsWith("list:")), false);
+    assert.equal(events.includes("read:tutor/config"), false);
+    assert.ok(events.includes("read:syllabuses/math"));
   });
 
   test(layer + ": a configuration change during lookup cannot redirect the selected count", async () => {
@@ -457,6 +464,7 @@ for (const [layer, api] of [["backend", backend], ["web", web]]) {
   });
 
   test(layer + ": answer checking uses the requested count rather than the current default", async () => {
+    seedQuestion();
     for (const miniQuestionCount of [3, 6]) {
       const reference = {questionId: "q", language: "English", miniQuestionCount};
       const data = {...reference, ...response("English", miniQuestionCount), configUpdatedAt: baseTime, generatedAt: baseTime};
@@ -468,7 +476,7 @@ for (const [layer, api] of [["backend", backend], ["web", web]]) {
       assert.deepEqual(await api.checkTutorMiniQuestionAnswer({questionId: "q", language: "English",
         miniQuestionCount, sequence: 1, answer: String(miniQuestionCount)}), {isCorrect: true});
     }
-    assert.deepEqual(events, ["read:tutor/q/counts/3/languages/English", "read:tutor/q/counts/6/languages/English"]);
+    assert.deepEqual(events.filter(event => event.startsWith("read:tutor/")), ["read:tutor/q/counts/3/languages/English", "read:tutor/q/counts/6/languages/English"]);
     assert.equal(llmCalls.length, 0);
     assert.equal(writes.length, 0);
   });
@@ -603,6 +611,7 @@ for (const [layer, api] of [["backend", backend], ["web", web]]) {
   });
 
   test(layer + ": saved set lookup validates stored data without regeneration", async () => {
+    seedQuestion();
     const reference = {questionId: "q", language: "English", miniQuestionCount: 3};
     const path = setPath(reference);
     const valid = {...reference, ...response(), miniQuestionCount: 3, configUpdatedAt: baseTime, generatedAt: baseTime};
@@ -642,6 +651,69 @@ test("web generation and set reads require sign-in, while a signed-in student ca
   documents.set("tutor/config", configuration());
   assert.equal((await web.generateTutorMiniQuestionSet({questionId: "q", language: "English"})).questionId, "q");
 });
+
+for (const [layer, api] of [["backend", backend], ["web", web]]) {
+  for (const [kind, seed] of [["MCQ", seedQuestion], ["pre-assessment", seedPreAssessmentQuestion]]) {
+    test(layer + ": disabled " + kind + " topic blocks direct, generated, cached and answer APIs without paid work or writes", async () => {
+      seed();
+      documents.set("syllabuses/math/topics/geometry", {topicName: "Geometry", tutorEnabled: false});
+      documents.set("tutor/config", configuration());
+      const reference = {questionId: "q", language: "English", miniQuestionCount: 3};
+      const saved = {...reference, ...response(), configUpdatedAt: baseTime, generatedAt: baseTime};
+      documents.set(setPath(reference), saved);
+      documents.set("tutor/" + await backendDocumentId(reference), saved);
+      const before = structuredClone([...documents]);
+      for (const call of [
+        () => api.getTutorQuestionById("q"),
+        () => api.generateTutorMiniQuestionSet(reference),
+        () => api.getTutorMiniQuestionSet(reference),
+        () => api.getTutorMiniQuestionSet({...reference, language: "Bahasa Melayu", miniQuestionCount: 6, topicId: "forged"}),
+        () => api.checkTutorMiniQuestionAnswer({...reference, sequence: 3, answer: "60"}),
+        () => api.checkTutorMiniQuestionAnswer({...reference, sequence: 3, answer: "Sixty degrees"}),
+      ]) await assert.rejects(call, error => error.code === "tutor-disabled");
+      assert.equal(llmCalls.length, 0);
+      assert.equal(writes.length, 0);
+      assert.deepEqual([...documents], before);
+    });
+  }
+
+  test(layer + ": disabling an open session blocks its next answer and re-enabling reuses the original set", async () => {
+    seedQuestion();
+    documents.set("tutor/config", configuration());
+    const reference = {questionId: "q", language: "English", miniQuestionCount: 3};
+    const saved = await api.getTutorMiniQuestionSet(reference);
+    documents.set("syllabuses/math/topics/geometry", {topicName: "Geometry", tutorEnabled: false});
+    await assert.rejects(() => api.checkTutorMiniQuestionAnswer({...reference, sequence: 3, answer: "60"}), error => error.code === "tutor-disabled");
+    await assert.rejects(() => api.getTutorMiniQuestionSet(reference), error => error.code === "tutor-disabled");
+    documents.set("syllabuses/math/topics/geometry", {topicName: "Geometry", tutorEnabled: true});
+    documents.delete("tutor/config");
+    assert.deepEqual(await api.getTutorMiniQuestionSet(reference), saved);
+    assert.deepEqual(await api.checkTutorMiniQuestionAnswer({...reference, sequence: 3, answer: "60"}), {isCorrect: true});
+    assert.equal(llmCalls.length, 1);
+    assert.equal(writes.length, 1);
+  });
+
+  test(layer + ": a topic read failure blocks cached tutor access without regenerating", async () => {
+    seedQuestion();
+    const reference = {questionId: "q", language: "English", miniQuestionCount: 3};
+    documents.set(setPath(reference), {...reference, ...response(), configUpdatedAt: baseTime, generatedAt: baseTime});
+    readFailurePath = "syllabuses/math";
+    await assert.rejects(() => api.getTutorMiniQuestionSet(reference), /Read unavailable/);
+    assert.equal(llmCalls.length, 0);
+    assert.equal(writes.length, 0);
+  });
+
+  test(layer + ": caller mutations during policy reads cannot redirect cached tutor access", async () => {
+    seedQuestion();
+    const reference = {questionId: "q", language: "English", miniQuestionCount: 3};
+    documents.set(setPath(reference), {...reference, ...response(), configUpdatedAt: baseTime, generatedAt: baseTime});
+    const input = {...reference};
+    onRead = path => {if (path === "syllabuses/math") Object.assign(input, {questionId: "forged", language: "中文", miniQuestionCount: 6});};
+    assert.equal((await api.getTutorMiniQuestionSet(input)).questionId, "q");
+    assert.equal(llmCalls.length, 0);
+    assert.equal(writes.length, 0);
+  });
+}
 
 test("web generation rejects account changes before the LLM or before persistence", async () => {
   seedQuestion();

@@ -1,4 +1,4 @@
-import {preAssessmentPracticeTypes} from "../../../config/firebase/syllabuses_schema.js?v=20261105-topic-framework-v1";
+import {preAssessmentPracticeTypes} from "../../../config/firebase/syllabuses_schema.js?v=20261106-topic-tutor-v1";
 
 function requireText(value, fieldName) {
   const text = String(value ?? "").trim();
@@ -64,6 +64,7 @@ export class SyllabusTopic {
     id = null,
     topicName,
     pausable = true,
+    tutorEnabled = true,
     subtopics = {},
     assessmentFrameworkIds = {},
     preAssessmentPractices = {}
@@ -71,6 +72,7 @@ export class SyllabusTopic {
     this.id = id;
     this.topicName = topicName;
     this.pausable = requireBoolean(pausable, "pausable");
+    this.tutorEnabled = requireBoolean(tutorEnabled, "tutorEnabled");
     this.assessmentFrameworkIds = normalizeTopicFrameworkIds(assessmentFrameworkIds);
     this.subtopics = subtopics;
     this.preAssessmentPractices = normalizePreAssessmentPractices(
@@ -81,6 +83,7 @@ export class SyllabusTopic {
   update({
     topicName,
     pausable,
+    tutorEnabled,
     subtopics,
     assessmentFrameworkIds,
     preAssessmentPractices
@@ -88,6 +91,9 @@ export class SyllabusTopic {
     if (assessmentFrameworkIds !== undefined) this.assessmentFrameworkIds = normalizeTopicFrameworkIds(assessmentFrameworkIds);
     if (pausable !== undefined) {
       this.pausable = requireBoolean(pausable, "pausable");
+    }
+    if (tutorEnabled !== undefined) {
+      this.tutorEnabled = requireBoolean(tutorEnabled, "tutorEnabled");
     }
 
     if (topicName !== undefined) {

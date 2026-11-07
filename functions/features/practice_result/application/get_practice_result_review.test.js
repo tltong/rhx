@@ -7,6 +7,7 @@ const {
 
 test("GetPracticeResultReview composes answers and explanations", async () => {
   const useCase = new GetPracticeResultReview({
+    isTopicTutorEnabled: async () => true,
     practiceResultRepository: {
       getById: async () => ({
         practiceId: "practice-1",

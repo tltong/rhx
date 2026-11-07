@@ -228,6 +228,10 @@ select:disabled {
   flex: 1;
 }
 
+.topic-help {
+  margin-bottom: 14px;
+}
+
 .subtopics {
   display: grid;
   gap: 10px;

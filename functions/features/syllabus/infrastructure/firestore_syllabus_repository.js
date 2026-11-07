@@ -27,6 +27,7 @@ function toTopic(data) {
     id: data.id,
     topicName: data.topicName,
     pausable: data.pausable,
+    tutorEnabled: data.tutorEnabled,
     assessmentFrameworkIds: data.assessmentFrameworkIds,
     subtopics: data.subtopics || {},
     preAssessmentPractices: data.preAssessmentPractices || {},

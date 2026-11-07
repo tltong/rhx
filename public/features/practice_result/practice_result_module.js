@@ -25,7 +25,7 @@
  *   questionsCorrect, totalQuestions, score,
  *   questions: Array<{
  *     questionId, questionText, options, selectedOption, correctAnswer,
- *     isCorrect, explanation, hasDiagram, svg
+ *     isCorrect, tutorEnabled, explanation, hasDiagram, svg
  *   }>
  * }
  *
@@ -36,6 +36,7 @@ import {
   getPracticeById,
   practiceTypes
 } from "../practice/practice_module.js?v=20260816-practice-question-ids";
+import {isTopicTutorEnabled} from "../syllabus/syllabus_module.js?v=20261106-topic-tutor-v1";
 import {
   checkPreAssessmentQuestionAnswers,
   getPreAssessmentQuestion
@@ -49,7 +50,7 @@ import {
 } from "./application/get_practice_result.js?v=20260807-practice-result";
 import {
   GetPracticeResultReview
-} from "./application/get_practice_result_review.js?v=20260824-practice-review";
+} from "./application/get_practice_result_review.js?v=20261106-topic-tutor-v1";
 import {
   ListPracticeResults
 } from "./application/list_practice_results.js?v=20260807-practice-result";
@@ -88,6 +89,7 @@ const getPracticeResultUseCase = new GetPracticeResult(
 const getPracticeResultReviewUseCase = new GetPracticeResultReview({
   practiceResultRepository,
   getPracticeById,
+  isTopicTutorEnabled,
   questionLoaders: {
     [practiceTypes.ASSESSMENT]: loadAssessmentReviewQuestions,
     [practiceTypes.PRE_ASSESSMENT]: loadPreAssessmentReviewQuestions

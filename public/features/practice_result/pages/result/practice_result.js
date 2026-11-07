@@ -1,6 +1,6 @@
 import {
   getPracticeResultReview
-} from "../../practice_result_module.js?v=20261018-topic-reset-v1";
+} from "../../practice_result_module.js?v=20261106-topic-tutor-v1";
 import {
   onStudentAuthStateChanged
 } from "../../../student/student_module.js?v=20261031-renewal-restart-v1";
@@ -182,7 +182,7 @@ function createQuestion(question, index) {
   answerStatus.textContent = question.isCorrect ? "Correct" : "Incorrect";
   headingActions.className = "question-heading-actions";
   headingActions.append(answerStatus);
-  if (!question.isCorrect) {
+  if (!question.isCorrect && question.tutorEnabled) {
     const reviewLink = document.createElement("a");
     reviewLink.className = "question-review-link";
     reviewLink.textContent = "Review this question";

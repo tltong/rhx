@@ -1,6 +1,7 @@
 class GetTutorQuestionById {
-  constructor({getQuestionById, getPreAssessmentQuestionById}) {
-    Object.assign(this, {getQuestionById, getPreAssessmentQuestionById});
+  constructor({getQuestionById, getPreAssessmentQuestionById, isTopicTutorEnabled}) {
+    if (typeof isTopicTutorEnabled !== "function") throw new Error("isTopicTutorEnabled must be a function.");
+    Object.assign(this, {getQuestionById, getPreAssessmentQuestionById, isTopicTutorEnabled});
   }
 
   async execute(questionId) {
@@ -13,7 +14,13 @@ class GetTutorQuestionById {
       error.code = "ambiguous-question-id";
       throw error;
     }
-    return question || preAssessmentQuestion;
+    const source = question || preAssessmentQuestion;
+    if (source && await this.isTopicTutorEnabled(source.syllabusId, source.topicId) !== true) {
+      const error = new Error("Tutor is disabled for this topic.");
+      error.code = "tutor-disabled";
+      throw error;
+    }
+    return source;
   }
 }
 

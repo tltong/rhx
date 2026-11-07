@@ -4,12 +4,12 @@ import {
   Syllabus,
   SyllabusTopic,
   SyllabusTopicPreAssessmentPractice
-} from "../domain/syllabus.js?v=20261105-topic-framework-v1";
+} from "../domain/syllabus.js?v=20261106-topic-tutor-v1";
 import { SyllabusRepository } from "../domain/syllabus_repository.js?v=20261104-fill-preassessment-v3";
 import {
   SYLLABUSES_COLLECTION,
   SYLLABUS_TOPICS_SUBCOLLECTION
-} from "../../../config/firebase/syllabuses_schema.js?v=20261105-topic-framework-v1";
+} from "../../../config/firebase/syllabuses_schema.js?v=20261106-topic-tutor-v1";
 import {
   createDocument,
   deleteDocument,
@@ -137,6 +137,7 @@ function normalizeTopic(topic) {
     id: optionalString(topic.id),
     topicName: requireNonEmptyString(topic.topicName, "topicName"),
     pausable: topic.pausable,
+    tutorEnabled: topic.tutorEnabled,
     assessmentFrameworkIds: topic.assessmentFrameworkIds,
     subtopics: normalizeSubtopics(topic.subtopics || {}),
     preAssessmentPractices: normalizePreAssessmentPractices(
@@ -200,6 +201,7 @@ function toSyllabusTopicRecord(topic) {
   return {
     topicName: requireNonEmptyString(topic.topicName, "topicName"),
     pausable: topic.pausable,
+    tutorEnabled: topic.tutorEnabled,
     assessmentFrameworkIds: topic.assessmentFrameworkIds,
     subtopics: normalizeSubtopics(topic.subtopics || {}),
     preAssessmentPractices: Object.fromEntries(

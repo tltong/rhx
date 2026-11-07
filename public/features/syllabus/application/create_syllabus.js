@@ -1,7 +1,7 @@
 import {validateTopicFrameworks} from "./validate_topic_frameworks.js?v=20261105-topic-framework-v1";
 import {
   Syllabus
-} from "../domain/syllabus.js?v=20261105-topic-framework-v1";
+} from "../domain/syllabus.js?v=20261106-topic-tutor-v1";
 
 export class CreateSyllabus {
   constructor(syllabusRepository, {getAssessmentFrameworkById} = {}) {

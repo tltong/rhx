@@ -6,6 +6,7 @@ import {
   createSyllabusRecord,
   getSyllabusById,
   isTopicPausable,
+  isTopicTutorEnabled,
   updateSyllabusRecord,
   assignTopicPreAssessmentPractice
 } from "./syllabus_module.js";
@@ -85,7 +86,7 @@ beforeEach(() => {
   writes.length = 0;
   documents.set("syllabuses/syllabus-1", {...syllabusData});
   documents.set(topicPath("topic-true"), {topicName: "Fractions", assessmentFrameworkIds: {english: "framework"}, pausable: true});
-  documents.set(topicPath("topic-false"), {topicName: "Geometry", assessmentFrameworkIds: {english: "framework"}, pausable: false});
+  documents.set(topicPath("topic-false"), {topicName: "Geometry", assessmentFrameworkIds: {english: "framework"}, pausable: false, tutorEnabled: false});
   documents.set(topicPath("topic-legacy"), {topicName: "Algebra", assessmentFrameworkIds: {english: "framework"}});
 });
 
@@ -94,6 +95,45 @@ test("web syllabus API returns true, false and the legacy default without writin
   assert.equal(await isTopicPausable("syllabus-1", "topic-false"), false);
   assert.equal(await isTopicPausable("syllabus-1", "topic-legacy"), true);
   assert.equal(await isTopicPausable(" syllabus-1 ", " topic-false "), false);
+  assert.deepEqual(writes, []);
+});
+
+test("tutor defaults to enabled and reads explicit disabled topics without writing", async () => {
+  assert.equal(await isTopicTutorEnabled("syllabus-1", "topic-true"), true);
+  assert.equal(await isTopicTutorEnabled("syllabus-1", "topic-legacy"), true);
+  assert.equal(await isTopicTutorEnabled(" syllabus-1 ", " topic-false "), false);
+  assert.deepEqual(writes, []);
+  for (const [syllabusId, topicId] of [["", "topic-true"], ["syllabus-1", ""], ["missing", "topic-true"], ["syllabus-1", "missing"]]) {
+    await assert.rejects(() => isTopicTutorEnabled(syllabusId, topicId));
+  }
+});
+
+test("topic tutor selection survives create, update, reload and practice attachment", async () => {
+  const created = await createSyllabusRecord({...syllabusData, topics: [
+    {topicName: "New disabled topic", tutorEnabled: false, assessmentFrameworkIds: {english: "framework"}},
+    {topicName: "New default topic", assessmentFrameworkIds: {english: "framework"}},
+  ]});
+  assert.equal(await isTopicTutorEnabled(created.id, created.topics[0].id), false);
+  assert.equal(await isTopicTutorEnabled(created.id, created.topics[1].id), true);
+  const syllabus = await getSyllabusById("syllabus-1");
+  await updateSyllabusRecord(syllabus, {subject: "Renamed"});
+  assert.equal(documents.get(topicPath("topic-false")).tutorEnabled, false);
+  assert.equal(documents.get(topicPath("topic-legacy")).tutorEnabled, true);
+  await assignTopicPreAssessmentPractice("syllabus-1", "topic-false", "English", "practice-1");
+  assert.equal(await isTopicTutorEnabled("syllabus-1", "topic-false"), false);
+  syllabus.topics.find(topic => topic.id === "topic-false").update({tutorEnabled: true});
+  await updateSyllabusRecord(syllabus, {topics: syllabus.topics});
+  assert.equal(await isTopicTutorEnabled("syllabus-1", "topic-false"), true);
+});
+
+test("malformed tutor flags are rejected without changing existing selection", async () => {
+  const topic = new SyllabusTopic({topicName: "Fractions", tutorEnabled: false});
+  for (const tutorEnabled of ["false", 0, 1, null]) {
+    assert.throws(() => new SyllabusTopic({topicName: "Fractions", tutorEnabled}), /tutorEnabled must be a boolean/);
+    assert.throws(() => topic.update({tutorEnabled}), /tutorEnabled must be a boolean/);
+    await assert.rejects(() => createSyllabusRecord({...syllabusData, topics: [{topicName: "Fractions", tutorEnabled}]}), /tutorEnabled must be a boolean/);
+  }
+  assert.equal(topic.tutorEnabled, false);
   assert.deepEqual(writes, []);
 });
 

@@ -122,6 +122,7 @@ class SyllabusTopic {
     id,
     topicName,
     pausable = true,
+    tutorEnabled = true,
     subtopics = {},
     assessmentFrameworkIds = {},
     preAssessmentPractices = {},
@@ -129,6 +130,7 @@ class SyllabusTopic {
     this.id = requireNonEmptyString(id, "topic id");
     this.topicName = requireNonEmptyString(topicName, "topicName");
     this.pausable = requireBoolean(pausable, "pausable");
+    this.tutorEnabled = requireBoolean(tutorEnabled, "tutorEnabled");
     this.assessmentFrameworkIds = normalizeTopicFrameworkIds(assessmentFrameworkIds);
     this.subtopics = normalizeSubtopics(subtopics);
     this.preAssessmentPractices = normalizePreAssessmentPractices(

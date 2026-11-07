@@ -17,8 +17,10 @@ const {
 const { GetSyllabus } = require("./application/get_syllabus");
 const { ListSyllabuses } = require("./application/list_syllabuses");
 const { IsTopicPausable } = require("./application/is_topic_pausable");
+const {IsTopicTutorEnabled} = require("./application/is_topic_tutor_enabled");
 
 const syllabusRepository = new FirestoreSyllabusRepository();
+const isTopicTutorEnabledUseCase = new IsTopicTutorEnabled(syllabusRepository);
 const topicFrameworkReader = new GetTopicAssessmentFrameworkId(syllabusRepository);
 const topicFrameworkWriter = new AssignTopicAssessmentFramework({repository: syllabusRepository, getAssessmentFrameworkById});
 async function getTopicAssessmentFrameworkId(input) {return topicFrameworkReader.execute(input);}
@@ -45,6 +47,11 @@ async function isTopicPausable(syllabusId, topicId) {
   return isTopicPausableUseCase.execute(syllabusId, topicId);
 }
 
+/** Guided MCQ review setting for all topic languages. Missing fields default to true. */
+async function isTopicTutorEnabled(syllabusId, topicId) {
+  return isTopicTutorEnabledUseCase.execute(syllabusId, topicId);
+}
+
 async function listSyllabuses() {
   return listSyllabusesUseCase.execute();
 }
@@ -64,5 +71,6 @@ module.exports = {
   assignTopicPreAssessmentPractice,
   getSyllabusById,
   isTopicPausable,
+  isTopicTutorEnabled,
   listSyllabuses,
 };

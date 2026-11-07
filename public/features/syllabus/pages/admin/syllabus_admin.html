@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Syllabus Admin</title>
     <script>document.documentElement.hidden = true;</script>
-    <link rel="stylesheet" href="./syllabus_admin.css?v=20261104-fill-preassessment-v3">
+    <link rel="stylesheet" href="./syllabus_admin.css?v=20261106-topic-tutor-v1">
     <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
@@ -99,6 +99,7 @@
             <h2>Topics</h2>
             <button id="add-topic" type="button" class="secondary">Add Topic</button>
           </div>
+          <p class="topic-help">Enable tutor allows guided MCQ reviews for a topic in all its languages. Essay and fill-in-the-blanks do not use tutor.</p>
           <div id="topics-container" class="topics"></div>
         </section>
 
@@ -120,6 +121,10 @@
           <label class="toggle-field">
             <input data-field="pausable" type="checkbox" checked>
             <span>Pausable</span>
+          </label>
+          <label class="toggle-field">
+            <input data-field="tutorEnabled" type="checkbox" checked>
+            <span>Enable tutor</span>
           </label>
           <button data-action="remove-topic" type="button" class="danger">Remove Topic</button>
         </div>
@@ -143,7 +148,7 @@
       id="site-admin-page-loader"
       type="module"
       data-site-admin-page
-      data-page-module="./syllabus_admin.js?v=20261105-topic-framework-v1"
+      data-page-module="./syllabus_admin.js?v=20261106-topic-tutor-v1"
       src="/features/site_admin/pages/common/site_admin_page_loader.js?v=20260827-site-admin-guard-v1"
     ></script>
   </body>
