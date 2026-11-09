@@ -27,7 +27,8 @@ const tutorConfigSchema = {
   },
 };
 
-// One reusable set per original question ID, count and encoded language.
+// Shared guides use a content/instruction version as questionId. Legacy IDs
+// remain valid. Count/language variants use the existing document structure.
 const tutorMiniQuestionSetSchema = {
   collection: "tutor/[questionId]/counts/[miniQuestionCount]/languages",
   documentId: "[languageId]",

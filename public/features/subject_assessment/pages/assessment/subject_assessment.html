@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Subject assessments</title>
+<link rel="stylesheet" href="./subject_assessment.css?v=20261108-assessment-results-v1">
+<link rel="stylesheet" href="../../../fill_in_the_blanks_question_generator/components/passage_view.css?v=20261105-chinese-count-v1">
+<script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+<script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
+<script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+<script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script>
+<script defer src="/__/firebase/init.js"></script></head>
+<body><main class="page-shell">
+<nav><a id="dashboard-link" href="/features/student/pages/landing/landing.html">Learning dashboard</a><a id="assessment-list-link" href="./subject_assessment.html">All assessments</a></nav>
+<h1 id="assessment-title">Subject assessments</h1>
+<p id="assessment-status" role="status" aria-live="polite">Loading your assessments…</p>
+<section id="assessment-list-panel" hidden><h2>Assessments</h2><div id="assessment-list"></div><button id="more-assessments" type="button" hidden>Load more assessments</button>
+<h2>Results history</h2><div id="assessment-history"></div><button id="more-results" type="button" hidden>Load more results</button></section>
+<section id="assessment-session-panel" hidden>
+<p id="assessment-instructions">You can save and return to your answers. Submitting locks them. Unanswered questions receive zero marks.</p>
+<p id="assessment-save-status" role="status" aria-live="polite"></p>
+<section id="assessment-result" class="panel" hidden><h2>Assessment result</h2><p id="assessment-score" class="score"></p><p id="assessment-score-policy"></p><div id="assessment-breakdowns"></div></section>
+<form id="assessment-form" novalidate><div id="assessment-items"></div>
+<div class="actions"><button id="save-answers" type="button">Save answers</button><button id="submit-assessment" type="submit">Submit assessment</button></div></form>
+<div class="actions"><button id="check-assessment" type="button" class="secondary">Reload saved answers / check status</button><button id="retry-marking" type="button" hidden>Retry marking</button></div>
+</section>
+</main><script type="module" src="./subject_assessment.js?v=20261109-assessment-tutor-v1"></script></body></html>

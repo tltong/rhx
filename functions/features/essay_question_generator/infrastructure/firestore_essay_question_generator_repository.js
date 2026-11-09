@@ -49,6 +49,7 @@ class FirestoreEssayQuestionGeneratorRepository extends EssayQuestionGeneratorRe
     const index = db.collection(ESSAY_QUESTION_GENERATOR_COLLECTION).doc(ESSAY_QUESTION_INDEX_DOCUMENT_ID)
       .collection("entries").doc(reference.id);
     const data = {...(support === undefined ? {} : {support}), ...(imagePrompt === undefined ? {} : {imagePrompt}), questionText, difficulty: criteria.difficulty, seedUsed: criteria.seed,
+      ...Object.fromEntries(["syllabusId", "topicId", "topicName", "subject"].filter(key => criteria[key] !== undefined).map(key => [key, criteria[key]])),
       wordCountRequirement, generatedAt: this.serverTimestamp()};
     await db.runTransaction(async transaction => {
       beforeWrite();
@@ -62,6 +63,7 @@ class FirestoreEssayQuestionGeneratorRepository extends EssayQuestionGeneratorRe
             && normalizeImagePrompt(stored.imagePrompt) === imagePrompt
             && stored.questionText === data.questionText && stored.difficulty === data.difficulty
             && stored.seedUsed === data.seedUsed
+            && ["syllabusId", "topicId", "topicName", "subject"].every(key => stored[key] === data[key])
             && normalizeWordCountRequirement(stored.wordCountRequirement).minWords === wordCountRequirement.minWords) return;
         throw new Error("The generated essay question ID already exists. Try again.");
       }
@@ -91,6 +93,7 @@ class FirestoreEssayQuestionGeneratorRepository extends EssayQuestionGeneratorRe
     const db = this.getFirestoreDb();
     let query = db.collection(questionCollectionPath(criteria));
     if (criteria.difficulty !== undefined) query = query.where("difficulty", "==", criteria.difficulty);
+    for (const key of ["syllabusId", "topicId"]) if (criteria[key] !== undefined) query = query.where(key, "==", criteria[key]);
     query = query.orderBy(this.documentId());
     const after = decodeCursor(criteria.cursor, criteria);
     if (after) query = query.startAfter(after);

@@ -10,6 +10,7 @@ function buildEssayQuestionPrompt(input, configuration) {
     ESSAY_QUESTION_PROMPT_TEMPLATE,
     "Target learner:\n" + JSON.stringify({level, standard, language, difficulty}),
   ];
+  if (input.syllabusId !== undefined) sections.push("Required syllabus topic context (JSON data). The writing task must assess this topic:\n" + JSON.stringify({syllabusId: input.syllabusId, topicId: input.topicId, topicName: input.topicName, subject: input.subject}));
   if (config.additionalLlmInstructions) sections.push("Common additional instructions:\n" + config.additionalLlmInstructions);
   if (config.gradeInstructions[level][standard]) sections.push("Additional instructions for " + level + " standard " + standard + ":\n" + config.gradeInstructions[level][standard]);
   if (config.difficultyInstructions[difficulty]) sections.push("Additional instructions for " + difficulty + " difficulty:\n" + config.difficultyInstructions[difficulty]);

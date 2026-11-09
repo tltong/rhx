@@ -1,6 +1,6 @@
 import {
   FirestoreSyllabusSubscriptionRepository
-} from "./infrastructure/firestore_syllabus_subscription_repository.js?v=20261104-fill-preassessment-v3";
+} from "./infrastructure/firestore_syllabus_subscription_repository.js?v=20261108-assessment-unsubscribe-v1";
 import {
   GetStudentSyllabusSubscription
 } from "./application/get_student_syllabus_subscription.js?v=20261104-fill-preassessment-v3";
@@ -18,7 +18,7 @@ import {
 } from "./application/subscribe_syllabus.js?v=20261104-fill-preassessment-v3";
 import {
   UnsubscribeSyllabus
-} from "./application/unsubscribe_syllabus.js?v=20261104-fill-preassessment-v3";
+} from "./application/unsubscribe_syllabus.js?v=20261108-assessment-unsubscribe-v1";
 import {
   ActivateSyllabus
 } from "./application/activate_syllabus.js?v=20261104-fill-preassessment-v3";

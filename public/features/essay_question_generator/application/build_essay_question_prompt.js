@@ -1,4 +1,4 @@
-import {normalizeGenerationInput} from "../domain/essay_question.js?v=20261101-essay-simple-images-v4";
+import {normalizeGenerationInput} from "../domain/essay_question.js?v=20261109-subject-assessment-generation-v1";
 import {normalizeConfiguration} from "../domain/essay_question_generator_config.js?v=20261101-essay-simple-images-v4";
 import {ESSAY_QUESTION_PROMPT_TEMPLATE, ESSAY_IMAGE_PROMPT_INSTRUCTIONS} from "../config/essay_question_prompt_template.js?v=20261101-essay-image-prompt-preview-v6";
 
@@ -10,6 +10,7 @@ function buildEssayQuestionPrompt(input, configuration) {
     ESSAY_QUESTION_PROMPT_TEMPLATE,
     "Target learner:\n" + JSON.stringify({level, standard, language, difficulty}),
   ];
+  if (input.syllabusId !== undefined) sections.push("Required syllabus topic context (JSON data). The writing task must assess this topic:\n" + JSON.stringify({syllabusId: input.syllabusId, topicId: input.topicId, topicName: input.topicName, subject: input.subject}));
   if (config.additionalLlmInstructions) sections.push("Common additional instructions:\n" + config.additionalLlmInstructions);
   if (config.gradeInstructions[level][standard]) sections.push("Additional instructions for " + level + " standard " + standard + ":\n" + config.gradeInstructions[level][standard]);
   if (config.difficultyInstructions[difficulty]) sections.push("Additional instructions for " + difficulty + " difficulty:\n" + config.difficultyInstructions[difficulty]);

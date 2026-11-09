@@ -21,36 +21,35 @@
  * DEFAULT_TUTOR_MINI_QUESTION_COUNT is 3; using it never persists defaults.
  *
  * generateTutorMiniQuestionSet({questionId, language, miniQuestionCount?})
- *   -> Promise<TutorMiniQuestionSet>
- * Loads the complete Question (including SVG) and saved TutorConfig, builds
- * the fixed prompt, calls the existing LLM utility, validates and saves the set.
- * The requested language must have feedback configured. Each generation
- * replaces only that question/count/language set; malformed responses never write.
- * An omitted count is resolved from configuration; an explicit count overrides it.
- *
  * getTutorMiniQuestionSet({questionId, language, miniQuestionCount?})
- *   -> Promise<TutorMiniQuestionSet>
- * Reads and returns the saved set first. If none exists, generates, validates,
- * saves and returns a new set through the existing generation workflow.
- * An omitted count is read from configuration once before selecting the set.
- * All question/set/answer APIs check the source topic's current tutor setting,
- * including cached sets. Disabled topics reject with code tutor-disabled before
- * any LLM call or cache migration. Explicit counts need no tutor config read.
- * Matching legacy sets are copied to the new path on access, preserving timestamps.
- * Read failures and corrupt saved data propagate without triggering generation.
+ *   -> Promise<TutorMiniQuestionSet & {guideId: string}>
+ * Both operations ensure an immutable shared guide exists. They authorize the
+ * source question and current topic setting, then load saved TutorConfig even
+ * for an explicit count. Identical complete model inputs share a content version
+ * across bank questions, students and frozen assessment questions. Instruction
+ * text and the prompt template select the instruction version; language/count
+ * select variants. Feedback-only edits do not invalidate generation.
+ * Legacy unversioned guides are preserved; their unknown content versions are
+ * never promoted to the shared cache. Read/corruption failures never regenerate.
+ * Simultaneous misses may generate twice; create-only storage returns the same
+ * winning guide to both callers without replacing a guide already being used.
+ * Disabled topics reject with code tutor-disabled before any cache/model work.
  *
- * checkTutorMiniQuestionAnswer({questionId, language, miniQuestionCount, sequence, answer})
- *   -> Promise<{isCorrect: boolean}>
- * Checks an already saved mini question. Normalized expected/accepted answers
- * pass locally; other wording is judged by the existing LLM utility.
+ * checkTutorMiniQuestionAnswer({questionId, guideId?, language, miniQuestionCount,
+ *   sequence, answer}) -> Promise<{isCorrect: boolean}>
+ * The review page passes the selected guideId so instruction edits cannot switch
+ * its answers. Source access and content version are checked again. Omitting
+ * guideId selects the current instruction version for programmatic callers.
  * Checks never generate sets, store answers or record student identity.
  *
- * TutorMiniQuestionSet: {questionId, language, miniQuestionCount,
- *   miniQuestions: [{sequence, questionText, expectedAnswer,
- *     acceptedAnswers: string[], answerExplanation}],
+ * TutorMiniQuestionSet response: {questionId: caller's source ID, guideId,
+ *   language, miniQuestionCount, miniQuestions: [{sequence, questionText,
+ *   expectedAnswer, acceptedAnswers, answerExplanation}],
  *   configUpdatedAt: Date, generatedAt: Date}.
- * Stored in tutor/{questionId}/counts/{miniQuestionCount}/languages/{encodedLanguage}.
- * No student identity, original question content or invocation history is saved.
+ * Stored in tutor/{guideId}/counts/{miniQuestionCount}/languages/{encodedLanguage}
+ * with questionId = guideId. The shared key contains SHA-256 hashes of canonical
+ * question content and generation instructions/template. Student identity,
+ * original question content and responses are not stored with the guide.
  */
 /** Configuration writes require trusted backend context {updatedBy: administratorUid}. */
 const {DEFAULT_TUTOR_MINI_QUESTION_COUNT} = require("../../schema/tutor_schema");
@@ -59,15 +58,11 @@ const {GetTutorConfig} = require("./application/get_tutor_config");
 const {SaveTutorConfig} = require("./application/save_tutor_config");
 const {requireAdministratorUid} = require("./domain/tutor_config");
 const {FirestoreTutorMiniQuestionSetRepository} = require("./infrastructure/firestore_tutor_mini_question_set_repository");
-const {GenerateTutorMiniQuestionSet} = require("./application/generate_tutor_mini_question_set");
-const {GetTutorMiniQuestionSet} = require("./application/get_tutor_mini_question_set");
+const {SharedTutorReview} = require("./application/shared_tutor_review");
 const {getQuestionById} = require("../question/question_module");
 const {getPreAssessmentQuestionById} = require("../pre_assessment_question/pre_assessment_question_module");
 const {GetTutorQuestionById} = require("./application/get_tutor_question_by_id");
 const {generateLlmText} = require("../../utils/llm/llm_ops");
-const {CheckTutorMiniQuestionAnswer} = require("./application/check_tutor_mini_question_answer");
-const {normalizeTutorSetReference} = require("./domain/tutor_mini_question_set");
-const {normalizeTutorAnswerCheckInput} = require("./domain/tutor_answer");
 const {isTopicTutorEnabled} = require("../syllabus/syllabus_module");
 
 const repository = new FirestoreTutorConfigRepository();
@@ -79,15 +74,7 @@ const setRepository = new FirestoreTutorMiniQuestionSetRepository();
 const getSourceQuestion = new GetTutorQuestionById({
   getQuestionById, getPreAssessmentQuestionById, isTopicTutorEnabled,
 });
-const generateSet = new GenerateTutorMiniQuestionSet({
-  getQuestionById: getTutorQuestionById, getTutorConfig, generateLlmText, repository: setRepository,
-});
-const getSet = new GetTutorMiniQuestionSet(
-  setRepository, (input, options) => generateSet.execute(input, options), getTutorConfig,
-);
-const checkAnswer = new CheckTutorMiniQuestionAnswer({
-  repository: setRepository, generateLlmText,
-});
+
 
 async function getTutorConfig() {
   return getConfig.execute();
@@ -97,36 +84,38 @@ async function saveTutorConfig(input, context) {
   return saveConfig.execute(input, context);
 }
 
-async function generateTutorMiniQuestionSet(input) {
-  return generateSet.execute(input);
-}
-
-async function getTutorMiniQuestionSet(input) {
-  const reference = normalizeTutorSetReference(input);
-  await requireTutorQuestion(reference.questionId);
-  return getSet.execute(reference);
-}
-
-async function checkTutorMiniQuestionAnswer(input) {
-  const request = normalizeTutorAnswerCheckInput(input);
-  await requireTutorQuestion(request.questionId);
-  return checkAnswer.execute(request);
-}
-
-async function requireTutorQuestion(questionId) {
-  const question = await getSourceQuestion.execute(questionId);
-  if (!question) throw new Error("Question " + questionId + " was not found.");
-  return question;
-}
+async function generateTutorMiniQuestionSet(input) {return defaultReview.generateTutorMiniQuestionSet(input);}
+async function getTutorMiniQuestionSet(input) {return defaultReview.getTutorMiniQuestionSet(input);}
+async function checkTutorMiniQuestionAnswer(input) {return defaultReview.checkTutorMiniQuestionAnswer(input);}
 
 async function getTutorQuestionById(questionId) {
   return getSourceQuestion.execute(questionId);
 }
+
+function createTutorReviewForQuestion(loadQuestion) {
+  if (typeof loadQuestion !== "function") throw new Error("A tutor question loader is required.");
+  const question = async questionId => {
+    const source = await loadQuestion(questionId);
+    if (!source) throw new Error("Question " + questionId + " was not found.");
+    if (source.id !== questionId) throw new Error("The tutor question does not match this review.");
+    return source;
+  };
+  const review = new SharedTutorReview({getQuestionById: question, getTutorConfig,
+    generateLlmText: generateLlmText, repository: setRepository});
+  return {
+    getTutorQuestionById: question,
+    generateTutorMiniQuestionSet: input => review.get(input),
+    getTutorMiniQuestionSet: input => review.get(input),
+    checkTutorMiniQuestionAnswer: input => review.check(input),
+  };
+}
+const defaultReview = createTutorReviewForQuestion(getTutorQuestionById);
 
 module.exports = {
   DEFAULT_TUTOR_MINI_QUESTION_COUNT, getTutorConfig, saveTutorConfig,
   generateTutorMiniQuestionSet, getTutorMiniQuestionSet,
   checkTutorMiniQuestionAnswer,
   getTutorQuestionById,
+  createTutorReviewForQuestion,
 };
 

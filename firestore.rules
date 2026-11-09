@@ -77,7 +77,7 @@ function clientPreservesBillingState() {
     function protectedCollection(collection) {
       return studentLearningCollection(collection) || sharedLearningCollection(collection) || fillInTheBlanksStudentCollection(collection)
         || collection in ['fillInTheBlanksQuestions', 'fillInTheBlanksPractices', 'fillInTheBlanksPracticeResults', 'fillInTheBlanksQuestionGenerator', 'fillInTheBlanksScoring', 'fillInTheBlanksDrafts', 'fillInTheBlanksPassageAssets']
-        || collection in ['subscriptions', 'stripeCustomers', 'paymentConfigs', 'siteAdmins', 'practiceResults', 'essayQuestionGenerator', 'essayQuestionAssets'];
+        || collection in ['subscriptions', 'syllabusSubscriptions', 'stripeCustomers', 'paymentConfigs', 'siteAdmins', 'practiceResults', 'essayQuestionGenerator', 'essayQuestionAssets', 'subjectAssessmentConfigs', 'subjectAssessments', 'subjectAssessmentGenerations', 'studentSubjectAssessmentUsage', 'subjectAssessmentSubmissions', 'subjectAssessmentResults', 'subjectAssessmentSettings'];
     }
     function manualBilling(data) {
       return data.get('paymentProvider', null) == null
@@ -86,6 +86,23 @@ function clientPreservesBillingState() {
         && data.get('paymentMode', null) == null && data.get('planId', null) == null
         && data.get('billingSummary', null) == null && data.get('renewalRecovery', null) == null
         && data.get('renewalGraceUntil', null) == null && data.get('subscriptionCancellation', null) == null;
+    }
+
+    function syllabusCleanupAllows(studentId, syllabusId) {
+      let path = /databases/$(database)/documents/subjectAssessmentGenerations/_students/students/$(studentId)/subjects/$(syllabusId);
+      return !exists(path) || !(get(path).data.get('cleanup', {}).get('status', '') in ['pending', 'running']);
+    }
+    match /syllabusSubscriptions/{studentId} {
+      allow read: if mayReadStudent(studentId);
+      allow create, update: if signedIn() && (mayWriteStudent(studentId) || guardianOf(studentId));
+      // Unsubscription and empty-parent deletion belong to the backend operation.
+      allow delete: if false;
+      match /syllabuses/{syllabusId} {
+        allow read: if mayReadStudent(studentId);
+        allow create, update: if signedIn() && (mayWriteStudent(studentId) || guardianOf(studentId))
+          && syllabusCleanupAllows(studentId, syllabusId);
+        allow delete: if false;
+      }
     }
 
     // Billing authority is server-only. Client-created student trials remain supported.
@@ -112,6 +129,77 @@ function clientPreservesBillingState() {
     match /paymentConfigs/{document} {
       allow read: if signedIn();
       allow write: if siteAdmin();
+    }
+    // The repeat policy is one global setting, independent of syllabus/language allocations.
+    match /subjectAssessmentSettings/config {
+      function validSettings() {
+        let data = request.resource.data;
+        return data.keys().hasOnly(['repeatMode', 'intervalDays', 'version', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'])
+          && ((data.get('repeatMode', 'interval') == 'none' && data.get('intervalDays', null) == null)
+            || (data.get('repeatMode', 'interval') == 'interval'
+              && data.intervalDays is int && data.intervalDays > 0 && data.intervalDays <= 9007199254740991))
+          && data.version is int && data.version > 0 && data.version <= 9007199254740991
+          && data.updatedBy == request.auth.uid && data.updatedAt == request.time;
+      }
+      allow read: if siteAdmin();
+      allow create: if siteAdmin() && validSettings() && request.resource.data.version == 1
+        && request.resource.data.createdBy == request.auth.uid && request.resource.data.createdAt == request.time;
+      allow update: if siteAdmin() && validSettings() && request.resource.data.version == resource.data.version + 1
+        && request.resource.data.createdBy == resource.data.createdBy && request.resource.data.createdAt == resource.data.createdAt;
+    }
+    // One standalone assessment configuration per syllabus/language, managed by admins.
+    match /subjectAssessmentConfigs/{syllabusId}/languages/{languageKey} {
+      function validConfiguration() {
+        let data = request.resource.data;
+        return data.keys().hasOnly(['syllabusId', 'language', 'languageKey', 'topics', 'version', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'])
+          && data.syllabusId == syllabusId && data.languageKey == languageKey
+          && data.language is string && data.language.size() > 0
+          && data.language in get(/databases/$(database)/documents/syllabuses/$(syllabusId)).data.languages
+          && data.topics is list && data.topics.size() > 0
+          && data.version is int && data.version > 0
+          && data.updatedBy == request.auth.uid && data.updatedAt == request.time;
+      }
+      allow read: if siteAdmin();
+      allow create: if siteAdmin() && validConfiguration()
+        && request.resource.data.version == 1
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time;
+      allow update: if siteAdmin() && validConfiguration()
+        && request.resource.data.version == resource.data.version + 1
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt;
+    }
+    // Standalone assessments are server-published; students read frozen public items only.
+    match /subjectAssessments/{assessmentId} {
+      allow read: if currentStudentHasBillingAccess() && mayReadStudent(resource.data.studentId);
+      allow write: if false;
+      match /items/{itemId} {
+        allow read: if currentStudentHasBillingAccess() && mayReadStudent(get(/databases/$(database)/documents/subjectAssessments/$(assessmentId)).data.studentId);
+        allow write: if false;
+      }
+      match /private/{itemId} { allow read: if siteAdmin(); allow write: if false; }
+    }
+    match /subjectAssessmentGenerations/{document=**} { allow read: if siteAdmin(); allow write: if false; }
+    match /studentSubjectAssessmentUsage/{document=**} { allow read: if siteAdmin(); allow write: if false; }
+    match /subjectAssessmentSubmissions/{assessmentId} {
+      allow read: if mayReadStudent(resource.data.studentId) && (siteAdmin() || studentHasBillingAccess(resource.data.studentId));
+      allow write: if false;
+      match /items/{itemId} {
+        allow read: if mayReadStudent(get(/databases/$(database)/documents/subjectAssessmentSubmissions/$(assessmentId)).data.studentId)
+          && (siteAdmin() || studentHasBillingAccess(get(/databases/$(database)/documents/subjectAssessmentSubmissions/$(assessmentId)).data.studentId));
+        allow write: if false;
+      }
+      match /private/{document=**} { allow read: if siteAdmin(); allow write: if false; }
+    }
+    match /subjectAssessmentResults/{assessmentId} {
+      allow read: if mayReadStudent(resource.data.studentId) && (siteAdmin() || studentHasBillingAccess(resource.data.studentId));
+      allow write: if false;
+      match /items/{itemId} {
+        allow read: if exists(/databases/$(database)/documents/subjectAssessmentResults/$(assessmentId))
+          && mayReadStudent(get(/databases/$(database)/documents/subjectAssessmentResults/$(assessmentId)).data.studentId)
+          && (siteAdmin() || studentHasBillingAccess(get(/databases/$(database)/documents/subjectAssessmentResults/$(assessmentId)).data.studentId));
+        allow write: if false;
+      }
     }
     // Shared essay content is readable by signed-in users and immutable after creation.
     match /essayQuestionGenerator/config {

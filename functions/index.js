@@ -79,3 +79,9 @@ exports.manageStripeRenewalRecovery = require("./stripe_renewal_recovery").manag
 
 exports.onStudentFillInTheBlanksPracticeSubmitted = require("./triggers/student_fill_in_the_blanks_practice_submission_trigger").onStudentFillInTheBlanksPracticeSubmitted;
 exports.onStudentFillInTheBlanksPracticeCompleted = require("./triggers/student_fill_in_the_blanks_practice_completion_trigger").onStudentFillInTheBlanksPracticeCompleted;
+exports.subjectAssessment = require("./subject_assessment").subjectAssessment;
+exports.onSubjectAssessmentSubmitted = require("./triggers/subject_assessment_submission_trigger").onSubjectAssessmentSubmitted;
+exports.onStudentSubjectAssessmentRequested = require("./triggers/student_subject_assessment_generation_trigger").onStudentSubjectAssessmentRequested;
+exports.unsubscribeStudentSyllabus = require("./syllabus_subscription").unsubscribeStudentSyllabus;
+exports.onStudentSyllabusUnsubscribed = require("./triggers/syllabus_unsubscription_cleanup_trigger").onStudentSyllabusUnsubscribed;
+exports.onSubjectAssessmentSubscriptionCreated = require("./triggers/subscribed_subject_assessment_trigger").onSubjectAssessmentSubscriptionCreated;

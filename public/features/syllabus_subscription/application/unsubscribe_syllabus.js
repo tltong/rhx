@@ -4,6 +4,6 @@ export class UnsubscribeSyllabus {
   }
 
   async execute(studentId, syllabusId) {
-    await this.syllabusSubscriptionRepository.delete(studentId, syllabusId);
+    return this.syllabusSubscriptionRepository.delete(studentId, syllabusId);
   }
 }

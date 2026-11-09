@@ -1,27 +1,10 @@
 import {TUTOR_LLM_PROMPT_TEMPLATE} from "../config/tutor_prompt_template.js?v=20261015-tutor-simple-answers-v1";
 import {requireMiniQuestionCount} from "../domain/tutor_config.js?v=20261014-tutor-config-v1";
+import {tutorQuestionData} from "../domain/tutor_guide_version.js?v=20261109-shared-tutor-v1";
 
 function buildTutorPrompt({question, configuration, language}) {
   const miniQuestionCount = requireMiniQuestionCount(configuration.miniQuestionCount);
-  const correctAnswerText = question.options?.[question.correctAnswer];
-  if (typeof correctAnswerText !== "string" || !correctAnswerText.trim()) {
-    throw new Error("Original question must have a valid correct answer.");
-  }
-  if (question.hasDiagram && (typeof question.svg !== "string" || !question.svg.trim())) {
-    throw new Error("Original diagram question must include SVG.");
-  }
-  const questionData = {
-    questionText: question.questionText,
-    options: question.options,
-    correctAnswer: question.correctAnswer,
-    correctAnswerText,
-    explanation: question.explanation,
-    language: question.language,
-    difficulty: question.difficulty,
-    specialInstruction: question.specialInstruction,
-    hasDiagram: question.hasDiagram,
-    svg: question.hasDiagram ? question.svg : "",
-  };
+  const questionData = tutorQuestionData(question);
   const values = {
     language, miniQuestionCount: String(miniQuestionCount),
     promptInstructions: configuration.promptInstructions,

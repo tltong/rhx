@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Student Learning Dashboard</title>
-    <link rel="stylesheet" href="./landing.css?v=20261104-fill-preassessment-v3">
+    <link rel="stylesheet" href="./landing.css?v=20261108-assessment-section-v2">
 
     <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
@@ -22,6 +22,7 @@
         </div>
         <button id="student-log-off" type="button">Log Off</button>
       </header>
+      <p><a href="#student-subject-assessments-section">Subject assessments and results</a></p>
 
       <div
         id="student-landing-status"
@@ -61,6 +62,12 @@
             <span id="student-stream" class="summary-value"></span>
           </div>
         </div>
+      </section>
+
+      <section id="student-subject-assessments-section" class="dashboard-section" aria-labelledby="student-subject-assessments-title" hidden>
+        <div class="section-header"><div><h2 id="student-subject-assessments-title">Subject Assessments</h2>
+          <p>Take an assessment, continue one or view your results.</p></div><span id="student-subject-assessment-count"></span></div>
+        <div id="student-subject-assessment-list" class="subject-assessment-grid"></div>
       </section>
 
       <section
@@ -129,6 +136,6 @@
       </section>
     </main>
 
-    <script type="module" src="./landing.js?v=20261105-mcq-adoption-v1"></script>
+    <script type="module" src="./landing.js?v=20261109-assessment-submit-dashboard-v1"></script>
   </body>
 </html>

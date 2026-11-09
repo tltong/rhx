@@ -46,6 +46,7 @@ class GenerateEssayPractice {
     assertAccess();
     const question = await this.generateEssayQuestion({
       level, standard, language, difficulty, seed, save: true,
+      syllabusId: syllabus.id, topicId: topic.id, topicName: topic.topicName, subject: syllabus.subject,
     }, {updatedBy: administrator.uid});
     assertAccess();
     const practice = await this.createEssayPractice({essayQuestionId: question.questionId});

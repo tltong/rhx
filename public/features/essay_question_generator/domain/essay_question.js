@@ -19,6 +19,15 @@ function normalizeCriteria(input, {requireDifficulty = false} = {}) {
   const language = requireText(input.language, "language");
   languageDocumentId(language);
   const criteria = {level: input.level, standard: input.standard, language};
+  if (input.syllabusId !== undefined || input.topicId !== undefined) {
+    for (const key of ["syllabusId", "topicId"]) {
+      const value = requireText(input[key], key);
+      if (value.includes("/") || [".", ".."].includes(value)) throw new Error(key + " is invalid.");
+      criteria[key] = value;
+    }
+    if (input.topicName !== undefined) criteria.topicName = requireText(input.topicName, "topicName");
+    if (input.subject !== undefined) criteria.subject = requireText(input.subject, "subject");
+  }
   if (requireDifficulty || input.difficulty !== undefined) criteria.difficulty = normalizeDifficulty(input.difficulty);
   return criteria;
 }
@@ -71,6 +80,8 @@ function readQuestion(data, scope, questionId) {
   requireRecord(data, "Stored essay question");
   return Object.freeze({
     questionId: normalizeQuestionId(questionId), ...normalizeCriteria(scope),
+    ...(data.syllabusId !== undefined || data.topicId !== undefined
+      ? Object.fromEntries(Object.entries(normalizeCriteria({...scope, ...data})).filter(([key]) => ["syllabusId", "topicId", "topicName", "subject"].includes(key))) : {}),
     difficulty: normalizeDifficulty(data.difficulty),
     questionText: requireText(data.questionText, "questionText"),
     ...(data.imagePrompt === undefined ? {} : {imagePrompt: normalizeImagePrompt(data.imagePrompt)}),

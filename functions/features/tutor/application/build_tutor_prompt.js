@@ -1,27 +1,10 @@
 const {TUTOR_LLM_PROMPT_TEMPLATE} = require("../config/tutor_prompt_template");
 const {requireMiniQuestionCount} = require("../domain/tutor_config");
+const {tutorQuestionData} = require("../domain/tutor_guide_version");
 
 function buildTutorPrompt({question, configuration, language}) {
   const miniQuestionCount = requireMiniQuestionCount(configuration.miniQuestionCount);
-  const correctAnswerText = question.options?.[question.correctAnswer];
-  if (typeof correctAnswerText !== "string" || !correctAnswerText.trim()) {
-    throw new Error("Original question must have a valid correct answer.");
-  }
-  if (question.hasDiagram && (typeof question.svg !== "string" || !question.svg.trim())) {
-    throw new Error("Original diagram question must include SVG.");
-  }
-  const questionData = {
-    questionText: question.questionText,
-    options: question.options,
-    correctAnswer: question.correctAnswer,
-    correctAnswerText,
-    explanation: question.explanation,
-    language: question.language,
-    difficulty: question.difficulty,
-    specialInstruction: question.specialInstruction,
-    hasDiagram: question.hasDiagram,
-    svg: question.hasDiagram ? question.svg : "",
-  };
+  const questionData = tutorQuestionData(question);
   const values = {
     language, miniQuestionCount: String(miniQuestionCount),
     promptInstructions: configuration.promptInstructions,

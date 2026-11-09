@@ -16,7 +16,7 @@ import {
   listStudentSyllabusSubscriptions,
   subscribeSyllabus,
   unsubscribeSyllabus
-} from "../../syllabus_subscription_module.js?v=20261104-fill-preassessment-v3";
+} from "../../syllabus_subscription_module.js?v=20261108-assessment-unsubscribe-v1";
 const GUARDIAN_SIGN_IN_URL =
   "/features/guardian/pages/sign_in/sign_in.html";
 
@@ -153,10 +153,12 @@ async function performAction(progressMessage, successMessage, action) {
 
   try {
     await requireGuardianStudentAccess(currentStudentId);
-    await action();
+    const result = await action();
     await loadSubscriptionData();
     renderPage();
-    setStatus(successMessage);
+    setStatus(result?.cleanupStatus === "pending"
+      ? successMessage + " Subject assessment cleanup is still running."
+      : result?.cleanupStatus === "completed" ? successMessage + " Subject assessment history removed." : successMessage);
   } catch (error) {
     console.error(error);
     setStatus(error.message || "The subscription update failed.", true);

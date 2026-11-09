@@ -10,11 +10,12 @@ import {
   syllabusSubscriptionStates
 } from "../../../config/firebase/syllabus_subscription_schema.js";
 import {
-  deleteDocument,
+  getFirebaseApp,
   readCollection,
   readDocument,
   writeDocument
 } from "../../../utils/firebase/firebase_ops.js";
+import {requireCurrentFirebaseAuthUser} from "../../../utils/firebase/firebase_auth.js";
 
 const SUBSCRIPTION_STATE_VALUES = new Set(
   Object.values(syllabusSubscriptionStates)
@@ -79,6 +80,7 @@ function toSyllabusSubscriptionRecord(syllabusSubscription) {
 
 export class FirestoreSyllabusSubscriptionRepository
   extends SyllabusSubscriptionRepository {
+  constructor() {super(); this.unsubscribeRequests = new Map();}
   async get(studentId, syllabusId) {
     const selectedStudentId = requireNonEmptyString(studentId, "studentId");
     const selectedSyllabusId = requireNonEmptyString(syllabusId, "syllabusId");
@@ -149,27 +151,34 @@ export class FirestoreSyllabusSubscriptionRepository
       { merge: false }
     );
 
+    this.clearUnsubscribeRequest(studentId, syllabusId);
+
     return syllabusSubscription;
   }
 
+  requestKey(studentId, syllabusId) {
+    return "syllabus-unsubscribe:" + JSON.stringify([requireCurrentFirebaseAuthUser().uid, studentId, syllabusId]);
+  }
+
+  clearUnsubscribeRequest(studentId, syllabusId) {
+    const key = this.requestKey(studentId, syllabusId);
+    this.unsubscribeRequests.delete(key);
+    try {globalThis.sessionStorage?.removeItem(key);} catch (_) {}
+  }
+
   async delete(studentId, syllabusId) {
-    const selectedStudentId = requireNonEmptyString(studentId, "studentId");
-    const syllabusesPath = getStudentSyllabusesCollectionPath(
-      selectedStudentId
-    );
-
-    await deleteDocument(
-      syllabusesPath,
-      requireNonEmptyString(syllabusId, "syllabusId")
-    );
-
-    const remainingSubscriptions = await readCollection(syllabusesPath);
-
-    if (remainingSubscriptions.length === 0) {
-      await deleteDocument(
-        SYLLABUS_SUBSCRIPTIONS_COLLECTION,
-        selectedStudentId
-      );
-    }
+    const user = requireCurrentFirebaseAuthUser();
+    studentId = requireNonEmptyString(studentId, "studentId");
+    syllabusId = requireNonEmptyString(syllabusId, "syllabusId");
+    const key = this.requestKey(studentId, syllabusId);
+    let requestId = this.unsubscribeRequests.get(key);
+    try {requestId ||= globalThis.sessionStorage?.getItem(key);} catch (_) {}
+    requestId ||= globalThis.crypto.randomUUID();
+    this.unsubscribeRequests.set(key, requestId);
+    try {globalThis.sessionStorage?.setItem(key, requestId);} catch (_) {}
+    const response = await getFirebaseApp().functions("us-central1").httpsCallable("unsubscribeStudentSyllabus", {timeout: 540000})({studentId, syllabusId, requestId});
+    if (requireCurrentFirebaseAuthUser().uid !== user.uid) throw new Error("The signed-in account changed. Reload this page.");
+    if (response.data.cleanupStatus === "completed") this.clearUnsubscribeRequest(studentId, syllabusId);
+    return response.data;
   }
 }

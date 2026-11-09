@@ -1,4 +1,4 @@
-import {normalizeDraftInput} from "../domain/essay_question.js?v=20261101-essay-simple-images-v4";
+import {normalizeDraftInput} from "../domain/essay_question.js?v=20261109-subject-assessment-generation-v1";
 import {requireAdministratorUid} from "../domain/essay_question_generator_config.js?v=20261101-essay-simple-images-v4";
 
 class SaveEssayQuestion {

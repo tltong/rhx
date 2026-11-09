@@ -48,8 +48,11 @@ function makeUseCase({
 
 test("syllabus subscription module exposes student availability", () => {
   assert.deepEqual(Object.keys(syllabusSubscriptionModule).sort(), [
+    "cleanStudentSyllabusAssessments",
+    "createSyllabusUnsubscriptionFeature",
     "getStudentSyllabusSubscriptionLanguage",
     "listAvailableSyllabusesForStudent",
+    "unsubscribeStudentSyllabus",
   ]);
 });
 

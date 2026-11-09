@@ -275,7 +275,8 @@ for (const [layer, Generator, Repository] of [["backend", BackendGenerator, Back
     const next = await h.run({...request, level: "secondary", standard: 6, language: "Spoofed", difficulty: "hard", seed: "Spoofed"});
     assert.equal(h.count("seed"), 1); assert.equal(h.count("defaultTheme"), 0); assert.equal(h.count("generate"), 1); assert.equal(h.count("assign"), 1);
     const generated = h.calls.find(c => c[0] === "generate");
-    assert.deepEqual(generated.slice(1), [{level: "primary", standard: 3, language: "English", difficulty: "medium", seed: "Space exploration", save: false}, actor]);
+    assert.deepEqual(generated.slice(1), [{level: "primary", standard: 3, language: "English", difficulty: "medium", seed: "Space exploration", save: false,
+      syllabusId: source.syllabusId, topicId: source.topicId}, actor]);
     assert.deepEqual(h.calls.find(c => c[0] === "save")[2], actor);
     assert.equal(next.studentId, "student"); assert.equal(next.essayQuestionId, "generated-question");
     assert.equal(next.syllabusId, source.syllabusId); assert.equal(next.topicId, source.topicId);

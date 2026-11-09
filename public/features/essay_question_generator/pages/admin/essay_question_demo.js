@@ -3,7 +3,7 @@ import {renderEssayQuestionSupport} from "../../components/essay_question_suppor
 import {
   ESSAY_QUESTION_LEVELS, ESSAY_QUESTION_STANDARDS, generateEssayQuestion, saveEssayQuestion,
 } from "../../essay_question_generator_module.js?v=20261104-fill-preassessment-v3";
-import {normalizeGenerationInput, normalizeDraftInput} from "../../domain/essay_question.js?v=20261101-essay-simple-images-v4";
+import {normalizeGenerationInput, normalizeDraftInput} from "../../domain/essay_question.js?v=20261109-subject-assessment-generation-v1";
 import {getCombinedQuestionSeed} from "../../../question_seed_generator/question_seed_generator_module.js?v=20261104-fill-preassessment-v3";
 import {listSyllabusScopeLanguages} from "../../../syllabusscope/syllabusscope_module.js?v=20261104-fill-preassessment-v3";
 

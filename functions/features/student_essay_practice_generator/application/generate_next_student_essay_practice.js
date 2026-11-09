@@ -47,7 +47,7 @@ class GenerateNextStudentEssayPractice {
     return {themes: new Map([[themeKey(fallback), fallback]]), useDefault: true};
   }
 
-  async reusableQuestion(criteria, history, themes, assertAccess, settings) {
+  async reusableQuestion(criteria, history, themes, assertAccess, settings, topicScope) {
     let cursor = null, selected = null, count = 0;
     const sample = total => {
       const draw = this.random();
@@ -60,6 +60,7 @@ class GenerateNextStudentEssayPractice {
       assertAccess();
       for (const question of page.questions) {
         if (!questionSupportsSettings(question, settings)) continue;
+        if (question.syllabusId && topicScope && (question.syllabusId !== topicScope.syllabusId || question.topicId !== topicScope.topicId)) continue;
         if (history.questionIds.has(question.questionId) || !themes.has(themeKey(question.seedUsed))) continue;
         const candidate = normalizeDraft(question, criteria, question.seedUsed);
         if (sample(++count)) selected = candidate;
@@ -124,6 +125,9 @@ class GenerateNextStudentEssayPractice {
         : [...framework.levels].sort((a, b) => a.sequenceOrder - b.sequenceOrder)[0];
       if (!level) throw new Error("The student's current level is not available in the essay topic framework.");
       const criteria = questionCriteria(sourceQuestion, level.criteria.difficultyLevel);
+      const topic = syllabus.topics.find(item => item.id === source.topicId);
+      const topicContext = {syllabusId: source.syllabusId, topicId: source.topicId,
+        ...(topic?.topicName ? {topicName: topic.topicName} : {}), ...(syllabus.subject ? {subject: syllabus.subject} : {})};
       const config = await this.getEssayQuestionGeneratorConfig?.() || createDefaultConfiguration();
       assertAccess();
       const settings = config.gradeSupport[criteria.level][criteria.standard];
@@ -148,14 +152,14 @@ class GenerateNextStudentEssayPractice {
         }
         let draft = generation.draft, question;
         if (!draft && !generation.reusedQuestionId) {
-          const reusable = useDefault ? null : await this.reusableQuestion(criteria, history, themes, assertAccess, settings);
+          const reusable = useDefault ? null : await this.reusableQuestion(criteria, history, themes, assertAccess, settings, source);
           if (reusable) {
             generation = await this.repository.saveReusedQuestion(request, generation.leaseToken, reusable.questionId, persistenceContext);
           } else {
             const draw = this.random();
             if (!Number.isFinite(draw) || draw < 0 || draw >= 1) throw new Error("Invalid random theme selection.");
             const seed = [...themes.values()][Math.floor(draw * themes.size)];
-            const generated = await this.generateEssayQuestion({...criteria, seed, save: false}, {updatedBy});
+            const generated = await this.generateEssayQuestion({...criteria, ...topicContext, seed, save: false}, {updatedBy});
             assertAccess();
             draft = normalizeDraft(generated, criteria, seed);
             if (history.questionIds.has(draft.questionId)) throw new Error("The generated essay question ID has already been used by this student.");

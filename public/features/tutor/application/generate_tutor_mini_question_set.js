@@ -1,5 +1,5 @@
 import {normalizeTutorSetReference, normalizeTutorResponse} from "../domain/tutor_mini_question_set.js?v=20261015-tutor-count-variants-v1";
-import {buildTutorPrompt} from "./build_tutor_prompt.js?v=20261015-tutor-simple-answers-v1";
+import {buildTutorPrompt} from "./build_tutor_prompt.js?v=20261109-shared-tutor-v1";
 
 class GenerateTutorMiniQuestionSet {
   constructor({getQuestionById, getTutorConfig, generateLlmText, repository}) {

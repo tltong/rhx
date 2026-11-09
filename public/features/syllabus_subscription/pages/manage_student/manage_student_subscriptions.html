@@ -8,6 +8,7 @@
     <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script>
     <script defer src="/__/firebase/init.js"></script>
     <script type="module" src="/init_fb.js?v=20261104-fill-preassessment-v3"></script>
 
@@ -21,6 +22,7 @@
       <header>
         <h1>Student Syllabus Subscriptions</h1>
         <p>Manage syllabus access for a linked student.</p>
+        <p>Unsubscribing removes this student's subject assessments and results for that syllabus. Deactivating keeps their assessment history.</p>
       </header>
 
       <section class="lookup-panel" aria-labelledby="student-lookup-heading">
@@ -67,6 +69,6 @@
       </div>
     </main>
 
-    <script type="module" src="./manage_student_subscriptions.js?v=20261104-fill-preassessment-v3"></script>
+    <script type="module" src="./manage_student_subscriptions.js?v=20261108-assessment-unsubscribe-v1"></script>
   </body>
 </html>

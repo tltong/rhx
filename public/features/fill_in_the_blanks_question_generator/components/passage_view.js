@@ -1,5 +1,5 @@
 import {answerLength, answerLengthUnit, requiredAnswerLength} from "../domain/fill_in_the_blanks.js?v=20261105-chinese-count-v1";
-export function mountFillInTheBlanksPassage({root, passage, answers = {}, result = null, readOnly = false, previewImage = null}) {
+export function mountFillInTheBlanksPassage({root, passage, answers = {}, result = null, readOnly = false, previewImage = null, idPrefix = ""}) {
   root.replaceChildren(); root.classList?.add("fill-in-the-blanks-view");
   const doc = root.ownerDocument, inputs = new Map(), questions = new Map(passage.questions.map(q => [q.questionId, q]));
   let resolveReady; const ready = new Promise(resolve => {resolveReady = resolve;});
@@ -38,7 +38,7 @@ export function mountFillInTheBlanksPassage({root, passage, answers = {}, result
     const match = part.match(/^\{\{([^{}]+)\}\}$/), question = match ? questions.get(match[1]) : null;
     if (!question) {paragraph.append(doc.createTextNode(part)); continue;}
     const field = doc.createElement("span"), label = doc.createElement("label"), input = doc.createElement("input"), hint = doc.createElement("small");
-    field.className = "blank-field"; input.id = "blank-" + question.questionId;
+    field.className = "blank-field"; input.id = idPrefix + "blank-" + question.questionId;
     input.type = "text"; input.autocomplete = "off"; input.spellcheck = false; input.maxLength = 1000; input.dir = "auto";
     input.value = result?.answers?.[question.questionId]?.submittedAnswer ?? answers[question.questionId] ?? "";
     input.disabled = readOnly || Boolean(result); input.setAttribute("aria-describedby", input.id + "-hint");

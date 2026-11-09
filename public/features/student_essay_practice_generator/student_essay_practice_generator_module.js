@@ -33,7 +33,7 @@ import {getQuestionSeedEntries, getDefaultQuestionSeedTheme} from "../question_s
 import {requireCurrentFirebaseAuthUser} from "../../utils/firebase/firebase_auth.js";
 import {requireCurrentSiteAdmin} from "../site_admin/site_admin_module.js?v=20260827-site-admin-guard-v1";
 import {FirestoreEssayGenerationRepository} from "./infrastructure/firestore_essay_generation_repository.js?v=20261105-mcq-adoption-v1";
-import {GenerateNextStudentEssayPractice} from "./application/generate_next_student_essay_practice.js?v=20261105-mcq-adoption-v1";
+import {GenerateNextStudentEssayPractice} from "./application/generate_next_student_essay_practice.js?v=20261109-subject-assessment-generation-v1";
 
 async function administratorAccess() {
   const user = requireCurrentFirebaseAuthUser();

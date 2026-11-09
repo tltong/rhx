@@ -13,7 +13,7 @@ import {
   listStudentSyllabusSubscriptions,
   subscribeSyllabus,
   unsubscribeSyllabus
-} from "../../syllabus_subscription_module.js?v=20261104-fill-preassessment-v3";
+} from "../../syllabus_subscription_module.js?v=20261108-assessment-unsubscribe-v1";
 
 const studentsContainer = document.querySelector("#students-container");
 const syllabusesContainer = document.querySelector("#syllabuses-container");
@@ -586,14 +586,14 @@ async function runSubscriptionAction(
   clearStatus();
 
   try {
-    await action(
+    const result = await action(
       selectedStudentId,
       selectedSyllabusId,
       selectedLanguage
     );
     await refreshSelectedSubscription();
     renderSyllabuses();
-    setStatus(`${actionName} complete.`);
+    setStatus(result?.cleanupStatus === "pending" ? `${actionName} complete. Subject assessment cleanup is still running.` : `${actionName} complete.`);
   } catch (error) {
     setStatus(error.message || `${actionName} failed.`, true);
   } finally {

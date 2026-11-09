@@ -1,5 +1,5 @@
 import {normalizeHelpingWords, normalizeQuestionSupport} from "../domain/essay_question_support.js?v=20261101-essay-simple-images-v4";
-import {normalizeGenerationInput, normalizeGeneratedQuestion} from "../domain/essay_question.js?v=20261101-essay-simple-images-v4";
+import {normalizeGenerationInput, normalizeGeneratedQuestion} from "../domain/essay_question.js?v=20261109-subject-assessment-generation-v1";
 import {createDefaultConfiguration, requireAdministratorUid} from "../domain/essay_question_generator_config.js?v=20261101-essay-simple-images-v4";
 import {buildEssayQuestionPrompt} from "./build_essay_question_prompt.js?v=20261101-essay-image-prompt-preview-v6";
 

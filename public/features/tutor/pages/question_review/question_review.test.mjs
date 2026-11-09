@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {test} from "node:test";
 import {readFile} from "node:fs/promises";
 import {mountQuestionReview} from "./question_review.js";
+import {tutorGuideId} from "../../domain/tutor_guide_version.js";
 
 const html = await readFile(new URL("./question_review.html", import.meta.url), "utf8");
 class Element {
@@ -149,11 +150,48 @@ test("result links are available while loading and preserve the practice using t
   await h.ready;
 });
 
+test("assessment review returns to the originating result, including guardian scope", async () => {
+  const query = new URLSearchParams({questionId: "q", assessmentId: "attempt #1 & review", position: "2", syllabusId: "english", studentId: "child"});
+  const h = harness({query: query.toString()}); await h.ready;
+  for (const id of ["review-back-to-results", "review-complete-back-to-results"]) {
+    assert.equal(h.get(id).hidden, false);
+    const href = new URL(h.get(id).href, "https://readyherox.web.app");
+    assert.equal(href.pathname, "/features/subject_assessment/pages/assessment/subject_assessment.html");
+    assert.equal(h.get(id).textContent, "Back to assessment results");
+    assert.equal(href.searchParams.get("assessmentId"), query.get("assessmentId"));
+    assert.equal(href.searchParams.get("studentId"), "child");
+    assert.equal(href.searchParams.get("syllabusId"), "english");
+    assert.equal(href.searchParams.has("practiceId"), false);
+  }
+  await h.authenticate(null);
+  assert.equal(h.get("review-back-to-results").hidden, true);
+});
+
 test("direct review links without a practice do not show a broken result link", async () => {
   const h = harness();
   await h.ready;
   assert.equal(h.get("review-back-to-results").hidden, true);
   assert.equal(h.get("review-complete-back-to-results").hidden, true);
+});
+
+test("answer checks retain the exact shared guide selected by the review", async () => {
+  const guideId = await tutorGuideId(question, config);
+  const h = harness({loadSet: input => ({...miniSet(input.language, input.miniQuestionCount), guideId})});
+  await h.ready;
+  h.get("review-answer").value = "180";
+  await h.get("review-answer-form").submit();
+  assert.equal(h.checks[0].guideId, guideId);
+  assert.equal(h.checks[0].questionId, "q");
+});
+
+test("a question edited during loading cannot display guidance for a different version", async () => {
+  const guideId = await tutorGuideId({...question, questionText: "The edited question"}, config);
+  const h = harness({loadSet: input => ({...miniSet(input.language, input.miniQuestionCount), guideId})});
+  await h.ready;
+  assert.equal(h.get("review-load-error").hidden, false);
+  assert.match(h.get("review-error-message").textContent, /question changed|another question/);
+  assert.equal(h.get("review-answer-form").hidden, true);
+  assert.deepEqual(h.checks, []);
 });
 
 test("result links follow account changes and are cleared on sign-out", async () => {

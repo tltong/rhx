@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Subject Assessment Configuration</title>
+    <script>document.documentElement.hidden = true;</script>
+    <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script type="module" src="/init_fb.js?v=20261104-fill-preassessment-v3"></script>
+    <link rel="stylesheet" href="./subject_assessment_config_admin.css?v=20261109-assessment-repeat-policy-v1">
+    <link rel="stylesheet" href="/features/fill_in_the_blanks_question_generator/components/passage_view.css?v=20261105-chinese-count-v1">
+  </head>
+  <body>
+    <main class="page-shell">
+      <a class="back-link" href="/features/site_admin/pages/site_admin/site_admin.html">Back to Site Admin</a>
+      <header>
+        <h1>Subject Assessment Configuration</h1>
+        <p class="subtitle">Choose topics and difficulty counts for an overall subject assessment.</p>
+      </header>
+      <form id="subject-assessment-settings-form" class="panel global-settings-panel" novalidate aria-labelledby="global-settings-heading">
+        <div class="panel-heading"><h2 id="global-settings-heading">Global assessment repeat policy</h2><span id="global-settings-updated-at">Loading…</span></div>
+        <p id="global-interval-help" class="help-text">One policy applies to every subject, grade and language. Choose a repeat interval or allow only the initial assessment.</p>
+        <label for="assessment-repeat-mode" class="interval-field">Repeat policy
+          <select id="assessment-repeat-mode" required disabled aria-describedby="global-interval-help global-settings-status">
+            <option value="">Choose a repeat policy</option>
+            <option value="interval">Repeat at an interval</option>
+            <option value="none">No repeat (initial only)</option>
+          </select>
+        </label>
+        <label id="assessment-interval-field" for="assessment-interval-days" class="interval-field" hidden>Assessment interval (days after submission)
+          <input id="assessment-interval-days" type="number" min="1" step="1" inputmode="numeric" required disabled aria-describedby="global-interval-help global-settings-status">
+        </label>
+        <p id="global-no-repeat-help" class="help-text" hidden>Each student can take their initial assessment for each subject. Assessments already in progress can still be completed.</p>
+        <p id="global-settings-status" class="status" role="status" aria-live="polite">Loading global assessment policy…</p>
+        <div class="form-actions"><button id="save-global-settings" type="submit" disabled>Save Global Repeat Policy</button><button id="reload-global-settings" type="button" class="secondary" disabled>Reload Global Repeat Policy</button></div>
+      </form>
+      <p id="config-status" class="status" role="status" aria-live="polite" hidden></p>
+      <form id="subject-assessment-config-form" novalidate>
+        <section class="panel" aria-labelledby="subject-heading">
+          <h2 id="subject-heading">Subject and language</h2>
+          <p class="help-text">Each syllabus and language has one saved configuration.</p>
+          <div class="scope-fields">
+            <label for="syllabus-select">Subject / syllabus
+              <select id="syllabus-select" required disabled><option value="">Loading syllabuses…</option></select>
+            </label>
+            <label for="language-select">Language
+              <select id="language-select" required disabled><option value="">Select a syllabus first</option></select>
+            </label>
+          </div>
+        </section>
+        <section id="topics-panel" class="panel" aria-labelledby="topics-heading" hidden>
+          <div class="panel-heading">
+            <h2 id="topics-heading">Topics and difficulty counts</h2>
+            <span id="updated-at">Never saved</span>
+          </div>
+          <p class="help-text">Each topic uses its existing format. Count questions for MCQ and essay topics, and whole passages for fill-in-the-blanks topics. Easy, medium, and hard counts must add up to the topic total.</p>
+          <p id="configuration-notice" class="notice" hidden></p>
+          <div id="topic-allocations"></div>
+          <p id="allocation-summary" class="allocation-summary" aria-live="polite"></p>
+        </section>
+        <div class="form-actions">
+          <button id="save-config" type="submit" disabled>Save Configuration</button>
+          <button id="reload-config" class="secondary" type="button" disabled>Reload Saved</button>
+          <button id="retry-syllabuses" class="secondary" type="button" hidden>Retry Loading Syllabuses</button>
+        </div>
+      </form>
+      <section id="subject-assessment-demo" class="panel demo-panel" aria-labelledby="demo-heading">
+        <h2 id="demo-heading">Demo generation</h2>
+        <p id="demo-help" class="help-text">Select a subject and language with a saved configuration first.</p>
+        <div class="demo-student-fields">
+          <label for="demo-student-level">Level
+            <select id="demo-student-level" required disabled><option value="">Loading students…</option></select>
+          </label>
+          <label for="demo-student-grade">Grade
+            <select id="demo-student-grade" required disabled><option value="">Select a level first</option></select>
+          </label>
+          <label for="demo-student">Student name
+            <select id="demo-student" required disabled><option value="">Select a grade first</option></select>
+          </label>
+        </div>
+        <p id="demo-student-status" class="help-text" role="status" aria-live="polite"></p>
+        <div class="form-actions">
+          <button id="generate-demo" type="button" disabled>Generate Demo</button>
+          <button id="clear-demo" type="button" class="secondary">Clear Preview</button>
+          <button id="reload-demo-students" type="button" class="secondary">Reload Students</button>
+        </div>
+        <p id="demo-status" class="status" role="status" aria-live="polite" hidden></p>
+        <progress id="demo-progress" value="0" max="1" aria-label="Demo generation progress" hidden></progress>
+        <div id="demo-result" hidden>
+          <p id="demo-summary" class="allocation-summary"></p>
+          <div id="demo-items"></div>
+        </div>
+      </section>
+    </main>
+    <script id="site-admin-page-loader" type="module" data-site-admin-page
+      data-page-module="./subject_assessment_config_admin.js?v=20261109-assessment-repeat-policy-v1"
+      src="/features/site_admin/pages/common/site_admin_page_loader.js?v=20260827-site-admin-guard-v1"></script>
+  </body>
+</html>

@@ -30,11 +30,11 @@ class FirestoreTutorMiniQuestionSetRepository extends TutorMiniQuestionSetReposi
     Object.assign(this, {readDocument, writeDocument, createDocumentIfAbsent, serverTimestamp});
   }
 
-  async get(input, {beforeWrite = () => {}} = {}) {
+  async get(input, {beforeWrite = () => {}, allowLegacy = true} = {}) {
     const reference = normalizeTutorSetVariantReference(input);
     const {collectionPath, documentId} = tutorSetPath(reference);
     let data = await this.readDocument(collectionPath, documentId, {includeId: false});
-    if (data === null) {
+    if (data === null && allowLegacy) {
       // Read the former question/language hash only on a miss. Copy matching
       // variants without regenerating, changing timestamps or deleting history.
       const legacyId = await tutorSetDocumentId(reference);
@@ -55,15 +55,18 @@ class FirestoreTutorMiniQuestionSetRepository extends TutorMiniQuestionSetReposi
       data = await this.readDocument(collectionPath, documentId, {includeId: false});
       if (data === null) throw new Error("Migrated tutor mini question set could not be read.");
     }
-    return validateReference(new TutorMiniQuestionSet(data), reference);
+    return data === null ? null : validateReference(new TutorMiniQuestionSet(data), reference);
   }
 
-  async save(input, {beforeWrite = () => {}} = {}) {
+  async save(input, {beforeWrite = () => {}, createOnly = false} = {}) {
     const normalized = normalizeTutorSetInput(input);
     const {collectionPath, documentId} = tutorSetPath(normalized);
     const data = toRecord({...normalized, generatedAt: this.serverTimestamp()});
     beforeWrite();
-    await this.writeDocument(collectionPath, documentId, data, {merge: false});
+    if (createOnly) {
+      try {await this.createDocumentIfAbsent(collectionPath, documentId, data);}
+      catch (error) {if (error.code !== "already-exists" && error.code !== 6) throw error;}
+    } else await this.writeDocument(collectionPath, documentId, data, {merge: false});
     // Read only the newly written path: a missing save must not fall back to
     // an old legacy record and report that as a successful generation.
     const saved = await this.readDocument(collectionPath, documentId, {includeId: false});

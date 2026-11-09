@@ -854,3 +854,13 @@ summary:focus-visible {
     animation: none;
   }
 }
+/* Standalone subject assessment controls live independently of topic practice. */
+.subject-assessment-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.subject-assessment-box { min-width: 0; padding: 16px; border: 1px solid #cbd9e6; border-radius: 8px; background: #f8fbff; overflow-wrap: anywhere; }
+.subject-assessment-box h3 { margin: 0 0 8px; font-size: 1.1rem; }
+.subject-assessment-heading { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.subject-assessment-box p { margin: 10px 0; line-height: 1.5; }
+.subject-assessment-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.subject-assessment-actions button { min-height: 44px; }
+.subject-assessment-actions a { color: #0369a1; font-weight: 600; }
+@media (max-width: 600px) { .subject-assessment-grid { grid-template-columns: 1fr; } }

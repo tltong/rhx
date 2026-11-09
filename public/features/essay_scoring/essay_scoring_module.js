@@ -3,6 +3,7 @@
  *
  * scoreEssay({questionId, answer}) -> Promise<{score, reviewComment, corrections}>
  *   Loads the saved essay question and grades with the LLM. Does not write results.
+ * scoreEssaySnapshot({question, answer, configuration}) marks supplied frozen content/settings without a pool lookup or result write.
  * saveEssayResult({studentId, questionId, answer, score, reviewComment, corrections}) -> Promise<EssayResult>
  *   Validates that the essay question exists and atomically replaces the current result.
  * getEssayResult({studentId, questionId}) -> Promise<EssayResult|null>
@@ -16,7 +17,7 @@
  * originalText is an exact nonempty excerpt from answer; correctedText may be empty for deletion.
  * The exact submitted answer is retained. scoredAt is a server timestamp, returned as a Date.
  * Question text, level, grade, language, difficulty and word-count requirement come from
- * the Essay Question Generator feature; callers cannot override them for scoring.
+ * the Essay Question Generator feature for scoreEssay. Assessment marking supplies its frozen snapshot through scoreEssaySnapshot.
  * No dependency on Student Practice or Student Essay Practice and no new Firebase endpoints.
  * Web APIs require sign-in and check that the signed-in account has not changed.
  * getEssayScoringConfig() -> Promise<EssayScoringConfig|null>; missing config uses code defaults without writes.
@@ -29,7 +30,7 @@
 import {getEssayQuestionById} from "../essay_question_generator/essay_question_generator_module.js?v=20261104-fill-preassessment-v3";
 import {generateLlmText} from "../../utils/llm/llm_util.js?v=20261015-deepseek-deadline-v1";
 import {requireCurrentFirebaseAuthUser} from "../../utils/firebase/firebase_auth.js";
-import {ScoreEssay} from "./application/score_essay.js?v=20261104-fill-preassessment-v3";
+import {ScoreEssay} from "./application/score_essay.js?v=20261108-assessment-results-v1";
 import {ESSAY_SCORING_LEVELS, ESSAY_SCORING_GRADES} from "../../config/firebase/essay_scoring_schema.js?v=20261104-fill-preassessment-v3";
 import {createDefaultConfiguration} from "./domain/essay_scoring_config.js?v=20261104-fill-preassessment-v3";
 import {FirestoreEssayScoringConfigRepository} from "./infrastructure/firestore_essay_scoring_config_repository.js?v=20261104-fill-preassessment-v3";
@@ -80,6 +81,10 @@ async function scoreEssay(input) {
   return withCurrentAccount(context => scoring.execute(input, context));
 }
 
+async function scoreEssaySnapshot(input) {
+  return withCurrentAccount(context => scoring.executeSnapshot(input, {...context, timeoutMs: 180000}));
+}
+
 async function saveEssayResult(input) {
   return withCurrentAccount(context => saveResult.execute(input, context));
 }
@@ -94,6 +99,6 @@ async function saveEssayScoringConfig(input) {
   return saveConfig.execute(input);
 }
 
-export {scoreEssay, saveEssayResult, getEssayResult, getEssayScoringConfig, saveEssayScoringConfig,
+export {scoreEssay, scoreEssaySnapshot, saveEssayResult, getEssayResult, getEssayScoringConfig, saveEssayScoringConfig,
   createDefaultConfiguration, ESSAY_SCORING_LEVELS, ESSAY_SCORING_GRADES};
 

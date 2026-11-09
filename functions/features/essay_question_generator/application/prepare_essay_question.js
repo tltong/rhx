@@ -12,11 +12,14 @@ async function prepareEssayQuestion(input, {updatedBy} = {}, {api = require("../
   const config = await api.getEssayQuestionGeneratorConfig() || createDefaultConfiguration();
   const settings = config.gradeSupport[source.level][source.standard];
   if (questionSupportsSettings(source, settings)) return source;
-  const criteria = {level: source.level, standard: source.standard, language: source.language, difficulty: source.difficulty};
+  const criteria = {level: source.level, standard: source.standard, language: source.language, difficulty: source.difficulty,
+    ...(source.syllabusId ? {syllabusId: source.syllabusId, topicId: source.topicId,
+      ...(source.topicName ? {topicName: source.topicName} : {}), ...(source.subject ? {subject: source.subject} : {})} : {})};
   let cursor = null;
   do {
     const page = await api.listEssayQuestions({...criteria, limit: 100, cursor});
-    const match = page.questions.find(q => q.seedUsed === source.seedUsed && questionSupportsSettings(q, settings));
+    const match = page.questions.find(q => (!q.syllabusId || q.syllabusId === source.syllabusId && q.topicId === source.topicId)
+      && q.seedUsed === source.seedUsed && questionSupportsSettings(q, settings));
     if (match) return match;
     cursor = page.nextCursor;
   } while (cursor);

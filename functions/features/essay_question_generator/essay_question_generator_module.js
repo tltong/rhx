@@ -6,8 +6,9 @@
  * saveEssayQuestionGeneratorConfig({additionalLlmInstructions, gradeInstructions, difficultyInstructions, gradeWordCountRequirements, gradeSupport})
  *   -> Promise<Config>. Replaces the complete config; missing instructions default to "", minimums to null.
  *   gradeWordCountRequirements: {primary: {"1".."6": {minWords}}, secondary: {"1".."6": {minWords}}}.
- * generateEssayQuestion({level, standard, language, difficulty, seed, save?}) -> Promise<EssayQuestion|EssayQuestionDraft>
+ * generateEssayQuestion({level, standard, language, difficulty, seed, save?, syllabusId?, topicId?, topicName?, subject?}) -> Promise<EssayQuestion|EssayQuestionDraft>
  *   Uses the caller's nonempty seed and selected common/grade/difficulty instructions.
+ *   Optional syllabusId/topicId are paired; new topic-specific questions retain their context for pool reuse.
  *   Passes the selected grade's minWords directly to the LLM; free-text word counts are ignored.
  *   save defaults to true. false returns a draft with an allocated questionId and no writes.
  * saveEssayQuestion(draft, context) -> Promise<EssayQuestion>
@@ -15,7 +16,7 @@
  *   Draft: {questionId, level, standard, language, difficulty, questionText, imagePrompt?, seedUsed, wordCountRequirement}.
  *   wordCountRequirement: {minWords: positive safe integer|null}; retained from generation, not recomputed on save.
  * getEssayQuestionById(questionId) -> Promise<EssayQuestion|null>
- * listEssayQuestions({level, standard, language, difficulty?, limit, cursor?})
+ * listEssayQuestions({level, standard, language, difficulty?, syllabusId?, topicId?, limit, cursor?})
  *   -> Promise<{questions: EssayQuestion[], nextCursor: string|null}>
  *   Stable ascending question-ID order; reuse nextCursor with the same search criteria.
  * getRandomEssayQuestion({level, standard, language, difficulty?}) -> Promise<EssayQuestion|null>

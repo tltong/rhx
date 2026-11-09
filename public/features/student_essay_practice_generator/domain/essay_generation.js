@@ -1,3 +1,4 @@
+import {normalizeCriteria} from "../../essay_question_generator/domain/essay_question.js?v=20261109-subject-assessment-generation-v1";
 import {normalizeQuestionSupport, normalizeImagePrompt} from "../../essay_question_generator/domain/essay_question_support.js?v=20261101-essay-simple-images-v4";
 function requireIdentifier(value, name) {
   if (typeof value !== "string" || !value.trim()) throw new Error(name + " is required.");
@@ -42,6 +43,8 @@ function normalizeDraft(draft, criteria, seed) {
   if (minWords !== null && (!Number.isSafeInteger(minWords) || minWords < 1)) throw new Error("The essay minimum word count is invalid.");
   return {...(draft.support === undefined ? {} : {support: normalizeQuestionSupport(draft.support)}),
     ...(draft.imagePrompt === undefined ? {} : {imagePrompt: normalizeImagePrompt(draft.imagePrompt)}), questionId: draft.questionId, ...criteria, questionText: draft.questionText.trim(),
+    ...(draft.syllabusId !== undefined || draft.topicId !== undefined
+      ? Object.fromEntries(Object.entries(normalizeCriteria({...criteria, ...draft})).filter(([key]) => ["syllabusId", "topicId", "topicName", "subject"].includes(key))) : {}),
     seedUsed: draft.seedUsed.trim(), wordCountRequirement: {minWords}};
 }
 

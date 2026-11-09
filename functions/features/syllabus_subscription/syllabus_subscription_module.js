@@ -40,6 +40,15 @@ const {
 
 const syllabusSubscriptionRepository =
   new FirestoreSyllabusSubscriptionRepository();
+const {UnsubscribeStudentSyllabus} = require("./application/unsubscribe_student_syllabus");
+const {FirestoreSyllabusUnsubscriptionRepository} = require("./infrastructure/firestore_syllabus_unsubscription_repository");
+const {createUnsubscriptionAuthorizer} = require("./infrastructure/syllabus_unsubscription_access");
+function createSyllabusUnsubscriptionFeature({repository = new FirestoreSyllabusUnsubscriptionRepository(), authorize = createUnsubscriptionAuthorizer()} = {}) {
+  const unsubscribe = new UnsubscribeStudentSyllabus({repository, authorize});
+  return {unsubscribeStudentSyllabus: (input, context) => unsubscribe.execute(input, context),
+    cleanStudentSyllabusAssessments: scope => repository.clean(scope)};
+}
+const unsubscriptionFeature = createSyllabusUnsubscriptionFeature();
 const getStudentSyllabusSubscriptionLanguageUseCase =
   new GetStudentSyllabusSubscriptionLanguage(
     syllabusSubscriptionRepository,
@@ -66,6 +75,8 @@ async function listAvailableSyllabusesForStudent(studentId) {
 }
 
 module.exports = {
+  ...unsubscriptionFeature,
+  createSyllabusUnsubscriptionFeature,
   getStudentSyllabusSubscriptionLanguage,
   listAvailableSyllabusesForStudent,
 };

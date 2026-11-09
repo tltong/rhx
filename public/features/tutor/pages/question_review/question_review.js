@@ -1,12 +1,15 @@
 import {
   getTutorConfig, getTutorMiniQuestionSet, checkTutorMiniQuestionAnswer,
   getTutorQuestionById,
-} from "../../tutor_module.js?v=20261106-topic-tutor-v1";
+} from "../../tutor_module.js?v=20261109-shared-tutor-v1";
+import {createSubjectAssessmentTutor} from "../../subject_assessment_tutor_module.js?v=20261109-shared-tutor-v1";
 import {onStudentAuthStateChanged} from "../../../student/student_module.js?v=20261031-renewal-restart-v1";
 import {setMathText} from "../../../../utils/math/render_math.js?v=20260822-katex-math";
+import {requireTutorGuideForQuestion} from "../../domain/tutor_guide_version.js?v=20261109-shared-tutor-v1";
 
 const SIGN_IN_URL = "/features/student/pages/sign_in/sign_in.html";
 const PRACTICE_RESULT_URL = "/features/practice_result/pages/result/practice_result.html";
+const SUBJECT_ASSESSMENT_RESULT_URL = "/features/subject_assessment/pages/assessment/subject_assessment.html";
 const OPTION_KEYS = ["a", "b", "c", "d"];
 const MORE_GUIDANCE_IDS = ["review-more-guidance", "review-complete-more-guidance"];
 
@@ -24,6 +27,13 @@ export function mountQuestionReview({
   revokeDiagramUrl = url => URL.revokeObjectURL(url),
   reportError = details => console.error("Question review failed", details),
 } = {}) {
+  const assessmentId = params.get("assessmentId")?.trim() || "";
+  if (assessmentId) {
+    const tutor = createSubjectAssessmentTutor({assessmentId, position: Number(params.get("position"))});
+    if (loadQuestion === getTutorQuestionById) loadQuestion = tutor.getTutorQuestionById;
+    if (loadSet === getTutorMiniQuestionSet) loadSet = tutor.getTutorMiniQuestionSet;
+    if (checkAnswer === checkTutorMiniQuestionAnswer) checkAnswer = tutor.checkTutorMiniQuestionAnswer;
+  }
   const ids = [
     "review-back-to-results", "review-complete-back-to-results",
     "review-original", "review-question-text", "review-diagram", "review-options",
@@ -62,6 +72,11 @@ export function mountQuestionReview({
   let archivedStepCount = 0;
 
   function getResultUrl() {
+    if (assessmentId && uid) {
+      const query = new URLSearchParams({assessmentId});
+      for (const key of ["studentId", "syllabusId"]) if (params.get(key)) query.set(key, params.get(key));
+      return SUBJECT_ASSESSMENT_RESULT_URL + "?" + query;
+    }
     return practiceId && uid
       ? PRACTICE_RESULT_URL + "?" + new URLSearchParams({studentId: uid, practiceId})
       : "";
@@ -71,6 +86,7 @@ export function mountQuestionReview({
     const href = getResultUrl();
     for (const id of ["review-back-to-results", "review-complete-back-to-results"]) {
       el(id).href = href;
+      el(id).textContent = assessmentId ? "Back to assessment results" : "Back to practice results";
       el(id).hidden = !href;
     }
   }
@@ -272,6 +288,8 @@ export function mountQuestionReview({
           || loadedSet.miniQuestions.length !== miniQuestionCount) {
         throw new Error("The guided questions could not be loaded. Please try again.");
       }
+      if (loadedSet.guideId) await requireTutorGuideForQuestion(loadedSet.guideId, question);
+      if (destroyed || request !== token) return;
       set = loadedSet;
       index = 0;
       reviewNumber++;
@@ -308,7 +326,7 @@ export function mountQuestionReview({
     setFeedback("Checking your answer…");
     try {
       const result = await checkAnswer({questionId, language, miniQuestionCount: set.miniQuestionCount,
-        sequence: miniQuestion.sequence, answer});
+        sequence: miniQuestion.sequence, answer, ...(set.guideId ? {guideId: set.guideId} : {})});
       if (destroyed || request !== token) return;
       if (!result || typeof result.isCorrect !== "boolean") throw new Error("Could not check your answer. Please try again.");
       const isCorrect = result.isCorrect;

@@ -1,6 +1,7 @@
 import {watchStudentFillInTheBlanksPracticeUpdates} from "../../../student_fill_in_the_blanks_practice/student_fill_in_the_blanks_practice_module.js?v=20261104-fill-preassessment-v3";
 import {watchStudentEssayPracticeUpdates} from "../../../student_essay_practice/student_essay_practice_module.js?v=20261104-fill-preassessment-v3";
 import {EssayPracticeRefreshController} from "./essay_practice_refresh_controller.js?v=20261104-fill-preassessment-v3";
+import {SubjectAssessmentDashboard} from "../../../subject_assessment/components/subject_assessment_dashboard.js?v=20261109-assessment-submit-dashboard-v1";
 import {
   clearCurrentStudent,
   onStudentAuthStateChanged,
@@ -93,6 +94,9 @@ const studentStreamEl = document.querySelector("#student-stream");
 const syllabusProgressList = document.querySelector(
   "#syllabus-progress-list"
 );
+const subjectAssessmentSection = document.querySelector("#student-subject-assessments-section");
+const subjectAssessmentList = document.querySelector("#student-subject-assessment-list");
+const subjectAssessmentCount = document.querySelector("#student-subject-assessment-count");
 const studentCoinBalanceController = new StudentCoinBalanceController({
   watchStudentRewardTotal,
   getRewardConfig,
@@ -106,6 +110,7 @@ const studentCoinBalanceController = new StudentCoinBalanceController({
 });
 
 let authenticatedStudentId = null;
+const subjectAssessmentDashboard = new SubjectAssessmentDashboard();
 let dailyMissionController = null;
 let additionalMissionController = null;
 const topicPauseControls = new Map();
@@ -611,6 +616,15 @@ function renderDashboard(dashboard) {
   topicProcessingIndicators.clear();
 
   const { student, stream, syllabuses } = dashboard;
+  subjectAssessmentDashboard.begin(student.id);
+  subjectAssessmentList.replaceChildren();
+  subjectAssessmentCount.textContent = `${syllabuses.length} subject${syllabuses.length === 1 ? "" : "s"}`;
+  subjectAssessmentSection.hidden = syllabuses.length === 0;
+  for (const syllabus of syllabuses) {
+    const card = document.createElement("article");
+    subjectAssessmentDashboard.add(card, syllabus.syllabusId, {subject: syllabus.subject, language: syllabus.language});
+    subjectAssessmentList.append(card);
+  }
 
   welcomeEl.textContent = `Welcome back, ${student.name}.`;
   studentNameEl.textContent = student.name;
@@ -662,6 +676,7 @@ function renderDashboard(dashboard) {
     fragment.append(createSyllabusPanel(syllabus, student.id));
   });
   syllabusProgressList.append(fragment);
+  void subjectAssessmentDashboard.refresh();
 }
 
 async function loadAndRenderDashboard(studentId) {
@@ -709,6 +724,7 @@ const fillInTheBlanksRefreshController = new EssayPracticeRefreshController({
 async function handleAuthState(authUser) {
   if (!authUser) {
     authenticatedStudentId = null;
+    subjectAssessmentDashboard.stop();
     studentCoinBalanceController.stop();
     essayPracticeRefreshController.stop();
     fillInTheBlanksRefreshController.stop();
@@ -724,6 +740,7 @@ async function handleAuthState(authUser) {
   studentCoinBalanceController.stop();
 
   essayPracticeRefreshController.stop();
+  subjectAssessmentDashboard.stop();
     fillInTheBlanksRefreshController.stop();
   completionProcessingRefreshController.stop();
   authenticatedStudentId = authUser.uid;
@@ -782,6 +799,7 @@ logOffButton.addEventListener("click", async () => {
 
   try {
     completionProcessingRefreshController.stop();
+    subjectAssessmentDashboard.stop();
     await signOutStudent();
     studentCoinBalanceController.stop();
     essayPracticeRefreshController.stop();
@@ -796,6 +814,7 @@ logOffButton.addEventListener("click", async () => {
 });
 
 window.addEventListener("beforeunload", () => {
+  subjectAssessmentDashboard.stop();
   studentCoinBalanceController.stop();
   essayPracticeRefreshController.stop();
     fillInTheBlanksRefreshController.stop();

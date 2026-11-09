@@ -27,6 +27,7 @@ const functions = ["formatReadinessScore", "formatReliabilityScore", "createMetr
 }).join("\n");
 const fakeDocument = {createElement: (tagName) => new Element(tagName)};
 const scope = {
+  subjectAssessmentDashboard: {add() {}},
   document: fakeDocument,
   readinessScoreFormatter: new Intl.NumberFormat("en", {maximumFractionDigits: 2}),
   getPreAssessmentPresentation: () => ({label: "Completed", className: "completed"}),
