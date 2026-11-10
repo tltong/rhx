@@ -1,9 +1,10 @@
-import { Student } from "../domain/student.js?v=20260825-student-pin-v1";
+import { Student } from "../domain/student.js?v=20261110-student-profile-v1";
 import { StudentRepository } from "../domain/student_repository.js?v=20260716-no-eager-auth";
+import {getStudentProfile} from "../student_profile_module.js?v=20261110-student-profile-v1";
 import {
   STUDENTS_COLLECTION,
   studentLevels
-} from "../../../config/firebase/student_schema.js?v=20260825-student-pin-v1";
+} from "../../../config/firebase/student_schema.js?v=20261110-student-profile-v1";
 import {
   deleteDocument,
   readCollection,
@@ -11,7 +12,6 @@ import {
   writeDocument
 } from "../../../utils/firebase/firebase_ops.js";
 
-const PIN_PATTERN = /^\d{6}$/;
 const STUDENT_LEVEL_VALUES = new Set(Object.values(studentLevels));
 
 function normalizeStudentLevel(level) {
@@ -34,16 +34,6 @@ function normalizeCountry(country) {
   return normalizedCountry;
 }
 
-function normalizePin(pin) {
-  const normalizedPin = String(pin ?? "").trim();
-
-  if (!PIN_PATTERN.test(normalizedPin)) {
-    throw new Error("pin must be exactly 6 digits.");
-  }
-
-  return normalizedPin;
-}
-
 function toStudent(data) {
   if (!data) {
     return null;
@@ -54,13 +44,14 @@ function toStudent(data) {
     email: data.email,
     name: data.name,
     username: data.username,
-    pin: data.pin,
     country: data.country,
     level: data.level,
     yearOfBirth: data.yearOfBirth,
     yearOfRegistration: data.yearOfRegistration,
     registrationDate: data.registrationDate,
-    standardAtYearOfRegistration: data.standardAtYearOfRegistration
+    standardAtYearOfRegistration: data.standardAtYearOfRegistration,
+    schoolId: data.schoolId, profileVersion: data.profileVersion, academicReferenceYear: data.academicReferenceYear,
+    gradeAtReferenceYear: data.gradeAtReferenceYear
   });
 }
 
@@ -76,10 +67,6 @@ function toStudentRecord(student) {
     standardAtYearOfRegistration: student.standardAtYearOfRegistration
   };
 
-  if (student.pin !== undefined && student.pin !== null) {
-    record.pin = normalizePin(student.pin);
-  }
-
   if (student.country !== undefined && student.country !== null) {
     record.country = normalizeCountry(student.country);
   }
@@ -89,7 +76,7 @@ function toStudentRecord(student) {
 
 export class FirestoreStudentRepository extends StudentRepository {
   async getById(studentId) {
-    const data = await readDocument(STUDENTS_COLLECTION, studentId);
+    const data = await getStudentProfile({studentId});
 
     return toStudent(data);
   }

@@ -2,6 +2,32 @@
   color-scheme: light;
   font-family: Arial, Helvetica, sans-serif;
 }
+.login-proof-dialog {
+  width: min(440px, calc(100% - 32px));
+  padding: 26px; border: 1px solid #cbd5e1; border-radius: 12px; color: #102a43;
+}
+.login-proof-dialog::backdrop {background: rgb(16 42 67 / 55%);}
+.login-proof-dialog form {display: grid; gap: 18px;}
+.login-proof-dialog h2 {overflow-wrap: anywhere;}
+.login-proof-dialog p {line-height: 1.5; margin: 0;}
+.login-proof-dialog label {display: grid; gap: 8px; font-weight: 700;}
+.login-proof-dialog input {width: 100%; min-height: 44px; padding: 10px; border: 1px solid #b8c7d1; border-radius: 6px;}
+.login-proof-actions {display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px;}
+.student-edit-dialog {width: min(700px, calc(100% - 32px)); max-height: calc(100dvh - 32px); padding: 24px; border: 1px solid #cbd5e1; border-radius: 12px; color: #102a43; overflow-y: auto;}
+.student-edit-dialog::backdrop {background: rgb(16 42 67 / 55%);}
+.student-edit-dialog h2, .student-edit-dialog h3 {overflow-wrap: anywhere;}
+.student-edit-dialog label {display: grid; gap: 7px; font-size: 14px; font-weight: 700;}
+.student-edit-dialog input, .student-edit-dialog select {width: 100%; min-width: 0;}
+.student-edit-section {display: grid; gap: 16px; border-top: 1px solid #d9e2ec; padding-top: 22px; margin-top: 22px;}
+.student-edit-section h3 {margin: 0;}
+.student-edit-grid {display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px;}
+.student-edit-actions {display: flex; gap: 10px; flex-wrap: wrap;}
+.student-edit-help {font-size: 14px; line-height: 1.5; color: #52606d; margin: 0; overflow-wrap: anywhere;}
+.student-edit-help.is-error {color: #a61b1b;}
+.student-edit-dialog fieldset {border: 1px solid #d5e2ea; border-radius: 8px; padding: 16px; min-width: 0;}
+.student-edit-dialog fieldset > * + * {margin-top: 16px;}
+.student-edit-dialog legend {font-weight: 700; padding: 0 6px;}
+.student-edit-dialog [hidden] {display: none !important;}
 
 * {
   box-sizing: border-box;
@@ -360,4 +386,7 @@ select:focus {
   .search-form {
     grid-template-columns: 1fr;
   }
+
+  .student-edit-grid {grid-template-columns: 1fr;}
+  .student-edit-dialog {padding: 20px 16px;}
 }

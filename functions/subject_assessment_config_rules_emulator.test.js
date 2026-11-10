@@ -115,6 +115,7 @@ test("subject assessment configuration and generated-content access rules", {ski
       "The existing fallback rule cannot open new configuration paths");
   }
   assert.equal((await request("PATCH", "/v1/" + prefix + "guardianStudentLinks/guardian__student", {fields: fields({state: "active"})})).status, 200);
+  assert.equal((await request("PATCH", "/v1/" + prefix + "students/student", {fields: fields({name: "Student", schoolId: null})})).status, 200);
   const subscriptionPath = "/v1/" + prefix + "syllabusSubscriptions/student/syllabuses/english";
   for (const uid of ["student", "guardian", "admin"]) {
     assert.equal((await request("PATCH", subscriptionPath, {fields: fields({state: "active", language: "English"})}, uid)).status, 200);

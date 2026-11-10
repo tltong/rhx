@@ -5,7 +5,9 @@ set -euo pipefail
 umask 077
 
 usage() {
-  echo "Usage: $0 {hosting|functions|all|ocr-jobs}"
+  echo "Usage: $0 {hosting|functions|student-profile|firestore|firestore-indexes|firestore-rules|all|ocr-jobs}"
+  echo "       firestore deploys the configured rules and indexes."
+  echo "       student-profile deploys only the three student profile functions."
   echo "       ocr-jobs prepares private temporary OCR job storage."
   echo "       $0 function <exported-function-name>"
   echo "       $0 codebase <configured-codebase-name>"
@@ -15,12 +17,20 @@ usage() {
 
 function_name=''
 codebase_name=''
+resolved_codebase=''
 case "${1:-}" in
-  hosting|functions|all|ocr-jobs)
+  hosting|functions|student-profile|firestore|firestore-indexes|firestore-rules|all|ocr-jobs)
     [[ $# -eq 1 ]] || { usage >&2; exit 2; }
     case "$1" in
       hosting) targets=hosting ;;
       functions) targets=functions ;;
+      student-profile)
+        targets=functions:default:studentProfile,functions:default:onStudentUsernameChangeRequested,functions:default:retryStudentUsernameChanges
+        resolved_codebase=default
+        ;;
+      firestore) targets=firestore ;;
+      firestore-indexes) targets=firestore:indexes ;;
+      firestore-rules) targets=firestore:rules ;;
       all) targets=hosting,functions ;;
       ocr-jobs) targets=ocr-jobs ;;
     esac
@@ -268,16 +278,28 @@ NODE
 
 # Read the existing configuration, resolving source paths so Firebase's cache
 # and debug files can live in the temporary directory, as in the verified run.
-node - "$repo_dir" "$deploy_tmp/firebase.json" <<'NODE'
+node - "$repo_dir" "$deploy_tmp/firebase.json" "$resolved_codebase" <<'NODE'
 const fs = require('fs');
 const path = require('path');
-const [repo, output] = process.argv.slice(2);
+const [repo, output, selectedCodebase] = process.argv.slice(2);
 const config = JSON.parse(fs.readFileSync(path.join(repo, 'firebase.json'), 'utf8'));
+// Firebase runs predeploy hooks for every configured codebase even with a
+// scoped --only target. Keep unrelated runtime hooks out of a scoped release.
+if (selectedCodebase) {
+  config.functions = [config.functions].flat().filter(item =>
+    item && (item.codebase || 'default') === selectedCodebase);
+  if (config.functions.length !== 1) throw new Error('Selected Functions codebase is not uniquely configured.');
+}
 for (const hosting of [config.hosting].flat().filter(Boolean)) {
   if (hosting.public) hosting.public = path.resolve(repo, hosting.public);
 }
 for (const functions of [config.functions].flat().filter(Boolean)) {
   if (functions.source) functions.source = path.resolve(repo, functions.source);
+}
+for (const firestore of [config.firestore].flat().filter(Boolean)) {
+  for (const file of ['rules', 'indexes']) {
+    if (firestore[file]) firestore[file] = path.resolve(repo, firestore[file]);
+  }
 }
 fs.writeFileSync(output, JSON.stringify(config));
 NODE
@@ -290,10 +312,11 @@ fi
 
 echo "Deploying $targets to readyherox..."
 cd "$deploy_tmp"
-# A new Eventarc failure policy requires explicit CLI acknowledgement. Limit it
-# to this selected, generation-claimed worker; never force a broad deployment.
+# New Eventarc failure policies require explicit CLI acknowledgement. Limit it
+# to selected recoverable workers or the three-function student profile group;
+# never force a broad deployment.
 retry_policy_args=()
-if [[ "$function_name" == processImageOcrJob ]]; then
+if [[ "$function_name" == processImageOcrJob || "$function_name" == onStudentUsernameChangeRequested || "${1:-}" == student-profile ]]; then
   retry_policy_args+=(--force)
 fi
 node --require "$deploy_tmp/auth-proxy.cjs" \

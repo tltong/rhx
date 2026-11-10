@@ -6,10 +6,10 @@ import {
   clearCurrentStudent,
   onStudentAuthStateChanged,
   signOutStudent
-} from "../../student_module.js?v=20261104-fill-preassessment-v3";
+} from "../../student_module.js?v=20261110-student-profile-v1";
 import {
   getStudentDashboard
-} from "../../../student_dashboard/student_dashboard_module.js?v=20261105-mcq-adoption-v1";
+} from "../../../student_dashboard/student_dashboard_module.js?v=20261110-student-profile-v1";
 import {
   recordStudentLogin
 } from "../../../student_login/student_login_module.js?v=20261104-fill-preassessment-v3";

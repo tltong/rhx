@@ -17,4 +17,5 @@ async function getStudentById(studentId) {
 
 module.exports = {
   getStudentById,
+  ...require("./student_profile_module"),
 };

@@ -6,8 +6,9 @@ const {
 } = require("./infrastructure/firestore_student_repository");
 const studentModule = require("./student_module");
 
-test("student module exposes its read-only API", () => {
-  assert.deepEqual(Object.keys(studentModule), ["getStudentById"]);
+test("student module retains reads and exposes profile and credential APIs", () => {
+  for (const name of ["getStudentById", "getStudentProfile", "updateStudentProfile", "createStudentProfile", "listStudentProfiles",
+    "changeStudentUsername", "resetStudentPin", "getStudentCredentialChange"]) assert.equal(typeof studentModule[name], "function");
 });
 
 test("student repository reads the stream-selection fields", async () => {
@@ -32,7 +33,7 @@ test("student repository reads the stream-selection fields", async () => {
   const student = await repository.getById("student-1");
 
   assert.equal(student.id, "student-1");
-  assert.equal(student.pin, "123456");
+  assert.equal(student.pin, undefined, "Profile models do not expose legacy credential copies");
   assert.equal(student.country, "Malaysia");
   assert.equal(student.level, "primary");
   assert.equal(student.yearOfRegistration, 2025);

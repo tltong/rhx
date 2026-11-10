@@ -27,16 +27,16 @@ import {
 } from "./application/deactivate_syllabus.js?v=20261104-fill-preassessment-v3";
 import {
   ListAvailableSyllabusesForStudent
-} from "./application/list_available_syllabuses_for_student.js?v=20261104-fill-preassessment-v3";
+} from "./application/list_available_syllabuses_for_student.js?v=20261110-student-profile-v1";
 import {
   getSyllabusById
 } from "../syllabus/syllabus_module.js?v=20261104-fill-preassessment-v3";
 import {
   getStudentById
-} from "../student/student_module.js?v=20261104-fill-preassessment-v3";
+} from "../student/student_module.js?v=20261110-student-profile-v1";
 import {
   getStudentStreamSubscription
-} from "../stream_subscription/stream_subscription_module.js?v=20261104-fill-preassessment-v3";
+} from "../stream_subscription/stream_subscription_module.js?v=20261110-student-profile-v1";
 import {
   getStreamById
 } from "../stream/stream_module.js?v=20261104-fill-preassessment-v3";

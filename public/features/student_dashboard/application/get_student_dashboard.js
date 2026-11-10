@@ -16,11 +16,11 @@ function requirePositiveInteger(value, fieldName) {
 
 function resolveCurrentGrade(student, now) {
   const registrationYear = requirePositiveInteger(
-    student.yearOfRegistration,
+    student.academicReferenceYear ?? student.yearOfRegistration,
     "yearOfRegistration"
   );
   const registrationGrade = requirePositiveInteger(
-    student.standardAtYearOfRegistration,
+    student.gradeAtReferenceYear ?? student.standardAtYearOfRegistration,
     "standardAtYearOfRegistration"
   );
   const currentDate = now();
@@ -29,7 +29,7 @@ function resolveCurrentGrade(student, now) {
     throw new Error("now must return a valid date.");
   }
 
-  const elapsedYears = currentDate.getFullYear() - registrationYear;
+  const elapsedYears = currentDate.getUTCFullYear() - registrationYear;
 
   if (elapsedYears < 0) {
     throw new Error("yearOfRegistration cannot be in the future.");

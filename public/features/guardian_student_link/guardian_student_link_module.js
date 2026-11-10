@@ -1,8 +1,11 @@
 import { getGuardianById } from "../guardian/guardian_module.js";
+import {createStudentProfileFeature} from "../student/student_profile_module.js?v=20261110-student-profile-v1";
+const backendLinks = createStudentProfileFeature();
+export {confirmStudentLogin} from "./infrastructure/student_login_proof.js?v=20261110-student-login-proof-v1";
 import {
   getStudentById,
   getStudentSummaryById
-} from "../student/student_module.js?v=20261031-renewal-restart-v1";
+} from "../student/student_module.js?v=20261110-student-profile-v1";
 import {
   GetGuardianStudentLink
 } from "./application/get_guardian_student_link.js";
@@ -36,7 +39,7 @@ const getGuardianStudentLinkUseCase = new GetGuardianStudentLink(
 const linkStudentToGuardianUseCase = new LinkStudentToGuardian({
   guardianStudentLinkRepository,
   getGuardianById,
-  getStudentById
+  getStudentById: getStudentSummaryById
 });
 const listGuardianStudentLinksUseCase = new ListGuardianStudentLinks(
   guardianStudentLinkRepository
@@ -53,7 +56,7 @@ const unlinkStudentFromGuardianUseCase = new UnlinkStudentFromGuardian(
 );
 
 async function linkStudentToGuardian(input) {
-  return linkStudentToGuardianUseCase.execute(input);
+  return backendLinks.linkStudentToGuardian(input);
 }
 
 async function getGuardianStudentLink(input) {
@@ -81,19 +84,19 @@ async function listLinkedStudentsForGuardian(guardianId, options) {
 }
 
 async function updateGuardianStudentRelationship(input) {
-  return updateGuardianStudentLinkUseCase.relationship(input);
+  return backendLinks.updateGuardianStudentLink(input);
 }
 
 async function activateGuardianStudentLink(input) {
-  return updateGuardianStudentLinkUseCase.activate(input);
+  return backendLinks.updateGuardianStudentLink({...input, state: "active"});
 }
 
 async function deactivateGuardianStudentLink(input) {
-  return updateGuardianStudentLinkUseCase.deactivate(input);
+  return backendLinks.updateGuardianStudentLink({...input, state: "inactive"});
 }
 
 async function unlinkStudentFromGuardian(input) {
-  return unlinkStudentFromGuardianUseCase.execute(input);
+  return backendLinks.unlinkStudentFromGuardian(input);
 }
 
 export {

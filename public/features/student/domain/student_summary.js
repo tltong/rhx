@@ -10,11 +10,11 @@ function requireInteger(value, name) {
 
 export function resolveStudentCurrentGrade(student, now = () => new Date()) {
   const registrationYear = requireInteger(
-    student.yearOfRegistration,
+    student.academicReferenceYear ?? student.yearOfRegistration,
     "yearOfRegistration"
   );
   const registrationGrade = requireInteger(
-    student.standardAtYearOfRegistration,
+    student.gradeAtReferenceYear ?? student.standardAtYearOfRegistration,
     "standardAtYearOfRegistration"
   );
   const currentDate = now();
@@ -23,7 +23,7 @@ export function resolveStudentCurrentGrade(student, now = () => new Date()) {
     throw new Error("now must return a valid date.");
   }
 
-  const elapsedYears = currentDate.getFullYear() - registrationYear;
+  const elapsedYears = currentDate.getUTCFullYear() - registrationYear;
 
   if (elapsedYears < 0) {
     throw new Error("yearOfRegistration cannot be in the future.");

@@ -12,7 +12,8 @@
     <script defer src="/__/firebase/init.js"></script>
     <script type="module" src="/init_fb.js"></script>
 
-    <link rel="stylesheet" href="./landing.css?v=20260908-guardian-student-dashboard-v1">
+    <link rel="stylesheet" href="./landing.css?v=20261110-autocomplete-v1">
+    <link rel="stylesheet" href="/utils/searchable_list/searchable_list.css?v=20261110-autocomplete-v1">
   </head>
   <body>
     <main class="page-shell">
@@ -130,6 +131,70 @@
       </section>
     </main>
 
-    <script type="module" src="./landing.js?v=20261031-student-billing-v1"></script>
+    <dialog id="student-login-proof-dialog" class="login-proof-dialog" aria-labelledby="student-login-proof-heading" aria-describedby="student-login-proof-help">
+      <form method="dialog" id="student-login-proof-form">
+        <h2 id="student-login-proof-heading">Confirm student login</h2>
+        <p id="student-login-proof-help">Enter this student's current username and PIN to confirm access before linking.</p>
+        <label>Student username<input id="proof-student-username" autocomplete="off" pattern="[a-zA-Z0-9._\-]{3,40}" maxlength="40" required></label>
+        <label>Student PIN<input id="proof-student-pin" type="password" inputmode="numeric" autocomplete="off" pattern="[0-9]{6}" minlength="6" maxlength="6" required></label>
+        <div class="login-proof-actions">
+          <button type="button" id="cancel-student-login-proof" class="secondary-button">Cancel</button>
+          <button type="submit" value="confirm" id="confirm-student-login-proof" class="primary-button">Verify and link</button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="student-edit-dialog" class="student-edit-dialog" aria-labelledby="student-edit-heading">
+      <div class="section-heading">
+        <div><p class="section-label">Linked student</p><h2 id="student-edit-heading">Edit student</h2></div>
+        <button id="close-student-edit" type="button" class="secondary-button">Close</button>
+      </div>
+      <p id="student-edit-status" class="status" role="status" aria-live="polite"></p>
+      <button id="reload-student-edit" class="secondary-button" type="button">Reload latest details</button>
+
+      <form id="student-details-form" class="student-edit-section">
+        <h3>Student details</h3>
+        <div class="student-edit-grid">
+          <label>Name<input id="edit-student-name" autocomplete="off" maxlength="200" required></label>
+          <label>Year of birth<input id="edit-student-birth-year" type="number" inputmode="numeric" min="1900" required></label>
+        </div>
+        <p id="edit-student-academic-summary" class="student-edit-help"></p>
+        <button id="edit-show-academic" class="text-button" type="button" aria-expanded="false" aria-controls="edit-academic-fields">Change school or grade</button>
+        <fieldset id="edit-academic-fields" hidden>
+          <legend>School and academic details</legend>
+          <div class="student-edit-grid">
+            <label>Country<select id="edit-student-country"></select></label>
+            <label>Level<select id="edit-student-level"></select></label>
+            <label>Current grade<select id="edit-student-grade"></select></label>
+            <label>State<select id="edit-school-state"></select></label>
+            <label>City/town<select id="edit-school-locality"></select></label>
+          </div>
+          <div id="edit-school-picker"></div>
+          <p class="student-edit-help">Suggestions update as you type. State and city/town filters are optional.</p>
+          <p id="edit-school-selection" class="student-edit-help" aria-live="polite"></p>
+          <p id="edit-school-status" class="student-edit-help" role="status" aria-live="polite"></p>
+          <p class="student-edit-help">The student's stream and subjects follow the selected school.</p>
+        </fieldset>
+        <button id="save-student-details" type="submit" class="primary-button">Save details</button>
+      </form>
+
+      <form id="student-username-form" class="student-edit-section">
+        <h3>Login username</h3>
+        <label>Username<input id="edit-student-username" autocomplete="off" pattern="[a-zA-Z0-9._\-]{3,40}" minlength="3" maxlength="40" required></label>
+        <div class="student-edit-actions">
+          <button id="save-student-username" type="submit" class="secondary-button">Change username</button>
+          <button id="check-student-username" type="button" class="secondary-button" hidden>Check username change</button>
+        </div>
+      </form>
+
+      <form id="student-pin-form" class="student-edit-section">
+        <h3>Reset PIN</h3>
+        <div class="student-edit-grid">
+          <label>New six-digit PIN<input id="edit-student-pin" type="password" inputmode="numeric" autocomplete="new-password" pattern="[0-9]{6}" minlength="6" maxlength="6" required></label>
+          <label>Confirm new PIN<input id="edit-student-pin-confirm" type="password" inputmode="numeric" autocomplete="new-password" pattern="[0-9]{6}" minlength="6" maxlength="6" required></label>
+        </div>
+        <button id="save-student-pin" type="submit" class="secondary-button">Reset PIN</button>
+      </form>
+    </dialog>
+    <script type="module" src="./landing.js?v=20261110-autocomplete-v1"></script>
   </body>
 </html>

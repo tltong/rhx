@@ -1,0 +1,20 @@
+.searchable-list {position: relative; display: grid; gap: 7px; min-width: 0;}
+.searchable-list label {display: block; font-weight: 700; font-size: 14px;}
+.searchable-list-field {position: relative; min-width: 0;}
+.searchable-list-input {box-sizing: border-box; width: 100%; min-width: 0; min-height: 44px; padding: 10px 44px 10px 12px; font: inherit; border: 1px solid #9fb3c3; border-radius: 6px; background: white; color: #102a43;}
+.searchable-list-input:focus {outline: 2px solid #087f5b; outline-offset: 2px;}
+.searchable-list-input::-webkit-search-cancel-button {display: none;}
+.searchable-list-clear {position: absolute; right: 2px; top: 2px; bottom: 2px; min-width: 40px; min-height: 0; padding: 0; border: 0; background: transparent; font-size: 25px; color: #52606d; cursor: pointer;}
+.searchable-list-panel {overflow: hidden; border: 1px solid #b8c9d6; border-radius: 6px; background: white; box-shadow: 0 5px 15px rgb(16 42 67 / 12%);}
+.searchable-list-options {list-style: none; padding: 0; margin: 0; max-height: min(300px, 40vh); overflow-y: auto; overscroll-behavior: contain;}
+.searchable-list-option {padding: 11px 12px; min-height: 44px; color: #102a43; cursor: pointer; overflow-wrap: anywhere; border-bottom: 1px solid #edf2f7;}
+.searchable-list-option:hover, .searchable-list-option[aria-selected="true"] {background: #e6f6ef;}
+.searchable-list-title, .searchable-list-description {display: block;}
+.searchable-list-title {font-weight: 700; font-size: 14px;}
+.searchable-list-description, .searchable-list-status, .searchable-list-selection {color: #52606d; font-size: 13px; line-height: 1.4;}
+.searchable-list-description {margin-top: 3px;}
+.searchable-list-status, .searchable-list-selection {margin: 0; overflow-wrap: anywhere;}
+.searchable-list-status.is-error {color: #a61b1b;}
+.searchable-list-more, .searchable-list-retry {display: block; width: 100%; min-height: 44px; padding: 10px 12px; border: 0; background: #f5f9fb; font: inherit; font-size: 14px; color: #0369a1; cursor: pointer;}
+.searchable-list-more:disabled, .searchable-list-retry:disabled, .searchable-list-input:disabled {opacity: .6; cursor: not-allowed;}
+.searchable-list [hidden] {display: none !important;}

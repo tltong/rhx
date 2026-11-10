@@ -1,6 +1,6 @@
 import {
   resolveStudentCurrentGrade
-} from "../domain/student_summary.js";
+} from "../domain/student_summary.js?v=20261110-student-profile-v1";
 
 function requireText(value, fieldName) {
   const text = String(value ?? "").trim();

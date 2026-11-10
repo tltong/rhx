@@ -2,7 +2,7 @@ import {
   createStudentRecord,
   findStudentByUsername,
   signUpStudent
-} from "../../student_module.js?v=20261104-fill-preassessment-v3";
+} from "../../student_module.js?v=20261110-student-profile-v1";
 import {
   studentLevels
 } from "../../../../config/firebase/student_schema.js?v=20261104-fill-preassessment-v3";
@@ -14,11 +14,11 @@ import {
 } from "../../../stream/stream_module.js?v=20261104-fill-preassessment-v3";
 import {
   subscribeStudentToStreamSyllabuses
-} from "../../../stream_subscription/stream_subscription_module.js?v=20261104-fill-preassessment-v3";
+} from "../../../stream_subscription/stream_subscription_module.js?v=20261110-student-profile-v1";
 import {
   createStudentSubscription,
   subscriptionTypes
-} from "../../../syllabus_subscription/syllabus_subscription_module.js?v=20261104-fill-preassessment-v3";
+} from "../../../syllabus_subscription/syllabus_subscription_module.js?v=20261110-student-profile-v1";
 
 const STUDENT_EMAIL_DOMAIN = "rhx.com";
 const STUDENT_LANDING_URL =
@@ -306,7 +306,6 @@ formEl.addEventListener("submit", async (event) => {
       email,
       name: input.name,
       username: input.username,
-      pin: input.pin,
       country: input.country,
       level: input.level,
       yearOfBirth: input.yearOfBirth,

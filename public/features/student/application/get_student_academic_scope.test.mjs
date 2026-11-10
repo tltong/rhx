@@ -32,3 +32,8 @@ test("returns null when the student does not exist", async () => {
 
   assert.equal(await useCase.execute("missing-student"), null);
 });
+test("uses corrected academic references while preserving original registration fields", async () => {
+  const useCase = new GetStudentAcademicScope({getById: async () => ({id: "student", country: "Malaysia", level: "primary",
+    yearOfRegistration: 2020, standardAtYearOfRegistration: "1", academicReferenceYear: 2026, gradeAtReferenceYear: 4})}, () => new Date("2026-11-10"));
+  assert.equal((await useCase.execute("student")).year, 4);
+});

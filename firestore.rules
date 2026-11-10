@@ -77,8 +77,55 @@ function clientPreservesBillingState() {
     function protectedCollection(collection) {
       return studentLearningCollection(collection) || sharedLearningCollection(collection) || fillInTheBlanksStudentCollection(collection)
         || collection in ['fillInTheBlanksQuestions', 'fillInTheBlanksPractices', 'fillInTheBlanksPracticeResults', 'fillInTheBlanksQuestionGenerator', 'fillInTheBlanksScoring', 'fillInTheBlanksDrafts', 'fillInTheBlanksPassageAssets']
-        || collection in ['subscriptions', 'syllabusSubscriptions', 'stripeCustomers', 'paymentConfigs', 'siteAdmins', 'practiceResults', 'essayQuestionGenerator', 'essayQuestionAssets', 'subjectAssessmentConfigs', 'subjectAssessments', 'subjectAssessmentGenerations', 'studentSubjectAssessmentUsage', 'subjectAssessmentSubmissions', 'subjectAssessmentResults', 'subjectAssessmentSettings'];
+        || collection in ['subscriptions', 'syllabusSubscriptions', 'stripeCustomers', 'paymentConfigs', 'siteAdmins', 'practiceResults', 'essayQuestionGenerator', 'essayQuestionAssets', 'subjectAssessmentConfigs', 'subjectAssessments', 'subjectAssessmentGenerations', 'studentSubjectAssessmentUsage', 'subjectAssessmentSubmissions', 'subjectAssessmentResults', 'subjectAssessmentSettings', 'schoolStates', 'schoolLocalities', 'schools', 'students', 'studentUsernames', 'studentCredentialChanges', 'streamSubscriptions', 'guardianStudentLinks'];
     }
+    // Profile and credential mutations are owned by studentProfile. Guardian reads
+    // use its redacted response, including while legacy PIN fields are being removed.
+    match /students/{studentId} {
+      allow read: if signedIn() && (request.auth.uid == studentId || siteAdmin());
+      allow write: if false;
+    }
+    match /studentUsernames/{document=**} { allow read, write: if false; }
+    match /studentCredentialChanges/{document=**} { allow read, write: if false; }
+    match /guardianStudentLinks/{linkId} {
+      allow read: if signedIn() && (resource.data.guardianId == request.auth.uid || resource.data.studentId == request.auth.uid || siteAdmin());
+      allow write: if false;
+    }
+    function studentStreamAllows(studentId, streamId) {
+      let student = get(/databases/$(database)/documents/students/$(studentId)).data;
+      let stream = get(/databases/$(database)/documents/streams/$(streamId)).data;
+      let schoolId = student.get('schoolId', null);
+      return stream.country == student.country && stream.level == student.level
+        && (schoolId == null || get(/databases/$(database)/documents/schools/$(schoolId)).data.streamId == streamId);
+    }
+    match /streamSubscriptions/{studentId} {
+      allow read: if mayReadStudent(studentId);
+      allow create, update: if signedIn() && (mayWriteStudent(studentId) || guardianOf(studentId))
+        && request.resource.data.keys().hasOnly(['streamId'])
+        && request.resource.data.streamId is string
+        && studentStreamAllows(studentId, request.resource.data.streamId);
+      allow delete: if mayWriteStudent(studentId)
+        && get(/databases/$(database)/documents/students/$(studentId)).data.get('schoolId', null) == null;
+    }
+    function schoolSyllabusAllows(studentId, syllabusId, data) {
+      let student = get(/databases/$(database)/documents/students/$(studentId)).data;
+      let schoolId = student.get('schoolId', null);
+      return schoolId == null || data.get('state', '') != 'active'
+        || schoolSyllabusAssignmentAllows(studentId, syllabusId, data, student, schoolId);
+    }
+    function schoolSyllabusAssignmentAllows(studentId, syllabusId, data, student, schoolId) {
+      let streamId = get(/databases/$(database)/documents/schools/$(schoolId)).data.streamId;
+      let baseYear = student.get('academicReferenceYear', student.yearOfRegistration);
+      let baseGrade = student.get('gradeAtReferenceYear', int(student.standardAtYearOfRegistration));
+      let grade = string(baseGrade + request.time.year() - baseYear);
+      let assignments = get(/databases/$(database)/documents/streams/$(streamId)/years/$(grade)).data.get('syllabuses', {});
+      return studentStreamAllows(studentId, streamId) && assignments.get(syllabusId, null) is map
+        && assignments[syllabusId].language == data.language;
+    }
+    // Directory access is owned by the authenticated schoolCatalog backend.
+    match /schoolStates/{document=**} { allow read, write: if false; }
+    match /schoolLocalities/{document=**} { allow read, write: if false; }
+    match /schools/{document=**} { allow read, write: if false; }
     function manualBilling(data) {
       return data.get('paymentProvider', null) == null
         && data.get('paymentSubscriptionReference', null) == null
@@ -100,7 +147,8 @@ function clientPreservesBillingState() {
       match /syllabuses/{syllabusId} {
         allow read: if mayReadStudent(studentId);
         allow create, update: if signedIn() && (mayWriteStudent(studentId) || guardianOf(studentId))
-          && syllabusCleanupAllows(studentId, syllabusId);
+          && syllabusCleanupAllows(studentId, syllabusId)
+          && schoolSyllabusAllows(studentId, syllabusId, request.resource.data);
         allow delete: if false;
       }
     }

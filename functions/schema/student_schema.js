@@ -9,7 +9,6 @@ const studentSchema = {
   email: "string",
   name: "string",
   username: "string",
-  pin: "string",
   country: "string",
   level: {
     type: "string",
@@ -18,7 +17,10 @@ const studentSchema = {
   yearOfBirth: "number",
   yearOfRegistration: "number",
   registrationDate: "timestamp",
-  standardAtYearOfRegistration: "string"
+  standardAtYearOfRegistration: "string",
+  schoolId: "string|null", profileVersion: "integer (legacy default 0)",
+  academicReferenceYear: "optional integer", gradeAtReferenceYear: "optional integer",
+  updatedAt: "timestamp", updatedBy: "uid"
 };
 
 module.exports = {

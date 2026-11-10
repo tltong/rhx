@@ -6,15 +6,22 @@ import {
 import {
   searchStudents,
   studentLevels
-} from "../../../student/student_module.js?v=20261031-renewal-restart-v1";
+} from "../../../student/student_module.js?v=20261110-student-profile-v1";
 import {
   guardianStudentRelationships,
+  confirmStudentLogin,
   linkStudentToGuardian,
   listLinkedStudentsForGuardian
-} from "../../../guardian_student_link/guardian_student_link_module.js?v=20260825-guardian-student-links-v1";
+} from "../../../guardian_student_link/guardian_student_link_module.js?v=20261110-student-login-proof-v1";
 import {
   isCurrentUserSiteAdmin
 } from "../../../site_admin/site_admin_module.js?v=20260827-site-admin-nav-v1";
+import {createLinkedStudentEditor} from "./linked_student_editor.js?v=20261110-autocomplete-v1";
+
+const studentEditor = createLinkedStudentEditor({
+  dialog: document.querySelector("#student-edit-dialog"),
+  onSaved: () => loadLinkedStudents(),
+});
 
 const HOME_URL = "/index.html";
 const MANAGE_PAYMENTS_URL = "/features/stripe_payment/pages/guardian/manage_subscription_payment.html";
@@ -52,6 +59,23 @@ const searchResultListEl = document.querySelector("#student-search-result-list")
 const statusEl = document.querySelector("#guardian-landing-status");
 const signOutEl = document.querySelector("#guardian-sign-out");
 const siteAdminNavigationEl = document.querySelector("#site-admin-navigation");
+const proofDialog = document.querySelector("#student-login-proof-dialog");
+document.querySelector("#cancel-student-login-proof").addEventListener("click", () => proofDialog.close("cancel"));
+function requestStudentLogin(student) {
+  return new Promise(resolve => {
+    document.querySelector("#student-login-proof-heading").textContent = `Confirm ${student.name}'s login`;
+    proofDialog.returnValue = "cancel";
+    proofDialog.addEventListener("close", () => {
+      const credentials = proofDialog.returnValue === "confirm" ? {
+        username: document.querySelector("#proof-student-username").value,
+        pin: document.querySelector("#proof-student-pin").value,
+      } : null;
+      document.querySelector("#student-login-proof-form").reset();
+      resolve(credentials);
+    }, {once: true});
+    proofDialog.showModal();
+  });
+}
 
 let currentGuardianId = null;
 let linkedStudentIds = new Set();
@@ -138,6 +162,12 @@ function createStudentCard(
   card.append(header, meta);
 
   if (showSubscriptionLink && student) {
+    const editButton = document.createElement("button");
+    editButton.className = "secondary-button edit-student-button";
+    editButton.type = "button";
+    editButton.dataset.studentId = student.id;
+    editButton.textContent = "Edit student";
+    editButton.addEventListener("click", () => studentEditor.open(student.id));
     const progressLink = document.createElement("a");
     const subscriptionLink = document.createElement("a");
 
@@ -149,7 +179,7 @@ function createStudentCard(
     subscriptionLink.href =
       `${STUDENT_SUBSCRIPTIONS_URL}?studentId=${encodeURIComponent(student.id)}`;
     subscriptionLink.textContent = "Manage syllabus subscriptions";
-    card.append(progressLink, subscriptionLink);
+    card.append(editButton, progressLink, subscriptionLink);
     void addPaymentManagementLink(card, student.id);
   }
 
@@ -219,10 +249,15 @@ async function linkStudent(student, button) {
   setStatus("Linking student...");
 
   try {
+    const credentials = await requestStudentLogin(student);
+    if (!credentials) {button.textContent = "Link student"; setStatus("Student linking cancelled."); return;}
+    const proof = await confirmStudentLogin(credentials);
+    if (proof.studentId !== student.id) throw new Error("Those login details belong to a different student.");
     await linkStudentToGuardian({
       guardianId: currentGuardianId,
       studentId: student.id,
-      relationship: relationshipEl.value
+      relationship: relationshipEl.value,
+      studentIdToken: proof.studentIdToken
     });
     await loadLinkedStudents();
     searchFormEl.reset();

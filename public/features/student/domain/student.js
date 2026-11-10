@@ -4,19 +4,18 @@ export class Student {
     email,
     name,
     username,
-    pin,
     country,
     level,
     yearOfBirth,
     yearOfRegistration,
     registrationDate,
-    standardAtYearOfRegistration
+    standardAtYearOfRegistration,
+    schoolId = null, profileVersion = 0, academicReferenceYear, gradeAtReferenceYear
   }) {
     this.id = id;
     this.email = email;
     this.name = name;
     this.username = username;
-    this.pin = pin;
     this.country = country;
     this.level = level;
     this.yearOfBirth = yearOfBirth;
@@ -24,6 +23,7 @@ export class Student {
     this.registrationDate = registrationDate;
     this.standardAtYearOfRegistration =
       standardAtYearOfRegistration;
+    Object.assign(this, {schoolId, profileVersion, academicReferenceYear, gradeAtReferenceYear});
   }
 
   update({

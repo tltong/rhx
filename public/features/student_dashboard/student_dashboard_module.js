@@ -55,7 +55,7 @@ import {
 } from "../question/question_module.js?v=20261104-fill-preassessment-v3";
 import {
   getStudentById
-} from "../student/student_module.js?v=20261104-fill-preassessment-v3";
+} from "../student/student_module.js?v=20261110-student-profile-v1";
 import {
   getStudentTopicLevel
 } from "../student_assessment_progress/student_assessment_progress_module.js?v=20261105-mcq-adoption-v1";
@@ -75,16 +75,16 @@ import {
 } from "../stream/stream_module.js?v=20261104-fill-preassessment-v3";
 import {
   getStudentStreamSubscription
-} from "../stream_subscription/stream_subscription_module.js?v=20261104-fill-preassessment-v3";
+} from "../stream_subscription/stream_subscription_module.js?v=20261110-student-profile-v1";
 import {
   getSyllabusById
 } from "../syllabus/syllabus_module.js?v=20261105-mcq-adoption-v1";
 import {
   listActiveStudentSyllabusSubscriptions
-} from "../syllabus_subscription/syllabus_subscription_module.js?v=20261104-fill-preassessment-v3";
+} from "../syllabus_subscription/syllabus_subscription_module.js?v=20261110-student-profile-v1";
 import {
   GetStudentDashboard
-} from "./application/get_student_dashboard.js?v=20261105-mcq-adoption-v1";
+} from "./application/get_student_dashboard.js?v=20261110-student-profile-v1";
 import {
   createSyllabusProgressPane,
   renderSyllabusProgressPane

@@ -23,7 +23,7 @@ import {
 } from "../stream/stream_module.js?v=20261104-fill-preassessment-v3";
 import {
   getStudentAcademicScope
-} from "../student/student_module.js?v=20261104-fill-preassessment-v3";
+} from "../student/student_module.js?v=20261110-student-profile-v1";
 import {
   GetStudentStreamSubscription
 } from "./application/get_student_stream_subscription.js?v=20261104-fill-preassessment-v3";
@@ -54,7 +54,7 @@ const unsubscribeStudentFromStreamUseCase =
 
 async function subscribeSyllabusThroughFeature(studentId, syllabusId, language) {
   const { subscribeSyllabus } = await import(
-    "../syllabus_subscription/syllabus_subscription_module.js?v=20261104-fill-preassessment-v3"
+    "../syllabus_subscription/syllabus_subscription_module.js?v=20261110-student-profile-v1"
   );
 
   return subscribeSyllabus(studentId, syllabusId, language);

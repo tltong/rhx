@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { CreateStudent } from "./create_student.js";
 
-test("student creation retains the supplied PIN for persistence", async () => {
+test("student profile creation omits the supplied authentication PIN", async () => {
   let savedStudent = null;
   const useCase = new CreateStudent({
     studentRepository: {
@@ -21,6 +21,6 @@ test("student creation retains the supplied PIN for persistence", async () => {
     country: "Malaysia"
   });
 
-  assert.equal(student.pin, "123456");
-  assert.equal(savedStudent.pin, "123456");
+  assert.equal(student.pin, undefined);
+  assert.equal(savedStudent.pin, undefined);
 });

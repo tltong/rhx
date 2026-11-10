@@ -1,30 +1,20 @@
-import { FirestoreStudentRepository } from "./infrastructure/firestore_student_repository.js?v=20260825-student-pin-v1";
+import { FirestoreStudentRepository } from "./infrastructure/firestore_student_repository.js?v=20261110-student-profile-v1";
 import { GetStudent } from "./application/get_student.js?v=20260716-no-eager-auth";
-import { GetStudentAcademicScope } from "./application/get_student_academic_scope.js?v=20260825-stream-syllabus-subscriptions-v1";
-import { GetStudentSummary } from "./application/get_student_summary.js";
-import { ListStudents } from "./application/list_students.js?v=20260716-no-eager-auth";
-import { SearchStudents } from "./application/search_students.js";
-import { CreateStudent } from "./application/create_student.js?v=20260825-student-pin-v1";
-import { UpdateStudent } from "./application/update_student.js?v=20260716-no-eager-auth";
+import { GetStudentAcademicScope } from "./application/get_student_academic_scope.js?v=20261110-student-profile-v1";
 import { DeleteStudent } from "./application/delete_student.js?v=20260716-no-eager-auth";
 import { CurrentStudentSession } from "./application/current_student_session.js?v=20260716-no-eager-auth";
 import { getStudentAuthService } from "./auth/student_auth_service.js?v=20261031-renewal-restart-v1";
-import { findSyllabusScopeByCountry } from "../syllabusscope/syllabusscope_module.js?v=20260823-student-country-v1";
 import { studentLevels } from "../../config/firebase/student_schema.js";
+import {createStudentProfile, updateStudentProfile, getStudentSummary, listStudentProfiles, searchStudentProfiles,
+  isStudentUsernameAvailable} from "./student_profile_module.js?v=20261110-student-profile-v1";
+export {getStudentProfile, updateStudentProfile, listStudentProfiles, changeStudentUsername, getStudentCredentialChange,
+  retryStudentUsernameChange, resetStudentPin} from "./student_profile_module.js?v=20261110-student-profile-v1";
 
 const studentRepository = new FirestoreStudentRepository();
 const getStudent = new GetStudent(studentRepository);
 const getStudentAcademicScopeUseCase = new GetStudentAcademicScope(
   studentRepository
 );
-const getStudentSummaryUseCase = new GetStudentSummary(studentRepository);
-const listStudentsUseCase = new ListStudents(studentRepository);
-const searchStudentsUseCase = new SearchStudents(studentRepository);
-const createStudent = new CreateStudent({
-  studentRepository,
-  findSyllabusScopeByCountry
-});
-const updateStudent = new UpdateStudent(studentRepository);
 const deleteStudent = new DeleteStudent(studentRepository);
 const currentStudentSession = new CurrentStudentSession(getStudent);
 
@@ -46,15 +36,20 @@ async function getStudentAcademicScope(studentId) {
 }
 
 async function getStudentSummaryById(studentId) {
-  return getStudentSummaryUseCase.execute(studentId);
+  return getStudentSummary({studentId});
 }
 
 async function findStudentByUsername(username) {
-  return studentRepository.findByUsername(username);
+  return (await isStudentUsernameAvailable({username})).available ? null : {username};
 }
 
 async function listStudents() {
-  return listStudentsUseCase.execute();
+  const students = []; let cursor;
+  do {
+    const page = await listStudentProfiles({limit: 100, ...(cursor ? {cursor} : {})});
+    students.push(...page.items); cursor = page.nextCursor;
+  } while (cursor);
+  return students.sort((first, second) => String(first.name || "").localeCompare(String(second.name || "")));
 }
 
 /**
@@ -62,15 +57,18 @@ async function listStudents() {
  * @returns {Promise<Array<{id: string, name: string, yearOfBirth: number, level: string, grade: number}>>}
  */
 async function searchStudents(criteria) {
-  return searchStudentsUseCase.execute(criteria);
+  return searchStudentProfiles(criteria);
 }
 
 async function createStudentRecord(data) {
-  return createStudent.execute(data);
+  return createStudentProfile({studentId: data.id, name: data.name, username: data.username, country: data.country, level: data.level,
+    yearOfBirth: data.yearOfBirth, standardAtYearOfRegistration: data.standardAtYearOfRegistration});
 }
 
 async function updateStudentRecord(student, changes) {
-  return updateStudent.execute(student, changes);
+  const saved = await updateStudentProfile({studentId: student.id, expectedVersion: student.profileVersion || 0, changes});
+  Object.assign(student, saved);
+  return student;
 }
 
 async function deleteStudentRecord(studentId) {
