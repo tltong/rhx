@@ -2,7 +2,7 @@ import {
   DEFAULT_PERCENTAGE_PER_PRACTICE,
   getReliabilityConfig,
   saveReliabilityConfig
-} from "../../reliability_module.js?v=20261104-fill-preassessment-v3";
+} from "../../reliability_module.js?v=20261112-essay-variation-v1";
 
 export function mountReliabilityAdmin({
   root = document,

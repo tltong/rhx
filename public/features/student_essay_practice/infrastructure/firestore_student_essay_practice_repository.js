@@ -1,7 +1,8 @@
+import {checkStudentEssayTypes} from "../../essay_question_generator/infrastructure/student_essay_history.js?v=20261112-essay-variation-v1";
 import * as firebaseOps from "../../../utils/firebase/firebase_ops.js";
 import {guardStudentMaintenance} from "../../../utils/student_topic_reset_guard.js?v=20261104-fill-preassessment-v3";
 import {STUDENT_ESSAY_PRACTICES_COLLECTION, ASSIGNED_ESSAY_PRACTICES_SUBCOLLECTION,
-  COMPLETED_ESSAY_PRACTICES_SUBCOLLECTION, ESSAY_QUESTION_USAGE_SUBCOLLECTION} from "../../../config/firebase/student_essay_practice_schema.js?v=20261101-essay-support-v1";
+  COMPLETED_ESSAY_PRACTICES_SUBCOLLECTION, ESSAY_QUESTION_USAGE_SUBCOLLECTION} from "../../../config/firebase/student_essay_practice_schema.js?v=20261112-essay-variation-v1";
 import {normalizeAssignment, normalizeCompletion, normalizeReference, normalizeListInput,
   readAssignment, readCompletion, sameAssignment, encodeCursor, decodeCursor} from "../domain/student_essay_practice.js?v=20261101-essay-support-v1";
 
@@ -33,8 +34,9 @@ class FirestoreStudentEssayPracticeRepository {
       topicId: assignment.topicId, assignedAt: assignment.assignedAt ?? this.serverTimestamp()});
   }
 
-  async assign(input, {assertAccess = () => {}, sourceCompletion, preventQuestionReuse = false} = {}) {
+  async assign(input, {assertAccess = () => {}, sourceCompletion, preventQuestionReuse = false, typeSelection, questionMetadata} = {}) {
     const assignment = normalizeAssignment(input);
+    if (typeSelection && typeSelection.questionId !== assignment.essayQuestionId) throw new Error("The essay type selection belongs to another question.");
     assertAccess();
     const db = this.getFirestoreDb();
     const assignments = this.collection(assignment.studentId, "assigned");
@@ -69,11 +71,17 @@ class FirestoreStudentEssayPracticeRepository {
       if (preventQuestionReuse && usage.exists && usage.data().essayPracticeId !== assigned.id) {
         throw Object.assign(new Error("This essay question has already been assigned to this student."), {code: "essay-question-already-used"});
       }
+      const recordType = typeSelection ? await checkStudentEssayTypes(transaction, db, assignment.studentId, [typeSelection]) : () => {};
       assertAccess();
-      if (!usage.exists) this.recordQuestionUsage(transaction, usageRef, assignment, assigned.id);
+      recordType();
+      if (!usage.exists) {
+        this.recordQuestionUsage(transaction, usageRef, assignment, assigned.id);
+        if (typeSelection && questionMetadata) transaction.set(usageRef, {essayTypeId: questionMetadata.essayTypeId || "normalEssay", seedUsed: questionMetadata.seedUsed}, {merge: true});
+      }
       transaction.set(db.collection(STUDENT_ESSAY_PRACTICES_COLLECTION).doc(reference.studentId), {}, {merge: true});
       transaction.set(assigned, {
         ...(assignment.sourceEssayQuestionId ? {sourceEssayQuestionId: assignment.sourceEssayQuestionId} : {}),
+        ...(typeSelection && questionMetadata ? {essayTypeId: questionMetadata.essayTypeId || "normalEssay", seedUsed: questionMetadata.seedUsed} : {}),
         essayQuestionId: assignment.essayQuestionId, syllabusId: assignment.syllabusId,
         topicId: assignment.topicId, assignedAt: this.serverTimestamp(),
       });
@@ -118,6 +126,7 @@ class FirestoreStudentEssayPracticeRepository {
       if (!usage.exists) this.recordQuestionUsage(transaction, usageRef, stored, reference.essayPracticeId);
       transaction.set(completed, {
         ...(savedAssignment.sourceEssayQuestionId ? {sourceEssayQuestionId: savedAssignment.sourceEssayQuestionId} : {}),
+        ...(assignment.data().essayTypeId ? {essayTypeId: assignment.data().essayTypeId, seedUsed: assignment.data().seedUsed} : {}),
         essayQuestionId: savedAssignment.essayQuestionId, syllabusId: savedAssignment.syllabusId,
         topicId: savedAssignment.topicId, assignedAt: savedAssignment.assignedAt,
         completedAt: this.serverTimestamp(),

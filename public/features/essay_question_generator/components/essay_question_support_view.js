@@ -1,11 +1,12 @@
 // Shared by student practice, completed review and admin generation preview.
-export function renderEssayQuestionSupport({root = document, container, question, onReady = () => {}, helpingWordsHeading = "Helping words and phrases"}) {
+export function renderEssayQuestionSupport({root = document, container, question, onReady = () => {}, helpingWordsHeading = "Helping words and phrases", showHelpingWords = true}) {
   if (!container) {onReady(); return () => {};}
-  const key = JSON.stringify(question.support ?? null);
+  const key = JSON.stringify([question.support ?? null, showHelpingWords]);
   if (container.dataset?.supportKey === key) return () => {};
   if (container.dataset) container.dataset.supportKey = key;
   container.replaceChildren();
   const support = question.support;
+  const sequenceDescription = question.storyFrames?.map((frame, index) => (index + 1) + ". " + frame).join("\n");
   let disposed = false, ready = false, timer;
   const finish = () => {if (!ready && !disposed) {ready = true; clearTimeout(timer); onReady();}};
   if (support?.pictureStatus === "ready" && support.picture) {
@@ -13,13 +14,13 @@ export function renderEssayQuestionSupport({root = document, container, question
     figure.style.margin = "16px 0"; figure.style.lineHeight = "1.6";
     link.href = support.picture.url; link.target = "_blank"; link.rel = "noopener noreferrer";
     link.setAttribute("aria-label", "Open a larger picture");
-    image.alt = support.picture.description || question.questionText || "Picture supporting the essay question"; image.style.maxWidth = "100%"; image.style.height = "auto";
+    image.alt = sequenceDescription || support.picture.description || question.questionText || "Picture supporting the essay question"; image.style.maxWidth = "100%"; image.style.height = "auto";
     image.width = 640; image.decoding = "async";
     const caption = root.createElement("figcaption"); caption.textContent = "Select the picture to enlarge it.";
     const details = root.createElement("details"), summary = root.createElement("summary"), description = root.createElement("p");
-    summary.textContent = "Picture description"; description.textContent = support.picture.description; description.dir = "auto";
+    summary.textContent = "Picture description"; description.textContent = sequenceDescription || support.picture.description; description.dir = "auto";
     details.append(summary, description);
-    const hasDescription = Boolean(support.picture.description);
+    const hasDescription = Boolean(sequenceDescription || support.picture.description);
     const fallback = () => {
       if (disposed) return;
       link.hidden = true;
@@ -34,7 +35,7 @@ export function renderEssayQuestionSupport({root = document, container, question
     if (hasDescription) figure.append(details);
     container.append(figure);
   } else finish();
-  if (support?.helpingWordsStatus === "ready" && support.helpingWords?.length) {
+  if (showHelpingWords && support?.helpingWordsStatus === "ready" && support.helpingWords?.length) {
     const section = root.createElement("section"), heading = root.createElement("h3"), help = root.createElement("p"), list = root.createElement("ul");
     heading.textContent = helpingWordsHeading;
     help.textContent = "Optional suggestions — use any that help you write your essay.";

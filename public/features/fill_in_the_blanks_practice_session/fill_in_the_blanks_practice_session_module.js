@@ -3,7 +3,7 @@ import {getFillInTheBlanksPracticeById} from "../fill_in_the_blanks_practice/fil
 import {getFillInTheBlanksQuestionById} from "../fill_in_the_blanks_question_generator/fill_in_the_blanks_question_generator_module.js?v=20261105-chinese-count-v1";
 import {getFillInTheBlanksResult} from "../fill_in_the_blanks_scoring/fill_in_the_blanks_scoring_module.js?v=20261104-fill-preassessment-v3";
 import {withAccess} from "../../utils/fill_in_the_blanks/access.js?v=20261104-fill-preassessment-v3";
-import {getStudentPracticeAssessment} from "../student_assessment_progress/student_assessment_progress_module.js?v=20261104-fill-preassessment-v3";
+import {getStudentPracticeAssessment} from "../student_assessment_progress/student_assessment_progress_module.js?v=20261112-essay-variation-v1";
 import {id, problem} from "../fill_in_the_blanks_question_generator/domain/fill_in_the_blanks.js?v=20261105-chinese-count-v1";
 
 export const loadFillInTheBlanksPracticeSession = input => withAccess(async () => {

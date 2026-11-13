@@ -1,7 +1,7 @@
 import {listSyllabuses} from "../../../syllabus/syllabus_module.js?v=20261105-topic-framework-v1";
 import {getSubjectAssessmentConfigOptions, saveSubjectAssessmentConfig, getSubjectAssessmentSettings, saveSubjectAssessmentSettings} from "../../subject_assessment_config_module.js?v=20261109-assessment-repeat-policy-v1";
 import {requireTopicAllocation, requireSettingsInput} from "../../domain/subject_assessment_config.js?v=20261109-assessment-repeat-policy-v1";
-import {mountSubjectAssessmentDemo} from "../../../subject_assessment_generator/pages/admin/subject_assessment_demo.js?v=20261108-subject-assessment-theme-seed-v1";
+import {mountSubjectAssessmentDemo} from "../../../subject_assessment_generator/pages/admin/subject_assessment_demo.js?v=20261112-essay-variation-v1";
 
 const FORMAT_LABELS = {normal: "MCQ", essay: "Essay", fillInTheBlanks: "Fill in the blanks"};
 const FIELDS = ["totalCount", "easy", "medium", "hard"];

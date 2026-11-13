@@ -1,4 +1,4 @@
-import {renderEssayQuestionSupport} from "../../../essay_question_generator/components/essay_question_support_view.js?v=20261101-essay-simple-images-v4";
+import {renderEssayQuestionSupport} from "../../../essay_question_generator/components/essay_question_support_view.js?v=20261112-essay-variation-v1";
 import {getEssayWordCount} from "../../domain/essay_word_count.js?v=20261104-fill-preassessment-v3";
 
 const SIGN_IN_URL = "/features/student/pages/sign_in/sign_in.html";
@@ -191,7 +191,7 @@ export function mountEssayPractice({
 
 if (typeof window !== "undefined" && typeof document !== "undefined") {
   const [{loadEssayPracticeSession, submitEssayPracticeSession}, {onStudentAuthStateChanged}] = await Promise.all([
-    import("../../essay_practice_session_module.js?v=20261104-fill-preassessment-v3"),
+    import("../../essay_practice_session_module.js?v=20261112-essay-variation-v1"),
     import("../../../student/student_module.js?v=20261104-fill-preassessment-v3"),
   ]);
   const page = mountEssayPractice({loadSession: loadEssayPracticeSession, submitSession: submitEssayPracticeSession, onAuthChanged: onStudentAuthStateChanged});

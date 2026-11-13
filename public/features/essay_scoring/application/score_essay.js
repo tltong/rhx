@@ -1,5 +1,5 @@
 import {normalizeScoringInput, parseAssessment} from "../domain/essay_result.js?v=20261104-fill-preassessment-v3";
-import {buildEssayScoringPrompt} from "./build_essay_scoring_prompt.js?v=20261104-fill-preassessment-v3";
+import {buildEssayScoringPrompt} from "./build_essay_scoring_prompt.js?v=20261112-essay-variation-v1";
 import {createDefaultConfiguration} from "../domain/essay_scoring_config.js?v=20261104-fill-preassessment-v3";
 
 class ScoreEssay {

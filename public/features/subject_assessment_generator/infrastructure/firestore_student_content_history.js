@@ -1,6 +1,6 @@
 import {getFirestoreDb} from "../../../utils/firebase/firebase_ops.js?v=20261109-subject-assessment-generation-v1";
-import {scan} from "../../subject_assessment/infrastructure/firestore_subject_assessment_repository.js?v=20261109-subject-assessment-generation-v1";
-import {id, identity, problem} from "../../subject_assessment/domain/subject_assessment.js?v=20261109-subject-assessment-generation-v1";
+import {scan} from "../../subject_assessment/infrastructure/firestore_subject_assessment_repository.js?v=20261112-essay-variation-v1";
+import {id, identity, problem} from "../../subject_assessment/domain/subject_assessment.js?v=20261112-essay-variation-v1";
 
 class FirestoreStudentContentHistory {
   constructor({getDb = getFirestoreDb} = {}) {this.getDb = getDb;}

@@ -21,14 +21,17 @@ function buildEssayScoringPrompt(question, answer, configuration = createDefault
     language: question.language,
     difficulty: question.difficulty,
     question: question.questionText,
+    ...(question.essayType ? {essayType: question.essayType} : {}),
+    ...(question.storyFrames ? {orderedStoryFrames: question.storyFrames} : {}),
     wordCountRequirement: question.wordCountRequirement ?? {minWords: null},
     ...(question.support ? {
       helpingSuggestions: question.support.helpingWords ?? [],
     } : {}),
     answer,
   };
-  const pictureRules = question.support ? "\n\nRequired picture composition rules: use the written question as the marking reference. Allow invented names, dialogue, feelings and surrounding events. Do not require specific objects or actions from the image or infer visual facts from generation prompts. Helping suggestions are optional; do not deduct marks for unused suggestions." : "";
-  const replacements = {scoringInstructions: buildEssayScoringInstructions({level: question.level, grade: question.standard}, configuration) + pictureRules,
+  const pictureRules = question.storyFrames?.length ? "\n\nRequired picture-sequence marking rules: judge whether the student follows the supplied ordered story events. Allow creative names, dialogue, feelings and details consistent with that sequence. Grade the student writing only; supplied openings and emails do not count towards the student word count. Helping suggestions are optional. Do not infer extra visual facts from generation prompts." : question.support ? "\n\nRequired picture composition rules: use the written question as the marking reference. Allow invented names, dialogue, feelings and surrounding events. Do not require specific objects or actions from the image or infer visual facts from generation prompts. Helping suggestions are optional; do not deduct marks for unused suggestions." : "";
+  const formatRules = "\n\nFor a story continuation, assess continuity with the supplied opening and an ending. For an email reply or letter, assess the requested purpose, recipient, points to address, and appropriate format. Assess and count only the student writing, excluding source text supplied in the question.";
+  const replacements = {scoringInstructions: buildEssayScoringInstructions({level: question.level, grade: question.standard}, configuration) + pictureRules + formatRules,
     essayDataJson: JSON.stringify(reference, null, 2)};
   return ESSAY_SCORING_PROMPT_TEMPLATE.replace(/\{\{(scoringInstructions|essayDataJson)\}\}/g, (_match, key) => replacements[key]);
 }

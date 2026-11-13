@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import {after, beforeEach, test} from "node:test";
 import {createRequire} from "node:module";
 import {readFile} from "node:fs/promises";
-import * as web from "./student_essay_practice_module.js?v=20261104-fill-preassessment-v3";
+import * as webModule from "./student_essay_practice_module.js?v=20261104-fill-preassessment-v3";
 import * as webSchema from "../../config/firebase/student_essay_practice_schema.js";
 
 const require = createRequire(import.meta.url);
@@ -103,7 +103,9 @@ const app = {firestore: () => db, auth: () => auth, functions() {throw new Error
 globalThis.firebase = {apps: [], firestore, initializeApp: () => app};
 backendOps.getFirestoreDb = () => db;
 backendOps.readDocument = async (collection, id) => (await read(collection + "/" + id)).data() ?? null;
-const backend = require("../../../functions/features/student_essay_practice/student_essay_practice_module");
+const backendModule = require("../../../functions/features/student_essay_practice/student_essay_practice_module");
+const backend = {...backendModule, assignEssayPracticeToStudent: backendModule.createEssayAssignment({prepareForStudent: null})};
+const web = {...webModule, assignEssayPracticeToStudent: webModule.createEssayAssignment({prepareForStudent: null})};
 const backendSessions = require("../../../functions/features/essay_practice_session/essay_practice_session_module");
 const webSessions = await import("../essay_practice_session/essay_practice_session_module.js?v=20261104-fill-preassessment-v3");
 const backendSchema = require("../../../functions/schema/student_essay_practice_schema");
@@ -133,9 +135,9 @@ after(() => {
 test("matching backend/web schemas and all six APIs; no callable exports", async () => {
   for (const key of Object.keys(backendSchema)) assert.deepEqual(webSchema[key], backendSchema[key]);
   assert.deepEqual(webSchema.studentEssayPracticeSchema.subcollections.assignedEssayPractices.fields,
-    {essayQuestionId: "string", sourceEssayQuestionId: {type: "string", optional: true}, syllabusId: "string", topicId: "string", assignedAt: "timestamp"});
+    {essayTypeId: {type: "string", optional: true}, seedUsed: {type: "string", optional: true}, essayQuestionId: "string", sourceEssayQuestionId: {type: "string", optional: true}, syllabusId: "string", topicId: "string", assignedAt: "timestamp"});
   assert.deepEqual(webSchema.studentEssayPracticeSchema.subcollections.completedEssayPractices.fields,
-    {essayQuestionId: "string", sourceEssayQuestionId: {type: "string", optional: true}, syllabusId: "string", topicId: "string", assignedAt: "timestamp",
+    {essayTypeId: {type: "string", optional: true}, seedUsed: {type: "string", optional: true}, essayQuestionId: "string", sourceEssayQuestionId: {type: "string", optional: true}, syllabusId: "string", topicId: "string", assignedAt: "timestamp",
       completedAt: "timestamp", essayText: "string", timeTakenSeconds: "number",
       scoring: {type: "map", fields: {status: "pending|scoring|completed|failed|superseded", updatedAt: "timestamp", leaseUntil: {type: "timestamp", optional: true}}}});
   for (const api of [backend, web]) for (const name of apis) assert.equal(typeof api[name], "function");

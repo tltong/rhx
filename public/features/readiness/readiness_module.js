@@ -67,9 +67,9 @@ import {GetSubjectReadinessScore} from "./application/get_subject_readiness_scor
 import {GetSubjectReadinessScoreHistory} from "./application/get_subject_readiness_score_history.js?v=20261104-fill-firestore-v2";
 import {FirestoreReadinessScoreRepository} from "./infrastructure/firestore_readiness_score_repository.js?v=20261104-fill-preassessment-v3";
 import {listCompletedPractices} from "../student_practice/student_practice_module.js?v=20261104-fill-preassessment-v3";
-import {listCompletedEssayPractices} from "../student_essay_practice/student_essay_practice_module.js?v=20261104-fill-preassessment-v3";
-import {getEssayResult} from "../essay_scoring/essay_scoring_module.js?v=20261104-fill-preassessment-v3";
-import {getEssayQuestionById} from "../essay_question_generator/essay_question_generator_module.js?v=20261104-fill-preassessment-v3";
+import {listCompletedEssayPractices} from "../student_essay_practice/student_essay_practice_module.js?v=20261112-essay-variation-v1";
+import {getEssayResult} from "../essay_scoring/essay_scoring_module.js?v=20261112-essay-variation-v1";
+import {getEssayQuestionById} from "../essay_question_generator/essay_question_generator_module.js?v=20261112-essay-variation-v1";
 import {getPracticeById, practiceTypes} from "../practice/practice_module.js?v=20261104-fill-preassessment-v3";
 import {getQuestionDifficulty} from "../question/question_module.js?v=20261104-fill-preassessment-v3";
 import {getSyllabusById} from "../syllabus/syllabus_module.js?v=20261104-fill-preassessment-v3";

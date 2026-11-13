@@ -1,5 +1,5 @@
 import {getFirestoreDb} from "../../../utils/firebase/firebase_ops.js?v=20261109-subject-assessment-generation-v1";
-import {id, clean, publicItem} from "../domain/subject_assessment.js?v=20261109-subject-assessment-generation-v1";
+import {id, clean, publicItem} from "../domain/subject_assessment.js?v=20261112-essay-variation-v1";
 
 async function scan(collection) {
   const docs = []; let after = null;

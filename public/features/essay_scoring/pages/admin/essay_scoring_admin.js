@@ -1,7 +1,7 @@
 import {ESSAY_SCORING_LEVELS, ESSAY_SCORING_GRADES, createDefaultConfiguration, getEssayScoringConfig,
-  saveEssayScoringConfig} from "../../essay_scoring_module.js?v=20261104-fill-preassessment-v3";
+  saveEssayScoringConfig} from "../../essay_scoring_module.js?v=20261112-essay-variation-v1";
 import {EssayScoringConfig, normalizeConfiguration} from "../../domain/essay_scoring_config.js?v=20261104-fill-preassessment-v3";
-import {buildEssayScoringInstructions} from "../../application/build_essay_scoring_prompt.js?v=20261104-fill-preassessment-v3";
+import {buildEssayScoringInstructions} from "../../application/build_essay_scoring_prompt.js?v=20261112-essay-variation-v1";
 
 export function mountEssayScoringAdmin({root = document, getConfig = getEssayScoringConfig, saveConfig = saveEssayScoringConfig} = {}) {
   const byId = id => root.getElementById(id);

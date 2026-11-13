@@ -213,7 +213,7 @@ import {
 } from "../syllabus_subscription/syllabus_subscription_module.js?v=20261104-fill-preassessment-v3";
 import {
   getStudentTopicLevel
-} from "../student_assessment_progress/student_assessment_progress_module.js?v=20261105-topic-framework-v1";
+} from "../student_assessment_progress/student_assessment_progress_module.js?v=20261112-essay-variation-v1";
 import {
   GenerateAssessmentPractice
 } from "./application/generate_assessment_practice.js?v=20261105-topic-framework-v1";

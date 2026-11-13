@@ -214,7 +214,7 @@ test("the page uses the shared admin guard, explicit field labels and a Site Adm
   for (const id of ids) assert.ok(html.includes('id="' + id + '"'), id);
   assert.match(html, /data-site-admin-page/);
   assert.match(html, /site_admin_page_loader\.js/);
-  assert.match(html, /essay_question_generator_admin\.js\?v=20261101-essay-image-prompt-preview-v6/);
+  assert.match(html, /essay_question_generator_admin\.js\?v=[\w-]+/);
   assert.ok(html.indexOf('id="essay-demo-panel"') > html.indexOf('id="essay-save-config"'));
   assert.match(html, /id="essay-demo-preview"[^>]*readonly/);
   assert.match(site, /essay_question_generator\/pages\/admin\/essay_question_generator_admin\.html/);
@@ -227,15 +227,15 @@ test("the page uses the shared admin guard, explicit field labels and a Site Adm
   }
 });
 
-test("admin independently configures pictures and suggestion counts per standard", async () => {
+test("admin keeps helping suggestions per standard and removes the grade-wide picture control", async () => {
   const h = harness(); await h.page.ready;
-  const picture = h.get("essay-primary-grade-2-pictureEnabled"), words = h.get("essay-primary-grade-2-helpingWordsEnabled");
+  const words = h.get("essay-primary-grade-2-helpingWordsEnabled");
   const count = h.get("essay-primary-grade-2-helpingWordCount");
-  assert.equal(picture.checked, false); assert.equal(words.checked, false); assert.equal(count.disabled, true);
-  picture.checked = true; await picture.edit(""); words.checked = true; await words.edit("");
+  assert.equal(h.get("essay-primary-grade-2-pictureEnabled"), undefined); assert.equal(words.checked, false); assert.equal(count.disabled, true);
+  words.checked = true; await words.edit("");
   assert.equal(count.disabled, false); await count.edit("4");
   await h.get("essay-config-form").submit();
-  assert.deepEqual(h.saves[0].gradeSupport.primary[2], {pictureEnabled: true, helpingWordsEnabled: true, helpingWordCount: 4});
+  assert.deepEqual(h.saves[0].gradeSupport.primary[2], {pictureEnabled: false, helpingWordsEnabled: true, helpingWordCount: 4});
   assert.equal(h.saves[0].gradeSupport.secondary[2].pictureEnabled, false);
   h.page.dispose();
 });

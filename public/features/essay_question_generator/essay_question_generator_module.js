@@ -1,8 +1,10 @@
+import {getGeneratorConfiguration, getEssayConfiguration, saveEssayConfiguration} from "../essay_config/essay_config_module.js?v=20261112-essay-variation-v1";
+import {applyLegacyConfiguration, questionMatchesConfiguration} from "../essay_config/domain/essay_config.js?v=20261112-essay-variation-v1";
 import {questionSupportsSettings} from "./domain/essay_question_support.js?v=20261101-essay-simple-images-v4";
 import {imageGenerationClient} from "../../utils/llm/image_generation_client.js?v=20261021-image-generation-v1";
 /**
  * Essay Question Generator feature APIs, mirrored in backend and web.
- * No new Firebase endpoints and no dependency on Question Seed Generator.
+ * Generation APIs stay internal; shared configuration is owned by essay_config.
  *
  * getEssayQuestionGeneratorConfig() -> Promise<Config|null>
  * saveEssayQuestionGeneratorConfig({additionalLlmInstructions, gradeInstructions, difficultyInstructions, gradeWordCountRequirements, gradeSupport})
@@ -27,9 +29,9 @@ import {imageGenerationClient} from "../../utils/llm/image_generation_client.js?
  * level: primary|secondary; standard: integer 1-6; difficulty: easy|medium|hard.
  * EssayQuestion: {questionId, level, standard, language, difficulty, questionText, imagePrompt?, seedUsed, wordCountRequirement, generatedAt}.
  * prepareEssayQuestionForAssignment(questionId) -> compatible immutable question for a new assignment.
- * Optional support is configured per level/standard, generated once, saved and reused with the question.
+ * Pictures are configured per essay-type reference and grade, generated once, and saved with the question.
  * The question and optional imagePrompt are generated together in one text call. No image inspection call.
- * Picture and suggestion failures independently fall back to the complete written task.
+ * Optional picture/suggestion failures retain the written task. Required-picture failures stop generation.
  * Config: common instructions + primary/secondary grades 1-6 + easy/medium/hard instructions,
  *   updatedAt and updatedBy. Defaults are read-only until explicitly saved.
  * Older configs, drafts and questions without word-count fields read as minWords: null without writes.
@@ -37,16 +39,16 @@ import {imageGenerationClient} from "../../utils/llm/image_generation_client.js?
  * Web reads require sign-in; mutations/generation require a verified site administrator.
  */
 
-import {ESSAY_QUESTION_LEVELS, ESSAY_QUESTION_STANDARDS, ESSAY_QUESTION_DIFFICULTIES} from "../../config/firebase/essay_question_generator_schema.js?v=20261101-essay-simple-images-v4";
-import {createDefaultConfiguration} from "./domain/essay_question_generator_config.js?v=20261101-essay-simple-images-v4";
-import {FirestoreEssayQuestionGeneratorRepository} from "./infrastructure/firestore_essay_question_generator_repository.js?v=20261109-subject-assessment-generation-v1";
+import {ESSAY_QUESTION_LEVELS, ESSAY_QUESTION_STANDARDS, ESSAY_QUESTION_DIFFICULTIES} from "../../config/firebase/essay_question_generator_schema.js?v=20261112-essay-variation-v1";
+import {createDefaultConfiguration, normalizeConfiguration} from "./domain/essay_question_generator_config.js?v=20261112-essay-variation-v1";
+import {FirestoreEssayQuestionGeneratorRepository} from "./infrastructure/firestore_essay_question_generator_repository.js?v=20261112-essay-variation-v1";
 import {GetEssayQuestionGeneratorConfig} from "./application/get_essay_question_generator_config.js?v=20261104-fill-preassessment-v3";
-import {SaveEssayQuestionGeneratorConfig} from "./application/save_essay_question_generator_config.js?v=20261101-essay-simple-images-v4";
-import {GenerateEssayQuestion} from "./application/generate_essay_question.js?v=20261101-essay-image-prompt-preview-v6";
-import {SaveEssayQuestion} from "./application/save_essay_question.js?v=20261101-essay-simple-images-v4";
-import {GetEssayQuestionById} from "./application/get_essay_question_by_id.js?v=20261101-essay-simple-images-v4";
-import {ListEssayQuestions} from "./application/list_essay_questions.js?v=20261101-essay-simple-images-v4";
-import {GetRandomEssayQuestion} from "./application/get_random_essay_question.js?v=20261101-essay-simple-images-v4";
+import {SaveEssayQuestionGeneratorConfig} from "./application/save_essay_question_generator_config.js?v=20261112-essay-variation-v1";
+import {GenerateEssayQuestion} from "./application/generate_essay_question.js?v=20261112-essay-variation-v1";
+import {SaveEssayQuestion} from "./application/save_essay_question.js?v=20261112-essay-variation-v1";
+import {GetEssayQuestionById} from "./application/get_essay_question_by_id.js?v=20261112-essay-variation-v1";
+import {ListEssayQuestions} from "./application/list_essay_questions.js?v=20261112-essay-variation-v1";
+import {GetRandomEssayQuestion} from "./application/get_random_essay_question.js?v=20261112-essay-variation-v1";
 import {requireCurrentSiteAdmin} from "../site_admin/site_admin_module.js?v=20260827-site-admin-guard-v1";
 import {requireCurrentFirebaseAuthUser} from "../../utils/firebase/firebase_auth.js";
 import {generateLlmText} from "../../utils/llm/llm_util.js?v=20261015-deepseek-deadline-v1";
@@ -79,6 +81,9 @@ async function readWithAccess(operation) {
 }
 
 const repository = new FirestoreEssayQuestionGeneratorRepository();
+const legacyGetConfig = repository.getConfig.bind(repository);
+repository.getConfig = async () => await repository.readDocument("essayConfig", "settings", {includeId: false})
+  ? getGeneratorConfiguration() : legacyGetConfig();
 const getConfig = new GetEssayQuestionGeneratorConfig(repository);
 const saveConfig = new SaveEssayQuestionGeneratorConfig(repository, requireAdministrator);
 const generateQuestion = new GenerateEssayQuestion({repository, requireAdministrator, generateLlmText: generateEssayLlmText,
@@ -90,8 +95,14 @@ const getRandomQuestion = new GetRandomEssayQuestion(repository);
 
 async function getEssayQuestionGeneratorConfig() {return readWithAccess(() => getConfig.execute());}
 async function saveEssayQuestionGeneratorConfig(input) {
-  requireCurrentFirebaseAuthUser();
-  return saveConfig.execute(input);
+  const {assertAccess} = currentAccountAccess();
+  const normalized = normalizeConfiguration(input);
+  const configured = await repository.readDocument("essayConfig", "settings", {includeId: false});
+  assertAccess();
+  if (!configured) return saveConfig.execute(normalized);
+  const current = await getEssayConfiguration();
+  assertAccess();
+  return saveEssayConfiguration({...applyLegacyConfiguration(current, normalized), expectedVersion: current.version});
 }
 async function generateEssayQuestion(input) {
   requireCurrentFirebaseAuthUser();
@@ -101,6 +112,7 @@ async function saveEssayQuestion(input) {
   requireCurrentFirebaseAuthUser();
   return saveQuestion.execute(input);
 }
+async function isEssayQuestionRetired(questionId) {return readWithAccess(() => repository.isRetired(questionId));}
 async function getEssayQuestionById(questionId) {return readWithAccess(() => getQuestion.execute(questionId));}
 async function prepareEssayQuestionForAssignment(questionId) {
   return readWithAccess(async assertAccess => {
@@ -108,7 +120,7 @@ async function prepareEssayQuestionForAssignment(questionId) {
     if (!question) throw new Error("The essay question could not be found.");
     const config = await getEssayQuestionGeneratorConfig() || createDefaultConfiguration();
     assertAccess();
-    if (questionSupportsSettings(question, config.gradeSupport[question.level][question.standard])) return question;
+    if (questionMatchesConfiguration(question, config)) return question;
     return imageGenerationClient.request("prepareEssayQuestion", {questionId}, {timeoutMs: 540000});
   });
 }
@@ -117,4 +129,4 @@ async function getRandomEssayQuestion(input) {
   return readWithAccess(assertAccess => getRandomQuestion.execute(input, {assertAccess}));
 }
 
-export {ESSAY_QUESTION_LEVELS, ESSAY_QUESTION_STANDARDS, ESSAY_QUESTION_DIFFICULTIES, createDefaultConfiguration, getEssayQuestionGeneratorConfig, saveEssayQuestionGeneratorConfig, generateEssayQuestion, saveEssayQuestion, getEssayQuestionById, listEssayQuestions, getRandomEssayQuestion, prepareEssayQuestionForAssignment};
+export {ESSAY_QUESTION_LEVELS, ESSAY_QUESTION_STANDARDS, ESSAY_QUESTION_DIFFICULTIES, createDefaultConfiguration, getEssayQuestionGeneratorConfig, saveEssayQuestionGeneratorConfig, generateEssayQuestion, saveEssayQuestion, isEssayQuestionRetired, getEssayQuestionById, listEssayQuestions, getRandomEssayQuestion, prepareEssayQuestionForAssignment};

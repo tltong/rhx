@@ -1,5 +1,5 @@
 import {requireConfigurationInput, resolveAllocations} from "../../subject_assessment_config/domain/subject_assessment_config.js?v=20261109-subject-assessment-generation-v1";
-import {scope, sameScope, id, problem, clean, slots, makeItem, summary, validateItems} from "../../subject_assessment/domain/subject_assessment.js?v=20261109-subject-assessment-generation-v1";
+import {scope, sameScope, id, problem, clean, slots, makeItem, summary, validateItems} from "../../subject_assessment/domain/subject_assessment.js?v=20261112-essay-variation-v1";
 
 class GenerateSubjectAssessment {
   constructor(dependencies) {Object.assign(this, {uuid: () => globalThis.crypto.randomUUID(), random: Math.random, ...dependencies});}
@@ -42,10 +42,13 @@ class GenerateSubjectAssessment {
         access.assertAccess?.();
         let checkpoint = previewOnly ? null : await this.jobs.checkpoint(state, slot.position);
         if (checkpoint?.item && (["topicId", "questionType", "difficulty", "position"].some(key => checkpoint.item[key] !== slot[key]) || used.has(checkpoint.item.identity))) checkpoint = null;
+        const selectedSlot = pool.selectSlot ? await pool.selectSlot(slot, checkpoint?.item, {pooled: checkpoint?.pooled}) : slot;
+        if (selectedSlot.invalidateCheckpoint) checkpoint = null;
+        if (checkpoint?.item && selectedSlot.essayTypeId && checkpoint.item.contentSnapshot.essayTypeId !== selectedSlot.essayTypeId) checkpoint = null;
         const alreadyPrepared = !!checkpoint?.item && checkpoint.pooled;
         if (!checkpoint?.item) {
-          const bucket = JSON.stringify([slot.topicId, slot.questionType, slot.difficulty]);
-          if (!candidateSets.has(bucket)) candidateSets.set(bucket, await pool.list(slot));
+          const bucket = JSON.stringify([slot.topicId, slot.questionType, slot.difficulty, selectedSlot.essayTypeId]);
+          if (!candidateSets.has(bucket)) candidateSets.set(bucket, await pool.list(selectedSlot));
           const candidates = candidateSets.get(bucket).filter(candidate => !used.has(candidate.identity));
           let content, source, draft = null;
           if (candidates.length) {
@@ -55,12 +58,14 @@ class GenerateSubjectAssessment {
           } else {
             const contentId = checkpoint?.contentId || this.uuid();
             if (!previewOnly) await this.jobs.saveCheckpoint(state, slot.position, {contentId, item: null, draft: null, pooled: false}, progress(), access);
-            content = await pool.draft(slot, {contentId, previewOnly,
+            content = await pool.draft(selectedSlot, {contentId, previewOnly,
               avoidQuestionTexts: [...candidateSets.get(bucket).map(candidate => candidate.content?.questionText), ...items.map(item => item.contentSnapshot.questionText)].filter(Boolean)});
             source = "generated"; draft = content;
           }
           const topicName = loaded.topics.find(topic => topic.topicId === slot.topicId)?.topicName || slot.topicId;
           const item = await makeItem(slot, content, source, topicName);
+          if (selectedSlot.essayTypeId) item.essayTypeSelection = {questionId: content.questionId, seedUsed: content.seedUsed, essayTypeId: selectedSlot.essayTypeId,
+            eligibleTypeIds: selectedSlot.eligibleTypeIds, usedTypeIds: selectedSlot.usedTypeIds};
           if (used.has(item.identity)) throw problem("The selected content has already been used. Retry generation.", "content-already-used");
           checkpoint = {item, draft, pooled: source === "reused"};
           if (!previewOnly) await this.jobs.saveCheckpoint(state, slot.position, checkpoint, progress(), access);
@@ -71,6 +76,7 @@ class GenerateSubjectAssessment {
           await this.jobs.saveCheckpoint(state, slot.position, checkpoint, progress(), access);
         }
         items.push(checkpoint.item); used.add(checkpoint.item.identity);
+        if (pool.recordSelection) await pool.recordSelection(checkpoint.item);
         if (!previewOnly) await this.jobs.saveCheckpoint(state, slot.position, checkpoint, progress(), access);
         onProgress(progress()); access.assertAccess?.();
         if (!previewOnly && !alreadyPrepared && items.length < plan.length && Date.now() - started > (this.maxRunMs ?? Infinity)) return this.jobs.pause(state, access);

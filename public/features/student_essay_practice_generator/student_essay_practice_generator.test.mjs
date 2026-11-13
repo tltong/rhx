@@ -66,6 +66,7 @@ function harness(Generator, Repository) {
     return {practices, nextCursor: offset + practices.length < all.length ? String(offset + practices.length) : null};
   };}
   const deps = {
+    isEssayQuestionRetired: async id => controls.retiredQuestionIds?.has(id) || false,
     getSyllabusById: async () => ({languages: [originalQuestion.language], topics: [{id: source.topicId, assessmentFrameworkIds: controls.missingFramework ? {} : {[originalQuestion.language.toLowerCase()]: "essay-framework"}}]}),
     getAssessmentFrameworkById: async () => ({frameworkType: controls.frameworkType || "essay", levels: controls.levels || [
       {id: "first", sequenceOrder: 1, criteria: {difficultyLevel: "medium"}}]}),
@@ -275,7 +276,7 @@ for (const [layer, Generator, Repository] of [["backend", BackendGenerator, Back
     const next = await h.run({...request, level: "secondary", standard: 6, language: "Spoofed", difficulty: "hard", seed: "Spoofed"});
     assert.equal(h.count("seed"), 1); assert.equal(h.count("defaultTheme"), 0); assert.equal(h.count("generate"), 1); assert.equal(h.count("assign"), 1);
     const generated = h.calls.find(c => c[0] === "generate");
-    assert.deepEqual(generated.slice(1), [{level: "primary", standard: 3, language: "English", difficulty: "medium", seed: "Space exploration", save: false,
+    assert.deepEqual(generated.slice(1), [{level: "primary", standard: 3, language: "English", difficulty: "medium", essayTypeId: "normalEssay", seed: "Space exploration", save: false,
       syllabusId: source.syllabusId, topicId: source.topicId}, actor]);
     assert.deepEqual(h.calls.find(c => c[0] === "save")[2], actor);
     assert.equal(next.studentId, "student"); assert.equal(next.essayQuestionId, "generated-question");
@@ -550,4 +551,15 @@ for (const [layer, Generator, Repository] of [["backend", BackendGenerator, Back
     await assert.rejects(h.run(), /current level is not available/);
     assert.equal(h.count("generate"), 0); assert.equal(h.count("assign"), 0);
   });
+}
+
+for (const [layer, Generator, Repository] of [["backend", BackendGenerator, BackendRepository], ["web", WebGenerator, WebRepository]]) {
+ test(layer + ": a cached saved draft is discarded after its question is retired", async () => {
+  const h=harness(Generator,Repository);h.controls.assignFailure=new Error("Temporary assignment failure");
+  await assert.rejects(h.run(),/Temporary assignment/);
+  const selected=h.documents.get(generationPath).draft.questionId;
+  h.controls.retiredQuestionIds=new Set([selected]);h.questions.delete(selected);h.controls.assignFailure=null;h.controls.generatedChanges={questionId:"replacement-question"};
+  const next=await h.run();assert.equal(next.essayQuestionId,"replacement-question");
+  assert.equal(h.count("generate"),2);
+ });
 }

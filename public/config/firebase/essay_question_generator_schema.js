@@ -31,6 +31,9 @@ const essayQuestionSchema = {
   collection: "essayQuestionGenerator/[level]/standards/[standard]/languages/[languageId]/questions",
   documentId: "[questionId]",
   fields: {
+    essayTypeId: {type: "string", optional: true, description: "Reference to essayTypes; legacy questions use normalEssay."},
+    essayType: {type: "map", optional: true, description: "Immutable type name, picture requirement and frame count."},
+    storyFrames: {type: "array", optional: true, description: "Ordered events used to generate and mark a picture-sequence story."},
     questionText: "string",
     imagePrompt: {type: "string", optional: true, description: "Image-generation prompt derived from the written question."},
     support: {type: "map", optional: true, description: "Versioned settings, picture reference, suggestion entries and generation outcomes."},

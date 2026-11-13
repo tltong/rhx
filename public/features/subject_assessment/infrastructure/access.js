@@ -1,6 +1,6 @@
 import {requireCurrentFirebaseAuthUser} from "../../../utils/firebase/firebase_auth.js";
 import {requireCurrentSiteAdmin} from "../../site_admin/site_admin_module.js?v=20260827-site-admin-guard-v1";
-import {problem} from "../domain/subject_assessment.js?v=20261109-subject-assessment-generation-v1";
+import {problem} from "../domain/subject_assessment.js?v=20261112-essay-variation-v1";
 export async function requireAdministrator() {
   const user = requireCurrentFirebaseAuthUser();
   const assertAccess = () => {

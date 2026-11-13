@@ -30,7 +30,7 @@ import {FirestoreReliabilityConfigRepository} from "./infrastructure/firestore_r
 import {FirestoreReliabilityScoreRepository} from "./infrastructure/firestore_reliability_score_repository.js?v=20261104-fill-preassessment-v3";
 import {getSyllabusById} from "../syllabus/syllabus_module.js?v=20261104-fill-preassessment-v3";
 import {listCompletedPracticeIds} from "../student_practice/student_practice_module.js?v=20261104-fill-preassessment-v3";
-import {listCompletedEssayPractices} from "../student_essay_practice/student_essay_practice_module.js?v=20261104-fill-preassessment-v3";
+import {listCompletedEssayPractices} from "../student_essay_practice/student_essay_practice_module.js?v=20261112-essay-variation-v1";
 import {getPracticeById} from "../practice/practice_module.js?v=20261104-fill-preassessment-v3";
 import {requireCurrentSiteAdmin} from "../site_admin/site_admin_module.js?v=20260827-site-admin-guard-v1";
 import {requireCurrentFirebaseAuthUser} from "../../utils/firebase/firebase_auth.js";

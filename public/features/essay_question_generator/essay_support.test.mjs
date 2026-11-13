@@ -137,7 +137,7 @@ for (const [layer, Generate, config, normalize, draft, generationDraft, score] o
 test("recycling filters incompatible questions without invoking image generation", async () => {
   const valid = {questionId: "question1", ...input, questionText: "Write a story.", imagePrompt, seedUsed: input.seed, support: support()};
   const generator = new GenerateNextStudentEssayPractice({listEssayQuestions: async () => ({questions: [{...valid, questionId: "legacy", support: undefined}, valid], nextCursor: null}), random: () => 0});
-  const result = await generator.reusableQuestion(input, {questionIds: new Set()}, new Map([["park cleanup", input.seed]]), () => {}, enabled);
+  const result = await generator.reusableQuestion(input, {questionIds: new Set()}, new Map([["park cleanup", input.seed]]), () => {}, {gradeSupport: {primary: {2: enabled}}});
   assert.equal(result.questionId, "question1"); assert.equal(result.imagePrompt, imagePrompt); assert.deepEqual(result.support, support());
 });
 

@@ -1,5 +1,6 @@
+const {eligibleEssayTypeIds, chooseEssayType, typeSelectionAllowed} = require("../../essay_config/domain/essay_type_selection");
+const {questionMatchesConfiguration} = require("../../essay_config/domain/essay_config");
 const {resolveTopicAssessmentFrameworkId} = require("../../syllabus/domain/syllabus");
-const {questionSupportsSettings} = require("../../essay_question_generator/domain/essay_question_support");
 const {createDefaultConfiguration} = require("../../essay_question_generator/domain/essay_question_generator_config");
 const {QUESTION_SELECTION_ATTEMPT_LIMIT} = require("../config/student_essay_practice_generator_config");
 const {normalizeGenerationRequest, requireIdentifier, themeKey, questionCriteria, normalizeDraft, generationError} = require("../domain/essay_generation");
@@ -8,6 +9,12 @@ class GenerateNextStudentEssayPractice {
   constructor(dependencies) {Object.assign(this, {random: Math.random}, dependencies);}
 
   async studentHistory(studentId, source, sourceQuestion, assertAccess) {
+    if (this.loadStudentEssayHistory) {
+      const history = await this.loadStudentEssayHistory(studentId);
+      assertAccess(); history.questionIds.add(source.essayQuestionId);
+      history.typeIds.add(sourceQuestion.essayTypeId || "normalEssay"); history.themes.add(themeKey(sourceQuestion.seedUsed));
+      return history;
+    }
     const questionIds = new Set([source.essayQuestionId]);
     // Intentionally omit syllabus/topic filters: all this student's essays count.
     await Promise.all([this.listCompletedEssayPractices, this.listAssignedEssayPractices].map(async list => {
@@ -20,17 +27,17 @@ class GenerateNextStudentEssayPractice {
         cursor = page.nextCursor;
       } while (cursor);
     }));
-    const themes = new Set([themeKey(sourceQuestion.seedUsed)]);
+    const themes = new Set([themeKey(sourceQuestion.seedUsed)]), typeIds = new Set([sourceQuestion.essayTypeId || "normalEssay"]);
     const remaining = [...questionIds].filter(id => id !== source.essayQuestionId);
     for (let start = 0; start < remaining.length; start += 25) {
       const questions = await Promise.all(remaining.slice(start, start + 25).map(id => this.getEssayQuestionById(id)));
       assertAccess();
       for (const question of questions) {
         if (!question) throw new Error("An essay question from this student's history could not be found.");
-        themes.add(themeKey(question.seedUsed));
+        themes.add(themeKey(question.seedUsed)); typeIds.add(question.essayTypeId || "normalEssay");
       }
     }
-    return {questionIds, themes};
+    return {questionIds, themes, typeIds};
   }
 
   async availableThemes(criteria, history, assertAccess) {
@@ -47,7 +54,7 @@ class GenerateNextStudentEssayPractice {
     return {themes: new Map([[themeKey(fallback), fallback]]), useDefault: true};
   }
 
-  async reusableQuestion(criteria, history, themes, assertAccess, settings, topicScope) {
+  async reusableQuestion(criteria, history, themes, assertAccess, config, topicScope) {
     let cursor = null, selected = null, count = 0;
     const sample = total => {
       const draw = this.random();
@@ -59,10 +66,10 @@ class GenerateNextStudentEssayPractice {
       const page = await this.listEssayQuestions({...criteria, limit: 100, cursor});
       assertAccess();
       for (const question of page.questions) {
-        if (!questionSupportsSettings(question, settings)) continue;
+        if (!questionMatchesConfiguration(question, config) || criteria.essayTypeId && (question.essayTypeId || "normalEssay") !== criteria.essayTypeId) continue;
         if (question.syllabusId && topicScope && (question.syllabusId !== topicScope.syllabusId || question.topicId !== topicScope.topicId)) continue;
         if (history.questionIds.has(question.questionId) || !themes.has(themeKey(question.seedUsed))) continue;
-        const candidate = normalizeDraft(question, criteria, question.seedUsed);
+        const candidate = normalizeDraft(question, Object.fromEntries(Object.entries(criteria).filter(([key]) => key !== "essayTypeId")), question.seedUsed);
         if (sample(++count)) selected = candidate;
       }
       cursor = page.nextCursor;
@@ -124,35 +131,38 @@ class GenerateNextStudentEssayPractice {
       const level = levelId ? framework.levels.find(item => item.id === levelId)
         : [...framework.levels].sort((a, b) => a.sequenceOrder - b.sequenceOrder)[0];
       if (!level) throw new Error("The student's current level is not available in the essay topic framework.");
-      const criteria = questionCriteria(sourceQuestion, level.criteria.difficultyLevel);
+      const baseCriteria = questionCriteria(sourceQuestion, level.criteria.difficultyLevel);
       const topic = syllabus.topics.find(item => item.id === source.topicId);
       const topicContext = {syllabusId: source.syllabusId, topicId: source.topicId,
         ...(topic?.topicName ? {topicName: topic.topicName} : {}), ...(syllabus.subject ? {subject: syllabus.subject} : {})};
       const config = await this.getEssayQuestionGeneratorConfig?.() || createDefaultConfiguration();
       assertAccess();
-      const settings = config.gradeSupport[criteria.level][criteria.standard];
       const unavailableQuestionIds = new Set();
       for (let selectionAttempt = 0; selectionAttempt < QUESTION_SELECTION_ATTEMPT_LIMIT; selectionAttempt++) {
         const history = await this.studentHistory(request.studentId, source, sourceQuestion, assertAccess);
         for (const id of unavailableQuestionIds) history.questionIds.add(id);
         const selectedId = generation.reusedQuestionId ?? generation.draft?.questionId;
-        if (selectedId && history.questionIds.has(selectedId)) {
+        if (selectedId && (history.questionIds.has(selectedId) || this.isEssayQuestionRetired && await this.isEssayQuestionRetired(selectedId))) {
           generation = await this.repository.clearSelection(request, generation.leaseToken, persistenceContext);
           continue;
         }
+        const eligibleTypeIds = eligibleEssayTypeIds(config, baseCriteria);
+        const selectedQuestion = generation.draft ?? (generation.reusedQuestionId ? await this.getEssayQuestionById(generation.reusedQuestionId) : null);
+        const essayTypeId = chooseEssayType(eligibleTypeIds, history.typeIds, this.random, selectedQuestion?.essayTypeId || (selectedQuestion ? "normalEssay" : undefined));
+        const criteria = {...baseCriteria, essayTypeId};
         const {themes, useDefault} = await this.availableThemes(criteria, history, assertAccess);
         if (selectedId) {
           const selected = generation.draft ?? await this.getEssayQuestionById(selectedId);
           assertAccess();
           if (!selected) throw new Error("The selected essay question could not be found.");
-          if (Object.entries(criteria).some(([key, value]) => selected[key] !== value) || !themes.has(themeKey(selected.seedUsed)) || !questionSupportsSettings(selected, settings)) {
+          if (Object.entries(baseCriteria).some(([key, value]) => selected[key] !== value) || (selected.essayTypeId || "normalEssay") !== essayTypeId || !themes.has(themeKey(selected.seedUsed)) || !questionMatchesConfiguration(selected, config)) {
             generation = await this.repository.clearSelection(request, generation.leaseToken, persistenceContext);
             continue;
           }
         }
         let draft = generation.draft, question;
         if (!draft && !generation.reusedQuestionId) {
-          const reusable = useDefault ? null : await this.reusableQuestion(criteria, history, themes, assertAccess, settings, source);
+          const reusable = useDefault ? null : await this.reusableQuestion(criteria, history, themes, assertAccess, config, source);
           if (reusable) {
             generation = await this.repository.saveReusedQuestion(request, generation.leaseToken, reusable.questionId, persistenceContext);
           } else {
@@ -161,7 +171,7 @@ class GenerateNextStudentEssayPractice {
             const seed = [...themes.values()][Math.floor(draw * themes.size)];
             const generated = await this.generateEssayQuestion({...criteria, ...topicContext, seed, save: false}, {updatedBy});
             assertAccess();
-            draft = normalizeDraft(generated, criteria, seed);
+            draft = normalizeDraft(generated, baseCriteria, seed);
             if (history.questionIds.has(draft.questionId)) throw new Error("The generated essay question ID has already been used by this student.");
             generation = await this.repository.saveDraft(request, generation.leaseToken, draft, persistenceContext);
           }
@@ -170,23 +180,28 @@ class GenerateNextStudentEssayPractice {
           const stored = await this.getEssayQuestionById(generation.reusedQuestionId);
           assertAccess();
           if (!stored) throw new Error("The selected essay question could not be found.");
-          question = normalizeDraft(stored, criteria, stored.seedUsed);
+          question = normalizeDraft(stored, baseCriteria, stored.seedUsed);
         } else {
-          draft = normalizeDraft(generation.draft, criteria, generation.draft.seedUsed);
-          question = await this.saveEssayQuestion(draft, {updatedBy});
+          draft = normalizeDraft(generation.draft, baseCriteria, generation.draft.seedUsed);
+          try {question = await this.saveEssayQuestion(draft, {updatedBy});}
+          catch (error) {
+            if (error.code !== "essay-question-not-in-pool") throw error;
+            generation = await this.repository.clearSelection(request, generation.leaseToken, persistenceContext);
+            continue;
+          }
         }
         assertAccess();
         const assignment = {studentId: request.studentId, essayQuestionId: question.questionId,
           syllabusId: source.syllabusId, topicId: source.topicId, essayPracticeId: generation.nextEssayPracticeId};
         try {
-          practice = await this.assignEssayPracticeToStudent(assignment, {preventQuestionReuse: true, sourceCompletion: {
+          practice = await this.assignEssayPracticeToStudent(assignment, {preventQuestionReuse: true, typeSelection: {questionId: question.questionId, seedUsed: question.seedUsed, essayTypeId, eligibleTypeIds, usedTypeIds: [...history.typeIds]}, questionMetadata: question, sourceCompletion: {
             essayPracticeId: request.completedEssayPracticeId, completedAt: source.completedAt,
           }});
         } catch (error) {
           // A committed assignment may have lost its response or already been completed.
           practice = await this.existingPractice(request, generation, source, assertAccess);
           if (!practice) {
-            if (error.code !== "essay-question-already-used") throw error;
+            if (!["essay-question-already-used", "essay-type-selection-conflict", "essay-question-not-in-pool"].includes(error.code)) throw error;
             unavailableQuestionIds.add(question.questionId);
             generation = await this.repository.clearSelection(request, generation.leaseToken, persistenceContext);
             continue;

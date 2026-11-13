@@ -9,7 +9,7 @@ import {
 import {
   getStudentDashboard,
   renderSyllabusProgressPane
-} from "../../../student_dashboard/student_dashboard_module.js?v=20261110-student-profile-v1";
+} from "../../../student_dashboard/student_dashboard_module.js?v=20261112-essay-variation-v1";
 
 const GUARDIAN_SIGN_IN_URL =
   "/features/guardian/pages/sign_in/sign_in.html";

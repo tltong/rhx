@@ -1,3 +1,4 @@
+import {imageGenerationClient} from "../../utils/llm/image_generation_client.js?v=20261021-image-generation-v1";
 /**
  * Student Essay Practice feature, independent of Student Practice.
  * Storage: studentEssayPractices/{studentId}/{assignedEssayPractices|completedEssayPractices}/{essayPracticeId}.
@@ -10,7 +11,8 @@
  *   Optional second argument {preventQuestionReuse: true} atomically rejects a question already
  *   assigned to this student under another attempt ID (code: essay-question-already-used).
  *   questionUsage/{essayQuestionId} records the first assignment and persists after completion.
- *   The follow-up essay generator enables this guard; initial syllabus attachments retain their existing behavior.
+ *   Every production assignment selects an eligible type using lifetime student history.
+ *   Initial assignments and follow-ups share the same transactional type/question guards.
  * getAssignedEssayPractice({studentId, essayPracticeId}) -> Promise<AssignedEssayPractice|null>
  * listAssignedEssayPractices({studentId, syllabusId?, topicId?, limit, cursor?})
  * completeAssignedEssayPractice({studentId, essayPracticeId, essayText, timeTakenSeconds})
@@ -27,10 +29,10 @@
  * Web essay APIs require sign-in. No new Firebase callable endpoints.
  *
  */
-import {getEssayQuestionById, prepareEssayQuestionForAssignment} from "../essay_question_generator/essay_question_generator_module.js?v=20261104-fill-preassessment-v3";
+import {getEssayQuestionById, prepareEssayQuestionForAssignment} from "../essay_question_generator/essay_question_generator_module.js?v=20261112-essay-variation-v1";
 import {requireCurrentFirebaseAuthUser} from "../../utils/firebase/firebase_auth.js";
-import {FirestoreStudentEssayPracticeRepository} from "./infrastructure/firestore_student_essay_practice_repository.js?v=20261104-fill-preassessment-v3";
-import {AssignEssayPracticeToStudent} from "./application/assign_essay_practice_to_student.js?v=20261101-essay-support-v1";
+import {FirestoreStudentEssayPracticeRepository} from "./infrastructure/firestore_student_essay_practice_repository.js?v=20261112-essay-variation-v1";
+import {AssignEssayPracticeToStudent} from "./application/assign_essay_practice_to_student.js?v=20261112-essay-variation-v1";
 import {CompleteAssignedEssayPractice} from "./application/complete_assigned_essay_practice.js?v=20261101-essay-support-v1";
 import {GetAssignedEssayPractice} from "./application/get_assigned_essay_practice.js?v=20261101-essay-support-v1";
 import {GetCompletedEssayPractice} from "./application/get_completed_essay_practice.js?v=20261101-essay-support-v1";
@@ -39,10 +41,11 @@ import {ListCompletedEssayPractices} from "./application/list_completed_essay_pr
 
 
 const studentEssayPracticeRepository = new FirestoreStudentEssayPracticeRepository();
-const assignEssayPracticeUseCase = new AssignEssayPracticeToStudent({
-  repository: studentEssayPracticeRepository, getEssayQuestionById,
-  prepareQuestion: prepareEssayQuestionForAssignment,
-});
+function createEssayAssignment({prepareForStudent = input => imageGenerationClient.request("prepareStudentEssayQuestion", input, {timeoutMs: 540000}), repository = studentEssayPracticeRepository} = {}) {
+  const useCase = new AssignEssayPracticeToStudent({repository, getEssayQuestionById, prepareForStudent, prepareQuestion: prepareEssayQuestionForAssignment});
+  return (input, options = {}) => withEssayPracticeAccess(context => useCase.execute(input, {...options, ...context}));
+}
+const defaultAssignEssay = createEssayAssignment();
 const completeEssayPracticeUseCase = new CompleteAssignedEssayPractice(studentEssayPracticeRepository);
 const getAssignedEssayPracticeUseCase = new GetAssignedEssayPractice(studentEssayPracticeRepository);
 const getCompletedEssayPracticeUseCase = new GetCompletedEssayPractice(studentEssayPracticeRepository);
@@ -63,7 +66,7 @@ async function withEssayPracticeAccess(operation) {
 }
 
 async function assignEssayPracticeToStudent(input, options = {}) {
-  return withEssayPracticeAccess(context => assignEssayPracticeUseCase.execute(input, {...options, ...context}));
+  return defaultAssignEssay(input, options);
 }
 
 async function completeAssignedEssayPractice(input) {
@@ -100,7 +103,7 @@ function watchStudentEssayPracticeUpdates({studentId}, onChange, onError = () =>
 }
 
 export {
-  assignEssayPracticeToStudent,
+  createEssayAssignment,  assignEssayPracticeToStudent,
   completeAssignedEssayPractice,
   getAssignedEssayPractice,
   getCompletedEssayPractice,

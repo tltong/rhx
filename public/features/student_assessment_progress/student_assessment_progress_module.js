@@ -1,7 +1,7 @@
 import {AssessStudentEssayPractice} from "./application/assess_student_essay_practice.js?v=20261105-mcq-adoption-v1";
-import {getCompletedEssayPractice} from "../student_essay_practice/student_essay_practice_module.js?v=20261104-fill-preassessment-v3";
-import {getEssayQuestionById} from "../essay_question_generator/essay_question_generator_module.js?v=20261104-fill-preassessment-v3";
-import {getEssayResult} from "../essay_scoring/essay_scoring_module.js?v=20261104-fill-preassessment-v3";
+import {getCompletedEssayPractice} from "../student_essay_practice/student_essay_practice_module.js?v=20261112-essay-variation-v1";
+import {getEssayQuestionById} from "../essay_question_generator/essay_question_generator_module.js?v=20261112-essay-variation-v1";
+import {getEssayResult} from "../essay_scoring/essay_scoring_module.js?v=20261112-essay-variation-v1";
 import {requireCurrentSiteAdmin} from "../site_admin/site_admin_module.js?v=20260827-site-admin-guard-v1";
 import {getStudentSyllabusSubscriptionLanguage} from "../syllabus_subscription/syllabus_subscription_module.js?v=20261104-fill-preassessment-v3";
 /**

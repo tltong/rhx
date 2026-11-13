@@ -1,9 +1,10 @@
-import {scan} from "../../subject_assessment/infrastructure/firestore_subject_assessment_repository.js?v=20261109-subject-assessment-generation-v1";
-import {identity, poolReference, problem, clean} from "../../subject_assessment/domain/subject_assessment.js?v=20261109-subject-assessment-generation-v1";
+import {eligibleEssayTypeIds, chooseEssayType, normalizedTheme} from "../../essay_config/domain/essay_type_selection.js?v=20261112-essay-variation-v1";
+import {questionMatchesConfiguration} from "../../essay_config/domain/essay_config.js?v=20261112-essay-variation-v1";
+import {scan} from "../../subject_assessment/infrastructure/firestore_subject_assessment_repository.js?v=20261112-essay-variation-v1";
+import {identity, poolReference, problem, clean} from "../../subject_assessment/domain/subject_assessment.js?v=20261112-essay-variation-v1";
 import {GenerateQuestions} from "../../question_generator/application/generate_questions.js?v=20261109-subject-assessment-generation-v1";
-import {GenerateEssayQuestion} from "../../essay_question_generator/application/generate_essay_question.js?v=20261109-subject-assessment-generation-v1";
-import {questionCollectionPath, readQuestion} from "../../essay_question_generator/domain/essay_question.js?v=20261109-subject-assessment-generation-v1";
-import {questionSupportsSettings} from "../../essay_question_generator/domain/essay_question_support.js?v=20261109-subject-assessment-generation-v1";
+import {GenerateEssayQuestion} from "../../essay_question_generator/application/generate_essay_question.js?v=20261112-essay-variation-v1";
+import {questionCollectionPath, readQuestion} from "../../essay_question_generator/domain/essay_question.js?v=20261112-essay-variation-v1";
 import * as fill from "../../fill_in_the_blanks_question_generator/domain/fill_in_the_blanks.js?v=20261109-subject-assessment-generation-v1";
 import {buildPassagePrompt} from "../../fill_in_the_blanks_question_generator/application/build_passage_prompt.js?v=20261109-subject-assessment-generation-v1";
 
@@ -12,6 +13,26 @@ class SubjectAssessmentContentPool {
   criteria(slot) {
     return {syllabusId: this.run.syllabusId, topicId: slot.topicId, language: this.run.language,
       level: this.run.syllabus.level.toLowerCase(), standard: this.run.syllabus.year, difficulty: slot.difficulty};
+  }
+  async essayHistory() {
+    return this.cache.history ||= this.deps.loadStudentEssayHistory ? await this.deps.loadStudentEssayHistory(this.run.studentId) : {questionIds: new Set(), typeIds: new Set(), themes: new Set()};
+  }
+  async selectSlot(slot, checkpoint, {pooled = true} = {}) {
+    if (slot.questionType !== "essay") return slot;
+    const config = await this.essaySettings(), history = await this.essayHistory();
+    const eligibleTypeIds = eligibleEssayTypeIds(config, this.criteria(slot));
+    const previous = checkpoint?.contentSnapshot?.essayTypeId;
+    const previousId = checkpoint?.identity?.startsWith("essay:") ? checkpoint.identity.slice(6) : null;
+    const retired = previousId ? (await this.deps.getDb().doc("essayQuestionRetirements/" + previousId).get()).exists : false;
+    const invalidateCheckpoint = previousId ? retired || pooled && !(await this.deps.getDb().doc("essayQuestionGenerator/questionIndex/entries/" + previousId).get()).exists : false;
+    return {...slot, invalidateCheckpoint, essayTypeId: chooseEssayType(eligibleTypeIds, history.typeIds, this.deps.random, previous), eligibleTypeIds,
+      usedTypeIds: [...history.typeIds]};
+  }
+  async recordSelection(item) {
+    if (item.questionType !== "essay") return;
+    const history = await this.essayHistory();
+    history.typeIds.add(item.contentSnapshot.essayTypeId || "normalEssay");
+    if (item.contentSnapshot.seedUsed) history.themes.add(normalizedTheme(item.contentSnapshot.seedUsed));
   }
   async essaySettings() {return this.cache.essay ||= await this.deps.getEssayConfiguration();}
   async fillSettings() {return this.cache.fill ||= await this.deps.getPassageConfiguration();}
@@ -30,12 +51,14 @@ class SubjectAssessmentContentPool {
       return result;
     }
     if (slot.questionType === "essay") {
-      const settings = await this.essaySettings();
+      const settings = await this.essaySettings(), history = await this.essayHistory();
       const query = db.collection(questionCollectionPath(criteria)).where("syllabusId", "==", criteria.syllabusId)
         .where("topicId", "==", criteria.topicId).where("difficulty", "==", criteria.difficulty);
       return (await scan(query)).map(doc => readQuestion(doc.data(), criteria, doc.id))
-        .filter(question => question.wordCountRequirement.minWords === settings.gradeWordCountRequirements[criteria.level][criteria.standard].minWords
-          && questionSupportsSettings(question, settings.gradeSupport[criteria.level][criteria.standard]))
+        .filter(question => (!slot.essayTypeId || (question.essayTypeId || "normalEssay") === slot.essayTypeId)
+          && !history.questionIds.has(question.questionId) && !history.themes.has(normalizedTheme(question.seedUsed))
+          && question.wordCountRequirement.minWords === settings.gradeWordCountRequirements[criteria.level][criteria.standard].minWords
+          && questionMatchesConfiguration(question, settings))
         .map(question => this.candidate("essay", question));
     }
     const settings = (await this.fillSettings()).gradeSettings[criteria.level][criteria.standard];
@@ -73,15 +96,25 @@ class SubjectAssessmentContentPool {
       return result.questions[0];
     }
     if (slot.questionType === "essay") {
+      this.cache.previewImage = null;
       const generator = new GenerateEssayQuestion({repository: {getConfig: () => this.essaySettings(), createQuestionId: () => contentId},
         requireAdministrator: async () => ({uid: this.run.access.uid, assertAccess: this.run.access.assertAccess}), generateLlmText: this.deps.generateText,
-        createPicture: previewOnly ? null : this.deps.createEssayPicture});
-      const seed = await this.deps.getRandomQuestionSeedEntry({vertical: "theme", level: criteria.level, grade: criteria.standard});
-      const draft = await generator.execute({...criteria, topicName: topic.topicName, subject: this.run.syllabus.subject,
+        createPicture: previewOnly ? async content => {
+          this.cache.previewImage = await this.previewPicture(content, "essay");
+          return {storagePath: `essay-question-images/${contentId}.png`, url: "https://firebasestorage.googleapis.com/v0/b/preview/o/ephemeral"};
+        } : this.deps.createEssayPicture});
+      let seed;
+      if (this.deps.getQuestionSeedEntries) {
+        const history = await this.essayHistory();
+        const entries = await this.deps.getQuestionSeedEntries({vertical: "theme", level: criteria.level, grade: criteria.standard});
+        const available = entries.map(entry => entry.value).filter(value => !history.themes.has(normalizedTheme(value)));
+        seed = available.length ? available[Math.floor(this.deps.random() * available.length)] : await this.deps.getDefaultQuestionSeedTheme();
+      } else seed = await this.deps.getRandomQuestionSeedEntry({vertical: "theme", level: criteria.level, grade: criteria.standard});
+      const draft = await generator.execute({...criteria, ...(slot.essayTypeId ? {essayTypeId: slot.essayTypeId} : {}), topicName: topic.topicName, subject: this.run.syllabus.subject,
         seed, save: false}, {updatedBy: this.run.access.uid});
       if (!previewOnly || !draft.support?.settings.pictureEnabled || !draft.imagePrompt) return draft;
-      let previewImage = null;
-      try {previewImage = await this.previewPicture(draft, "essay");} catch { /* Written task remains complete. */ }
+      const previewImage = this.cache.previewImage ?? null;
+      this.cache.previewImage = null;
       return {...draft, previewImage};
     }
     const configuration = await this.fillSettings();

@@ -1,4 +1,4 @@
-import * as sessions from "../../fill_in_the_blanks_practice_session_module.js?v=20261105-chinese-count-v1";
+import * as sessions from "../../fill_in_the_blanks_practice_session_module.js?v=20261112-essay-variation-v1";
 import * as generations from "../../../student_fill_in_the_blanks_practice_generator/student_fill_in_the_blanks_practice_generator_module.js?v=20261104-fill-preassessment-v3";
 import {watchStudentFillInTheBlanksPracticeUpdates} from "../../../student_fill_in_the_blanks_practice/student_fill_in_the_blanks_practice_module.js?v=20261105-chinese-count-v1";
 import {mountFillInTheBlanksPassage} from "../../../fill_in_the_blanks_question_generator/components/passage_view.js?v=20261105-chinese-count-v1";

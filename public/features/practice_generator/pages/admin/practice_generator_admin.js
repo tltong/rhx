@@ -1,12 +1,12 @@
 import {generateFillInTheBlanksPractice, loadFillInTheBlanksPractice} from "../../../fill_in_the_blanks_practice_generator/fill_in_the_blanks_practice_generator_module.js?v=20261105-chinese-count-v1";
 import {mountFillInTheBlanksPassage} from "../../../fill_in_the_blanks_question_generator/components/passage_view.js?v=20261105-chinese-count-v1";
-import {generateEssayPractice, loadEssayPractice} from "../../../essay_practice_generator/essay_practice_generator_module.js?v=20261105-mcq-adoption-v1";
+import {generateEssayPractice, loadEssayPractice} from "../../../essay_practice_generator/essay_practice_generator_module.js?v=20261112-essay-variation-v1";
 import {createSyllabusLanguageKey} from "../../../syllabus/domain/syllabus.js?v=20261105-topic-framework-v1";
 import {
   generatePreAssessmentPractice,
   loadPreAssessmentGeneratorOptions,
   loadPreAssessmentPractice
-} from "../../practice_generator_module.js?v=20261105-topic-framework-v1";
+} from "../../practice_generator_module.js?v=20261112-essay-variation-v1";
 import {
   setMathText
 } from "../../../../utils/math/render_math.js?v=20261104-fill-preassessment-v3";

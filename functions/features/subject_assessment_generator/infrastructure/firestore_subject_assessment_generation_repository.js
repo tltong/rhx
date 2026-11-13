@@ -1,3 +1,4 @@
+const {checkStudentEssayTypes} = require("../../essay_question_generator/infrastructure/student_essay_history");
 const {getFirestoreDb} = require("../../../utils/firebase/firebase_ops");
 const {id, clean, scope, sameScope, problem, slotId, publicItem, summary, validateItems} = require("../../subject_assessment/domain/subject_assessment");
 const {subjectStateReference, subscriptionKey} = require("../../subject_assessment/domain/student_subject_assessment");
@@ -108,14 +109,18 @@ class FirestoreSubjectAssessmentGenerationRepository {
       const refs = items.map(item => db.collection("studentSubjectAssessmentUsage").doc(state.studentId).collection("items").doc(item.sourceKey));
       const history = await Promise.all(refs.map(ref => tx.get(ref)));
       if (history.some(snapshot => snapshot.exists)) throw problem("Selected content was used by another assessment. Retry generation.", "content-already-used");
+      const selections = items.filter(item => item.questionType === "essay" && item.essayTypeSelection).map(item => item.essayTypeSelection);
+      const recordTypes = selections.length ? await checkStudentEssayTypes(tx, db, state.studentId, selections) : () => {};
       access.assertAccess?.();
       const generatedAt = new Date(this.now());
+      recordTypes();
       tx.set(assessment, clean({studentId: state.studentId, syllabusId: state.syllabusId, language: state.language,
         configurationVersion: state.configurationSnapshot.version, configurationSnapshot: state.configurationSnapshot, contextSnapshot: state.contextSnapshot,
         generationId: state.generationId, createdBy: state.createdBy, generatedAt, ...summary(items)}));
       for (let index = 0; index < items.length; index++) {
         const item = items[index];
         tx.set(refs[index], {sourceKey: item.sourceKey, identity: item.identity, sourceReference: item.sourceReference, questionType: item.questionType,
+          ...(item.questionType === "essay" ? {essayTypeId: item.contentSnapshot.essayTypeId || "normalEssay", seedUsed: item.contentSnapshot.seedUsed || ""} : {}),
           syllabusId: state.syllabusId, topicId: item.topicId, language: state.language, assessmentId: state.assessmentId, selectedAt: generatedAt});
       }
       tx.update(this.ref(state.generationId), {status: "completed", updatedAt: generatedAt, completedAt: generatedAt, leaseToken: null, leaseUntil: null,

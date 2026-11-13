@@ -1,6 +1,7 @@
+const essayConfig = require("../essay_config/essay_config_module");
 /**
  * Essay Question Generator feature APIs, mirrored in backend and web.
- * No new Firebase endpoints and no dependency on Question Seed Generator.
+ * Generation APIs stay internal; shared configuration is owned by essay_config.
  *
  * getEssayQuestionGeneratorConfig() -> Promise<Config|null>
  * saveEssayQuestionGeneratorConfig({additionalLlmInstructions, gradeInstructions, difficultyInstructions, gradeWordCountRequirements, gradeSupport})
@@ -25,9 +26,9 @@
  * level: primary|secondary; standard: integer 1-6; difficulty: easy|medium|hard.
  * EssayQuestion: {questionId, level, standard, language, difficulty, questionText, imagePrompt?, seedUsed, wordCountRequirement, generatedAt}.
  * prepareEssayQuestionForAssignment(questionId) -> compatible immutable question for a new assignment.
- * Optional support is configured per level/standard, generated once, saved and reused with the question.
+ * Pictures are configured per essay-type reference and grade, generated once, and saved with the question.
  * The question and optional imagePrompt are generated together in one text call. No image inspection call.
- * Picture and suggestion failures independently fall back to the complete written task.
+ * Optional picture/suggestion failures retain the written task. Required-picture failures stop generation.
  * Config: common instructions + primary/secondary grades 1-6 + easy/medium/hard instructions,
  *   updatedAt and updatedBy. Defaults are read-only until explicitly saved.
  * Older configs, drafts and questions without word-count fields read as minWords: null without writes.
@@ -36,7 +37,7 @@
  */
 
 const {ESSAY_QUESTION_LEVELS, ESSAY_QUESTION_STANDARDS, ESSAY_QUESTION_DIFFICULTIES} = require("../../schema/essay_question_generator_schema");
-const {createDefaultConfiguration, requireAdministratorUid} = require("./domain/essay_question_generator_config");
+const {createDefaultConfiguration, requireAdministratorUid, normalizeConfiguration} = require("./domain/essay_question_generator_config");
 const {FirestoreEssayQuestionGeneratorRepository} = require("./infrastructure/firestore_essay_question_generator_repository");
 const {GetEssayQuestionGeneratorConfig} = require("./application/get_essay_question_generator_config");
 const {SaveEssayQuestionGeneratorConfig} = require("./application/save_essay_question_generator_config");
@@ -51,6 +52,9 @@ const requireAdministrator = context => ({uid: requireAdministratorUid(context?.
 const generateEssayLlmText = generateLlmText;
 
 const repository = new FirestoreEssayQuestionGeneratorRepository();
+const legacyGetConfig = repository.getConfig.bind(repository);
+repository.getConfig = async () => await repository.readDocument("essayConfig", "settings", {includeId: false})
+  ? essayConfig.getGeneratorConfiguration() : legacyGetConfig();
 const getConfig = new GetEssayQuestionGeneratorConfig(repository);
 const saveConfig = new SaveEssayQuestionGeneratorConfig(repository, requireAdministrator);
 const generateQuestion = new GenerateEssayQuestion({repository, requireAdministrator, generateLlmText: generateEssayLlmText,
@@ -61,9 +65,17 @@ const listQuestions = new ListEssayQuestions(repository);
 const getRandomQuestion = new GetRandomEssayQuestion(repository);
 
 async function getEssayQuestionGeneratorConfig() {return getConfig.execute();}
-async function saveEssayQuestionGeneratorConfig(input, context) {return saveConfig.execute(input, context);}
+async function saveEssayQuestionGeneratorConfig(input, context) {
+  const normalized = normalizeConfiguration(input);
+  requireAdministratorUid(context?.updatedBy);
+  if (!await repository.readDocument("essayConfig", "settings", {includeId: false})) return saveConfig.execute(normalized, context);
+  const current = await essayConfig.loadEssayConfiguration();
+  const updated = require("../essay_config/domain/essay_config").applyLegacyConfiguration(current, normalized);
+  return essayConfig.saveEssayConfiguration({...updated, expectedVersion: current.version}, {auth: {uid: context?.updatedBy}});
+}
 async function generateEssayQuestion(input, context) {return generateQuestion.execute(input, context);}
 async function saveEssayQuestion(input, context) {return saveQuestion.execute(input, context);}
+async function isEssayQuestionRetired(questionId) {return repository.isRetired(questionId);}
 async function getEssayQuestionById(questionId) {return getQuestion.execute(questionId);}
 async function prepareEssayQuestionForAssignment(questionId, context) {
   return require("./application/prepare_essay_question").prepareEssayQuestion({questionId}, context);
@@ -71,4 +83,4 @@ async function prepareEssayQuestionForAssignment(questionId, context) {
 async function listEssayQuestions(input) {return listQuestions.execute(input);}
 async function getRandomEssayQuestion(input) {return getRandomQuestion.execute(input);}
 
-module.exports = {ESSAY_QUESTION_LEVELS, ESSAY_QUESTION_STANDARDS, ESSAY_QUESTION_DIFFICULTIES, createDefaultConfiguration, getEssayQuestionGeneratorConfig, saveEssayQuestionGeneratorConfig, generateEssayQuestion, saveEssayQuestion, getEssayQuestionById, listEssayQuestions, getRandomEssayQuestion, prepareEssayQuestionForAssignment};
+module.exports = {ESSAY_QUESTION_LEVELS, ESSAY_QUESTION_STANDARDS, ESSAY_QUESTION_DIFFICULTIES, createDefaultConfiguration, getEssayQuestionGeneratorConfig, saveEssayQuestionGeneratorConfig, generateEssayQuestion, saveEssayQuestion, isEssayQuestionRetired, getEssayQuestionById, listEssayQuestions, getRandomEssayQuestion, prepareEssayQuestionForAssignment};

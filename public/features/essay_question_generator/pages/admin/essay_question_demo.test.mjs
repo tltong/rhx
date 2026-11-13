@@ -22,7 +22,7 @@ class Element {
   async submit() {return this.listeners.get("submit")?.({preventDefault() {}});}
 }
 const names = ["panel", "form", "help", "level", "standard", "language", "difficulty", "seed", "language-status",
-  "reload-languages", "get-seed", "generate", "progress", "status", "result", "result-meta", "preview", "save-question", "support", "picture-heading", "picture-status", "helping-status", "image-prompts", "image-prompts-note", "image-prompt-instructions", "image-prompt"];
+  "reload-languages", "get-seed", "generate", "progress", "status", "result", "result-meta", "preview", "save-question", "support", "picture-heading", "picture-status", "helping", "helping-heading", "helping-suggestions", "helping-status", "image-prompts", "image-prompts-note", "image-prompt-instructions", "image-prompt"];
 const combined = "Theme: Friendship\nSetting: School\nType: Narrative";
 const asDraft = input => ({questionId: "draft-1", level: input.level, standard: input.standard,
   language: input.language, difficulty: input.difficulty, seedUsed: input.seed, questionText: "Write about a surprising act of friendship.",
@@ -297,10 +297,11 @@ test("preview shows the exact helping suggestions with the picture and retains t
   const h = harness({generateQuestion: async input => withSuggestions(input, "ready", "ready")});
   try {
     await h.readyInput(); await h.get("form").submit();
-    const children = h.get("support").children, suggestions = children[1];
-    assert.equal(children.length, 2); assert.equal(h.get("picture-heading").hidden, false);
-    assert.equal(suggestions.children[0].textContent, "Helping suggestions (3)");
-    assert.deepEqual(suggestions.children[2].children.map(item => item.textContent), ["friendship", "helping others", "kindness"]);
+    assert.equal(h.get("support").children.length, 1); assert.equal(h.get("picture-heading").hidden, false);
+    assert.equal(h.get("helping").hidden, false);
+    assert.equal(h.get("helping-heading").textContent, "Helping suggestions (3)");
+    assert.equal(h.get("helping-suggestions").hidden, false);
+    assert.deepEqual(h.get("helping-suggestions").children.map(item => item.textContent), ["friendship", "helping others", "kindness"]);
     assert.equal(h.get("helping-status").hidden, true);
     await h.get("save-question").click();
     assert.deepEqual(h.calls.saves[0].support.helpingWords, ["friendship", "helping others", "kindness"]);
@@ -312,15 +313,20 @@ test("suggestions preview works without a picture and clears when suggestions fa
   try {
     await h.readyInput(); await h.get("form").submit();
     assert.equal(h.get("picture-heading").hidden, true);
-    assert.equal(h.get("support").children[0].children[0].textContent, "Helping suggestions (3)");
+    assert.equal(h.get("support").children.length, 0);
+    assert.equal(h.get("helping-heading").textContent, "Helping suggestions (3)");
+    assert.equal(h.get("helping-suggestions").children.length, 3);
     await h.get("standard").edit("4");
     assert.equal(h.get("support").children.length, 0); assert.equal(h.get("helping-status").hidden, true);
+    assert.equal(h.get("helping").hidden, true); assert.equal(h.get("helping-suggestions").children.length, 0);
     state = "failed"; await h.get("form").submit();
     assert.equal(h.get("support").children.length, 0);
     assert.match(h.get("helping-status").textContent, /could not be generated/);
+    assert.equal(h.get("helping").hidden, false); assert.equal(h.get("helping-suggestions").hidden, true);
     assert.equal(h.get("save-question").disabled, false);
     state = "disabled"; await h.get("form").submit();
     assert.match(h.get("helping-status").textContent, /Enable helping suggestions in the grade settings/);
+    assert.equal(h.get("helping-heading").textContent, "Helping suggestions");
     assert.equal(h.get("support").children.length, 0);
   } finally {h.page.dispose();}
 });

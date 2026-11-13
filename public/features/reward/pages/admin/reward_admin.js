@@ -1,7 +1,7 @@
 import {
   DEFAULT_REWARD_CONFIG, getRewardConfig, saveRewardConfig,
   getAssessmentFrameworkRewardConfig, saveAssessmentFrameworkRewardConfig,
-} from "../../reward_module.js?v=20261104-fill-preassessment-v3";
+} from "../../reward_module.js?v=20261112-essay-variation-v1";
 import {
   listAssessmentFrameworks, getAssessmentFrameworkById, ASSESSMENT_FRAMEWORK_END_LEVEL_ID,
 } from "../../../assessment_framework/assessment_framework_module.js?v=20261104-fill-preassessment-v3";

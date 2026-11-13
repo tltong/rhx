@@ -10,7 +10,8 @@
  *   Optional second argument {preventQuestionReuse: true} atomically rejects a question already
  *   assigned to this student under another attempt ID (code: essay-question-already-used).
  *   questionUsage/{essayQuestionId} records the first assignment and persists after completion.
- *   The follow-up essay generator enables this guard; initial syllabus attachments retain their existing behavior.
+ *   Every production assignment selects an eligible type using lifetime student history.
+ *   Initial assignments and follow-ups share the same transactional type/question guards.
  * getAssignedEssayPractice({studentId, essayPracticeId}) -> Promise<AssignedEssayPractice|null>
  * listAssignedEssayPractices({studentId, syllabusId?, topicId?, limit, cursor?})
  * completeAssignedEssayPractice({studentId, essayPracticeId, essayText, timeTakenSeconds})
@@ -38,10 +39,11 @@ const {ListCompletedEssayPractices} = require("./application/list_completed_essa
 
 
 const studentEssayPracticeRepository = new FirestoreStudentEssayPracticeRepository();
-const assignEssayPracticeUseCase = new AssignEssayPracticeToStudent({
-  repository: studentEssayPracticeRepository, getEssayQuestionById,
-  prepareQuestion: questionId => prepareEssayQuestionForAssignment(questionId, {updatedBy: "system:assignment"}),
-});
+function createEssayAssignment({prepareForStudent = input => require("../essay_question_generator/application/select_student_essay_question").prepareStudentEssayQuestion(input, {updatedBy: "system:assignment"}, {trusted: true}), repository = studentEssayPracticeRepository} = {}) {
+  const useCase = new AssignEssayPracticeToStudent({repository, getEssayQuestionById, prepareForStudent, prepareQuestion: questionId => prepareEssayQuestionForAssignment(questionId, {updatedBy: "system:assignment"})});
+  return (input, context) => useCase.execute(input, context);
+}
+const defaultAssignEssay = createEssayAssignment();
 const completeEssayPracticeUseCase = new CompleteAssignedEssayPractice(studentEssayPracticeRepository);
 const getAssignedEssayPracticeUseCase = new GetAssignedEssayPractice(studentEssayPracticeRepository);
 const getCompletedEssayPracticeUseCase = new GetCompletedEssayPractice(studentEssayPracticeRepository);
@@ -49,7 +51,7 @@ const listAssignedEssayPracticesUseCase = new ListAssignedEssayPractices(student
 const listCompletedEssayPracticesUseCase = new ListCompletedEssayPractices(studentEssayPracticeRepository);
 
 async function assignEssayPracticeToStudent(input, context) {
-  return assignEssayPracticeUseCase.execute(input, context);
+  return defaultAssignEssay(input, context);
 }
 
 async function completeAssignedEssayPractice(input) {
@@ -73,6 +75,7 @@ async function listCompletedEssayPractices(input) {
 }
 
 module.exports = {
+  createEssayAssignment,
   // Trusted backend orchestration only. Browser APIs cannot set grading status.
   claimEssayPracticeScoring: input => studentEssayPracticeRepository.claimScoring(input),
   setEssayPracticeScoringStatus: input => studentEssayPracticeRepository.setScoringStatus(input),

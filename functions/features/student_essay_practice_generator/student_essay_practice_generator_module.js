@@ -28,17 +28,18 @@ const {getAssessmentFrameworkById} = require("../assessment_framework/assessment
  */
 const {getCompletedEssayPractice, getAssignedEssayPractice, listCompletedEssayPractices,
   listAssignedEssayPractices, assignEssayPracticeToStudent} = require("../student_essay_practice/student_essay_practice_module");
-const {getEssayQuestionById, listEssayQuestions, generateEssayQuestion, saveEssayQuestion, getEssayQuestionGeneratorConfig} = require("../essay_question_generator/essay_question_generator_module");
+const {getEssayQuestionById, isEssayQuestionRetired, listEssayQuestions, generateEssayQuestion, saveEssayQuestion, getEssayQuestionGeneratorConfig} = require("../essay_question_generator/essay_question_generator_module");
 const {getQuestionSeedEntries, getDefaultQuestionSeedTheme} = require("../question_seed_generator/question_seed_generator_module");
 const {FirestoreEssayGenerationRepository} = require("./infrastructure/firestore_essay_generation_repository");
 const {GenerateNextStudentEssayPractice} = require("./application/generate_next_student_essay_practice");
 
 const generator = new GenerateNextStudentEssayPractice({
+  loadStudentEssayHistory: require("../essay_question_generator/infrastructure/student_essay_history").loadStudentEssayHistory,
   repository: new FirestoreEssayGenerationRepository(),
   getStudentTopicLevel, getSyllabusById, getAssessmentFrameworkById,
   getCompletedEssayPractice, getAssignedEssayPractice, listCompletedEssayPractices,
   listAssignedEssayPractices, assignEssayPracticeToStudent,
-  getEssayQuestionById, listEssayQuestions, generateEssayQuestion, saveEssayQuestion, getEssayQuestionGeneratorConfig, getQuestionSeedEntries, getDefaultQuestionSeedTheme,
+  getEssayQuestionById, isEssayQuestionRetired, listEssayQuestions, generateEssayQuestion, saveEssayQuestion, getEssayQuestionGeneratorConfig, getQuestionSeedEntries, getDefaultQuestionSeedTheme,
   requireAdministrator: async context => ({uid: context?.updatedBy}),
 });
 

@@ -3,22 +3,22 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Essay Question Generator Admin</title>
+    <title>Essay Admin</title>
     <script>document.documentElement.hidden = true;</script>
     <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script>
     <script defer src="/__/firebase/init.js"></script>
-    <script type="module" src="/init_fb.js?v=20261104-fill-preassessment-v3"></script>
-    <link rel="stylesheet" href="./essay_question_generator_admin.css?v=20261101-essay-simple-images-v4">
+    <script type="module" src="/init_fb.js?v=20261111-essay-config-v1"></script>
+    <link rel="stylesheet" href="./essay_question_generator_admin.css?v=20261112-essay-variation-v1">
   </head>
   <body>
     <main class="page-shell" id="essay-question-generator-admin">
       <a class="back-link" href="/features/site_admin/pages/site_admin/site_admin.html">Back to Site Admin</a>
       <header>
-        <h1>Essay Question Generator</h1>
-        <p class="subtitle">Configure the instructions used to generate essay questions.</p>
+        <h1>Essay Admin</h1>
+        <p class="subtitle">Configure essay types and grades, then generate and preview questions.</p>
       </header>
       <p id="essay-status" class="status" role="status" aria-live="polite" hidden></p>
       <button id="essay-retry-load" class="secondary" type="button" hidden>Retry loading</button>
@@ -36,7 +36,7 @@
 
         <div class="section-heading">
           <h2>Grade instructions</h2>
-          <p class="help-text">Configure instructions, minimum essay words, pictures and helping suggestions for each grade. Picture and suggestion settings apply across all languages. Changes affect future assignments; existing assignments keep their original content. Leave the minimum blank for no word-count requirement. Set word counts here; word counts in additional instructions are ignored.</p>
+          <p class="help-text">Configure shared instructions, minimum essay words and helping suggestions for each grade. Choose essay types and their picture settings below. Settings apply across all languages. Changes affect future assignments; existing assignments keep their original content. Leave the minimum blank for no word-count requirement. Set word counts here; word counts in additional instructions are ignored.</p>
         </div>
         <div class="grade-grid">
           <section class="panel" aria-labelledby="essay-primary-heading">
@@ -49,6 +49,12 @@
           </section>
         </div>
 
+        <section class="panel essay-types-panel" aria-labelledby="essay-types-heading">
+          <h2 id="essay-types-heading">Essay types and availability</h2>
+          <p class="help-text">Open a type to edit its instructions and choose the grades that can receive it. Each grade has its own picture option. Required pictures cannot be deselected. Types not selected for any grade remain unavailable.</p>
+          <div id="essay-type-catalog"></div>
+          <button id="essay-add-type" type="button" class="secondary" disabled>Add essay type</button>
+        </section>
         <section class="panel difficulty-panel" aria-labelledby="essay-difficulty-heading">
           <h2 id="essay-difficulty-heading">Difficulty instructions</h2>
           <p class="help-text">The selected difficulty instructions are added to the common and grade instructions.</p>
@@ -86,6 +92,10 @@
               </select>
             </div>
             <div>
+              <label for="essay-demo-type">Essay type</label>
+              <select id="essay-demo-type" disabled><option value="">Choose a level and grade</option></select>
+            </div>
+            <div>
               <label for="essay-demo-language">Language</label>
               <select id="essay-demo-language" required disabled>
                 <option value="">Choose a language</option>
@@ -120,10 +130,14 @@
           <p id="essay-demo-result-meta" class="help-text"></p>
           <label for="essay-demo-preview">Question preview</label>
           <textarea id="essay-demo-preview" rows="8" dir="auto" readonly></textarea>
+          <section id="essay-demo-helping" aria-labelledby="essay-demo-helping-heading" hidden>
+            <h3 id="essay-demo-helping-heading">Helping suggestions</h3>
+            <p id="essay-demo-helping-status" class="help-text" role="status" aria-live="polite" hidden></p>
+            <ul id="essay-demo-helping-suggestions" hidden></ul>
+          </section>
           <h3 id="essay-demo-picture-heading" hidden>Generated picture</h3>
           <p id="essay-demo-picture-status" class="help-text" role="status" aria-live="polite" hidden></p>
-          <div id="essay-demo-support" aria-label="Generated picture and helping suggestions"></div>
-          <p id="essay-demo-helping-status" class="help-text" role="status" aria-live="polite" hidden></p>
+          <div id="essay-demo-support" aria-label="Generated picture"></div>
           <section id="essay-demo-image-prompts" aria-labelledby="essay-demo-image-prompts-heading" hidden>
             <h3 id="essay-demo-image-prompts-heading">Image-generation prompt details</h3>
             <p id="essay-demo-image-prompts-note" class="help-text" role="status" aria-live="polite"></p>
@@ -142,7 +156,7 @@
       id="site-admin-page-loader"
       type="module"
       data-site-admin-page
-      data-page-module="./essay_question_generator_admin.js?v=20261104-fill-preassessment-v3"
+      data-page-module="./essay_question_generator_admin.js?v=20261113-essay-helping-preview-v1"
       src="/features/site_admin/pages/common/site_admin_page_loader.js?v=20260827-site-admin-guard-v1"
     ></script>
   </body>

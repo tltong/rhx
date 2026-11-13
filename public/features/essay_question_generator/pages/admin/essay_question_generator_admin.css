@@ -60,3 +60,15 @@ progress {display: block; width: 100%; height: 9px; margin-top: 20px; accent-col
 }
 
 .word-count-field input[type="checkbox"] {width:22px;height:22px;display:block;margin:8px 0 16px;}
+
+.essay-types-panel {margin-top:24px;}
+.essay-type-card {border:1px solid #cbd9e6;border-radius:6px;padding:16px;margin:16px 0;overflow-wrap:anywhere;}
+.essay-type-card summary {cursor:pointer;font-weight:bold;font-size:18px;}
+.essay-type-card > div {margin-top:16px;}
+.essay-type-card fieldset {min-width:0;margin:12px 0;padding:14px;border:1px solid #cbd9e6;border-radius:6px;}
+.essay-type-card input[type="text"] {width:100%;padding:12px;border:1px solid #a8bccd;border-radius:6px;font:inherit;}
+.essay-type-card input[type="checkbox"] {width:22px;height:22px;margin:0 0 12px;}
+.essay-type-card textarea {min-height:80px;}
+.essay-type-card legend {font-weight:bold;}
+
+button.secondary:hover:not(:disabled) {background:#e0f2fe;color:#075985;}

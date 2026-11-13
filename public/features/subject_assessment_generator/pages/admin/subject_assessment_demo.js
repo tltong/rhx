@@ -3,7 +3,7 @@ import {resolveStudentCurrentGrade} from "../../../student/domain/student_summar
 import {studentLevels} from "../../../../config/firebase/student_schema.js";
 
 async function defaultPreview(input, options) {
-  const {previewSubjectAssessment} = await import("../../subject_assessment_generator_module.js?v=20261108-subject-assessment-theme-seed-v1");
+  const {previewSubjectAssessment} = await import("../../subject_assessment_generator_module.js?v=20261112-essay-variation-v1");
   return previewSubjectAssessment(input, options);
 }
 

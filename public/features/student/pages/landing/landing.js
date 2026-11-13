@@ -1,5 +1,5 @@
 import {watchStudentFillInTheBlanksPracticeUpdates} from "../../../student_fill_in_the_blanks_practice/student_fill_in_the_blanks_practice_module.js?v=20261104-fill-preassessment-v3";
-import {watchStudentEssayPracticeUpdates} from "../../../student_essay_practice/student_essay_practice_module.js?v=20261104-fill-preassessment-v3";
+import {watchStudentEssayPracticeUpdates} from "../../../student_essay_practice/student_essay_practice_module.js?v=20261112-essay-variation-v1";
 import {EssayPracticeRefreshController} from "./essay_practice_refresh_controller.js?v=20261104-fill-preassessment-v3";
 import {SubjectAssessmentDashboard} from "../../../subject_assessment/components/subject_assessment_dashboard.js?v=20261109-assessment-submit-dashboard-v1";
 import {
@@ -9,7 +9,7 @@ import {
 } from "../../student_module.js?v=20261110-student-profile-v1";
 import {
   getStudentDashboard
-} from "../../../student_dashboard/student_dashboard_module.js?v=20261110-student-profile-v1";
+} from "../../../student_dashboard/student_dashboard_module.js?v=20261112-essay-variation-v1";
 import {
   recordStudentLogin
 } from "../../../student_login/student_login_module.js?v=20261104-fill-preassessment-v3";
@@ -18,7 +18,7 @@ import {
   getRewardConfig,
   listRecentStudentRewardActivities,
   watchStudentRewardTotal
-} from "../../../reward/reward_module.js?v=20261104-fill-preassessment-v3";
+} from "../../../reward/reward_module.js?v=20261112-essay-variation-v1";
 import {
   completionProcessingStages,
   completionProcessingStatuses,
@@ -33,7 +33,7 @@ import {
   getAdditionalMissionAvailability,
   pauseCoreDailyMission,
   unpauseTopic
-} from "../../../daily_mission/daily_mission_module.js?v=20261104-fill-preassessment-v3";
+} from "../../../daily_mission/daily_mission_module.js?v=20261112-essay-variation-v1";
 import {
   isTopicPausable
 } from "../../../syllabus/syllabus_module.js?v=20261105-mcq-adoption-v1";

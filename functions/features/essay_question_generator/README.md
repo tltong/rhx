@@ -1,6 +1,11 @@
-# Essay pictures and helping suggestions
+# Essay generation and supporting pictures
 
-The existing Essay Question Generator admin page configures `gradeSupport` for
+Configuration is now owned by `essay_config`. See [essay configuration](../../../docs/essay-configuration.md)
+for catalog, grade references, picture rules, compatibility and rollout. The notes
+below describe the existing support snapshot and optional-picture behavior. New
+required-picture tasks fail generation if their image is unavailable.
+
+The legacy Essay Question Generator configuration used `gradeSupport` for
 primary/secondary standards 1–6. Each entry has `pictureEnabled` (default false),
 `helpingWordsEnabled` (default false), and `helpingWordCount` (default 5; 1–30).
 Settings apply to all languages for that level/standard. Suggestions use the essay

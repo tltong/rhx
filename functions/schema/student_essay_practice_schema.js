@@ -12,15 +12,18 @@ const studentEssayPracticeSchema = {
   documentId: studentEssayPracticeDocumentIdPattern,
   fields: {},
   subcollections: {
+    typeHistory: {collection: "typeHistory", documentId: "[essay_type_id]", fields: {firstAssignedAt: "timestamp"}},
     questionUsage: {
       collection: ESSAY_QUESTION_USAGE_SUBCOLLECTION,
       documentId: "[essay_question_id]",
-      fields: {essayPracticeId: "string", syllabusId: "string", topicId: "string", assignedAt: "timestamp"}
+      fields: {essayPracticeId: "optional string", syllabusId: "optional string", topicId: "optional string", essayTypeId: "optional string", seedUsed: "optional string", assignedAt: "timestamp"}
     },
     assignedEssayPractices: {
       collection: ASSIGNED_ESSAY_PRACTICES_SUBCOLLECTION,
       documentId: assignedEssayPracticeDocumentIdPattern,
       fields: {
+        essayTypeId: {type: "string", optional: true},
+        seedUsed: {type: "string", optional: true},
         essayQuestionId: "string",
         sourceEssayQuestionId: {type: "string", optional: true},
         syllabusId: "string",
@@ -32,6 +35,8 @@ const studentEssayPracticeSchema = {
       collection: COMPLETED_ESSAY_PRACTICES_SUBCOLLECTION,
       documentId: completedEssayPracticeDocumentIdPattern,
       fields: {
+        essayTypeId: {type: "string", optional: true},
+        seedUsed: {type: "string", optional: true},
         essayQuestionId: "string",
         sourceEssayQuestionId: {type: "string", optional: true},
         syllabusId: "string",

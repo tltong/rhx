@@ -1,3 +1,4 @@
+const {loadStudentEssayHistory} = require("../essay_question_generator/infrastructure/student_essay_history");
 /**
  * generateSubjectAssessment({studentId,syllabusId,language,requestId?,expectedConfigurationVersion?}, context)
  * previewSubjectAssessment(sameInput, {onProgress?}, context) performs zero database/Storage writes.
@@ -24,7 +25,7 @@ const {getTopicDiagramPercentage} = require("../diagram_config/diagram_config_mo
 const {generateLlmPrompt, generateLlmPromptWithDiagram} = require("../llm_prompt_generator/llm_prompt_generator_module");
 const {renderMermaidDiagram} = require("../diagram_generator/diagram_generator_module");
 const {writeQuestion} = require("../question/question_module");
-const {getRandomQuestionSeedEntry} = require("../question_seed_generator/question_seed_generator_module");
+const {getRandomQuestionSeedEntry, getQuestionSeedEntries, getDefaultQuestionSeedTheme} = require("../question_seed_generator/question_seed_generator_module");
 const {generateImage} = require("../image_generation/image_generation_module");
 const {createEssayPicture} = require("../essay_question_generator/infrastructure/essay_picture_service");
 const {createPassagePictureService} = require("../fill_in_the_blanks_question_generator/infrastructure/passage_picture_service");
@@ -34,7 +35,7 @@ function createSubjectAssessmentGenerator({getDb = getFirestoreDb, authorize = r
   history = new FirestoreStudentContentHistory({getDb}), jobs = new FirestoreSubjectAssessmentGenerationRepository({getDb}),
   loadContext = async input => ({...await configurations.options(input), configuration: await configurations.get(input), syllabus: await getSyllabusById(input.syllabusId)}),
   createPool = run => new SubjectAssessmentContentPool(run, {
-    getDb, generateText: generateLlmText, llmProfiles: DEEPSEEK_REQUEST_PROFILES, getDefaultPrompt: getDefaultLlmPromptConfig,
+    getDb, loadStudentEssayHistory, getQuestionSeedEntries, getDefaultQuestionSeedTheme, generateText: generateLlmText, llmProfiles: DEEPSEEK_REQUEST_PROFILES, getDefaultPrompt: getDefaultLlmPromptConfig,
     getDiagramPercentage: getTopicDiagramPercentage, generatePrompt: generateLlmPrompt, generatePromptWithDiagram: generateLlmPromptWithDiagram,
     renderDiagram: renderMermaidDiagram, writeQuestion, getRandomQuestionSeedEntry,
     getEssayConfiguration: async () => await essay.getEssayQuestionGeneratorConfig() || createDefaultConfiguration(), saveEssayQuestion: essay.saveEssayQuestion,

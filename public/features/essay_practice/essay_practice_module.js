@@ -6,7 +6,7 @@
  * Web creation requires a verified site administrator; reads require sign-in.
  * No Firebase endpoints are exported.
  */
-import {getEssayQuestionById} from "../essay_question_generator/essay_question_generator_module.js?v=20261104-fill-preassessment-v3";
+import {getEssayQuestionById} from "../essay_question_generator/essay_question_generator_module.js?v=20261112-essay-variation-v1";
 import {CreateEssayPractice} from "./application/create_essay_practice.js?v=20261104-fill-preassessment-v3";
 import {GetEssayPracticeById} from "./application/get_essay_practice_by_id.js?v=20261104-fill-preassessment-v3";
 import {FirestoreEssayPracticeRepository} from "./infrastructure/firestore_essay_practice_repository.js?v=20261104-fill-preassessment-v3";

@@ -1,5 +1,5 @@
 import {normalizeSupportSettings} from "./essay_question_support.js?v=20261101-essay-simple-images-v4";
-import {ESSAY_QUESTION_LEVELS, ESSAY_QUESTION_STANDARDS, ESSAY_QUESTION_DIFFICULTIES} from "../../../config/firebase/essay_question_generator_schema.js?v=20261101-essay-simple-images-v4";
+import {ESSAY_QUESTION_LEVELS, ESSAY_QUESTION_STANDARDS, ESSAY_QUESTION_DIFFICULTIES} from "../../../config/firebase/essay_question_generator_schema.js?v=20261112-essay-variation-v1";
 
 
 function requireRecord(value, name) {

@@ -6,9 +6,9 @@ import {requireStudentSubscriptionAccess} from "../syllabus_subscription/student
  * Saves the submission before asynchronous backend scoring. No new Firebase callable.
  */
 import {getAssignedEssayPractice, getCompletedEssayPractice, completeAssignedEssayPractice}
-  from "../student_essay_practice/student_essay_practice_module.js?v=20261104-fill-preassessment-v3";
-import {getEssayQuestionById} from "../essay_question_generator/essay_question_generator_module.js?v=20261104-fill-preassessment-v3";
-import {getEssayResult} from "../essay_scoring/essay_scoring_module.js?v=20261104-fill-preassessment-v3";
+  from "../student_essay_practice/student_essay_practice_module.js?v=20261112-essay-variation-v1";
+import {getEssayQuestionById} from "../essay_question_generator/essay_question_generator_module.js?v=20261112-essay-variation-v1";
+import {getEssayResult} from "../essay_scoring/essay_scoring_module.js?v=20261112-essay-variation-v1";
 import {requireCurrentFirebaseAuthUser} from "../../utils/firebase/firebase_auth.js";
 import {LoadEssayPracticeSession} from "./application/load_essay_practice_session.js?v=20261104-fill-preassessment-v3";
 import {SubmitEssayPracticeSession} from "./application/submit_essay_practice_session.js?v=20261104-fill-preassessment-v3";

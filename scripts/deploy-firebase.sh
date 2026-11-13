@@ -5,9 +5,10 @@ set -euo pipefail
 umask 077
 
 usage() {
-  echo "Usage: $0 {hosting|functions|student-profile|firestore|firestore-indexes|firestore-rules|all|ocr-jobs}"
+  echo "Usage: $0 {hosting|functions|essay-functions|student-profile|firestore|firestore-indexes|firestore-rules|all|ocr-jobs}"
   echo "       firestore deploys the configured rules and indexes."
   echo "       student-profile deploys only the three student profile functions."
+  echo "       essay-functions deploys the essay configuration, generation and assessment functions."
   echo "       ocr-jobs prepares private temporary OCR job storage."
   echo "       $0 function <exported-function-name>"
   echo "       $0 codebase <configured-codebase-name>"
@@ -19,11 +20,15 @@ function_name=''
 codebase_name=''
 resolved_codebase=''
 case "${1:-}" in
-  hosting|functions|student-profile|firestore|firestore-indexes|firestore-rules|all|ocr-jobs)
+  hosting|functions|essay-functions|student-profile|firestore|firestore-indexes|firestore-rules|all|ocr-jobs)
     [[ $# -eq 1 ]] || { usage >&2; exit 2; }
     case "$1" in
       hosting) targets=hosting ;;
       functions) targets=functions ;;
+      essay-functions)
+        targets=functions:default:essayConfig,functions:default:generateLlmImage,functions:default:onStudentEssayPracticeCompleted,functions:default:onSyllabusSubscriptionCreated,functions:default:subjectAssessment,functions:default:onSubjectAssessmentSubmitted,functions:default:onStudentSubjectAssessmentRequested,functions:default:onSubjectAssessmentSubscriptionCreated,functions:default:onStudentPracticeCompleted,functions:default:onStudentFillInTheBlanksPracticeCompleted,functions:default:studentTopicPracticeReset
+        resolved_codebase=default
+        ;;
       student-profile)
         targets=functions:default:studentProfile,functions:default:onStudentUsernameChangeRequested,functions:default:retryStudentUsernameChanges
         resolved_codebase=default

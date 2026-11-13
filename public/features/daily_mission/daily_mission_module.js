@@ -7,7 +7,7 @@ import {listAssignedFillInTheBlanksPractices, listCompletedFillInTheBlanksPracti
  * One additional mission per topic per day is shared across both practice types.
  */
 import {GetAdditionalMissionAvailability} from "./application/get_additional_mission_availability.js?v=20261104-fill-firestore-v2";
-import {listAssignedEssayPractices, listCompletedEssayPractices, getAssignedEssayPractice, getCompletedEssayPractice} from "../student_essay_practice/student_essay_practice_module.js?v=20261104-fill-preassessment-v3";
+import {listAssignedEssayPractices, listCompletedEssayPractices, getAssignedEssayPractice, getCompletedEssayPractice} from "../student_essay_practice/student_essay_practice_module.js?v=20261112-essay-variation-v1";
 import {ListAdditionalMissions} from "./application/list_additional_missions.js?v=20261104-fill-preassessment-v3";
 /**
  * Essay core missions include practiceType: "essay"; practiceId is the student essay attempt ID.
@@ -129,7 +129,7 @@ import {
 } from "./application/unpause_topic.js?v=20261104-fill-preassessment-v3";
 import {
   FirestoreDailyMissionRepository
-} from "./infrastructure/firestore_daily_mission_repository.js?v=20261104-fill-preassessment-v3";
+} from "./infrastructure/firestore_daily_mission_repository.js?v=20261112-essay-variation-v1";
 import {
   getPracticeById
 } from "../practice/practice_module.js?v=20261104-fill-preassessment-v3";

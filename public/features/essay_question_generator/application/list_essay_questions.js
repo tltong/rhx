@@ -1,4 +1,4 @@
-import {normalizeListInput} from "../domain/essay_question.js?v=20261109-subject-assessment-generation-v1";
+import {normalizeListInput} from "../domain/essay_question.js?v=20261112-essay-variation-v1";
 
 
 class ListEssayQuestions {

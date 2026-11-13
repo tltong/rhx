@@ -5,7 +5,7 @@ import {
   DEFAULT_PRE_ASSESSMENT_WEIGHT,
   getReadinessConfig,
   saveReadinessConfig
-} from "../../readiness_module.js?v=20261104-fill-preassessment-v3";
+} from "../../readiness_module.js?v=20261112-essay-variation-v1";
 
 export function mountReadinessAdmin({
   root = document,

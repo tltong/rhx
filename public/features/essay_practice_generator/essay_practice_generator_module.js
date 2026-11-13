@@ -10,8 +10,8 @@ import {getAssessmentFrameworkById} from "../assessment_framework/assessment_fra
  */
 import {getSyllabusById, assignTopicPreAssessmentPractice} from "../syllabus/syllabus_module.js?v=20261105-mcq-adoption-v1";
 import {getRandomQuestionSeedEntry} from "../question_seed_generator/question_seed_generator_module.js?v=20261104-fill-preassessment-v3";
-import {generateEssayQuestion, getEssayQuestionById} from "../essay_question_generator/essay_question_generator_module.js?v=20261104-fill-preassessment-v3";
-import {createEssayPractice, getEssayPracticeById} from "../essay_practice/essay_practice_module.js?v=20261104-fill-preassessment-v3";
+import {generateEssayQuestion, getEssayQuestionById} from "../essay_question_generator/essay_question_generator_module.js?v=20261112-essay-variation-v1";
+import {createEssayPractice, getEssayPracticeById} from "../essay_practice/essay_practice_module.js?v=20261112-essay-variation-v1";
 import {GenerateEssayPractice} from "./application/generate_essay_practice.js?v=20261109-subject-assessment-generation-v1";
 import {requireCurrentFirebaseAuthUser} from "../../utils/firebase/firebase_auth.js";
 import {requireCurrentSiteAdmin} from "../site_admin/site_admin_module.js?v=20260827-site-admin-guard-v1";

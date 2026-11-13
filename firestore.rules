@@ -47,6 +47,17 @@ function clientPreservesBillingState() {
   ]);
 }
 
+    function essayPoolReady() {
+      return !exists(/databases/$(database)/documents/essayConfig/poolMaintenance)
+        || get(/databases/$(database)/documents/essayConfig/poolMaintenance).data.get('active', false) != true;
+    }
+    function essayAssignmentAvailable(collection) {
+      return collection != 'studentEssayPractices' || request.method == 'delete'
+        || !request.resource.data.keys().hasAny(['essayQuestionId'])
+        || request.resource.data.keys().hasAny(['completedAt'])
+        || (exists(/databases/$(database)/documents/essayQuestionGenerator/questionIndex/entries/$(request.resource.data.essayQuestionId))
+          && !exists(/databases/$(database)/documents/essayQuestionRetirements/$(request.resource.data.essayQuestionId)));
+    }
     function signedIn() { return request.auth != null; }
     function siteAdmin() {
       return signedIn() && request.auth.token.get('email_verified', false)
@@ -77,7 +88,7 @@ function clientPreservesBillingState() {
     function protectedCollection(collection) {
       return studentLearningCollection(collection) || sharedLearningCollection(collection) || fillInTheBlanksStudentCollection(collection)
         || collection in ['fillInTheBlanksQuestions', 'fillInTheBlanksPractices', 'fillInTheBlanksPracticeResults', 'fillInTheBlanksQuestionGenerator', 'fillInTheBlanksScoring', 'fillInTheBlanksDrafts', 'fillInTheBlanksPassageAssets']
-        || collection in ['subscriptions', 'syllabusSubscriptions', 'stripeCustomers', 'paymentConfigs', 'siteAdmins', 'practiceResults', 'essayQuestionGenerator', 'essayQuestionAssets', 'subjectAssessmentConfigs', 'subjectAssessments', 'subjectAssessmentGenerations', 'studentSubjectAssessmentUsage', 'subjectAssessmentSubmissions', 'subjectAssessmentResults', 'subjectAssessmentSettings', 'schoolStates', 'schoolLocalities', 'schools', 'students', 'studentUsernames', 'studentCredentialChanges', 'streamSubscriptions', 'guardianStudentLinks'];
+        || collection in ['subscriptions', 'syllabusSubscriptions', 'stripeCustomers', 'paymentConfigs', 'siteAdmins', 'practiceResults', 'essayQuestionGenerator', 'essayQuestionAssets', 'essayQuestionSnapshots', 'essayQuestionRetirements', 'essayTypes', 'essayGradeConfigs', 'essayConfig', 'subjectAssessmentConfigs', 'subjectAssessments', 'subjectAssessmentGenerations', 'studentSubjectAssessmentUsage', 'subjectAssessmentSubmissions', 'subjectAssessmentResults', 'subjectAssessmentSettings', 'schoolStates', 'schoolLocalities', 'schools', 'students', 'studentUsernames', 'studentCredentialChanges', 'streamSubscriptions', 'guardianStudentLinks'];
     }
     // Profile and credential mutations are owned by studentProfile. Guardian reads
     // use its redacted response, including while legacy PIN fields are being removed.
@@ -256,12 +267,19 @@ function clientPreservesBillingState() {
     }
     match /essayQuestionGenerator/questionIndex/entries/{questionId} {
       allow read: if signedIn();
-      allow create: if siteAdmin();
+      allow create: if siteAdmin() && essayPoolReady()
+        && !exists(/databases/$(database)/documents/essayQuestionRetirements/$(questionId));
     }
     match /essayQuestionGenerator/{level}/standards/{standard}/languages/{language}/questions/{questionId} {
       allow read: if signedIn();
-      allow create: if siteAdmin();
+      allow create: if siteAdmin() && essayPoolReady()
+        && !exists(/databases/$(database)/documents/essayQuestionRetirements/$(questionId));
     }
+    match /essayTypes/{id} { allow read: if signedIn(); allow write: if false; }
+    match /essayGradeConfigs/{id} { allow read: if signedIn(); allow write: if false; }
+    match /essayConfig/{id} { allow read: if signedIn(); allow write: if false; }
+    match /essayQuestionRetirements/{questionId} { allow read: if signedIn(); allow write: if false; }
+    match /essayQuestionSnapshots/{questionId} { allow read: if signedIn(); allow write: if false; }
     match /essayQuestionAssets/{questionId} {
       // Paid generation progress and verified image metadata are server-owned.
       allow read, write: if false;
@@ -314,6 +332,7 @@ function clientPreservesBillingState() {
       allow read: if studentLearningCollection(collection) && currentStudentHasBillingAccess()
         && (mayReadStudent(studentId) || studentId == 'config');
       allow write: if studentLearningCollection(collection) && currentStudentHasBillingAccess()
+        && (collection != 'studentEssayPractices' || essayPoolReady()) && essayAssignmentAvailable(collection)
         && (studentId == 'config' ? siteAdmin() : mayWriteStudent(studentId));
     }
     match /{collection}/{document=**} {

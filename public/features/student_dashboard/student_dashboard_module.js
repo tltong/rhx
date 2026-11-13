@@ -1,8 +1,8 @@
 import {listCompletedFillInTheBlanksPractices} from "../student_fill_in_the_blanks_practice/student_fill_in_the_blanks_practice_module.js?v=20261104-fill-preassessment-v3";
 import {getFillInTheBlanksPracticeById} from "../fill_in_the_blanks_practice/fill_in_the_blanks_practice_module.js?v=20261104-fill-preassessment-v3";
-import {listCompletedEssayPractices} from "../student_essay_practice/student_essay_practice_module.js?v=20261104-fill-preassessment-v3";
-import {getEssayPracticeById} from "../essay_practice/essay_practice_module.js?v=20261104-fill-preassessment-v3";
-import {getEssayResult} from "../essay_scoring/essay_scoring_module.js?v=20261104-fill-preassessment-v3";
+import {listCompletedEssayPractices} from "../student_essay_practice/student_essay_practice_module.js?v=20261112-essay-variation-v1";
+import {getEssayPracticeById} from "../essay_practice/essay_practice_module.js?v=20261112-essay-variation-v1";
+import {getEssayResult} from "../essay_scoring/essay_scoring_module.js?v=20261112-essay-variation-v1";
 /**
  * getStudentDashboard(studentId: string)
  *   -> Promise<{
@@ -58,15 +58,15 @@ import {
 } from "../student/student_module.js?v=20261110-student-profile-v1";
 import {
   getStudentTopicLevel
-} from "../student_assessment_progress/student_assessment_progress_module.js?v=20261105-mcq-adoption-v1";
+} from "../student_assessment_progress/student_assessment_progress_module.js?v=20261112-essay-variation-v1";
 import {
   getReadinessScore,
   getSubjectReadinessScore
-} from "../readiness/readiness_module.js?v=20261104-fill-preassessment-v3";
+} from "../readiness/readiness_module.js?v=20261112-essay-variation-v1";
 import {
   getTopicReliabilityScore,
   getSubjectReliabilityScore
-} from "../reliability/reliability_module.js?v=20261104-fill-preassessment-v3";
+} from "../reliability/reliability_module.js?v=20261112-essay-variation-v1";
 import {
   listCompletedPractices
 } from "../student_practice/student_practice_module.js?v=20261104-fill-preassessment-v3";

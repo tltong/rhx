@@ -1,6 +1,6 @@
 import {guardStudentMaintenance} from "../../../utils/student_topic_reset_guard.js?v=20261104-fill-preassessment-v3";
 import {missionPracticeType, missionTypeFields, studentPracticeRoot, studentPracticeKind} from "../domain/mission_practice_type.js?v=20261104-fill-firestore-v2";
-import {STUDENT_ESSAY_PRACTICES_COLLECTION, ASSIGNED_ESSAY_PRACTICES_SUBCOLLECTION, COMPLETED_ESSAY_PRACTICES_SUBCOLLECTION} from "../../../config/firebase/student_essay_practice_schema.js?v=20261018-essay-reuse-v1";
+import {STUDENT_ESSAY_PRACTICES_COLLECTION, ASSIGNED_ESSAY_PRACTICES_SUBCOLLECTION, COMPLETED_ESSAY_PRACTICES_SUBCOLLECTION} from "../../../config/firebase/student_essay_practice_schema.js?v=20261112-essay-variation-v1";
 import {
   STUDENT_DAILY_MISSION_ADDITIONAL_TOPICS_SUBCOLLECTION,
   STUDENT_DAILY_MISSION_CORE_TOPICS_SUBCOLLECTION,

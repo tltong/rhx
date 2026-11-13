@@ -1,4 +1,4 @@
-import {normalizeConfiguration, requireAdministratorUid} from "../domain/essay_question_generator_config.js?v=20261101-essay-simple-images-v4";
+import {normalizeConfiguration, requireAdministratorUid} from "../domain/essay_question_generator_config.js?v=20261112-essay-variation-v1";
 
 
 class SaveEssayQuestionGeneratorConfig {

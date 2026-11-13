@@ -56,7 +56,8 @@ async function makeItem(slot, content, source, topicName) {
   } else if (slot.questionType === "essay") {
     if (!content.questionText) throw problem("The essay content is incomplete.");
     contentSnapshot = {questionText: content.questionText, wordCountRequirement: content.wordCountRequirement,
-      support: content.support, previewImage: content.previewImage, language: content.language};
+      support: content.support, previewImage: content.previewImage, language: content.language,
+      seedUsed: content.seedUsed, essayTypeId: content.essayTypeId, essayType: content.essayType, storyFrames: content.storyFrames};
     marking = {};
   } else if (slot.questionType === "fillInTheBlanks") {
     if (!content.passageText || !content.questions?.length || content.questions.some(question => typeof question.correctAnswer !== "string" || !question.correctAnswer.trim())) throw problem("The passage or its model answers are incomplete.");
@@ -67,7 +68,7 @@ async function makeItem(slot, content, source, topicName) {
   const key = identity(slot.questionType, content);
   return clean({...slot, topicName, identity: key, sourceKey: await sourceKey(key), sourceReference: poolReference(slot.questionType, content), source, contentSnapshot, marking});
 }
-function publicItem({marking, identity: contentIdentity, ...item}) {return clean(item);}
+function publicItem({marking, essayTypeSelection, identity: contentIdentity, ...item}) {return clean(item);}
 function summary(items) {
   return {itemCount: items.length, questionCount: items.reduce((count, item) => count + (item.questionType === "fillInTheBlanks" ? item.contentSnapshot.questionCount : 1), 0),
     passageCount: items.filter(item => item.questionType === "fillInTheBlanks").length,

@@ -1,9 +1,9 @@
-import {ESSAY_IMAGE_PROMPT_INSTRUCTIONS} from "../../config/essay_question_prompt_template.js?v=20261101-essay-image-prompt-preview-v6";
-import {renderEssayQuestionSupport} from "../../components/essay_question_support_view.js?v=20261101-essay-simple-images-v4";
+import {ESSAY_IMAGE_PROMPT_INSTRUCTIONS} from "../../config/essay_question_prompt_template.js?v=20261112-essay-variation-v1";
+import {renderEssayQuestionSupport} from "../../components/essay_question_support_view.js?v=20261113-essay-helping-preview-v1";
 import {
   ESSAY_QUESTION_LEVELS, ESSAY_QUESTION_STANDARDS, generateEssayQuestion, saveEssayQuestion,
-} from "../../essay_question_generator_module.js?v=20261104-fill-preassessment-v3";
-import {normalizeGenerationInput, normalizeDraftInput} from "../../domain/essay_question.js?v=20261109-subject-assessment-generation-v1";
+} from "../../essay_question_generator_module.js?v=20261112-essay-variation-v1";
+import {normalizeGenerationInput, normalizeDraftInput} from "../../domain/essay_question.js?v=20261112-essay-variation-v1";
 import {getCombinedQuestionSeed} from "../../../question_seed_generator/question_seed_generator_module.js?v=20261104-fill-preassessment-v3";
 import {listSyllabusScopeLanguages} from "../../../syllabusscope/syllabusscope_module.js?v=20261104-fill-preassessment-v3";
 
@@ -20,7 +20,8 @@ export function mountEssayQuestionDemo({
   const progress = byId("essay-demo-progress"), status = byId("essay-demo-status");
   const result = byId("essay-demo-result"), meta = byId("essay-demo-result-meta");
   const preview = byId("essay-demo-preview"), saveButton = byId("essay-demo-save-question");
-  const fields = [level, standard, language, difficulty, seed], listeners = [];
+  const essayType = byId("essay-demo-type");
+  const fields = [level, standard, language, difficulty, seed, ...(essayType ? [essayType] : [])], listeners = [];
   let configuration = {loaded: false, busy: false, dirty: false};
   let action = "", disposed = false, loadingLanguages = false, languagesLoaded = false;
   let disposeSupport = () => {};
@@ -34,6 +35,20 @@ export function mountEssayQuestionDemo({
     element.textContent = message; element.hidden = !message;
     element.classList.toggle("is-error", isError);
   }
+  let typeOptionsKey = "";
+  function refreshTypes() {
+    const config = configuration.config;
+    const refs = config.gradeSettings?.[level.value]?.[standard.value]?.essayTypes ?? [];
+    const key = JSON.stringify([level.value, standard.value, refs, config.essayTypes.map(type => [type.id, type.name])]);
+    if (key === typeOptionsKey) return;
+    typeOptionsKey = key; const previous = essayType.value; essayType.replaceChildren();
+    const prompt = root.createElement("option"); prompt.value = ""; prompt.textContent = refs.length ? "Choose an essay type" : "No essay types available for this grade"; essayType.append(prompt);
+    for (const ref of refs) {
+      const type = config.essayTypes.find(item => item.id === ref.essayTypeId); if (!type) continue;
+      const option = root.createElement("option"); option.value = type.id; option.textContent = type.name; essayType.append(option);
+    }
+    essayType.value = refs.some(ref => ref.essayTypeId === previous) ? previous : refs.length === 1 ? refs[0].essayTypeId : "";
+  }
   function selectedScope() {
     const grade = Number(standard.value);
     return Object.values(ESSAY_QUESTION_LEVELS).includes(level.value) && ESSAY_QUESTION_STANDARDS.includes(grade)
@@ -41,15 +56,16 @@ export function mountEssayQuestionDemo({
   }
   function generationInput() {
     return normalizeGenerationInput({level: level.value, standard: Number(standard.value),
-      language: language.value, difficulty: difficulty.value, seed: seed.value, save: false});
+      language: language.value, difficulty: difficulty.value, seed: seed.value, save: false, ...(essayType?.value ? {essayTypeId: essayType.value} : {})});
   }
   function updateControls() {
     const unavailable = disposed || Boolean(action) || configuration.busy || !configuration.loaded || loadingLanguages;
     for (const field of fields) field.disabled = unavailable;
     language.disabled = unavailable || loadingLanguages || !languagesLoaded;
     seedButton.disabled = unavailable || !selectedScope();
+    if (essayType && configuration.config) refreshTypes();
     let valid = false;
-    try {generationInput(); valid = true;} catch {}
+    try {generationInput(); valid = !essayType || Boolean(essayType.value);} catch {}
     generateButton.disabled = unavailable || configuration.dirty || loadingLanguages || !languagesLoaded || !valid;
     saveButton.disabled = unavailable || !draft;
     reload.disabled = disposed || Boolean(action) || configuration.busy || loadingLanguages;
@@ -81,6 +97,11 @@ export function mountEssayQuestionDemo({
     if (pictureStatus) setStatus(pictureStatus, "");
     const helpingStatus = byId("essay-demo-helping-status");
     if (helpingStatus) setStatus(helpingStatus, "");
+    const helpingSection = byId("essay-demo-helping"), helpingHeading = byId("essay-demo-helping-heading");
+    if (helpingSection) helpingSection.hidden = true;
+    if (helpingHeading) helpingHeading.textContent = "Helping suggestions";
+    const suggestions = byId("essay-demo-helping-suggestions");
+    if (suggestions) {suggestions.replaceChildren(); suggestions.hidden = true;}
     const details = byId("essay-demo-image-prompts");
     if (details) details.hidden = true;
     for (const id of ["essay-demo-image-prompt-instructions", "essay-demo-image-prompt"]) {
@@ -124,16 +145,27 @@ export function mountEssayQuestionDemo({
       setStatus(pictureStatus, message);
     }
     const helpingStatus = byId("essay-demo-helping-status");
+    const helpingSection = byId("essay-demo-helping"), helpingHeading = byId("essay-demo-helping-heading");
+    const suggestions = byId("essay-demo-helping-suggestions");
+    const words = support?.helpingWordsStatus === "ready" ? support.helpingWords : [];
+    if (helpingSection) helpingSection.hidden = false;
+    if (helpingHeading && words.length) helpingHeading.textContent = "Helping suggestions (" + words.length + ")";
+    if (suggestions) {
+      for (const word of words) {
+        const item = root.createElement("li"); item.textContent = word; item.dir = "auto"; suggestions.append(item);
+      }
+      suggestions.hidden = !words.length;
+    }
     if (helpingStatus) {
       const message = support?.helpingWordsStatus === "failed"
         ? "Helping suggestions were requested but could not be generated. The question is ready to use."
         : support?.helpingWordsStatus === "disabled"
           ? "Helping suggestions are disabled for this level and standard. Enable helping suggestions in the grade settings above and save before generating."
-          : "";
+          : words.length ? "" : "No helping suggestions were returned for this question.";
       setStatus(helpingStatus, message);
     }
     disposeSupport = renderEssayQuestionSupport({root, container: byId("essay-demo-support"), question,
-      helpingWordsHeading: "Helping suggestions (" + (support?.helpingWords?.length ?? 0) + ")"});
+      showHelpingWords: false});
   }
   function edited(event) {
     if (disposed || action) return;
@@ -198,10 +230,11 @@ export function mountEssayQuestionDemo({
     catch (error) {setStatus(status, error.message, true); return;}
     setAction("generating"); setStatus(status, "Generating your essay question. This may take a little while...");
     try {
+      if (essayType && !essayType.value) throw new Error("Choose an available essay type.");
       const generated = normalizeDraftInput(await generateQuestion(input));
       if (disposed) return;
       if (generated.level !== input.level || generated.standard !== input.standard || generated.language !== input.language
-          || generated.difficulty !== input.difficulty || generated.seedUsed !== input.seed) {
+          || (input.essayTypeId && generated.essayTypeId !== input.essayTypeId) || generated.difficulty !== input.difficulty || generated.seedUsed !== input.seed) {
         throw new Error("The generated question does not match the selected parameters. Try generating again.");
       }
       draft = generated; saved = false;
@@ -209,6 +242,7 @@ export function mountEssayQuestionDemo({
       preview.value = generated.questionText; result.hidden = false;
       meta.textContent = (generated.level === "primary" ? "Primary" : "Secondary") + " · Grade " + generated.standard
         + " · " + generated.language + " · " + generated.difficulty;
+      if (generated.essayType) meta.textContent += " · " + generated.essayType.name;
       if (generated.wordCountRequirement.minWords !== null) meta.textContent += " · Minimum " + generated.wordCountRequirement.minWords + " words";
       setStatus(status, "Question generated. Review it, then choose Save question to add it to the question library.");
     } catch (error) {

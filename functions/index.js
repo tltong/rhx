@@ -89,3 +89,5 @@ exports.onStudentSubjectAssessmentRequested = require("./triggers/student_subjec
 exports.unsubscribeStudentSyllabus = require("./syllabus_subscription").unsubscribeStudentSyllabus;
 exports.onStudentSyllabusUnsubscribed = require("./triggers/syllabus_unsubscription_cleanup_trigger").onStudentSyllabusUnsubscribed;
 exports.onSubjectAssessmentSubscriptionCreated = require("./triggers/subscribed_subject_assessment_trigger").onSubjectAssessmentSubscriptionCreated;
+
+exports.essayConfig = require("./essay_config").essayConfig;

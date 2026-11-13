@@ -219,7 +219,7 @@ for (const [layer, api, Random] of [["backend", backend, BackendRandom], ["web",
     const questionPath = questionCollectionPath(scope) + "/" + saved.questionId;
     assert.deepEqual(writes.map(write => write.path), [questionPath, indexPath(saved.questionId)]);
     assert.deepEqual(documents.get(indexPath(saved.questionId)), {documentPath: questionPath});
-    assert.deepEqual(Object.keys(documents.get(questionPath)).sort(), ["difficulty", "generatedAt", "questionText", "seedUsed", "support", "wordCountRequirement"]);
+    assert.deepEqual(Object.keys(documents.get(questionPath)).sort(), ["difficulty", "essayType", "essayTypeId", "generatedAt", "questionText", "seedUsed", "support", "wordCountRequirement"]);
     assert.deepEqual(await api.getEssayQuestionById(saved.questionId), saved);
   });
   test(layer + ": grade minimums round trip independently, default to null and remain immutable on saved models", async () => {

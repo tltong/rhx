@@ -1,3 +1,4 @@
+const {documentId} = require("../../essay_config/domain/essay_config");
 const {normalizeQuestionSupport, normalizeImagePrompt} = require("./essay_question_support");
 const {ESSAY_QUESTION_GENERATOR_COLLECTION, ESSAY_QUESTION_LEVELS, ESSAY_QUESTION_STANDARDS, ESSAY_QUESTION_DIFFICULTIES} = require("../../../schema/essay_question_generator_schema");
 const {requireRecord, requireText, requireDate, normalizeWordCountRequirement} = require("./essay_question_generator_config");
@@ -19,6 +20,7 @@ function normalizeCriteria(input, {requireDifficulty = false} = {}) {
   const language = requireText(input.language, "language");
   languageDocumentId(language);
   const criteria = {level: input.level, standard: input.standard, language};
+  if (input.essayTypeId !== undefined) criteria.essayTypeId = documentId(input.essayTypeId);
   if (input.syllabusId !== undefined || input.topicId !== undefined) {
     for (const key of ["syllabusId", "topicId"]) {
       const value = requireText(input[key], key);
@@ -39,6 +41,7 @@ function normalizeGenerationInput(input) {
 function normalizeDraftInput(input) {
   return {...normalizeCriteria(input, {requireDifficulty: true}),
     ...(input.support === undefined ? {} : {support: normalizeQuestionSupport(input.support)}),
+    ...normalizeTypeSnapshot(input),
     questionId: normalizeQuestionId(input.questionId),
     questionText: requireText(input.questionText, "questionText"),
     ...(input.imagePrompt === undefined ? {} : {imagePrompt: normalizeImagePrompt(input.imagePrompt)}),
@@ -65,6 +68,25 @@ function scopeFromQuestionPath(path, questionId) {
   if (questionCollectionPath(scope) + "/" + questionId !== path) throw new Error("Stored essay question index is invalid.");
   return scope;
 }
+function normalizeTypeSnapshot(input) {
+  if (!input.essayType) {
+    if (input.essayTypeId !== undefined) throw new Error("The essay type snapshot is required.");
+    return {};
+  }
+  const source = input.essayType;
+  const id = documentId(source.id);
+  if (id !== input.essayTypeId || !["optional", "required"].includes(source.pictureRequirement)
+      || !Number.isInteger(source.pictureFrameCount) || source.pictureFrameCount < 1 || source.pictureFrameCount > 12) throw new Error("Invalid essay type snapshot.");
+  const snapshot = {essayTypeId: id, essayType: {id, name: requireText(source.name, "essay type name"),
+    pictureRequirement: source.pictureRequirement, pictureFrameCount: source.pictureFrameCount}};
+  if (source.pictureFrameCount > 1) {
+    if (source.pictureRequirement !== "required") throw new Error("A multi-frame story requires a picture.");
+    if (!Array.isArray(input.storyFrames) || input.storyFrames.length !== source.pictureFrameCount) throw new Error("The story must have the configured number of frames.");
+    snapshot.storyFrames = input.storyFrames.map(frame => requireText(frame, "story frame"));
+  }
+  if (source.pictureRequirement === "required" && input.support?.pictureStatus !== "ready") throw new Error("This essay type requires a successfully generated picture.");
+  return snapshot;
+}
 function normalizeGeneratedQuestion(response) {
   if (typeof response === "string") {
     try {response = JSON.parse(response);}
@@ -72,16 +94,19 @@ function normalizeGeneratedQuestion(response) {
   }
   requireRecord(response, "Essay question LLM response");
   const question = {questionText: requireText(response.questionText, "questionText")};
+  if (Array.isArray(response.storyFrames)) question.storyFrames = response.storyFrames.map(frame => requireText(frame, "story frame"));
   // Optional image-prompt failures preserve the usable written question.
   try {if (response.imagePrompt !== undefined) question.imagePrompt = normalizeImagePrompt(response.imagePrompt);} catch {}
   return question;
 }
 function readQuestion(data, scope, questionId) {
   requireRecord(data, "Stored essay question");
+  const {essayTypeId: requestedType, ...storedScope} = normalizeCriteria(scope);
   return Object.freeze({
-    questionId: normalizeQuestionId(questionId), ...normalizeCriteria(scope),
+    questionId: normalizeQuestionId(questionId), ...storedScope,
     ...(data.syllabusId !== undefined || data.topicId !== undefined
       ? Object.fromEntries(Object.entries(normalizeCriteria({...scope, ...data})).filter(([key]) => ["syllabusId", "topicId", "topicName", "subject"].includes(key))) : {}),
+    ...normalizeTypeSnapshot(data),
     difficulty: normalizeDifficulty(data.difficulty),
     questionText: requireText(data.questionText, "questionText"),
     ...(data.imagePrompt === undefined ? {} : {imagePrompt: normalizeImagePrompt(data.imagePrompt)}),
@@ -115,4 +140,4 @@ function normalizeListInput(input) {
 }
 
 
-module.exports = {normalizeDifficulty, languageDocumentId, normalizeCriteria, normalizeGenerationInput, normalizeDraftInput, normalizeQuestionId, questionCollectionPath, scopeFromQuestionPath, normalizeGeneratedQuestion, readQuestion, encodeCursor, decodeCursor, normalizeListInput};
+module.exports = {normalizeDifficulty, languageDocumentId, normalizeCriteria, normalizeGenerationInput, normalizeDraftInput, normalizeQuestionId, questionCollectionPath, scopeFromQuestionPath, normalizeGeneratedQuestion, normalizeTypeSnapshot, readQuestion, encodeCursor, decodeCursor, normalizeListInput};

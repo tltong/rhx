@@ -27,10 +27,10 @@
  * Changes affect future marking; existing results are not automatically remarked.
  */
 
-import {getEssayQuestionById} from "../essay_question_generator/essay_question_generator_module.js?v=20261104-fill-preassessment-v3";
+import {getEssayQuestionById} from "../essay_question_generator/essay_question_generator_module.js?v=20261112-essay-variation-v1";
 import {generateLlmText} from "../../utils/llm/llm_util.js?v=20261015-deepseek-deadline-v1";
 import {requireCurrentFirebaseAuthUser} from "../../utils/firebase/firebase_auth.js";
-import {ScoreEssay} from "./application/score_essay.js?v=20261108-assessment-results-v1";
+import {ScoreEssay} from "./application/score_essay.js?v=20261112-essay-variation-v1";
 import {ESSAY_SCORING_LEVELS, ESSAY_SCORING_GRADES} from "../../config/firebase/essay_scoring_schema.js?v=20261104-fill-preassessment-v3";
 import {createDefaultConfiguration} from "./domain/essay_scoring_config.js?v=20261104-fill-preassessment-v3";
 import {FirestoreEssayScoringConfigRepository} from "./infrastructure/firestore_essay_scoring_config_repository.js?v=20261104-fill-preassessment-v3";

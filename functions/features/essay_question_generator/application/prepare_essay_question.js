@@ -1,6 +1,6 @@
+const {questionMatchesConfiguration} = require("../../essay_config/domain/essay_config");
 const {createHash} = require("node:crypto");
 const {getFirestoreDb} = require("../../../utils/firebase/firebase_ops");
-const {questionSupportsSettings} = require("../domain/essay_question_support");
 const {createDefaultConfiguration} = require("../domain/essay_question_generator_config");
 
 // Used for a new assignment when its shared initial question predates admin settings.
@@ -10,20 +10,21 @@ async function prepareEssayQuestion(input, {updatedBy} = {}, {api = require("../
   const source = await api.getEssayQuestionById(input?.questionId);
   if (!source) throw new Error("The essay question could not be found.");
   const config = await api.getEssayQuestionGeneratorConfig() || createDefaultConfiguration();
-  const settings = config.gradeSupport[source.level][source.standard];
-  if (questionSupportsSettings(source, settings)) return source;
+  const settings = config.gradeSettings?.[source.level]?.[source.standard] ?? config.gradeSupport[source.level][source.standard];
+  if (questionMatchesConfiguration(source, config)) return source;
   const criteria = {level: source.level, standard: source.standard, language: source.language, difficulty: source.difficulty,
+    ...(config.gradeSettings?.[source.level]?.[source.standard]?.essayTypes.some(ref => ref.essayTypeId === (source.essayTypeId ?? "normalEssay")) ? {essayTypeId: source.essayTypeId ?? "normalEssay"} : {}),
     ...(source.syllabusId ? {syllabusId: source.syllabusId, topicId: source.topicId,
       ...(source.topicName ? {topicName: source.topicName} : {}), ...(source.subject ? {subject: source.subject} : {})} : {})};
   let cursor = null;
   do {
     const page = await api.listEssayQuestions({...criteria, limit: 100, cursor});
     const match = page.questions.find(q => (!q.syllabusId || q.syllabusId === source.syllabusId && q.topicId === source.topicId)
-      && q.seedUsed === source.seedUsed && questionSupportsSettings(q, settings));
+      && (q.essayTypeId ?? "normalEssay") === (source.essayTypeId ?? "normalEssay") && q.seedUsed === source.seedUsed && questionMatchesConfiguration(q, config));
     if (match) return match;
     cursor = page.nextCursor;
   } while (cursor);
-  const key = createHash("sha256").update(JSON.stringify({source: source.questionId, settings})).digest("hex");
+  const key = createHash("sha256").update(JSON.stringify({source: source.questionId, settings, types: config.essayTypes})).digest("hex");
   const reference = getDb().collection("essayQuestionAssets").doc("prepare_" + key);
   const cachedId = await getDb().runTransaction(async tx => {
     const snapshot = await tx.get(reference), data = snapshot.data();
