@@ -24,6 +24,8 @@
  *   prompts: string[],
  *   questions: Question[]
  * }>
+ * New questions use text from up to the three latest matching completed
+ * assessment practices as avoidance guidance, separated by diagram status.
  */
 const {
   ASSESSMENT_FRAMEWORK_END_LEVEL_ID,

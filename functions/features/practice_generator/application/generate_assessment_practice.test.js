@@ -170,7 +170,7 @@ test("does not invoke the LLM when the question bank is sufficient", async () =>
   assert.equal(result.questions.length, 4);
 });
 
-test("passes only the latest matching completed practice texts to generation", async () => {
+test("passes all matching completed practice texts to generation when fewer than three exist", async () => {
   const generationInputs = [];
   const practiceQuestion = (questionId, hasDiagram) => ({
     syllabusId: "syllabus-1",
@@ -239,7 +239,7 @@ test("passes only the latest matching completed practice texts to generation", a
   assert.deepEqual(
     generationInputs.find(({type}) => type === "plain").input
       .avoidQuestionTexts,
-    ["latest-plain"],
+    ["latest-plain", "old-plain"],
   );
   assert.deepEqual(
     generationInputs.find(({type}) => type === "diagram").input
@@ -247,6 +247,43 @@ test("passes only the latest matching completed practice texts to generation", a
     ["latest-diagram"],
   );
 });
+
+for (const count of [0, 1, 2, 3, 5]) {
+  test(`uses up to three latest matching practices from ${count} completed practices in both runtimes`, async () => {
+    const {GenerateAssessmentPractice: WebGenerateAssessmentPractice} = await import(
+      "../../../../public/features/practice_generator/application/generate_assessment_practice.js"
+    );
+    for (const Generator of [GenerateAssessmentPractice, WebGenerateAssessmentPractice]) {
+      const reference = (questionId, hasDiagram = false) => ({...question(questionId, hasDiagram), questionId});
+      const practices = Array.from({length: count}, (_, index) => ({
+        id: `practice-${index + 1}`,
+        type: "assessment",
+        dateGenerated: new Date(Date.UTC(2026, 10, index + 1)),
+        questions: [reference(`plain-${index + 1}`), reference(`diagram-${index + 1}`, true)],
+      }));
+      const unrelated = [
+        {id: "other-topic", questions: [{...reference("other-topic"), topicId: "topic-2"}]},
+        {id: "other-syllabus", questions: [{...reference("other-syllabus"), syllabusId: "syllabus-2"}]},
+        {id: "other-language", questions: [{...reference("other-language"), language: "Malay"}]},
+        {id: "pre-assessment", type: "pre assessment", questions: [reference("pre-assessment")]},
+      ].map(practice => ({type: "assessment", dateGenerated: new Date("2026-12-01"), ...practice}));
+      const records = new Map([...practices, ...unrelated].map(practice => [practice.id, practice]));
+      const useCase = new Generator(createDependencies({
+        listCompletedPracticeIds: async () => [...records.keys()],
+        getPracticeById: async practiceId => records.get(practiceId),
+        getQuestionsForPractice: async references => references.map(ref => ({
+          ...ref, questionText: ref.hasDiagram ? "Shared diagram question" : ref.questionId,
+        })),
+      }));
+
+      const texts = await useCase.loadPreviousPracticeQuestionTexts({
+        studentId: "student-1", syllabusId: "syllabus-1", topicId: "topic-1", language: "English",
+      });
+      assert.deepEqual(texts.withoutDiagram, practices.slice(-3).reverse().map(practice => practice.questions[0].questionId));
+      assert.deepEqual(texts.withDiagram, count ? ["Shared diagram question"] : []);
+    }
+  });
+}
 
 test("deletes the new practice when assignment fails", async () => {
   const deletedPracticeIds = [];

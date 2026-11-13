@@ -31,6 +31,8 @@
  *     questions: Question[]
  *   }>. Reuses eligible stored questions, generates and stores only the
  *   shortage, then creates and assigns the assessment practice.
+ *   New questions use text from up to the three latest matching completed
+ *   assessment practices as avoidance guidance, separated by diagram status.
  *
  * QuestionGenerationSet output:
  * {
@@ -216,7 +218,7 @@ import {
 } from "../student_assessment_progress/student_assessment_progress_module.js?v=20261112-essay-variation-v1";
 import {
   GenerateAssessmentPractice
-} from "./application/generate_assessment_practice.js?v=20261105-topic-framework-v1";
+} from "./application/generate_assessment_practice.js?v=20261113-mcq-history-v1";
 import {
   allocateAssessmentQuestions
 } from "./domain/assessment_question_allocation.js?v=20261104-fill-preassessment-v3";

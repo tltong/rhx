@@ -308,7 +308,7 @@ export class GenerateAssessmentPractice {
     ));
 
     const previousQuestions = await this.getQuestionsForPractice(
-      candidates[0].references
+      candidates.slice(0, 3).flatMap(({ references }) => references)
     );
     const texts = {
       withoutDiagram: [],

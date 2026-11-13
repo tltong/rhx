@@ -6,7 +6,7 @@ import {
   generatePreAssessmentPractice,
   loadPreAssessmentGeneratorOptions,
   loadPreAssessmentPractice
-} from "../../practice_generator_module.js?v=20261112-essay-variation-v1";
+} from "../../practice_generator_module.js?v=20261113-mcq-history-v1";
 import {
   setMathText
 } from "../../../../utils/math/render_math.js?v=20261104-fill-preassessment-v3";
