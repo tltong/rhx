@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="same-origin">
+    <title>Try RHX — ReadyHeroX</title>
+    <link rel="stylesheet" href="/features/demo/pages/demo.css?v=20261115-demo-v1">
+    <link rel="stylesheet" href="/features/fill_in_the_blanks_question_generator/components/passage_view.css">
+    <link rel="stylesheet" href="/features/student_news/pages/common/news_questions.css">
+    <link rel="stylesheet" href="/features/student_news/pages/common/news_vocabulary.css">
+    <link rel="stylesheet" href="/features/student_news/pages/common/news_progress.css">
+    <link rel="stylesheet" href="/vendor/katex/0.18.1/katex.min.css">
+    <script defer src="/vendor/katex/0.18.1/katex.min.js"></script>
+    <script defer src="/vendor/katex/0.18.1/contrib/auto-render.min.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script type="module" src="/features/demo/pages/demo.js?v=20261115-demo-v1"></script>
+  </head>
+  <body>
+    <header class="demo-header">
+      <a class="brand" href="/">ReadyHeroX <span class="demo-badge">DEMO</span></a>
+      <div class="header-actions">
+        <span id="demo-balance" class="coin-balance" role="status" aria-live="polite">Starting…</span>
+        <button id="demo-end" type="button" class="secondary" disabled>End demo</button>
+      </div>
+    </header>
+    <main id="demo-root">
+      <ol class="wizard-steps" aria-label="Demo steps">
+        <li data-step="setup" aria-current="step">1. Setup</li>
+        <li data-step="subjects">2. Subjects</li>
+        <li data-step="practice">3. Practice</li>
+        <li data-step="news">4. News</li>
+        <li data-step="summary">5. Summary</li>
+      </ol>
+      <p id="demo-status" class="status" role="status" aria-live="polite">Starting your demo…</p>
+      <button id="demo-retry-start" type="button" class="secondary" hidden>Retry starting demo</button>
+
+      <section id="pane-setup" class="pane" aria-labelledby="setup-heading">
+        <div class="heading"><p class="eyebrow">No sign-up required</p><h1 id="setup-heading">Let’s find your learning level</h1><p>Choose your country, level, and grade to explore RHX.</p></div>
+        <p class="reward-notice" id="demo-welcome-coin" hidden>+1 coin — your demo has started!</p>
+        <form id="demo-setup-form">
+          <div class="form-grid">
+            <label>Country<select id="demo-country" required disabled><option value="">Choose country</option></select></label>
+            <label>Level<select id="demo-level" required disabled><option value="">Choose level</option></select></label>
+            <label>Grade<select id="demo-grade" required disabled><option value="">Choose grade</option></select></label>
+          </div>
+          <div class="actions"><button id="demo-setup-continue" type="submit" disabled>Continue to subjects</button></div>
+        </form>
+        <p class="help-text">Demo progress and coins are temporary. Finishing or leaving the demo starts a clean slate.</p>
+      </section>
+
+      <section id="pane-subjects" class="pane" aria-labelledby="subjects-heading" hidden>
+        <div class="heading"><p id="demo-scope" class="eyebrow"></p><h1 id="subjects-heading">What would you like to practise?</h1><p>Pick a subject. You can try several practices before continuing to news.</p></div>
+        <div id="demo-subject-list" class="subject-grid"></div>
+        <div class="actions"><button id="demo-change-setup" type="button" class="secondary">Change setup</button></div>
+      </section>
+
+      <section id="pane-practice" class="pane" aria-labelledby="practice-heading" hidden>
+        <div class="heading"><p id="demo-practice-context" class="eyebrow"></p><h1 id="practice-heading">Make this practice yours</h1></div>
+        <form id="demo-practice-setup">
+          <div class="form-grid">
+            <label>Language<select id="demo-practice-language" required></select></label>
+            <label>Practice type<select id="demo-practice-type" required></select></label>
+            <label>Topic<select id="demo-practice-topic" required></select></label>
+          </div>
+          <div id="demo-mcq-options" class="form-grid">
+            <label>Difficulty<select id="demo-difficulty"><option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option></select></label>
+            <label>Number of questions<input id="demo-question-count" type="number" min="1" max="100" step="1" value="5" inputmode="numeric" required><small>Choose 1–100 questions.</small></label>
+          </div>
+          <div class="actions"><button id="demo-start-practice" type="submit">Start practice</button></div>
+        </form>
+        <div id="demo-practice-preparation" class="panel" hidden><h2>Preparing your practice</h2><p id="demo-practice-progress" role="status"></p></div>
+        <form id="demo-answer-form" hidden><div id="demo-practice-questions"></div><button id="demo-submit-practice" type="submit">Complete practice</button></form>
+        <div id="demo-practice-result" class="panel" hidden></div>
+        <section id="demo-tutor" class="panel" aria-label="Tutor review" hidden></section>
+        <div class="actions">
+          <button id="demo-practice-retry" type="button" class="secondary" hidden>Retry preparation</button>
+          <button id="demo-back-subjects" type="button" class="secondary">Back to subjects</button>
+          <button id="demo-continue-news" type="button" hidden>Continue to news</button>
+        </div>
+      </section>
+
+      <section id="pane-news" class="pane" aria-labelledby="news-heading" hidden>
+        <div class="heading"><p class="eyebrow">Read, explore, and earn</p><h1 id="news-heading">Explore the news</h1><p>Read an article, explore word meanings, then answer three questions.</p></div>
+        <form id="demo-news-form"><div class="form-grid">
+          <label>News<select id="demo-news-type"><option value="international">International news</option><option value="local">Local news</option></select></label>
+          <label>Language<select id="demo-news-language" required><option value="">Choose language</option></select></label>
+        </div><div class="actions"><button id="demo-read-news" type="submit">Read article</button><button id="demo-news-retry" type="button" class="secondary" hidden>Retry preparation</button></div></form>
+        <div id="demo-news-progress"></div>
+        <article id="demo-news-article" class="panel" hidden>
+          <h2 id="demo-news-title"></h2><p id="demo-news-meta" class="help-text"></p>
+          <div id="demo-news-vocabulary"></div><div id="demo-news-page"></div>
+          <div class="actions"><button id="demo-news-previous" type="button" class="secondary">Previous page</button><span id="demo-news-page-count"></span><button id="demo-news-next" type="button" class="secondary">Next page</button></div>
+          <details><summary>Sources and image credits</summary><div id="demo-news-sources"></div></details>
+          <div id="demo-news-questions"></div>
+        </article>
+        <p id="demo-news-rewards" class="reward-notice" role="status" hidden></p>
+        <div class="actions"><button id="demo-news-subjects" type="button" class="secondary">Back to subjects</button><button id="demo-news-finish" type="button" hidden>Finish demo</button></div>
+      </section>
+
+      <section id="pane-summary" class="pane" aria-labelledby="summary-heading" hidden>
+        <div class="heading"><p class="eyebrow">Your demo is complete</p><h1 id="summary-heading">Look at what you earned!</h1></div>
+        <div class="panel"><dl class="coin-summary"><dt>Starting coin</dt><dd id="summary-start">1</dd><dt>Practice coins</dt><dd id="summary-practice">0</dd><dt>News coins</dt><dd id="summary-news">0</dd><dt class="total">Total demo coins</dt><dd id="summary-total" class="total">1</dd></dl></div>
+        <p class="help-text">Your demo activity has been cleared. Start again for a fresh experience.</p>
+        <div class="actions"><button id="demo-start-again" type="button">Start again</button><a class="button secondary" href="/">Return home</a></div>
+      </section>
+    </main>
+  </body>
+</html>

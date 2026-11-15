@@ -87,6 +87,7 @@ function clientPreservesBillingState() {
     }
     function protectedCollection(collection) {
       return studentLearningCollection(collection) || sharedLearningCollection(collection) || fillInTheBlanksStudentCollection(collection)
+        || collection in ['demoSessions', 'demoAdmission', 'demoQuestionPoolLeases']
         || collection in ['fillInTheBlanksQuestions', 'fillInTheBlanksPractices', 'fillInTheBlanksPracticeResults', 'fillInTheBlanksQuestionGenerator', 'fillInTheBlanksScoring', 'fillInTheBlanksDrafts', 'fillInTheBlanksPassageAssets']
         || collection in ['subscriptions', 'syllabusSubscriptions', 'stripeCustomers', 'paymentConfigs', 'siteAdmins', 'practiceResults', 'essayQuestionGenerator', 'essayQuestionAssets', 'essayQuestionSnapshots', 'essayQuestionRetirements', 'essayTypes', 'essayGradeConfigs', 'essayConfig', 'newsConfig', 'newsStories', 'newsStoryIdentities', 'newsEditions', 'newsQuestionSets', 'newsGenerations', 'studentNews', 'subjectAssessmentConfigs', 'subjectAssessments', 'subjectAssessmentGenerations', 'studentSubjectAssessmentUsage', 'subjectAssessmentSubmissions', 'subjectAssessmentResults', 'subjectAssessmentSettings', 'schoolStates', 'schoolLocalities', 'schools', 'students', 'studentUsernames', 'studentCredentialChanges', 'streamSubscriptions', 'guardianStudentLinks'];
     }
@@ -98,6 +99,10 @@ function clientPreservesBillingState() {
     }
     match /studentUsernames/{document=**} { allow read, write: if false; }
     match /studentCredentialChanges/{document=**} { allow read, write: if false; }
+    // Demo access is through its guest-capability backend, including signed-in visitors.
+    match /demoSessions/{document=**} { allow read, write: if false; }
+    match /demoAdmission/{document=**} { allow read, write: if false; }
+    match /demoQuestionPoolLeases/{document=**} { allow read, write: if false; }
     match /guardianStudentLinks/{linkId} {
       allow read: if signedIn() && (resource.data.guardianId == request.auth.uid || resource.data.studentId == request.auth.uid || siteAdmin());
       allow write: if false;

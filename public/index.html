@@ -45,6 +45,27 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
+      .demo-entry {
+        background: #ffffff;
+        border: 1px solid #cbd9e6;
+        border-radius: 8px;
+        margin-bottom: 24px;
+        padding: 26px;
+        text-align: center;
+      }
+
+      .demo-entry p { color: #52606d; margin: 8px 0 20px; }
+      .demo-entry a {
+        background: #0369a1;
+        border-radius: 6px;
+        color: #ffffff;
+        display: inline-block;
+        font-weight: 700;
+        padding: 12px 24px;
+        text-decoration: none;
+      }
+      .demo-entry a:focus-visible { outline: 3px solid #7dd3fc; outline-offset: 3px; }
+
       .account-section {
         background: #ffffff;
         border: 1px solid #cbd9e6;
@@ -106,6 +127,12 @@
         <h1>Welcome Student and Guardian</h1>
         <p>Choose how you want to continue.</p>
       </header>
+
+      <section class="demo-entry" aria-labelledby="demo-heading">
+        <h2 id="demo-heading">Try ReadyHeroX</h2>
+        <p>Explore practice, tutor review, news, and coins. No sign-up required.</p>
+        <a href="/demo">Try RHX</a>
+      </section>
 
       <div class="account-sections">
         <section class="account-section">

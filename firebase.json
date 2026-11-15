@@ -52,6 +52,14 @@
     ],
     "rewrites": [
       {
+        "source": "/demo",
+        "destination": "/features/demo/pages/demo.html"
+      },
+      {
+        "source": "/demo/**",
+        "destination": "/features/demo/pages/demo.html"
+      },
+      {
         "source": "/api/student-topic-practice-reset",
         "function": {"functionId": "studentTopicPracticeReset", "region": "us-central1"}
       },
