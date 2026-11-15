@@ -65,10 +65,12 @@ jobs:
         working-directory: functions
         run: |
           npx --no-install puppeteer browsers install chrome
-          node <<'NODE'
-          const fs = require("node:fs");
-          const {executablePath} = require("puppeteer");
-          fs.appendFileSync(process.env.GITHUB_ENV, "CHROME_BIN=" + executablePath() + "\n");
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          import {executablePath} from "puppeteer";
+          const chromePath = await executablePath();
+          fs.accessSync(chromePath, fs.constants.X_OK);
+          fs.appendFileSync(process.env.GITHUB_ENV, "CHROME_BIN=" + chromePath + "\n");
           NODE
 
       - name: Run unit and client tests
