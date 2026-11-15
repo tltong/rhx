@@ -1,3 +1,4 @@
+import {mountStudentNewsDashboard} from "../../../student_news/components/news_dashboard.js?v=20261115-news-student-v1";
 import {watchStudentFillInTheBlanksPracticeUpdates} from "../../../student_fill_in_the_blanks_practice/student_fill_in_the_blanks_practice_module.js?v=20261104-fill-preassessment-v3";
 import {watchStudentEssayPracticeUpdates} from "../../../student_essay_practice/student_essay_practice_module.js?v=20261112-essay-variation-v1";
 import {EssayPracticeRefreshController} from "./essay_practice_refresh_controller.js?v=20261104-fill-preassessment-v3";
@@ -18,7 +19,7 @@ import {
   getRewardConfig,
   listRecentStudentRewardActivities,
   watchStudentRewardTotal
-} from "../../../reward/reward_module.js?v=20261112-essay-variation-v1";
+} from "../../../reward/reward_module.js?v=20261115-news-student-v1";
 import {
   completionProcessingStages,
   completionProcessingStatuses,
@@ -51,7 +52,7 @@ import {
 } from "./completion_processing_refresh_controller.js?v=20261104-fill-preassessment-v3";
 import {
   StudentCoinBalanceController
-} from "./student_coin_balance_controller.js?v=20261104-fill-preassessment-v3";
+} from "./student_coin_balance_controller.js?v=20261115-news-student-v1";
 
 const INDEX_URL = "/index.html";
 const COMPLETED_PRACTICE_QUERY_PARAMETER = "completedPracticeId";
@@ -109,6 +110,7 @@ const studentCoinBalanceController = new StudentCoinBalanceController({
   activityStatus: document.querySelector("#student-coin-activity-status")
 });
 
+const studentNewsDashboard = mountStudentNewsDashboard({host: document.getElementById("student-news-root")});
 let authenticatedStudentId = null;
 const subjectAssessmentDashboard = new SubjectAssessmentDashboard();
 let dailyMissionController = null;
@@ -616,6 +618,7 @@ function renderDashboard(dashboard) {
   topicProcessingIndicators.clear();
 
   const { student, stream, syllabuses } = dashboard;
+  void studentNewsDashboard.start({studentId: student.id, country: student.country});
   subjectAssessmentDashboard.begin(student.id);
   subjectAssessmentList.replaceChildren();
   subjectAssessmentCount.textContent = `${syllabuses.length} subject${syllabuses.length === 1 ? "" : "s"}`;
@@ -725,6 +728,7 @@ async function handleAuthState(authUser) {
   if (!authUser) {
     authenticatedStudentId = null;
     subjectAssessmentDashboard.stop();
+    studentNewsDashboard.stop();
     studentCoinBalanceController.stop();
     essayPracticeRefreshController.stop();
     fillInTheBlanksRefreshController.stop();
@@ -741,7 +745,8 @@ async function handleAuthState(authUser) {
 
   essayPracticeRefreshController.stop();
   subjectAssessmentDashboard.stop();
-    fillInTheBlanksRefreshController.stop();
+  studentNewsDashboard.stop();
+  fillInTheBlanksRefreshController.stop();
   completionProcessingRefreshController.stop();
   authenticatedStudentId = authUser.uid;
   setStatus("Loading your dashboard...");
@@ -800,6 +805,7 @@ logOffButton.addEventListener("click", async () => {
   try {
     completionProcessingRefreshController.stop();
     subjectAssessmentDashboard.stop();
+    studentNewsDashboard.stop();
     await signOutStudent();
     studentCoinBalanceController.stop();
     essayPracticeRefreshController.stop();
@@ -815,8 +821,12 @@ logOffButton.addEventListener("click", async () => {
 
 window.addEventListener("beforeunload", () => {
   subjectAssessmentDashboard.stop();
+  studentNewsDashboard.stop();
   studentCoinBalanceController.stop();
   essayPracticeRefreshController.stop();
     fillInTheBlanksRefreshController.stop();
   completionProcessingRefreshController.stop();
 });
+
+// Revalidate the account and refresh daily slots and coin activity after Back.
+window.addEventListener("pageshow", event => {if (event.persisted) window.location.reload();});

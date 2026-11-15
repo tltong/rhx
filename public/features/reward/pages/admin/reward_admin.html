@@ -23,7 +23,7 @@
       <p id="coin-help" class="help-text">Enter whole numbers of coins, starting from 0. Set a reward to 0 to disable it.</p>
       <form id="reward-form" class="panel" novalidate aria-labelledby="reward-heading">
         <div class="panel-heading">
-          <h2 id="reward-heading">Login, mission and activity settings</h2>
+          <h2 id="reward-heading">Login, mission, news and activity settings</h2>
           <span id="global-updated-at" class="updated-at">Never saved</span>
         </div>
         <div class="config-fields">
@@ -41,6 +41,16 @@
   <label for="bonus-mission-coins">Bonus mission completion</label>
   <div><input id="bonus-mission-coins" name="bonusMissionCompletionCoins" type="number" min="0" max="9007199254740991" step="1" required disabled aria-describedby="coin-help bonus-mission-coins-error">
     <span id="bonus-mission-coins-error" class="field-error" hidden></span></div>
+</div>
+<div class="config-row">
+  <label for="news-article-completion-coins">News article completion</label>
+  <div><input id="news-article-completion-coins" name="newsArticleCompletionCoins" type="number" min="0" max="9007199254740991" step="1" required disabled aria-describedby="coin-help news-article-completion-coins-error">
+    <span id="news-article-completion-coins-error" class="field-error" hidden></span></div>
+</div>
+<div class="config-row">
+  <label for="news-all-correct-coins">News: all three answers correct (additional coins)</label>
+  <div><input id="news-all-correct-coins" name="newsAllCorrectCoins" type="number" min="0" max="9007199254740991" step="1" required disabled aria-describedby="coin-help news-all-correct-coins-error">
+    <span id="news-all-correct-coins-error" class="field-error" hidden></span></div>
 </div>
 <div class="config-row">
   <label for="recent-activities-limit">Recent activities shown</label>
@@ -102,7 +112,7 @@
       id="site-admin-page-loader"
       type="module"
       data-site-admin-page
-      data-page-module="./reward_admin.js?v=20261112-essay-variation-v1"
+      data-page-module="./reward_admin.js?v=20261115-news-student-v1"
       src="/features/site_admin/pages/common/site_admin_page_loader.js?v=20260827-site-admin-guard-v1"
     ></script>
   </body>

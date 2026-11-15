@@ -1,11 +1,11 @@
-import * as firebaseOps from "../../../utils/firebase/firebase_ops.js";
+import * as firebaseOps from "../../../utils/firebase/firebase_ops.js?v=20261003-watch-document-v1";
 import {watchDocument} from "../../../utils/firebase/firebase_ops.js?v=20261003-watch-document-v1";
-import {RewardCategory, REWARDS_COLLECTION, REWARD_CATEGORIES_SUBCOLLECTION, REWARD_HISTORY_SUBCOLLECTION} from "../../../config/firebase/reward_schema.js?v=20261013-recent-reward-activities-v1";
-import {requireCoinValue} from "../domain/reward_config.js?v=20261013-recent-reward-activities-v1";
-import {StudentRewardHistoryEntry, requireStudentRewardScope, requireStudentRewardCategoryScope, requireStudentRewardAwardScope, requireStudentRewardInput, requireStoredTotal, requireMatchingAward, requireStudentRewardHistoryInput, requireRecentStudentRewardActivitiesInput} from "../domain/student_reward.js?v=20261013-recent-reward-activities-v1";
-import {StudentRewardRepository} from "../domain/student_reward_repository.js?v=20261010-level-rewards-v1";
+import {RewardCategory, REWARDS_COLLECTION, REWARD_CATEGORIES_SUBCOLLECTION, REWARD_HISTORY_SUBCOLLECTION} from "../../../config/firebase/reward_schema.js?v=20261115-news-student-v1";
+import {requireCoinValue} from "../domain/reward_config.js?v=20261115-news-student-v1";
+import {StudentRewardHistoryEntry, requireStudentRewardScope, requireStudentRewardCategoryScope, requireStudentRewardAwardScope, requireStudentRewardInput, requireStoredTotal, requireMatchingAward, requireStudentRewardHistoryInput, requireRecentStudentRewardActivitiesInput} from "../domain/student_reward.js?v=20261115-news-student-v1";
+import {StudentRewardRepository} from "../domain/student_reward_repository.js?v=20261115-news-student-v1";
 
-import {requireMatchingLevelAward} from "../domain/assessment_level_reward.js?v=20261010-level-rewards-v1";
+import {requireMatchingLevelAward} from "../domain/assessment_level_reward.js?v=20261115-news-student-v1";
 
 function categoryCollectionPath({studentId}) {
   return [REWARDS_COLLECTION, studentId, REWARD_CATEGORIES_SUBCOLLECTION].join("/");

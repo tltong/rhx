@@ -49,7 +49,7 @@ const {getCompletedEssayPractice} = require("../student_essay_practice/student_e
  * a reused ID with different coins, sourceId or details fails with "already-exists".
  * StudentRewardHistoryEntry: {studentId, categoryId, awardId, coins,
  *   earnedAt: Date, sourceId, details}. All timestamps are assigned by Firestore.
- * RewardCategory defines the five earning categories. Reads do not create records.
+ * RewardCategory defines the supported earning categories. Reads do not create records.
  * getRewardConfig() -> Promise<RewardConfig|null>
  * saveRewardConfig({dailyLoginCoins, dailyMissionCompletionCoins,
  *   bonusMissionCompletionCoins, loginStreakCoins, recentActivitiesLimit})

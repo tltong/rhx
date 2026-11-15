@@ -1,4 +1,4 @@
-import {LOGIN_STREAK_DAYS, DEFAULT_REWARD_CONFIG, MAX_RECENT_REWARD_ACTIVITIES_LIMIT} from "../../../config/firebase/reward_schema.js?v=20261013-recent-reward-activities-v1";
+import {LOGIN_STREAK_DAYS, DEFAULT_REWARD_CONFIG, MAX_RECENT_REWARD_ACTIVITIES_LIMIT} from "../../../config/firebase/reward_schema.js?v=20261115-news-student-v1";
 
 function requireRecord(value, name) {
   if (!value || typeof value !== "object" || Array.isArray(value)
@@ -29,6 +29,8 @@ function requireConfigurationInput(input) {
     dailyLoginCoins: requireCoinValue(input.dailyLoginCoins, "dailyLoginCoins"),
     dailyMissionCompletionCoins: requireCoinValue(input.dailyMissionCompletionCoins, "dailyMissionCompletionCoins"),
     bonusMissionCompletionCoins: requireCoinValue(input.bonusMissionCompletionCoins, "bonusMissionCompletionCoins"),
+    newsArticleCompletionCoins: requireCoinValue(input.newsArticleCompletionCoins === undefined ? DEFAULT_REWARD_CONFIG.newsArticleCompletionCoins : input.newsArticleCompletionCoins, "newsArticleCompletionCoins"),
+    newsAllCorrectCoins: requireCoinValue(input.newsAllCorrectCoins === undefined ? DEFAULT_REWARD_CONFIG.newsAllCorrectCoins : input.newsAllCorrectCoins, "newsAllCorrectCoins"),
     recentActivitiesLimit: requireRecentActivitiesLimit(input.recentActivitiesLimit === undefined
       ? DEFAULT_REWARD_CONFIG.recentActivitiesLimit : input.recentActivitiesLimit),
     loginStreakCoins: Object.fromEntries(LOGIN_STREAK_DAYS.map((key) => [

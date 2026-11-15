@@ -4,6 +4,8 @@ const ACTIVITY_LABELS = Object.freeze({
   bonusMissionCompletion: "Additional mission completed",
   assessmentLevel: "Assessment level reached",
   loginStreak: "Login streak reward",
+  newsArticleCompletion: "News article completed",
+  newsAllCorrect: "News: all three answers correct",
 });
 
 function activityLabel(entry) {

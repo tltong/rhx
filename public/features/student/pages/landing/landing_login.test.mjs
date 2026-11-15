@@ -15,6 +15,7 @@ function fixture({dashboard = true, dashboardError = null, loginError = null, pe
   const fillEvents = [];
   const scope = {
     subjectAssessmentDashboard: {stop() {}},
+    studentNewsDashboard: {stop() {}},
     authenticatedStudentId: null,
     INDEX_URL: "/index.html",
     welcomeEl: {textContent: "Welcome, Student."},

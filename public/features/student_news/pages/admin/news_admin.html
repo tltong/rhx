@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>News Configuration</title>
+    <script>document.documentElement.hidden = true;</script>
+    <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+    <script type="module" src="/init_fb.js?v=20261115-news-student-v1"></script>
+    <link rel="stylesheet" href="./news_admin.css?v=20261115-news-student-v1">
+    <link rel="stylesheet" href="../common/news_vocabulary.css?v=20261115-news-student-v1">
+    <link rel="stylesheet" href="../common/news_questions.css?v=20261115-news-student-v1">
+    <link rel="stylesheet" href="../common/news_progress.css?v=20261115-news-lookup-progress-v1">
+  </head>
+  <body>
+    <main id="news-admin" class="page-shell">
+      <a class="back-link" href="/features/site_admin/pages/site_admin/site_admin.html">Back to Site Admin</a>
+      <h1>News Configuration</h1>
+      <p class="subtitle">Set shared defaults, article images and the reading format for each grade.</p>
+      <p id="news-status" role="status" aria-live="polite" hidden></p>
+      <button id="news-reload" class="secondary" type="button" hidden>Retry loading</button>
+      <form id="news-config-form">
+        <fieldset id="news-config-fields" disabled>
+          <section class="panel" aria-labelledby="news-common-heading">
+            <div class="panel-heading"><h2 id="news-common-heading">Shared instructions</h2><span id="news-saved-at">Never saved</span></div>
+            <h3 class="languages-heading">Available languages</h3>
+            <p id="news-languages-help" class="help-text">Languages come from Syllabus Scope. Students can switch between these languages while reading the same story.</p>
+            <p id="news-languages" class="language-list" aria-live="polite" aria-describedby="news-languages-help">Loading languages from Syllabus Scope...</p>
+            <div class="language-actions"><button id="news-refresh-languages" class="secondary" type="button">Refresh languages</button><a href="/features/syllabusscope/pages/admin/syllabusscope_admin.html" target="_blank" rel="noopener" title="Opens in a new tab">Manage in Syllabus Scope</a></div>
+            <label for="news-discovery-instructions">News discovery instructions</label>
+            <p class="help-text">Guide story selection and student suitability when new news is needed.</p>
+            <textarea id="news-discovery-instructions" rows="4" maxlength="16000"></textarea>
+            <label for="news-common-instructions">Common writing instructions</label>
+            <p class="help-text">Applied with the grade instructions to every language edition. Numeric settings take precedence over conflicting instructions.</p>
+            <textarea id="news-common-instructions" rows="4" maxlength="16000"></textarea>
+          </section>
+          <section class="panel" aria-labelledby="news-defaults-heading">
+            <h2 id="news-defaults-heading">Default article length</h2>
+            <p class="help-text">Word targets guide the total story text across the article. One rewrite may improve the length; a count difference does not block preparation. Grades inherit these values unless an override is entered.</p>
+            <div id="news-length-defaults" class="field-grid"></div>
+          </section>
+          <section class="panel" aria-labelledby="news-images-heading">
+            <h2 id="news-images-heading">Images by article type</h2>
+            <p class="help-text">Grades using the same type share its image settings. Web photos are tried twice, then the complete image set falls back to labelled AI illustrations. An article uses one image type throughout.</p>
+            <div id="news-image-types" class="type-grid"></div>
+          </section>
+          <section aria-labelledby="news-grades-heading">
+            <h2 id="news-grades-heading">Grade settings</h2>
+            <p class="help-text">Choose one format per grade. Blank word and page fields inherit defaults. A picture-story word target of zero means pictures only; its image count determines its page count. Standard articles have one page. Vocabulary counts cover distinct words or short phrases across the article; zero disables highlights. Each article has three comprehension questions. Choose typed answers or a shared word bank for each grade.</p>
+            <div class="grade-grid">
+              <section class="panel" aria-labelledby="news-primary-heading"><h3 id="news-primary-heading">Primary</h3><div id="news-primary-grades"></div></section>
+              <section class="panel" aria-labelledby="news-secondary-heading"><h3 id="news-secondary-heading">Secondary</h3><div id="news-secondary-grades"></div></section>
+            </div>
+          </section>
+          <div class="save-bar"><p id="news-save-help" class="help-text">Settings apply to editions prepared in future. Existing daily assignments keep their original settings.</p><button id="news-save" type="submit">Save settings</button></div>
+        </fieldset>
+      </form>
+      <section id="news-preview-panel" class="panel preview-panel" aria-labelledby="news-preview-heading">
+        <h2 id="news-preview-heading">Generate and preview news</h2>
+        <p class="help-text">Use saved settings to prepare an article. Previewing does not add it to the shared pool. Generation uses paid AI services; images may take several minutes.</p>
+        <p id="news-preview-status" role="status" aria-live="polite"></p>
+        <div id="news-preview-progress" hidden></div>
+        <form id="news-preview-form">
+          <fieldset id="news-preview-fields" disabled>
+            <div class="field-grid">
+              <div><label for="news-preview-type">News category</label><select id="news-preview-type"><option value="international">International</option><option value="local">Local</option></select></div>
+              <div><label for="news-preview-country">Country for local news</label><select id="news-preview-country"><option value="">Choose a country</option></select></div>
+              <div><label for="news-preview-level">Level</label><select id="news-preview-level"><option value="primary">Primary</option><option value="secondary">Secondary</option></select></div>
+              <div><label for="news-preview-grade">Grade</label><select id="news-preview-grade"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option selected>6</option></select></div>
+              <div><label for="news-preview-language">Language</label><select id="news-preview-language" required><option value="">Loading languages...</option></select></div>
+              <div><label for="news-preview-story">Story</label><select id="news-preview-story"><option value="">Find a new story through web search</option></select></div>
+            </div>
+            <div class="preview-actions"><button id="news-preview-generate" type="submit">Generate preview</button></div>
+          </fieldset>
+          <button id="news-preview-options" type="button" class="secondary">Reload options</button>
+        </form>
+        <button id="news-preview-retry" type="button" class="secondary" hidden>Retry preparation</button>
+        <article id="news-preview-article" hidden>
+          <div class="preview-language"><label for="news-preview-article-language">Article language</label><select id="news-preview-article-language" aria-describedby="news-preview-language-help"></select><p id="news-preview-language-help" class="help-text">Switch languages for this story. New language versions reuse its images and may take a moment to prepare.</p><div id="news-preview-language-progress" hidden></div></div>
+          <h2 id="news-preview-title"></h2><p id="news-preview-meta" class="help-text"></p>
+          <div id="news-preview-vocabulary"></div>
+          <div id="news-preview-page"></div>
+          <nav class="preview-pagination" aria-label="Article pages"><button id="news-preview-previous" class="secondary" type="button">Previous</button><span id="news-preview-position" aria-live="polite"></span><button id="news-preview-next" class="secondary" type="button">Next</button></nav>
+          <div id="news-preview-questions"></div>
+          <div id="news-preview-sources" class="preview-sources"></div>
+          <button id="news-preview-add" type="button">Add to pool</button>
+        </article>
+      </section>
+    </main>
+    <script type="module" data-site-admin-page data-page-module="./news_admin.js?v=20261115-news-lookup-progress-v1" src="/features/site_admin/pages/common/site_admin_page_loader.js?v=20260827-site-admin-guard-v1"></script>
+  </body>
+</html>

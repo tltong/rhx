@@ -1,6 +1,8 @@
 const {defineSecret} = require("firebase-functions/params");
 const OpenAI = require("openai");
 const {extractDeepseekImageText} = require("./deepseek_ocr");
+const {searchDeepseekWeb} = require("./deepseek_web_search");
+const {parseModelJson} = require("./json_output");
 const deepseekApiKey = defineSecret("DEEPSEEK_API_KEY");
 const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
 const DEFAULT_MODEL = "deepseek-v4-pro";
@@ -67,100 +69,6 @@ function getDeepseekClient() {
     timeout: DEEPSEEK_GENERATION_TIMEOUT_MS,
     maxRetries: 0,
   });
-}
-
-function stripJsonCodeFence(content) {
-  return String(content || "")
-    .trim()
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```$/i, "")
-    .trim();
-}
-
-function extractFirstJsonValue(content) {
-  const text = String(content || "");
-  const start = text.search(/[\[{]/);
-
-  if (start < 0) {
-    return "";
-  }
-
-  const openingChar = text[start];
-  const closingChar = openingChar === "{" ? "}" : "]";
-  let depth = 0;
-  let inString = false;
-  let isEscaped = false;
-
-  for (let index = start; index < text.length; index += 1) {
-    const char = text[index];
-
-    if (inString) {
-      if (isEscaped) {
-        isEscaped = false;
-      } else if (char === "\\") {
-        isEscaped = true;
-      } else if (char === "\"") {
-        inString = false;
-      }
-
-      continue;
-    }
-
-    if (char === "\"") {
-      inString = true;
-      continue;
-    }
-
-    if (char === openingChar) {
-      depth += 1;
-    } else if (char === closingChar) {
-      depth -= 1;
-
-      if (depth === 0) {
-        return text.slice(start, index + 1);
-      }
-    }
-  }
-
-  return "";
-}
-
-function repairJsonCandidate(candidate) {
-  return String(candidate || "")
-    .trim()
-    .replace(/^\uFEFF/, "")
-    .replace(/[\u201C\u201D]/g, "\"")
-    .replace(/[\u2018\u2019]/g, "'")
-    .replace(/,\s*([}\]])/g, "$1");
-}
-
-function parseModelJson(content) {
-  const rawCandidates = [
-    String(content || "").trim(),
-    stripJsonCodeFence(content),
-    extractFirstJsonValue(content),
-  ].filter(Boolean);
-  const candidates = [];
-
-  rawCandidates.forEach((candidate) => {
-    const repairedCandidate = repairJsonCandidate(candidate);
-
-    candidates.push(candidate);
-
-    if (repairedCandidate !== candidate) {
-      candidates.push(repairedCandidate);
-    }
-  });
-
-  for (const candidate of candidates) {
-    try {
-      return JSON.parse(candidate);
-    } catch (error) {
-      // Try the next candidate.
-    }
-  }
-
-  return null;
 }
 
 function truncateText(value, maxLength = 12000) {
@@ -356,11 +264,14 @@ async function generateDeepseekJsonWithinDeadline(input, options) {
     ? { prompt: input }
     : { ...(input || {}) };
   const messages = ensureJsonInstruction(normalizeMessages(body));
+  // A trusted server caller may opt into longer outputs. HTTP/body options
+  // retain the existing 8,192-token ceiling.
+  const maxTokenLimit = normalizeNumber(options.maxTokenLimit, 8192, 128, 32768);
   const maxTokens = normalizeNumber(
     options.maxTokens ?? body.maxTokens,
     DEFAULT_MAX_TOKENS,
     128,
-    8192,
+    maxTokenLimit,
   );
   const temperature = normalizeNumber(
     options.temperature ?? body.temperature,
@@ -437,10 +348,11 @@ async function generateDeepseekJsonWithinDeadline(input, options) {
 }
 
 class DeepseekUtil {
-  constructor({createOcrClient = getDeepseekClient} = {}) {this.createOcrClient = createOcrClient;}
+  constructor({createOcrClient = getDeepseekClient, createWebClient = getDeepseekClient} = {}) {this.createOcrClient = createOcrClient; this.createWebClient = createWebClient;}
   call(input, options = {}) {return generateDeepseekJson(input, options);}
   async generateText(input, options = {}) {return (await this.call(input, options)).json;}
   extractTextFromImage(input, options = {}) {return extractDeepseekImageText(input, {...options, createClient: this.createOcrClient});}
+  searchWeb(input, options = {}) {return searchDeepseekWeb(input, {...options, createClient: this.createWebClient, model: DEFAULT_MODEL});}
 }
 const deepseekUtil = new DeepseekUtil();
 module.exports = {DeepseekUtil, deepseekUtil, deepseekApiKey, normalizeMessages,

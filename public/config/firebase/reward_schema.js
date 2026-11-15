@@ -12,12 +12,16 @@ const RewardCategory = Object.freeze({
   BONUS_MISSION_COMPLETION: "bonusMissionCompletion",
   ASSESSMENT_LEVEL: "assessmentLevel",
   LOGIN_STREAK: "loginStreak",
+  NEWS_COMPLETION: "newsArticleCompletion",
+  NEWS_ALL_CORRECT: "newsAllCorrect",
 });
 const LOGIN_STREAK_DAYS = Object.freeze(["3", "7", "14", "30"]);
 const DEFAULT_REWARD_CONFIG = Object.freeze({
   dailyLoginCoins: 1,
   dailyMissionCompletionCoins: 25,
   bonusMissionCompletionCoins: 20,
+  newsArticleCompletionCoins: 2,
+  newsAllCorrectCoins: 2,
   recentActivitiesLimit: 5,
   loginStreakCoins: Object.freeze({"3": 2, "7": 5, "14": 10, "30": 25}),
 });
@@ -29,6 +33,8 @@ const rewardConfigSchema = {
     dailyLoginCoins: {...coinValueSchema, default: DEFAULT_REWARD_CONFIG.dailyLoginCoins},
     dailyMissionCompletionCoins: {...coinValueSchema, default: DEFAULT_REWARD_CONFIG.dailyMissionCompletionCoins},
     bonusMissionCompletionCoins: {...coinValueSchema, default: DEFAULT_REWARD_CONFIG.bonusMissionCompletionCoins},
+    newsArticleCompletionCoins: {...coinValueSchema, default: DEFAULT_REWARD_CONFIG.newsArticleCompletionCoins},
+    newsAllCorrectCoins: {...coinValueSchema, default: DEFAULT_REWARD_CONFIG.newsAllCorrectCoins},
     recentActivitiesLimit: {
       type: "integer", minimum: 1, maximum: MAX_RECENT_REWARD_ACTIVITIES_LIMIT,
       default: DEFAULT_REWARD_CONFIG.recentActivitiesLimit,

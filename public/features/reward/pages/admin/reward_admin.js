@@ -1,7 +1,7 @@
 import {
   DEFAULT_REWARD_CONFIG, getRewardConfig, saveRewardConfig,
   getAssessmentFrameworkRewardConfig, saveAssessmentFrameworkRewardConfig,
-} from "../../reward_module.js?v=20261112-essay-variation-v1";
+} from "../../reward_module.js?v=20261115-news-student-v1";
 import {
   listAssessmentFrameworks, getAssessmentFrameworkById, ASSESSMENT_FRAMEWORK_END_LEVEL_ID,
 } from "../../../assessment_framework/assessment_framework_module.js?v=20261104-fill-preassessment-v3";
@@ -23,6 +23,8 @@ export function mountRewardAdmin({
     ["dailyLoginCoins", "daily-login-coins"],
     ["dailyMissionCompletionCoins", "daily-mission-coins"],
     ["bonusMissionCompletionCoins", "bonus-mission-coins"],
+    ["newsArticleCompletionCoins", "news-article-completion-coins"],
+    ["newsAllCorrectCoins", "news-all-correct-coins"],
     ["recentActivitiesLimit", "recent-activities-limit"],
     ...["3", "7", "14", "30"].map((days) => ["loginStreakCoins." + days, "streak-" + days + "-coins"]),
   ].map(([key, id]) => ({key, input: byId(id), error: byId(id + "-error"), required: true}));
@@ -112,7 +114,7 @@ export function mountRewardAdmin({
       fillGlobal(config || DEFAULT_REWARD_CONFIG);
       setUpdatedAt("global-updated-at", config);
       globalLoaded = true;
-      setStatus(globalStatus, config ? "" : "Default rewards are shown. Save to apply them.");
+      setStatus(globalStatus, config ? "" : "Default rewards are active. Save to customize them.");
     } catch (error) {
       byId("retry-global-load").hidden = false;
       setStatus(globalStatus, error.message || "Unable to load reward configuration.", true);
@@ -247,6 +249,8 @@ export function mountRewardAdmin({
       dailyLoginCoins: values.dailyLoginCoins,
       dailyMissionCompletionCoins: values.dailyMissionCompletionCoins,
       bonusMissionCompletionCoins: values.bonusMissionCompletionCoins,
+      newsArticleCompletionCoins: values.newsArticleCompletionCoins,
+      newsAllCorrectCoins: values.newsAllCorrectCoins,
       recentActivitiesLimit: values.recentActivitiesLimit,
       loginStreakCoins: Object.fromEntries(["3", "7", "14", "30"].map((days) => [days, values["loginStreakCoins." + days]])),
     };

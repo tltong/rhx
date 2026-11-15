@@ -1,8 +1,8 @@
-import {RewardCategory} from "../../../config/firebase/reward_schema.js?v=20261104-fill-preassessment-v3";
+import {RewardCategory} from "../../../config/firebase/reward_schema.js?v=20261115-news-student-v1";
 import {ASSESSMENT_FRAMEWORK_END_LEVEL_ID} from "../../../config/firebase/assessment_framework_schema.js?v=20261104-fill-preassessment-v3";
-import {requireStudentRewardPracticeScope} from "../domain/student_reward.js?v=20261104-fill-preassessment-v3";
-import {requireCoinValue} from "../domain/reward_config.js?v=20261104-fill-preassessment-v3";
-import {createAssessmentLevelRewardId, requireMatchingLevelAward} from "../domain/assessment_level_reward.js?v=20261104-fill-preassessment-v3";
+import {requireStudentRewardPracticeScope} from "../domain/student_reward.js?v=20261115-news-student-v1";
+import {requireCoinValue} from "../domain/reward_config.js?v=20261115-news-student-v1";
+import {createAssessmentLevelRewardId, requireMatchingLevelAward} from "../domain/assessment_level_reward.js?v=20261115-news-student-v1";
 
 class AwardAssessmentLevelUp {
   constructor({studentRewardRepository, getStudentPracticeAssessment, listCompletedPracticeIds, getCompletedEssayPractice = async () => null, getCompletedFillInTheBlanksPractice = async () => null,

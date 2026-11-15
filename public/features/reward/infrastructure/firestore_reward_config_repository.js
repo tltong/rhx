@@ -1,7 +1,7 @@
 import * as firebaseOps from "../../../utils/firebase/firebase_ops.js";
-import {REWARDS_COLLECTION, REWARD_CONFIG_DOCUMENT_ID, REWARD_ASSESSMENT_FRAMEWORKS_SUBCOLLECTION} from "../../../config/firebase/reward_schema.js?v=20261013-recent-reward-activities-v1";
-import {RewardConfig, AssessmentFrameworkRewardConfig, requireConfigurationInput, requireFrameworkScope, requireFrameworkConfigurationInput, requireAdministratorUid} from "../domain/reward_config.js?v=20261013-recent-reward-activities-v1";
-import {RewardConfigRepository} from "../domain/reward_config_repository.js?v=20261013-recent-reward-activities-v1";
+import {REWARDS_COLLECTION, REWARD_CONFIG_DOCUMENT_ID, REWARD_ASSESSMENT_FRAMEWORKS_SUBCOLLECTION} from "../../../config/firebase/reward_schema.js?v=20261115-news-student-v1";
+import {RewardConfig, AssessmentFrameworkRewardConfig, requireConfigurationInput, requireFrameworkScope, requireFrameworkConfigurationInput, requireAdministratorUid} from "../domain/reward_config.js?v=20261115-news-student-v1";
+import {RewardConfigRepository} from "../domain/reward_config_repository.js?v=20261115-news-student-v1";
 
 const frameworkCollectionPath = REWARDS_COLLECTION + "/" + REWARD_CONFIG_DOCUMENT_ID + "/" + REWARD_ASSESSMENT_FRAMEWORKS_SUBCOLLECTION;
 class FirestoreRewardConfigRepository extends RewardConfigRepository {

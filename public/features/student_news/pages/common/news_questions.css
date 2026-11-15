@@ -1,0 +1,17 @@
+.news-questions { margin: 1.5rem 0; padding-top: 1.25rem; border-top: 1px solid #d5dfe9; }
+.news-questions fieldset { border: 0; padding: 0; min-width: 0; }
+.news-question-word-bank h4 { margin: .75rem 0 .4rem; }
+.news-question-choices { display: flex; flex-wrap: wrap; gap: .6rem; margin: .75rem 0 1.25rem; }
+.news-question-choice { overflow-wrap: anywhere; max-width: 100%; }
+.news-questions button.secondary { margin-bottom: 0; }
+.news-question-list { padding-left: 1.5rem; }
+.news-question-list li { margin-bottom: 1.25rem; padding-left: .25rem; }
+.news-question-sentence { line-height: 2.5; overflow-wrap: anywhere; }
+.news-question-input { display: inline-block; width: 13rem; max-width: 100%; padding: .5rem; margin: 0 .35rem; }
+.news-question-blank { margin: 0 .35rem; max-width: 100%; white-space: normal; }
+.news-question-blank[aria-pressed="true"] { outline: 3px solid #b4d9f3; outline-offset: 2px; }
+.news-question-review { border-left: 4px solid #a5492e; padding-left: .8rem; }
+.news-question-review.is-correct { border-left-color: #27724d; }
+.news-question-review p { margin: .35rem 0; overflow-wrap: anywhere; }
+.news-question-score { font-weight: 700; }
+@media (max-width: 500px) { .news-question-input { width: 10rem; margin-left: 0; } .news-question-blank { margin-left: 0; } }

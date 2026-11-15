@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Student News | RHX</title>
+  <link rel="stylesheet" href="/features/student/pages/landing/landing.css?v=20261115-news-student-v1">
+  <link rel="stylesheet" href="../common/news_student.css?v=20261115-news-student-v1">
+  <link rel="stylesheet" href="../common/news_progress.css?v=20261115-news-lookup-progress-v1">
+  <link rel="stylesheet" href="../common/news_vocabulary.css?v=20261115-news-student-v1">
+  <link rel="stylesheet" href="../common/news_questions.css?v=20261115-news-student-v1">
+  <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script><script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
+  <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script><script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script><script defer src="/__/firebase/init.js"></script>
+  <script type="module" src="/init_fb.js?v=20261115-news-student-v1"></script>
+</head>
+<body><main class="page news-reader-shell">
+  <a href="/features/student/pages/landing/landing.html">Back to My Learning Dashboard</a>
+  <header><h1 id="news-reader-heading">Student News</h1><p>Read, discover new words, and check your understanding.</p></header>
+  <p id="news-reader-status" role="status" aria-live="polite">Checking student access...</p>
+  <div id="news-reader-progress" hidden></div>
+  <form id="news-reader-language-form" class="news-reader-language" hidden>
+    <label>Article language<select id="news-reader-language" required aria-label="Article language"></select></label>
+    <button id="news-reader-open" type="submit">Read article</button>
+  </form>
+  <div id="news-reader-language-progress" hidden></div>
+  <button id="news-reader-retry" class="secondary" type="button" hidden>Retry preparation</button>
+  <article id="news-reader-article" class="news-reader-panel" hidden>
+    <h1 id="news-reader-title"></h1><p id="news-reader-meta" class="help-text"></p><p id="news-reader-rewards" class="news-reader-rewards" role="status"></p>
+    <div id="news-reader-page" class="news-reader-story"></div>
+    <nav id="news-reader-nav" class="news-reader-nav" aria-label="Article pages"><button id="news-reader-previous" type="button" class="secondary">Previous</button><p id="news-reader-position"></p><button id="news-reader-next" type="button">Next</button></nav>
+    <div id="news-reader-vocabulary"></div><div id="news-reader-questions"></div>
+    <details class="news-reader-sources"><summary>Sources</summary><div id="news-reader-sources"></div></details>
+  </article>
+  <script type="module" src="./news_reader.js?v=20261115-news-lookup-progress-v1"></script>
+</main></body></html>

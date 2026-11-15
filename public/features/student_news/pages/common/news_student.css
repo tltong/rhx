@@ -1,0 +1,12 @@
+[hidden] {display:none !important;}
+.news-daily-cards {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin:18px 0;}
+.news-daily-card {border:1px solid #cddde4;border-radius:12px;padding:20px;background:#f8fcfd;display:flex;flex-direction:column;align-items:flex-start;overflow-wrap:anywhere;}
+.news-daily-card h3 {margin:0 0 12px;}.news-card-state {font-weight:700;color:#0b6f78;margin:0 0 10px;}
+.news-daily-card .news-action {margin-top:auto;}.news-action {display:inline-block;padding:11px 18px;border-radius:6px;background:#0b6f78;color:white;text-decoration:none;font-weight:700;}
+.news-reading-history {margin-top:20px;}.news-reading-history summary {cursor:pointer;font-weight:700;padding:8px 0;}.news-reading-history li {margin:12px 0;overflow-wrap:anywhere;}
+.news-reader-shell {max-width:850px;}.news-reader-panel {background:white;padding:clamp(18px,4vw,36px);border:1px solid #d6e1e7;border-radius:12px;margin-top:20px;}
+.news-reader-language {display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin:20px 0;}.news-reader-language label {display:flex;flex-direction:column;gap:8px;}.news-reader-language select {font:inherit;padding:10px;min-width:200px;max-width:100%;}
+.news-reader-story {font-size:1.125rem;line-height:1.9;white-space:pre-line;overflow-wrap:anywhere;}.news-reader-story figure {margin:20px 0;white-space:normal;}.news-reader-story img {display:block;width:100%;max-height:620px;object-fit:contain;border-radius:8px;}.news-reader-story figcaption {font-size:.85rem;color:#536776;margin-top:8px;line-height:1.5;}
+.news-reader-nav {display:flex;align-items:center;justify-content:space-between;gap:12px;margin:20px 0;}.news-reader-nav p {text-align:center;}.news-reader-sources {font-size:.9rem;overflow-wrap:anywhere;}.news-reader-rewards {background:#fff7d7;color:#684e00;padding:12px 16px;border-radius:8px;}.help-text {color:#526575;line-height:1.6;}
+.news-reader-panel button.secondary,#student-news-root button.secondary {background:white;color:#0b6f78;}.news-reader-panel h1 {font-size:clamp(1.7rem,5vw,2.4rem);overflow-wrap:anywhere;}
+@media(max-width:600px) {.news-daily-cards {grid-template-columns:1fr;}.news-reader-nav button {padding:0 12px;}.news-reader-language label,.news-reader-language select {width:100%;}.news-reader-language button {width:100%;}}

@@ -9,6 +9,16 @@ class OpenAIUtil {
   constructor({createClient = () => new OpenAI({apiKey: openaiApiKey.value(),
     timeout: IMAGE_GENERATION_TIMEOUT_MS, maxRetries: 0})} = {}) {this.createClient = createClient;}
   extractTextFromImage(input, options = {}) {return extractOpenAIImageText(input, {...options, createClient: this.createClient});}
+  async generateText(input, {model = "gpt-6-luna", maxTokens = 8192, timeoutMs = IMAGE_GENERATION_TIMEOUT_MS} = {}) {
+    const prompt = typeof input === "string" ? input : input?.prompt;
+    if (typeof prompt !== "string" || !prompt.trim() || prompt.length > 500000) throw Object.assign(new Error("Provide a text-generation prompt."), {code: "invalid-argument"});
+    const response = await this.createClient().responses.create({model, store: false, input: prompt,
+      max_output_tokens: Math.max(128, Math.min(32768, Number(maxTokens) || 8192)), text: {format: {type: "json_object"}}},
+    {timeout: Math.max(1, Math.min(IMAGE_GENERATION_TIMEOUT_MS, Number(timeoutMs) || IMAGE_GENERATION_TIMEOUT_MS))});
+    if (response.status !== "completed") throw Object.assign(new Error("Text generation did not complete."), {code: "text-generation-incomplete"});
+    const content = response.output_text || response.output?.flatMap(item => item.content || []).filter(item => item.type === "output_text").map(item => item.text).join("");
+    try {return JSON.parse(content);} catch {throw Object.assign(new Error("Text generation returned invalid JSON."), {code: "text-generation-invalid"});}
+  }
   // Settings are resolved by the image_generation feature before this call.
   async generateImage(input, {timeoutMs = IMAGE_GENERATION_TIMEOUT_MS, signal} = {}) {
     const settings = normalizeImageSettings(input);

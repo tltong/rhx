@@ -1,4 +1,4 @@
-import {requireStudentRewardScope} from "../domain/student_reward.js?v=20261013-recent-reward-activities-v1";
+import {requireStudentRewardScope} from "../domain/student_reward.js?v=20261115-news-student-v1";
 class GetStudentRewardTotal {
 
   constructor(repository) { this.repository = repository; }

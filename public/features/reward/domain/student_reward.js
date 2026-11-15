@@ -1,5 +1,5 @@
-import {RewardCategory, REWARD_CONFIG_DOCUMENT_ID, DEFAULT_REWARD_HISTORY_LIMIT, MAX_REWARD_HISTORY_LIMIT, MAX_RECENT_REWARD_ACTIVITIES_LIMIT} from "../../../config/firebase/reward_schema.js?v=20261013-recent-reward-activities-v1";
-import {requireCoinValue} from "./reward_config.js?v=20261013-recent-reward-activities-v1";
+import {RewardCategory, REWARD_CONFIG_DOCUMENT_ID, DEFAULT_REWARD_HISTORY_LIMIT, MAX_REWARD_HISTORY_LIMIT, MAX_RECENT_REWARD_ACTIVITIES_LIMIT} from "../../../config/firebase/reward_schema.js?v=20261115-news-student-v1";
+import {requireCoinValue} from "./reward_config.js?v=20261115-news-student-v1";
 
 const categoryIds = Object.freeze(Object.values(RewardCategory));
 function requireRecord(value, name) {

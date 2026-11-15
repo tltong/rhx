@@ -1,10 +1,10 @@
-import {DEFAULT_REWARD_CONFIG, RewardCategory, LOGIN_STREAK_DAYS} from "../../../config/firebase/reward_schema.js?v=20261010-student-rewards-v1";
+import {DEFAULT_REWARD_CONFIG, RewardCategory, LOGIN_STREAK_DAYS} from "../../../config/firebase/reward_schema.js?v=20261115-news-student-v1";
 import {STUDENT_LOGIN_HISTORY_DAYS} from "../../../config/firebase/student_login_schema.js?v=20261010-login-rewards-v1";
 import {
   StudentLoginRecord, requireLoginCounter, requireLoginDate, getLoginDayContext, shiftLoginDate,
 } from "../../student_login/domain/student_login.js?v=20261010-login-rewards-v1";
-import {requireStudentRewardScope} from "../domain/student_reward.js?v=20261010-daily-mission-rewards-v1";
-import {requireCoinValue} from "../domain/reward_config.js?v=20261010-reward-v1";
+import {requireStudentRewardScope} from "../domain/student_reward.js?v=20261115-news-student-v1";
+import {requireCoinValue} from "../domain/reward_config.js?v=20261115-news-student-v1";
 
 const maximumMilestone = Math.max(...LOGIN_STREAK_DAYS.map(Number));
 

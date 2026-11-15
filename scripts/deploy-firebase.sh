@@ -321,7 +321,7 @@ cd "$deploy_tmp"
 # to selected recoverable workers or the three-function student profile group;
 # never force a broad deployment.
 retry_policy_args=()
-if [[ "$function_name" == processImageOcrJob || "$function_name" == onStudentUsernameChangeRequested || "${1:-}" == student-profile ]]; then
+if [[ "$function_name" == processImageOcrJob || "$function_name" == onStudentUsernameChangeRequested || "$function_name" == onNewsGenerationRequested || "${1:-}" == student-profile ]]; then
   retry_policy_args+=(--force)
 fi
 node --require "$deploy_tmp/auth-proxy.cjs" \

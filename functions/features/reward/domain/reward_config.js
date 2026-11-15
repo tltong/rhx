@@ -29,6 +29,8 @@ function requireConfigurationInput(input) {
     dailyLoginCoins: requireCoinValue(input.dailyLoginCoins, "dailyLoginCoins"),
     dailyMissionCompletionCoins: requireCoinValue(input.dailyMissionCompletionCoins, "dailyMissionCompletionCoins"),
     bonusMissionCompletionCoins: requireCoinValue(input.bonusMissionCompletionCoins, "bonusMissionCompletionCoins"),
+    newsArticleCompletionCoins: requireCoinValue(input.newsArticleCompletionCoins === undefined ? DEFAULT_REWARD_CONFIG.newsArticleCompletionCoins : input.newsArticleCompletionCoins, "newsArticleCompletionCoins"),
+    newsAllCorrectCoins: requireCoinValue(input.newsAllCorrectCoins === undefined ? DEFAULT_REWARD_CONFIG.newsAllCorrectCoins : input.newsAllCorrectCoins, "newsAllCorrectCoins"),
     recentActivitiesLimit: requireRecentActivitiesLimit(input.recentActivitiesLimit === undefined
       ? DEFAULT_REWARD_CONFIG.recentActivitiesLimit : input.recentActivitiesLimit),
     loginStreakCoins: Object.fromEntries(LOGIN_STREAK_DAYS.map((key) => [

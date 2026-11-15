@@ -13,6 +13,10 @@ class FakeOpenAI {
       requests.push({body, options: requestOptions});
       return complete(body, requestOptions);
     }}};
+    this.responses = {create: (body, requestOptions) => {
+      requests.push({body, options: requestOptions});
+      return complete(body, requestOptions);
+    }};
   }
 }
 const originalLoad = Module._load;
@@ -83,6 +87,41 @@ test("the total deadline rejects and aborts a stalled upstream response", async 
   });
   assert.equal(requests.length, 1);
   assert.equal(requests[0].options.signal.aborted, true);
+});
+test("long outputs require a bounded server option; request bodies retain the existing token ceiling", async () => {
+  await deepseek.generateDeepseekJson("Return JSON.", {maxTokens: 30000, maxTokenLimit: 32768});
+  assert.equal(requests.at(-1).body.max_tokens, 30000);
+  await deepseek.generateDeepseekJson("Return JSON.", {maxTokens: 999999, maxTokenLimit: 999999});
+  assert.equal(requests.at(-1).body.max_tokens, 32768);
+  await deepseek.generateDeepseekJson({prompt: "Return JSON.", maxTokens: 30000, maxTokenLimit: 32768});
+  assert.equal(requests.at(-1).body.max_tokens, 8192);
+});
+test("news discovery invokes the shared DeepSeek web adapter and retains search evidence", async () => {
+  const {discoverNews} = require("./features/news_article_generator/infrastructure/news_providers");
+  const raw = {title: "Science news", canonicalUrl: "https://example.test/news",
+    sources: [{url: "https://example.test/news", title: "Science report", publisher: "Example News", publishedAt: "2026-11-14T00:00:00Z"}],
+    facts: [{text: "A science exhibition opened.", sourceIds: ["s1"]}, {text: "Students learn about space.", sourceIds: ["s1"]}]};
+  const response = {status: "completed", output_text: JSON.stringify(raw), output: [{type: "web_search_call", status: "completed", action: {type: "search", sources: [{url: raw.canonicalUrl}]}}]};
+  complete = async () => response;
+  assert.deepEqual(await discoverNews("Find real science news and return JSON"), raw);
+  assert.equal(clients[0].baseURL, "https://api.deepseek.com"); assert.equal(clients[0].apiKey, "fake-secret");
+  assert.equal(clients[0].maxRetries, 0); assert.equal(requests.length, 1);
+  assert.equal(requests[0].body.model, "deepseek-v4-pro"); assert.deepEqual(requests[0].body.tools, [{type: "web_search"}]);
+  assert.equal(requests[0].body.tool_choice, "required"); assert.deepEqual(requests[0].body.reasoning, {effort: "none"});
+  assert.equal(requests[0].body.max_output_tokens, 12000);
+  assert.deepEqual(requests[0].body.text, {format: {type: "json_object"}});
+  for (const field of ["include", "store", "response_format"]) assert.equal(Object.hasOwn(requests[0].body, field), false);
+});
+test("DeepSeek web searches validate input, abort on deadline and never retry implicitly", async () => {
+  const {searchLlmWeb} = require("./utils/llm/llm_ops");
+  await assert.rejects(searchLlmWeb("", {provider: "deepseek"}), {code: "invalid-argument"});
+  assert.equal(requests.length, 0);
+  complete = () => new Promise(() => {});
+  await assert.rejects(searchLlmWeb("Find news", {provider: "deepseek", timeoutMs: 15}), {code: "deepseek-timeout", status: 504});
+  assert.equal(requests.length, 1); assert.equal(requests[0].options.signal.aborted, true);
+  complete = async () => {throw Object.assign(new Error("SDK timeout"), {name: "APIConnectionTimeoutError"});};
+  await assert.rejects(searchLlmWeb("Find news", {provider: "deepseek"}), {code: "deepseek-timeout"});
+  assert.equal(requests.length, 2);
 });
 
 test("JSON retries share the original deadline and abort signal", async () => {

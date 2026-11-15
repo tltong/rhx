@@ -88,7 +88,7 @@ function clientPreservesBillingState() {
     function protectedCollection(collection) {
       return studentLearningCollection(collection) || sharedLearningCollection(collection) || fillInTheBlanksStudentCollection(collection)
         || collection in ['fillInTheBlanksQuestions', 'fillInTheBlanksPractices', 'fillInTheBlanksPracticeResults', 'fillInTheBlanksQuestionGenerator', 'fillInTheBlanksScoring', 'fillInTheBlanksDrafts', 'fillInTheBlanksPassageAssets']
-        || collection in ['subscriptions', 'syllabusSubscriptions', 'stripeCustomers', 'paymentConfigs', 'siteAdmins', 'practiceResults', 'essayQuestionGenerator', 'essayQuestionAssets', 'essayQuestionSnapshots', 'essayQuestionRetirements', 'essayTypes', 'essayGradeConfigs', 'essayConfig', 'subjectAssessmentConfigs', 'subjectAssessments', 'subjectAssessmentGenerations', 'studentSubjectAssessmentUsage', 'subjectAssessmentSubmissions', 'subjectAssessmentResults', 'subjectAssessmentSettings', 'schoolStates', 'schoolLocalities', 'schools', 'students', 'studentUsernames', 'studentCredentialChanges', 'streamSubscriptions', 'guardianStudentLinks'];
+        || collection in ['subscriptions', 'syllabusSubscriptions', 'stripeCustomers', 'paymentConfigs', 'siteAdmins', 'practiceResults', 'essayQuestionGenerator', 'essayQuestionAssets', 'essayQuestionSnapshots', 'essayQuestionRetirements', 'essayTypes', 'essayGradeConfigs', 'essayConfig', 'newsConfig', 'newsStories', 'newsStoryIdentities', 'newsEditions', 'newsQuestionSets', 'newsGenerations', 'studentNews', 'subjectAssessmentConfigs', 'subjectAssessments', 'subjectAssessmentGenerations', 'studentSubjectAssessmentUsage', 'subjectAssessmentSubmissions', 'subjectAssessmentResults', 'subjectAssessmentSettings', 'schoolStates', 'schoolLocalities', 'schools', 'students', 'studentUsernames', 'studentCredentialChanges', 'streamSubscriptions', 'guardianStudentLinks'];
     }
     // Profile and credential mutations are owned by studentProfile. Guardian reads
     // use its redacted response, including while legacy PIN fields are being removed.
@@ -278,6 +278,14 @@ function clientPreservesBillingState() {
     match /essayTypes/{id} { allow read: if signedIn(); allow write: if false; }
     match /essayGradeConfigs/{id} { allow read: if signedIn(); allow write: if false; }
     match /essayConfig/{id} { allow read: if signedIn(); allow write: if false; }
+    match /newsConfig/{id} { allow read: if signedIn(); allow write: if false; }
+    // News pool, drafts, paid work and daily/history transitions are backend-owned.
+    match /newsStories/{document=**} { allow read, write: if false; }
+    match /newsStoryIdentities/{document=**} { allow read, write: if false; }
+    match /newsEditions/{document=**} { allow read, write: if false; }
+    match /newsQuestionSets/{document=**} { allow read, write: if false; }
+    match /newsGenerations/{document=**} { allow read, write: if false; }
+    match /studentNews/{document=**} { allow read, write: if false; }
     match /essayQuestionRetirements/{questionId} { allow read: if signedIn(); allow write: if false; }
     match /essayQuestionSnapshots/{questionId} { allow read: if signedIn(); allow write: if false; }
     match /essayQuestionAssets/{questionId} {
@@ -333,7 +341,7 @@ function clientPreservesBillingState() {
         && (mayReadStudent(studentId) || studentId == 'config');
       allow write: if studentLearningCollection(collection) && currentStudentHasBillingAccess()
         && (collection != 'studentEssayPractices' || essayPoolReady()) && essayAssignmentAvailable(collection)
-        && (studentId == 'config' ? siteAdmin() : mayWriteStudent(studentId));
+        && (studentId == 'config' || collection == 'rewards' ? siteAdmin() : mayWriteStudent(studentId));
     }
     match /{collection}/{document=**} {
       allow read, write: if sharedLearningCollection(collection) && currentStudentHasBillingAccess();

@@ -1,0 +1,56 @@
+* {box-sizing: border-box;}
+body {margin: 0; background: #eef3f8; color: #102a43; font-family: Arial, Helvetica, sans-serif; line-height: 1.5;}
+.page-shell {max-width: 1120px; margin: 0 auto; padding: 30px 20px 48px;}
+.back-link {color: #0369a1; display: inline-block; margin-bottom: 12px; font-weight: bold;}
+h1 {font-size: 30px; margin: 0 0 6px;}
+h2 {font-size: 21px; margin: 0 0 12px;}
+h3 {margin: 0 0 12px;}
+.subtitle, .help-text, #news-saved-at {color: #52606d;}
+.subtitle {margin: 0 0 24px;}
+.languages-heading {font-size: 16px; margin: 14px 0 6px;}
+.language-list {padding: 10px 12px; background: #f1f5f9; border-radius: 5px; overflow-wrap: anywhere;}
+.language-actions {display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;}
+.language-actions a {color: #0369a1;}
+.language-actions button.secondary {margin-bottom: 0;}
+.help-text {font-size: 14px; margin: 6px 0 12px;}
+fieldset {border: 0; padding: 0; margin: 0; min-width: 0;}
+.panel {background: white; border: 1px solid #cbd9e6; border-radius: 8px; margin-bottom: 20px; padding: 22px; min-width: 0;}
+.panel-heading {display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px;}
+#news-saved-at {font-size: 13px;}
+label {display: block; font-weight: 600; margin: 14px 0 6px;}
+input, textarea, select {width: 100%; min-width: 0; border: 1px solid #a8bacb; border-radius: 5px; padding: 10px; background: #fff; color: #102a43; font: inherit;}
+textarea {resize: vertical;}
+input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-visible, summary:focus-visible {outline: 3px solid #7dd3fc; outline-offset: 2px;}
+input:disabled, select:disabled, textarea:disabled {background: #f1f5f9; color: #52606d;}
+.field-grid {display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 18px;}
+.type-grid {display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px;}
+.type-card {min-width: 0;}
+.type-card h3 {font-size: 16px;}
+.grade-grid {display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px;}
+.grade-card {border-top: 1px solid #d5e1ec; padding: 12px 0;}
+.grade-card summary {cursor: pointer; font-weight: bold;}
+.grade-summary {font-size: 13px; font-weight: normal; color: #52606d; display: block; margin: 5px 0 0; overflow-wrap: anywhere;}
+.save-bar {display: flex; align-items: center; justify-content: space-between; gap: 18px;}
+button {border: 1px solid #0369a1; border-radius: 6px; padding: 11px 18px; background: #0369a1; color: white; font: inherit; font-weight: bold; cursor: pointer; min-height: 44px;}
+button.secondary {background: white; color: #0369a1; margin-bottom: 16px;}
+button:disabled {opacity: .55; cursor: default;}
+#news-status {padding: 12px 16px; border-radius: 6px; background: #e0f2fe; overflow-wrap: anywhere;}
+#news-status.is-error {background: #fee2e2; color: #991b1b;}
+[hidden] {display: none !important;}
+.preview-panel {margin-top: 28px;}
+.preview-actions, .preview-pagination {display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 18px;}
+.preview-actions button.secondary, .preview-pagination button.secondary {margin-bottom: 0;}
+#news-preview-status {overflow-wrap: anywhere;}
+#news-preview-options {margin-top: 12px;}
+#news-preview-status.is-error {color: #991b1b;}
+#news-preview-article {margin-top: 24px; border-top: 1px solid #d5e1ec; padding-top: 22px;}
+.preview-language {margin-bottom: 20px;}
+.preview-language select {max-width: 320px;}
+.preview-language .help-text {margin-top: 6px;}
+#news-preview-page p {white-space: pre-line; overflow-wrap: anywhere;}
+#news-preview-page figure {margin: 18px 0;}
+#news-preview-page img {display: block; max-width: 100%; max-height: 620px; margin: auto; border-radius: 6px;}
+#news-preview-page figcaption {font-size: 13px; color: #52606d; margin-top: 7px; overflow-wrap: anywhere;}
+.preview-sources {margin: 20px 0; overflow-wrap: anywhere;}
+.preview-sources a, #news-preview-page a {color: #0369a1;}
+@media (max-width: 760px) {.grade-grid, .type-grid, .field-grid {grid-template-columns: 1fr;} .page-shell {padding: 22px 14px 36px;} .panel {padding: 18px;} .save-bar {align-items: stretch; flex-direction: column;} .save-bar button {width: 100%;}}

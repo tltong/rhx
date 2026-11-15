@@ -6,6 +6,7 @@
     <title>Student Learning Dashboard</title>
     <link rel="stylesheet" href="./landing.css?v=20261108-assessment-section-v2">
 
+    <link rel="stylesheet" href="/features/student_news/pages/common/news_student.css?v=20261115-news-student-v1">
     <script defer src="/__/firebase/12.15.0/firebase-app-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-auth-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
@@ -63,6 +64,8 @@
           </div>
         </div>
       </section>
+
+      <section id="student-news-root" class="dashboard-section" aria-label="Today’s News" hidden></section>
 
       <section id="student-subject-assessments-section" class="dashboard-section" aria-labelledby="student-subject-assessments-title" hidden>
         <div class="section-header"><div><h2 id="student-subject-assessments-title">Subject Assessments</h2>
@@ -136,6 +139,6 @@
       </section>
     </main>
 
-    <script type="module" src="./landing.js?v=20261112-essay-variation-v1"></script>
+    <script type="module" src="./landing.js?v=20261115-news-student-v1"></script>
   </body>
 </html>

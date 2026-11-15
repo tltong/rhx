@@ -69,30 +69,30 @@ import {getCompletedEssayPractice} from "../student_essay_practice/student_essay
  */
 
 /** Reads require sign-in; writes require a site administrator. */
-import {DEFAULT_REWARD_CONFIG, RewardCategory} from "../../config/firebase/reward_schema.js?v=20261104-fill-preassessment-v3";
-import {FirestoreStudentRewardRepository} from "./infrastructure/firestore_student_reward_repository.js?v=20261104-fill-preassessment-v3";
-import {AwardAdditionalMissionCompletion} from "./application/award_additional_mission_completion.js?v=20261104-fill-preassessment-v3";
-import {AwardDailyMissionCompletion} from "./application/award_daily_mission_completion.js?v=20261104-fill-preassessment-v3";
-import {AwardAssessmentLevelUp} from "./application/award_assessment_level_up.js?v=20261104-fill-preassessment-v3";
+import {DEFAULT_REWARD_CONFIG, RewardCategory} from "../../config/firebase/reward_schema.js?v=20261115-news-student-v1";
+import {FirestoreStudentRewardRepository} from "./infrastructure/firestore_student_reward_repository.js?v=20261115-news-student-v1";
+import {AwardAdditionalMissionCompletion} from "./application/award_additional_mission_completion.js?v=20261115-news-student-v1";
+import {AwardDailyMissionCompletion} from "./application/award_daily_mission_completion.js?v=20261115-news-student-v1";
+import {AwardAssessmentLevelUp} from "./application/award_assessment_level_up.js?v=20261115-news-student-v1";
 import {getStudentPracticeAssessment} from "../student_assessment_progress/student_assessment_progress_module.js?v=20261112-essay-variation-v1";
-import {AwardStudentLogin} from "./application/award_student_login.js?v=20261104-fill-preassessment-v3";
+import {AwardStudentLogin} from "./application/award_student_login.js?v=20261115-news-student-v1";
 import {getStudentLoginRecord, listStudentLoginHistory} from "../student_login/student_login_module.js?v=20261104-fill-preassessment-v3";
 import {getAcceptedAdditionalMissionForPractice, getAcceptedDailyMissionForPractice} from "../daily_mission/daily_mission_module.js?v=20261112-essay-variation-v1";
 import {listCompletedPracticeIds} from "../student_practice/student_practice_module.js?v=20261104-fill-preassessment-v3";
-import {SaveStudentReward} from "./application/save_student_reward.js?v=20261104-fill-preassessment-v3";
-import {GetStudentRewardTotal} from "./application/get_student_reward_total.js?v=20261104-fill-preassessment-v3";
-import {WatchStudentRewardTotal} from "./application/watch_student_reward_total.js?v=20261104-fill-preassessment-v3";
-import {GetStudentRewardCategoryTotal} from "./application/get_student_reward_category_total.js?v=20261104-fill-preassessment-v3";
-import {ListStudentRewardHistory} from "./application/list_student_reward_history.js?v=20261104-fill-preassessment-v3";
-import {ListRecentStudentRewardActivities} from "./application/list_recent_student_reward_activities.js?v=20261104-fill-preassessment-v3";
-import {FirestoreRewardConfigRepository} from "./infrastructure/firestore_reward_config_repository.js?v=20261104-fill-preassessment-v3";
+import {SaveStudentReward} from "./application/save_student_reward.js?v=20261115-news-student-v1";
+import {GetStudentRewardTotal} from "./application/get_student_reward_total.js?v=20261115-news-student-v1";
+import {WatchStudentRewardTotal} from "./application/watch_student_reward_total.js?v=20261115-news-student-v1";
+import {GetStudentRewardCategoryTotal} from "./application/get_student_reward_category_total.js?v=20261115-news-student-v1";
+import {ListStudentRewardHistory} from "./application/list_student_reward_history.js?v=20261115-news-student-v1";
+import {ListRecentStudentRewardActivities} from "./application/list_recent_student_reward_activities.js?v=20261115-news-student-v1";
+import {FirestoreRewardConfigRepository} from "./infrastructure/firestore_reward_config_repository.js?v=20261115-news-student-v1";
 import {getAssessmentFrameworkById, ASSESSMENT_FRAMEWORK_END_LEVEL_ID} from "../assessment_framework/assessment_framework_module.js?v=20261104-fill-preassessment-v3";
 import {requireCurrentSiteAdmin} from "../site_admin/site_admin_module.js?v=20260827-site-admin-guard-v1";
 import {requireCurrentFirebaseAuthUser} from "../../utils/firebase/firebase_auth.js";
-import {GetRewardConfig} from "./application/get_reward_config.js?v=20261104-fill-preassessment-v3";
-import {GetAssessmentFrameworkRewardConfig} from "./application/get_assessment_framework_reward_config.js?v=20261104-fill-preassessment-v3";
-import {SaveRewardConfig} from "./application/save_reward_config.js?v=20261104-fill-preassessment-v3";
-import {SaveAssessmentFrameworkRewardConfig} from "./application/save_assessment_framework_reward_config.js?v=20261104-fill-preassessment-v3";
+import {GetRewardConfig} from "./application/get_reward_config.js?v=20261115-news-student-v1";
+import {GetAssessmentFrameworkRewardConfig} from "./application/get_assessment_framework_reward_config.js?v=20261115-news-student-v1";
+import {SaveRewardConfig} from "./application/save_reward_config.js?v=20261115-news-student-v1";
+import {SaveAssessmentFrameworkRewardConfig} from "./application/save_assessment_framework_reward_config.js?v=20261115-news-student-v1";
 
 const repository = new FirestoreRewardConfigRepository();
 const studentRepository = new FirestoreStudentRewardRepository();

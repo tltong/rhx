@@ -1,4 +1,4 @@
-import {requireConfigurationInput, requireAdministratorUid} from "../domain/reward_config.js?v=20261013-recent-reward-activities-v1";
+import {requireConfigurationInput, requireAdministratorUid} from "../domain/reward_config.js?v=20261115-news-student-v1";
 class SaveRewardConfig {
 
   constructor(repository, requireAdministrator) {

@@ -13,9 +13,9 @@ function providerName(value) {
 }
 function registerLlmProvider(name, adapter) {
   name = providerName(name);
-  if (!adapter || !(typeof adapter.extractTextFromImage === "function" || typeof adapter.generateImage === "function" ||
+  if (!adapter || !(typeof adapter.extractTextFromImage === "function" || typeof adapter.generateImage === "function" || typeof adapter.searchWeb === "function" ||
     (typeof adapter.call === "function" && typeof adapter.generateText === "function"))) {
-    throw new Error("adapter must provide call and generateText, generateImage, or extractTextFromImage.");
+    throw new Error("adapter must provide call and generateText, generateImage, extractTextFromImage, or searchWeb.");
   }
   providers.set(name, adapter);
   return adapter;
@@ -44,6 +44,7 @@ class LlmUtil {
   generateText(input, options) {return this.invoke("generateText", input, options);}
   generateImage(input, options) {return this.invoke("generateImage", input, options);}
   extractTextFromImage(input, options) {return this.invoke("extractTextFromImage", input, options);}
+  searchWeb(input, options) {return this.invoke("searchWeb", input, options);}
 }
 const llmUtil = new LlmUtil();
 module.exports = {LlmUtil, llmUtil, LLM_PROVIDERS, DEFAULT_LLM_PROVIDER, registerLlmProvider,
@@ -52,4 +53,5 @@ module.exports = {LlmUtil, llmUtil, LLM_PROVIDERS, DEFAULT_LLM_PROVIDER, registe
   callLlm: (input, options) => llmUtil.call(input, options),
   generateLlmText: (input, options) => llmUtil.generateText(input, options),
   generateLlmImage: (input, options) => llmUtil.generateImage(input, options),
-  extractLlmImageText: (input, options) => llmUtil.extractTextFromImage(input, options)};
+  extractLlmImageText: (input, options) => llmUtil.extractTextFromImage(input, options),
+  searchLlmWeb: (input, options) => llmUtil.searchWeb(input, options)};

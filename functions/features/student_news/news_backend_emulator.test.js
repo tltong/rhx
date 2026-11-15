@@ -1,0 +1,123 @@
+const assert = require("node:assert/strict"), test = require("node:test");
+const {createTestSystem, readyQuestions} = require("../../../tests/news_test_support.cjs");
+const host = process.env.FIRESTORE_EMULATOR_HOST, admin = {auth: {uid: "admin"}};
+const previewInput = (request, extra = {}) => ({newsType: "international", country: null, level: "primary", standard: 6, language: "English", clientRequestId: request, ...extra});
+const requestInput = (language = "English", newsType = "international") => ({newsType, language, timeZone: "Asia/Kuala_Lumpur", clientRequestId: "student-request"});
+test("unpublished preview languages share frozen settings and images, cache requests and enforce ownership", {skip: !host}, async () => {
+  const s = await createTestSystem("demo-rhx-news-preview-languages");
+  try {
+    const original = await s.service.generateNewsPreview(previewInput("language-preview", {standard: 1}), admin);
+    const request = {generationId: original.generationId, language: "French"};
+    await assert.rejects(s.service.requestNewsPreviewLanguage(request, admin), error => error.code === "failed-precondition");
+    await s.drain(original.generationId);
+    const ready = await s.service.getNewsPreview({generationId: original.generationId}, admin);
+    const config = await s.configFeature.loadNewsConfiguration(); config.articleTypes.pictureStory.photoCount = 5;
+    await s.configFeature.saveNewsConfiguration({...config, expectedVersion: config.version}, admin);
+    await assert.rejects(s.service.requestNewsPreviewLanguage(request, {auth: {uid: "admin-other"}}), error => error.code === "permission-denied");
+    await assert.rejects(s.service.requestNewsPreviewLanguage({...request, language: "German"}, admin), error => error.code === "invalid-argument");
+    await assert.rejects(s.service.requestNewsPreviewLanguage({...request, settings: {}}, admin), error => error.code === "invalid-argument");
+    const [first, duplicate] = await Promise.all([s.service.requestNewsPreviewLanguage(request, admin), s.service.requestNewsPreviewLanguage({...request, language: "french"}, admin)]);
+    assert.equal(first.generationId, duplicate.generationId);
+    await s.db.doc("newsGenerations/" + first.generationId).update({status: "running", leaseToken: "expired", leaseUntil: new Date("2026-11-14T09:00:00Z")});
+    assert.equal((await s.service.requestNewsPreviewLanguage(request, admin)).status, "queued");
+    await s.drain(first.generationId, true);
+    const translated = await s.service.getNewsPreview({generationId: first.generationId}, admin);
+    assert.equal(translated.status, "completed"); assert.equal(translated.article.storyId, ready.article.storyId);
+    assert.equal(translated.article.pages.length, 3, "translation retains the preview's original format after settings change");
+    assert.deepEqual(translated.article.pages.map(page => page.images[0].url), ready.article.pages.map(page => page.images[0].url));
+    assert.equal(s.calls.ai, 3); assert.equal(s.calls.discover, 1); assert.equal(s.calls.adapt, 2);
+    assert.equal((await s.db.collection("newsStories").get()).size, 0); assert.equal((await s.db.collection("newsEditions").get()).size, 0);
+    const cached = await s.service.requestNewsPreviewLanguage({generationId: translated.generationId, language: "French"}, admin);
+    assert.equal(cached.generationId, translated.generationId);
+    const back = await s.service.requestNewsPreviewLanguage({generationId: translated.generationId, language: "English"}, admin);
+    assert.equal(back.generationId, original.generationId); assert.equal(back.status, "completed"); assert.equal(s.calls.adapt, 2);
+    await s.service.addNewsPreviewToPool({generationId: translated.generationId}, admin);
+    assert.equal((await s.db.collection("newsEditions").get()).size, 1);
+    assert.equal((await s.repository.job(original.generationId)).pooled, undefined, "each language is explicitly added to the pool");
+    assert.equal((await s.service.requestNewsPreviewLanguage(request, admin)).pooled, true);
+  } finally {await s.db.terminate();}
+});
+test("private previews, explicit/idempotent publication, all-AI fallback, retries and ownership", {skip: !host}, async () => {
+  const s = await createTestSystem("demo-rhx-news-backend-preview");
+  try {
+    let config = await s.configFeature.loadNewsConfiguration(); config.articleTypes.pictureStory.photoType = "web";
+    await s.configFeature.saveNewsConfiguration({...config, expectedVersion: config.version}, admin);
+    s.state.web = "partial";
+    const started = await s.service.generateNewsPreview(previewInput("preview-1", {standard: 1}), admin);
+    const duplicate = await s.service.generateNewsPreview(previewInput("preview-1", {standard: 1}), admin);
+    assert.equal(duplicate.generationId, started.generationId);
+    await assert.rejects(s.service.generateNewsPreview(previewInput("preview-1", {standard: 2}), admin), error => error.code === "already-exists");
+    await assert.rejects(s.service.addNewsPreviewToPool({generationId: started.generationId}, admin), /Finish article/);
+    await s.drain(started.generationId, true);
+    const preview = await s.service.getNewsPreview({generationId: started.generationId}, admin);
+    assert.equal(preview.status, "completed"); assert.deepEqual(s.calls.web, [1, 2]); assert.equal(s.calls.ai, 3);
+    assert.equal(preview.article.actualPhotoType, "ai"); assert.equal(preview.article.photoFallbackUsed, true);
+    assert.equal((await s.db.collection("newsStories").get()).size, 0); assert.equal((await s.db.collection("newsEditions").get()).size, 0);
+    await assert.rejects(s.service.getNewsPreview({generationId: started.generationId}, {auth: {uid: "admin-other"}}), error => error.code === "permission-denied");
+    await assert.rejects(s.service.generateNewsPreview(previewInput("bad"), {auth: {uid: "student"}}), error => error.code === "permission-denied");
+    await assert.rejects(s.service.addNewsPreviewToPool({generationId: started.generationId, article: {}}, admin), error => error.code === "invalid-argument");
+    const pooled = await s.service.addNewsPreviewToPool({generationId: started.generationId}, admin);
+    assert.deepEqual(await s.service.addNewsPreviewToPool({generationId: started.generationId}, admin), pooled);
+    assert.equal((await s.db.collection("newsStories").get()).size, 1); assert.equal((await s.db.collection("newsEditions").get()).size, 1);
+    assert.equal((await s.db.collection(`newsStories/${pooled.storyId}/media`).get()).size, 3);
+    const grade6 = await s.service.generateNewsPreview(previewInput("adapt-existing", {storyId: pooled.storyId}), admin);
+    await s.drain(grade6.generationId); assert.equal(s.calls.discover, 1, "existing stories are adapted without another news search");
+    await s.service.addNewsPreviewToPool({generationId: grade6.generationId}, admin);
+    assert.equal((await s.db.collection("newsStories").get()).size, 1); assert.equal((await s.db.collection("newsEditions").get()).size, 2);
+    // Resuming an image failure preserves previously checkpointed AI images.
+    config = await s.configFeature.loadNewsConfiguration(); config.articleTypes.pictureStory.photoType = "ai";
+    await s.configFeature.saveNewsConfiguration({...config, expectedVersion: config.version}, admin);
+    s.calls.ai = 0; s.state.failAi = true;
+    const failure = await s.service.generateNewsPreview(previewInput("image-failure", {standard: 1}), admin);
+    let job = await s.drain(failure.generationId); assert.equal(job.status, "failed"); assert.equal(job.images.filter(Boolean).length, 1);
+    await s.service.retryNewsPreview({generationId: failure.generationId}, admin); job = await s.drain(failure.generationId);
+    assert.equal(job.status, "completed"); assert.equal(s.calls.ai, 4, "three images plus the failed call, without repeating image one");
+  } finally {await s.db.terminate();}
+});
+test("student shared discovery, one daily story, grade/language reuse, completion and midnight", {skip: !host}, async () => {
+  const s = await createTestSystem("demo-rhx-news-backend-student");
+  try {
+    const a = await s.student("student-a"), peer = await s.student("student-peer"), young = await s.student("student-young", 1), french = await s.student("student-french", 1);
+    const [first, concurrent] = await Promise.all([s.service.requestStudentNews(requestInput(), a), s.service.requestStudentNews(requestInput(), peer)]);
+    assert.equal(first.generationId, concurrent.generationId); await s.drain(first.generationId, true);
+    let preparing = await s.service.requestStudentNews(requestInput(), a);
+    await s.db.doc("newsGenerations/" + preparing.generationId).update({status: "running", leaseToken: "expired-worker", leaseUntil: new Date("2026-11-14T09:00:00Z")});
+    const recovered = await s.service.getStudentNewsAssignment({assignmentId: preparing.assignmentId, language: "English"}, a);
+    assert.equal(recovered.status, "queued", "assignment polling recovers an expired worker lease");
+    await s.drain(preparing.generationId, true);
+    const ready = await s.service.requestStudentNews(requestInput(), a), shared = await s.service.requestStudentNews(requestInput(), peer);
+    assert.equal(ready.status, "ready"); assert.equal(ready.article.editionId, shared.article.editionId); assert.equal(s.calls.discover, 1); assert.equal(s.calls.adapt, 1);
+    assert.equal((await s.db.collection("studentNews/student-a/history").get()).size, 0, "opening is not completion");
+    preparing = await s.service.requestStudentNews(requestInput(), young); await s.drain(preparing.generationId);
+    const picture = await s.service.requestStudentNews(requestInput(), young);
+    assert.equal(picture.article.storyId, ready.article.storyId); assert.equal(picture.article.pages.length, 3); assert.equal(s.calls.discover, 1); assert.equal(s.calls.ai, 3);
+    preparing = await s.service.requestStudentNewsLanguage({assignmentId: picture.assignmentId, language: "French"}, young); await s.drain(preparing.generationId);
+    const translated = await s.service.requestStudentNewsLanguage({assignmentId: picture.assignmentId, language: "French"}, young);
+    assert.equal(translated.article.storyId, picture.article.storyId); assert.equal(s.calls.ai, 3, "translations reuse the complete image set");
+    assert.deepEqual(translated.article.pages.map(page => page.images[0].url), picture.article.pages.map(page => page.images[0].url));
+    const before = s.calls.adapt;
+    const frenchShared = await s.service.requestStudentNews(requestInput("French"), french); assert.equal(frenchShared.status, "ready"); assert.equal(s.calls.adapt, before);
+    const questions = await readyQuestions(s, {assignmentId: picture.assignmentId, articleLanguage: "English"}, young);
+    await s.service.submitNewsQuestions({assignmentId: picture.assignmentId, articleLanguage: "English", setId: questions.setId, answers: questions.questions.map(question => ({questionId: question.id, value: questions.wordBank[0].id}))}, young);
+    await s.service.finishStudentNews({assignmentId: picture.assignmentId}, young);
+    await s.service.finishStudentNews({assignmentId: picture.assignmentId}, young);
+    assert.equal((await s.db.collection("studentNews/student-young/history").get()).size, 1);
+    assert.equal((await s.service.getStudentNewsAssignment({assignmentId: picture.assignmentId, language: "English"}, young)).completed, true);
+    assert.equal((await s.service.requestStudentNews(requestInput(), young)).article.storyId, picture.article.storyId, "same-day requests reopen the assigned story");
+    await assert.rejects(s.service.requestStudentNews({...requestInput(), standard: 6}, young), error => error.code === "invalid-argument");
+    await assert.rejects(s.service.getNewsPreview({generationId: first.generationId}, young), error => error.code === "permission-denied");
+    const local = await s.service.requestStudentNews(requestInput("English", "local"), a); await s.drain(local.generationId);
+    preparing = await s.service.requestStudentNews(requestInput("English", "local"), a); await s.drain(preparing.generationId);
+    const localReady = await s.service.requestStudentNews(requestInput("English", "local"), a);
+    assert.equal(localReady.article.country, "Malaysia"); assert.notEqual(localReady.article.storyId, ready.article.storyId);
+    assert.equal((await s.service.requestStudentNews({...requestInput(), timeZone: "America/New_York"}, a)).article.storyId, ready.article.storyId);
+    assert.equal((await s.db.doc("studentNews/student-a").get()).data().timeZone, "Asia/Kuala_Lumpur");
+    s.setTime("2026-11-15T10:00:00Z");
+    const nextDay = await s.service.requestStudentNews(requestInput(), young);
+    assert.notEqual(nextDay.assignmentId, picture.assignmentId); assert.ok(nextDay.generationId, "an exhausted unread pool triggers discovery");
+    await s.drain(nextDay.generationId); assert.equal(s.calls.discover, 3);
+    // Retirement excludes future selection while existing assignments stay readable.
+    await s.service.retireNewsStory({storyId: ready.article.storyId}, admin);
+    assert.equal((await s.service.getStudentNewsAssignment({assignmentId: ready.assignmentId, language: "English"}, a)).article.editionId, ready.article.editionId);
+  } finally {await s.db.terminate();}
+});

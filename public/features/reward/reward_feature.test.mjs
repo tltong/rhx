@@ -124,6 +124,7 @@ test("backend and web share the reward schema and exact defaults", () => {
   assert.deepEqual(webSchema.rewardConfigSchema, backendSchema.rewardConfigSchema);
   assert.deepEqual(backend.DEFAULT_REWARD_CONFIG, {
     dailyLoginCoins: 1, dailyMissionCompletionCoins: 25, bonusMissionCompletionCoins: 20,
+    newsArticleCompletionCoins: 2, newsAllCorrectCoins: 2,
     recentActivitiesLimit: 5,
     loginStreakCoins: {"3": 2, "7": 5, "14": 10, "30": 25},
   });
@@ -156,7 +157,7 @@ for (const [layer, api] of [["backend", backend], ["web", web]]) {
     assert.ok(Object.isFrozen(saved.loginStreakCoins));
     assert.deepEqual(await api.getRewardConfig(), saved);
     assert.deepEqual(Object.keys(documents.get(configPath)).sort(), [
-      "bonusMissionCompletionCoins", "dailyLoginCoins", "dailyMissionCompletionCoins", "loginStreakCoins", "recentActivitiesLimit", "updatedAt", "updatedBy",
+      "bonusMissionCompletionCoins", "dailyLoginCoins", "dailyMissionCompletionCoins", "loginStreakCoins", "newsAllCorrectCoins", "newsArticleCompletionCoins", "recentActivitiesLimit", "updatedAt", "updatedBy",
     ]);
     assert.equal(writes[0].options.merge, false);
     assert.equal(writes[0].path, configPath);
@@ -312,4 +313,18 @@ test("web saves reject account changes during administrator verification", async
     await assert.rejects(save, /signed in/);
   }
   assert.deepEqual(writes, []);
+});
+
+test("news reward settings default for legacy documents, accept zero, and reject invalid coin amounts", async () => {
+  for (const api of [backend, web]) {
+    const legacy = configInput(); delete legacy.newsArticleCompletionCoins; delete legacy.newsAllCorrectCoins;
+    const original = await saveGlobal(api, legacy);
+    assert.equal(original.newsArticleCompletionCoins, 2); assert.equal(original.newsAllCorrectCoins, 2);
+    const disabled = await saveGlobal(api, configInput({newsArticleCompletionCoins: 0, newsAllCorrectCoins: 0}));
+    assert.equal(disabled.newsArticleCompletionCoins, 0); assert.equal(disabled.newsAllCorrectCoins, 0);
+    for (const value of [null, -1, 1.5, "2", Infinity, Number.MAX_SAFE_INTEGER + 1]) {
+      await assert.rejects(saveGlobal(api, configInput({newsArticleCompletionCoins: value})), /whole number/);
+      await assert.rejects(saveGlobal(api, configInput({newsAllCorrectCoins: value})), /whole number/);
+    }
+  }
 });

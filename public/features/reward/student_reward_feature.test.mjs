@@ -232,7 +232,7 @@ test("both layers share student reward schema, enum and feature API exports", ()
   assert.deepEqual(webSchema.studentRewardSchema, backendSchema.studentRewardSchema);
   assert.deepEqual(web.RewardCategory, backend.RewardCategory);
   assert.deepEqual(Object.values(web.RewardCategory), [
-    "dailyLogin", "dailyMissionCompletion", "bonusMissionCompletion", "assessmentLevel", "loginStreak",
+    "dailyLogin", "dailyMissionCompletion", "bonusMissionCompletion", "assessmentLevel", "loginStreak", "newsArticleCompletion", "newsAllCorrect",
   ]);
   assert.ok(Object.isFrozen(web.RewardCategory));
   for (const api of [backend, web]) {
@@ -1768,12 +1768,12 @@ for (const [layer, api, LevelAward, Repository, assessmentFeature, PreAssessment
         preAssessment: {scoreLevelSplit: Object.fromEntries(bands.map(band => [band.field, target]))},
       })});
       const useCase = new PreAssessment({studentAssessmentProgressRepository: new AssessmentRepository(),
-        getSyllabusById: async () => ({id: "math", assessmentFrameworkId: "framework-1", topics: [{id: "topic-" + index}]}),
+        getSyllabusById: async () => ({id: "math", languages: ["English"], assessmentFrameworkId: "framework-1", topics: [{id: "topic-" + index, assessmentFrameworkIds: {english: "framework-1"}}]}),
         calculatePreAssessmentLevel: value => calculate.execute(value),
       });
       documents.set("studentPractices/student-1/completedPractices/" + practiceId, {});
       await useCase.execute({studentId: "student-1",
-        practice: {id: practiceId, type: "pre assessment", questions: [{syllabusId: "math", topicId: "topic-" + index}]},
+        practice: {id: practiceId, type: "pre assessment", language: "English", questions: [{syllabusId: "math", topicId: "topic-" + index, language: "English"}]},
         practiceResult: {practiceId, score: 95, submittedAt: new Date(baseSeconds * 1000)},
       });
       const result = await api.awardAssessmentLevelUp({...studentScope, practiceId});
@@ -1797,13 +1797,13 @@ for (const stage of ["reward", "generation"]) {
     })});
     const assessment = new AssessPreAssessmentPractice({
       studentAssessmentProgressRepository: new FirestoreStudentAssessmentProgressRepository(),
-      getSyllabusById: async () => ({id: "math", assessmentFrameworkId: "framework-1", topics: [{id: "fractions"}]}),
+      getSyllabusById: async () => ({id: "math", languages: ["English"], assessmentFrameworkId: "framework-1", topics: [{id: "fractions", assessmentFrameworkIds: {english: "framework-1"}}]}),
       calculatePreAssessmentLevel: async value => {calculationCalls++; return calculate.execute(value);},
     });
     let fail = true;
     const operations = {
       assessPractice: value => assessment.execute({studentId: value.studentId,
-        practice: {id: value.practiceId, type: "pre assessment", questions: [{syllabusId: "math", topicId: "fractions"}]},
+        practice: {id: value.practiceId, type: "pre assessment", language: "English", questions: [{syllabusId: "math", topicId: "fractions", language: "English"}]},
         practiceResult: {practiceId: value.practiceId, score: 95, submittedAt: new Date(baseSeconds * 1000)},
       }),
       calculateReadiness: async () => null,

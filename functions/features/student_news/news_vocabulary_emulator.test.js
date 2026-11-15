@@ -1,0 +1,86 @@
+const assert = require("node:assert/strict"), test = require("node:test");
+const {createTestSystem} = require("../../../tests/news_test_support.cjs");
+const {setId} = require("../news_article/domain/news_vocabulary");
+const {hash} = require("../news_article/domain/news_article");
+const admin = {auth: {uid: "admin"}}, host = process.env.FIRESTORE_EMULATOR_HOST;
+const input = {newsType: "international", level: "primary", standard: 1, language: "English", clientRequestId: "vocabulary-preview"};
+test("vocabulary and meanings are private, shared, contextual, configurable and retryable", {skip: !host}, async () => {
+  const s = await createTestSystem("demo-rhx-news-vocabulary");
+  try {
+    const start = await s.service.generateNewsPreview(input, admin); await s.drain(start.generationId, true);
+    const reference = {previewGenerationId: start.generationId}, article = (await s.service.getNewsPreview({generationId: start.generationId}, admin)).article;
+    const selected = await s.service.getNewsVocabulary(reference, admin);
+    assert.equal(selected.status, "ready"); assert.equal(selected.requestedCount, 3); assert.equal(selected.actualCount, 2);
+    assert.ok(selected.items.every(item => item.pagePosition === 1), "later repeated occurrences are not highlighted");
+    assert.equal(s.calls.vocabulary, 1); assert.equal((await s.db.collection("newsEditions").get()).size, 0);
+    assert.ok(selected.items.every(item => item.articleMeaning.startsWith("English definition")));
+    const sourceMeaningInput = {...reference, setId: selected.setId, termId: selected.items[0].id, meaningLanguage: "English"};
+    const sourceMeaning = await s.service.getNewsMeaning(sourceMeaningInput, admin);
+    assert.equal(sourceMeaning.status, "ready"); assert.equal(sourceMeaning.meaning, selected.items[0].articleMeaning); assert.equal(s.calls.meaning, 0);
+    assert.equal((await s.service.getNewsVocabulary(reference, admin)).lastMeaningLanguage, null, "viewing the precomputed source meaning does not change language preference");
+    await assert.rejects(s.service.getNewsVocabulary(reference, {auth: {uid: "admin-other"}}), error => error.code === "permission-denied");
+    await assert.rejects(s.service.getNewsVocabulary({...reference, editionId: article.editionId}, admin), error => error.code === "invalid-argument");
+    const meaningInput = {...reference, setId: selected.setId, termId: selected.items[0].id, meaningLanguage: "French"};
+    await assert.rejects(s.service.requestNewsMeaning({...meaningInput, meaningLanguage: "German"}, admin), error => error.code === "invalid-argument");
+    await assert.rejects(s.service.requestNewsMeaning({...meaningInput, termId: "invented"}, admin), error => error.code === "not-found");
+    const [a, b] = await Promise.all([s.service.requestNewsMeaning(meaningInput, admin), s.service.requestNewsMeaning(meaningInput, admin)]);
+    assert.equal(a.generationId, b.generationId); await s.drain(a.generationId, true);
+    const meaning = await s.service.getNewsMeaning(meaningInput, admin); assert.equal(meaning.status, "ready"); assert.match(meaning.meaning, /French/); assert.equal(s.calls.meaning, 1);
+    assert.equal((await s.service.getNewsVocabulary(reference, admin)).lastMeaningLanguage, "French");
+    await s.service.addNewsPreviewToPool({generationId: start.generationId}, admin);
+    const student = await s.student("student-vocabulary", 1), peer = await s.student("student-peer-vocabulary", 1);
+    const request = {newsType: "international", language: "English", timeZone: "Asia/Kuala_Lumpur", clientRequestId: "reading"};
+    const ready = await s.service.requestStudentNews(request, student); assert.equal(ready.status, "ready");
+    await s.service.requestStudentNews(request, peer);
+    const studentRef = {assignmentId: ready.assignmentId, articleLanguage: "English"};
+    assert.equal((await s.service.getNewsVocabulary(studentRef, student)).setId, selected.setId);
+    assert.equal((await s.service.requestNewsMeaning({...meaningInput, ...studentRef, previewGenerationId: undefined}, student)).meaning, meaning.meaning);
+    assert.equal(s.calls.meaning, 1, "the student's request uses the shared preview meaning after explicit publication");
+    assert.equal((await s.service.getNewsVocabulary(studentRef, peer)).lastMeaningLanguage, null, "language preferences belong to each student");
+    const root = (await s.db.doc("studentNews/student-vocabulary").get()).data(); assert.equal(root.timeZone, "Asia/Kuala_Lumpur"); assert.equal(root.lastMeaningLanguage, "French");
+    const other = await s.student("student-unassigned", 1);
+    await assert.rejects(s.service.getNewsVocabulary(studentRef, other), error => error.code === "not-found");
+    let config = await s.configFeature.loadNewsConfiguration(); config.gradeSettings.primary[1].vocabularyCount = 5;
+    await s.configFeature.saveNewsConfiguration({...config, expectedVersion: config.version}, admin);
+    const changed = await s.service.getNewsVocabulary(studentRef, student); assert.equal(changed.status, "queued"); await s.drain(changed.generationId);
+    assert.equal((await s.service.getNewsVocabulary(studentRef, student)).requestedCount, 5); assert.equal(s.calls.ai, 3); assert.equal(s.calls.adapt, 1);
+    config = await s.configFeature.loadNewsConfiguration(); config.gradeSettings.primary[1].vocabularyCount = 0;
+    await s.configFeature.saveNewsConfiguration({...config, expectedVersion: config.version}, admin);
+    const disabled = await s.service.getNewsVocabulary(studentRef, student); assert.equal(disabled.status, "ready"); assert.deepEqual(disabled.items, []);
+    await assert.rejects(s.service.requestNewsMeaning({...meaningInput, ...studentRef, previewGenerationId: undefined}, student), error => error.code === "failed-precondition");
+    // Legacy pooled editions acquire a selection on demand without rewriting text/images.
+    await s.db.doc(`newsEditions/${article.editionId}/vocabulary/${setId(5)}`).delete();
+    config = await s.configFeature.loadNewsConfiguration(); config.gradeSettings.primary[1].vocabularyCount = 4;
+    await s.configFeature.saveNewsConfiguration({...config, expectedVersion: config.version}, admin);
+    const backfill = await s.service.getNewsVocabulary(studentRef, student); await s.drain(backfill.generationId);
+    const backfilled = await s.service.getNewsVocabulary(studentRef, student);
+    const failureInput = {...studentRef, setId: backfilled.setId, termId: backfilled.items[1].id, meaningLanguage: "French"};
+    s.state.failMeaning = true; const failure = await s.service.requestNewsMeaning(failureInput, student); await s.drain(failure.generationId);
+    assert.equal((await s.service.getNewsMeaning(failureInput, student)).status, "failed");
+    s.state.failMeaning = false; await s.service.requestNewsMeaning(failureInput, student); await s.drain(failure.generationId);
+    assert.equal((await s.service.getNewsMeaning(failureInput, student)).status, "ready");
+    assert.equal(s.calls.ai, 3); assert.equal((await s.db.collection("newsStories").get()).size, 1);
+  } finally {await s.db.terminate();}
+});
+for (const legacyVersion of [1, 2]) test("legacy v" + legacyVersion + " vocabulary is upgraded once before highlights are exposed, without regenerating the edition", {skip: !host}, async () => {
+  const s = await createTestSystem("demo-rhx-vocabulary-source-meaning-" + legacyVersion);
+  try {
+    const started = await s.service.generateNewsPreview({...input, standard: 6, clientRequestId: "legacy-source-meaning"}, admin);
+    await s.drain(started.generationId);
+    const ref = {previewGenerationId: started.generationId}, selected = await s.service.getNewsVocabulary(ref, admin);
+    const legacyId = hash([legacyVersion, selected.requestedCount]);
+    const legacy = {...await s.repository.vocabulary(selected.editionId, selected.setId), selectorVersion: legacyVersion, setId: legacyId};
+    legacy.items = legacy.items.map(({articleMeaning, ...item}) => legacyVersion === 1 ? item : {...item, articleMeaning: "An unnecessarily complicated definition."});
+    await s.db.doc(`newsEditions/${selected.editionId}/vocabulary/${legacyId}`).set(legacy);
+    await s.db.doc(`newsEditions/${selected.editionId}/vocabulary/${selected.setId}`).delete();
+    const before = {adapt: s.calls.adapt, ai: s.calls.ai, discover: s.calls.discover, vocabulary: s.calls.vocabulary};
+    const upgrading = await s.service.getNewsVocabulary(ref, admin);
+    assert.equal(upgrading.status, "queued"); assert.deepEqual(upgrading.items, []); assert.notEqual(upgrading.setId, legacyId);
+    await s.drain(upgrading.generationId);
+    const ready = await s.service.getNewsVocabulary(ref, admin);
+    assert.ok(ready.items.every(item => item.articleMeaning));
+    assert.equal(s.calls.vocabulary, before.vocabulary + 1); assert.equal(s.calls.adapt, before.adapt); assert.equal(s.calls.ai, before.ai); assert.equal(s.calls.discover, before.discover);
+    await s.service.getNewsVocabulary(ref, admin); assert.equal(s.calls.vocabulary, before.vocabulary + 1);
+    assert.ok((await s.repository.vocabulary(selected.editionId, legacyId)).items.every(item => legacyVersion === 1 ? item.articleMeaning === undefined : item.articleMeaning === "An unnecessarily complicated definition."), "legacy artifacts remain intact");
+  } finally {await s.db.terminate();}
+});
