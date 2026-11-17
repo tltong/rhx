@@ -91,5 +91,9 @@ exports.onStudentSyllabusUnsubscribed = require("./triggers/syllabus_unsubscript
 exports.onSubjectAssessmentSubscriptionCreated = require("./triggers/subscribed_subject_assessment_trigger").onSubjectAssessmentSubscriptionCreated;
 
 exports.essayConfig = require("./essay_config").essayConfig;
+const demoFunctions = require("./demo");
+exports.demo = demoFunctions.demo;
+exports.onDemoPracticeRequested = demoFunctions.onDemoPracticeRequested;
+exports.cleanupDemoSessions = demoFunctions.cleanupDemoSessions;
 exports.studentNews = require("./student_news").studentNews;
 exports.onNewsGenerationRequested = require("./triggers/news_generation_trigger").onNewsGenerationRequested;

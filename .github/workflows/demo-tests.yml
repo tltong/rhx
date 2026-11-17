@@ -1,0 +1,108 @@
+name: Demo tests
+
+on:
+  push:
+    branches:
+      - feature/rhx-demo
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  demo-tests:
+    name: Demo tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: bash
+    env:
+      CI: "true"
+      FIREBASE_CLI_DISABLE_USAGE_REPORTING: "true"
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Configure test paths
+        run: |
+          printf '%s\n' \
+            "FIREBASE_EMULATORS_PATH=$RUNNER_TEMP/rhx-firestore-emulator" \
+            "PUPPETEER_CACHE_DIR=$RUNNER_TEMP/rhx-puppeteer" \
+            "DEMO_ARTIFACT_DIR=$RUNNER_TEMP/rhx-demo-artifacts" \
+            "DEMO_SCREENSHOTS=$RUNNER_TEMP/rhx-demo-artifacts/screenshots" \
+            >> "$GITHUB_ENV"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Set up Java
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install project dependencies
+        working-directory: functions
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: "true"
+        run: npm ci --no-audit --no-fund
+
+      - name: Install the test browser
+        working-directory: functions
+        run: |
+          npx --no-install puppeteer browsers install chrome
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          import {executablePath} from "puppeteer";
+          const chromePath = await executablePath();
+          fs.accessSync(chromePath, fs.constants.X_OK);
+          fs.appendFileSync(process.env.GITHUB_ENV, "CHROME_BIN=" + chromePath + "\n");
+          NODE
+
+      - name: Run unit and client tests
+        run: |
+          mkdir -p "$DEMO_ARTIFACT_DIR"
+          node functions/features/demo/demo.test.js 2>&1 | tee "$DEMO_ARTIFACT_DIR/unit.log"
+          node public/features/demo/demo_client.test.mjs 2>&1 | tee "$DEMO_ARTIFACT_DIR/client.log"
+
+      - name: Run Firestore and browser tests
+        run: |
+          npx --yes firebase-tools@15.34.0 emulators:exec \
+            --only firestore \
+            --project demo-rhx-demo \
+            --config firebase.demo-tests.json \
+            'node functions/features/demo/demo_emulator.test.js && node scripts/test-demo-browser.cjs' \
+            2>&1 | tee "$DEMO_ARTIFACT_DIR/integration.log"
+
+      - name: Collect emulator logs
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/rhx-demo-artifacts"
+          for log_file in firestore-debug.log firebase-debug.log; do
+            if [ -f "$log_file" ]; then
+              cp "$log_file" "$RUNNER_TEMP/rhx-demo-artifacts/"
+            fi
+          done
+
+      - name: Upload test logs and screenshots
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: demo-tests-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/rhx-demo-artifacts
+          if-no-files-found: ignore
+          retention-days: 7
