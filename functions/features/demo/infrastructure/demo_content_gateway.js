@@ -2,6 +2,8 @@ const d = require("../domain/demo");
 const {randomInt} = require("node:crypto");
 const {DEFAULT_REWARD_CONFIG} = require("../../../schema/reward_schema");
 const {markPassage} = require("../../fill_in_the_blanks_scoring/application/mark_passage");
+const {requireTutorGuideForQuestion} = require("../../tutor/domain/tutor_guide_version");
+const {FirestoreTutorMiniQuestionSetRepository} = require("../../tutor/infrastructure/firestore_tutor_mini_question_set_repository");
 
 function createDemoContentGateway({
   syllabuses = require("../../syllabus/syllabus_module"),
@@ -17,6 +19,7 @@ function createDemoContentGateway({
   fillPractices = require("../../fill_in_the_blanks_practice/fill_in_the_blanks_practice_module"),
   fillScoring = require("../../fill_in_the_blanks_scoring/fill_in_the_blanks_scoring_module"),
   tutor = require("../../tutor/tutor_module"),
+  tutorSets = new FirestoreTutorMiniQuestionSetRepository(),
   rewards = require("../../reward/reward_module"),
   generateText = (...args) => require("../../../utils/llm/llm_ops").generateLlmText(...args),
 } = {}) {
@@ -170,6 +173,16 @@ function createDemoContentGateway({
     if (attempt.tutorGuides?.[String(index)]) return attempt.tutorGuides[String(index)];
     return api.getTutorMiniQuestionSet({questionId: attempt.questions[index].id, language: attempt.language});
   }
+  async function getTutorAnswer(attempt, index, sequence) {
+    await tutorSource(attempt, index);
+    const pinned = attempt.tutorGuides?.[String(index)];
+    if (!pinned) throw d.fail("Open this question's tutor review first.", "failed-precondition");
+    const guideId = await requireTutorGuideForQuestion(pinned.guideId, attempt.questions[index]);
+    const set = await tutorSets.get({questionId: guideId, language: attempt.language, miniQuestionCount: pinned.miniQuestionCount}, {allowLegacy: false});
+    const mini = set?.miniQuestions.find(question => question.sequence === sequence);
+    if (!mini) throw d.fail("This tutor answer is unavailable. Reopen the review or try another practice.", "failed-precondition");
+    return mini.expectedAnswer;
+  }
   async function checkTutor(attempt, index, input) {
     const api = await tutorSource(attempt, index), pinned = attempt.tutorGuides?.[String(index)];
     if (!pinned) throw d.fail("Open this question's tutor review first.", "failed-precondition");
@@ -183,6 +196,6 @@ function createDemoContentGateway({
     try {return await syllabuses.isTopicTutorEnabled(attempt.syllabusId, attempt.topicId);}
     catch {return false;}
   }
-  return {catalog, validateScope, subjects, context, coinReward, prepare, mark, getTutor, checkTutor, reviewPolicy};
+  return {catalog, validateScope, subjects, context, coinReward, prepare, mark, getTutor, getTutorAnswer, checkTutor, reviewPolicy};
 }
 module.exports = {createDemoContentGateway};

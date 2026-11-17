@@ -6,7 +6,7 @@ const {openaiApiKey} = require("./utils/llm/openai_util");
 const {FirestoreDemoRepository} = require("./features/demo/infrastructure/firestore_demo_repository");
 const d = require("./features/demo/domain/demo");
 const ACTIONS = Object.freeze(["startDemo", "getCatalog", "saveSetup", "getSubjects", "preparePractice", "getPractice",
-  "getFillInTheBlanksAnswers", "submitPractice", "cancelPractice", "getTutor", "checkTutor", "getNewsOptions", "prepareNews", "getNewsQuestions",
+  "getFillInTheBlanksAnswers", "submitPractice", "cancelPractice", "getTutor", "getTutorAnswer", "checkTutor", "getNewsOptions", "prepareNews", "getNewsQuestions",
   "submitNewsQuestions", "getNewsVocabulary", "requestNewsMeaning", "getNewsMeaning", "finishDemo"]);
 let feature;
 function apis() {return feature ||= require("./features/demo/demo_module").createDemoFeature();}

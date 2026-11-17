@@ -6,6 +6,8 @@ const {createDemoService} = require("./application/demo_service");
 const {createDemoNews} = require("./application/demo_news");
 const {resolveTopicAssessmentFrameworkId} = require("../syllabus/domain/syllabus");
 const {DEFAULT_IMAGE_SETTINGS} = require("../../utils/llm/image_generation_settings");
+const {FirestoreTutorMiniQuestionSetRepository} = require("../tutor/infrastructure/firestore_tutor_mini_question_set_repository");
+const {tutorGuideId, requireTutorGuideForQuestion} = require("../tutor/domain/tutor_guide_version");
 const d = require("./domain/demo");
 const token = () => randomBytes(32).toString("base64url");
 function topic(id, name, frameworkId, attachment = null) {
@@ -14,7 +16,8 @@ function topic(id, name, frameworkId, attachment = null) {
 async function createDemoTestSystem(projectId) {
   const newsSystem = await createTestSystem(projectId), {db, now} = newsSystem;
   const repository = new FirestoreDemoRepository({getDb: () => db, now});
-  const state = {pool: [], batches: [], failMarking: false, tutorEnabled: true, generationGate: null, reward: 20};
+  const state = {pool: [], batches: [], failMarking: false, tutorEnabled: true, generationGate: null, reward: 20,
+    tutorInstructions: "initial", tutorAnswers: ["2", "3"]};
   const fixtures = [
     {id: "math", active: true, country: "Malaysia", level: "primary", year: 4, subject: "Mathematics", languages: ["English"],
       topics: [topic("fractions", "Fractions", "mcq")]},
@@ -38,7 +41,14 @@ async function createDemoTestSystem(projectId) {
   }
   const syllabuses = {listSyllabuses: async () => fixtures, getSyllabusById: async id => fixtures.find(item => item.id === id),
     resolveTopicAssessmentFrameworkId, isTopicTutorEnabled: async () => state.tutorEnabled};
+  const tutorSets = new FirestoreTutorMiniQuestionSetRepository({
+    readDocument: async (collection, id) => (await db.collection(collection).doc(id).get()).data() || null,
+    writeDocument: (collection, id, value) => db.collection(collection).doc(id).set(value),
+    createDocumentIfAbsent: (collection, id, value) => db.collection(collection).doc(id).create(value),
+    serverTimestamp: now,
+  });
   const content = createDemoContentGateway({
+    tutorSets,
     syllabuses, scopes: {listSyllabusScopes: async () => [{country: "Malaysia", levels: {primary: {4: true}}}]},
     frameworks: {getAssessmentFrameworkById: async id => ({id, frameworkType: {mcq: "normal", essay: "essay", fill: "fillInTheBlanks"}[id],
       levels: [{sequenceOrder: 1, criteria: {difficultyLevel: "medium"}}]})},
@@ -63,10 +73,19 @@ async function createDemoTestSystem(projectId) {
     rewards: {getRewardConfig: async () => ({bonusMissionCompletionCoins: state.reward})},
     tutor: {getTutorConfig: async () => ({correctAnswerMessage: {English: "Correct"}, incorrectAnswerMessage: {English: "Try again"}}),
       createTutorReviewForQuestion: loader => ({
-        getTutorMiniQuestionSet: async input => {await loader(input.questionId); return {guideId: "shared-test-guide", miniQuestionCount: 2,
-          miniQuestions: [{sequence: 1, questionText: "What is one plus one?", expectedAnswer: "2", acceptedAnswers: ["2"]},
-            {sequence: 2, questionText: "What is two plus one?", expectedAnswer: "3", acceptedAnswers: ["3"]}]};},
-        checkTutorMiniQuestionAnswer: async input => {await loader(input.questionId); return {isCorrect: input.answer === (input.sequence === 1 ? "2" : "3")};},
+        getTutorMiniQuestionSet: async input => {
+          const question = await loader(input.questionId), guideId = await tutorGuideId(question, {promptInstructions: state.tutorInstructions});
+          const reference = {questionId: guideId, language: input.language, miniQuestionCount: 2};
+          const set = await tutorSets.get(reference, {allowLegacy: false}) || await tutorSets.save({...reference, configUpdatedAt: now(),
+            miniQuestions: [{sequence: 1, questionText: "What is one plus one?", expectedAnswer: state.tutorAnswers[0], acceptedAnswers: [state.tutorAnswers[0]], answerExplanation: "Add one and one."},
+              {sequence: 2, questionText: "What is two plus one?", expectedAnswer: state.tutorAnswers[1], acceptedAnswers: [state.tutorAnswers[1]], answerExplanation: "Add two and one."}]}, {createOnly: true});
+          return {...set, questionId: input.questionId, guideId};
+        },
+        checkTutorMiniQuestionAnswer: async input => {
+          await requireTutorGuideForQuestion(input.guideId, await loader(input.questionId));
+          const set = await tutorSets.get({questionId: input.guideId, language: input.language, miniQuestionCount: input.miniQuestionCount}, {allowLegacy: false});
+          return {isCorrect: input.answer === set.miniQuestions[input.sequence - 1].expectedAnswer};
+        },
       })},
     generateText: async prompt => {const input = JSON.parse(prompt.slice(prompt.lastIndexOf("\n") + 1)); return {answers: input.answers.map(item => ({questionId: item.questionId, isCorrect: false}))};},
   });

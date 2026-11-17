@@ -58,7 +58,11 @@ immutable on retry.
 
 Incorrect MCQs offer the existing tutor, subject to the current topic setting.
 Shared guides are reused and pinned to the selected version. Mini-question
-expected answers are withheld from the browser.
+expected answers are withheld from ordinary tutor responses. In the demo, each
+mini question has **Fill correct answer**, which requests only that step's
+expected answer from the pinned guide. The answer remains editable and must
+still be checked to continue. The action rechecks session ownership and the
+topic's tutor setting, and does not award additional coins or record progress.
 
 News reuses the published pool, configuration and existing news-generation
 worker. Missing stories and language editions are prepared on demand.

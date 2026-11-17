@@ -111,6 +111,33 @@ test("tutor requires an incorrect submitted question, redacts mini answers and r
     await assert.rejects(s.service.checkTutor(secret, {attemptId, questionIndex: 0, sequence: 1, answer: "2"}), {code: "failed-precondition"});
   } finally {await s.db.terminate();}
 });
+test("tutor autofill reads only the opened guide's selected step and preserves its version", {skip: !enabled}, async () => {
+  const s = await fixture("tutor-answers");
+  try {
+    const secret = await s.start(), other = await s.start(), result = await s.complete(secret, {}, true);
+    const input = {attemptId: result.practice.attemptId, questionIndex: 0, sequence: 1};
+    await assert.rejects(s.service.getTutorAnswer(secret, input), {code: "failed-precondition"});
+    const guide = await s.service.getTutor(secret, {attemptId: input.attemptId, questionIndex: 0});
+    assert.equal(JSON.stringify(guide).includes("expectedAnswer"), false);
+    await assert.rejects(s.service.getTutorAnswer(other, input), {code: "not-found"});
+    await assert.rejects(s.service.getTutorAnswer(secret, {...input, guideId: "arbitrary-guide"}), {code: "invalid-argument"});
+    for (const sequence of [0, 1.5, 3]) await assert.rejects(s.service.getTutorAnswer(secret, {...input, sequence}), {code: "invalid-argument"});
+    assert.deepEqual(await s.service.getTutorAnswer(secret, input), {questionIndex: 0, sequence: 1, answer: "2"});
+    assert.equal((await s.service.getTutorAnswer(secret, {...input, sequence: 2})).answer, "3");
+    s.state.tutorInstructions = "revised"; s.state.tutorAnswers = ["two", "three"];
+    const {attempt} = await s.repository.readAttempt(secret, input.attemptId);
+    const revised = await s.content.getTutor({...attempt, tutorGuides: {}}, 0);
+    assert.notEqual(revised.guideId, guide.guideId); assert.equal(revised.miniQuestions[0].expectedAnswer, "two");
+    const original = await s.service.getTutorAnswer(secret, input);
+    assert.equal(original.answer, "2", "autofill follows the opened guide after tutor instructions change");
+    assert.equal((await s.service.checkTutor(secret, {...input, answer: original.answer})).isCorrect, true);
+    assert.equal((await s.service.getPractice(secret, {attemptId: input.attemptId})).summary.totalCoins, 21);
+    s.state.tutorEnabled = false;
+    await assert.rejects(s.service.getTutorAnswer(secret, input), {code: "failed-precondition"});
+    await s.service.finishDemo(secret, {});
+    await assert.rejects(s.service.getTutorAnswer(secret, input), {code: "failed-precondition"});
+  } finally {await s.db.terminate();}
+});
 test("news follows practice, uses shared preparation, rewards 3/3 once across language changes", {skip: !enabled}, async () => {
   const s = await fixture("news");
   try {

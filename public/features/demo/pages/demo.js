@@ -334,20 +334,38 @@ export function mountDemo({root = document, api = demo, pollMs = 2000} = {}) {
         form.append(node("p", "Step " + (step + 1) + " of " + guide.miniQuestions.length, "eyebrow"), node("h3", mini.questionText));
         const label = node("label", "Your answer"), answer = node("input"); answer.type = "text"; answer.required = true; answer.maxLength = 10000; label.append(answer);
         const feedback = node("p"); feedback.setAttribute("role", "status"); const check = node("button", "Check answer"); check.type = "submit";
-        form.append(label, feedback, check); host.append(form, button("Back to answer review", () => {host.hidden = true;}));
+        const isCurrentStep = () => !disposed && current === revision && form.isConnected && !host.hidden;
+        const fill = button("Fill correct answer", async () => {
+          if (!isCurrentStep() || fill.disabled || check.disabled || answer.disabled) return;
+          fill.disabled = check.disabled = true; fill.textContent = "Filling answer…"; feedback.textContent = "";
+          try {
+            const result = await api.request("getTutorAnswer", {attemptId: practice.attemptId, questionIndex: index, sequence: mini.sequence});
+            if (!isCurrentStep()) return;
+            answer.value = result.answer; answer.dispatchEvent(new root.defaultView.Event("input", {bubbles: true}));
+            feedback.className = "help-text"; feedback.textContent = "Correct answer filled. You can edit it, then check your answer.";
+            answer.focus();
+          } catch (error) {
+            if (isCurrentStep()) {feedback.className = "answer-incorrect"; feedback.textContent = error.message;}
+          } finally {
+            if (isCurrentStep() && !answer.disabled) {fill.disabled = check.disabled = false; fill.textContent = "Fill correct answer";}
+          }
+        });
+        fill.id = "demo-tutor-fill-answer";
+        const actions = node("div", null, "actions"); actions.append(fill, check);
+        form.append(label, feedback, actions); host.append(form, button("Back to answer review", () => {host.hidden = true;}));
         form.addEventListener("submit", async event => {
-          event.preventDefault(); if (check.disabled || !form.reportValidity()) return; check.disabled = true;
+          event.preventDefault(); if (check.disabled || !form.reportValidity()) return; check.disabled = fill.disabled = true;
           try {
             const result = await api.request("checkTutor", {attemptId: practice.attemptId, questionIndex: index, sequence: mini.sequence, answer: answer.value});
-            if (disposed || current !== revision) return;
+            if (!isCurrentStep()) return;
             feedback.textContent = result.message; feedback.className = result.isCorrect ? "answer-correct" : "answer-incorrect";
             if (result.isCorrect) {
-              check.hidden = true; answer.disabled = true;
+              check.hidden = fill.hidden = true; answer.disabled = true;
               form.append(button(step + 1 === guide.miniQuestions.length ? "Finish tutor review" : "Next step", () => {
                 if (++step === guide.miniQuestions.length) host.hidden = true; else render();
               }, false));
-            } else check.disabled = false;
-          } catch (error) {if (!disposed && current === revision) {feedback.textContent = error.message; check.disabled = false;}}
+            } else check.disabled = fill.disabled = false;
+          } catch (error) {if (isCurrentStep()) {feedback.textContent = error.message; check.disabled = fill.disabled = false;}}
         });
         math(host);
       }

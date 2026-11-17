@@ -127,6 +127,16 @@ function createDemoService({repository, content, news, now = () => new Date()}) 
     });
     return {questionIndex: index, ...saved};
   }
+  async function getTutorAnswer(token, input) {
+    d.fields(input, ["attemptId", "questionIndex", "sequence"]);
+    const {attempt} = await repository.readAttempt(token, d.id(input.attemptId)), index = tutorIndex(input);
+    const guide = attempt.tutorGuides?.[String(index)];
+    if (!guide) throw d.fail("Open this question's tutor review first.", "failed-precondition");
+    if (!Number.isInteger(input.sequence) || input.sequence < 1 || input.sequence > guide.miniQuestionCount) throw d.fail("Choose a tutor step.");
+    const answer = await content.getTutorAnswer(attempt, index, input.sequence);
+    await repository.read(token);
+    return {questionIndex: index, sequence: input.sequence, answer};
+  }
   async function checkTutor(token, input) {
     d.fields(input, ["attemptId", "questionIndex", "sequence", "answer"]);
     const {attempt} = await repository.readAttempt(token, input.attemptId), index = tutorIndex(input);
@@ -166,7 +176,7 @@ function createDemoService({repository, content, news, now = () => new Date()}) 
     },
     async getSubjects(token, input) {d.fields(input, []); const {session} = await configured(token); return content.subjects(session.scope);},
     preparePractice: prepare, getPractice: state, getFillInTheBlanksAnswers, submitPractice: submit, cancelPractice: cancel,
-    getTutor, checkTutor,
+    getTutor, getTutorAnswer, checkTutor,
     async finishDemo(token, input) {d.fields(input, []); return {summary: await repository.finish(token)};},
     ...news,
     runPractice,
