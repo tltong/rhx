@@ -76,6 +76,9 @@ export function mountDemo({root = document, api = demo, pollMs = 2000} = {}) {
   }
   function clearPractice() {
     clearTimeout(practiceTimer); fillView?.dispose(); fillView = null; practice = preparation = pendingSubmission = renderedAttempt = null;
+    el("demo-practice-type").textContent = "Choose a topic"; el("demo-practice-topic").disabled = true;
+    el("demo-mcq-options").hidden = true; el("demo-difficulty").disabled = el("demo-question-count").disabled = true;
+    el("demo-question-count").required = false; el("demo-start-practice").disabled = true;
     fillingAnswers = false; el("demo-fill-correct-answers").hidden = true; el("demo-fill-correct-answers").disabled = false;
     el("demo-fill-correct-answers").textContent = "Fill correct answers";
     el("demo-practice-questions").replaceChildren(); el("demo-practice-result").replaceChildren();
@@ -126,22 +129,29 @@ export function mountDemo({root = document, api = demo, pollMs = 2000} = {}) {
     } catch (error) {if (current === revision && !disposed) status(error.message, true);}
     finally {if (current === revision && !disposed) setupControls();}
   }
-  function practiceChoices(resetType = false) {
+  function practiceConfiguration() {
+    return selected?.topics.find(topic => topic.id === el("demo-practice-topic").value)?.configurations
+      .find(item => item.language === el("demo-practice-language").value);
+  }
+  function topicChanged() {
+    const configuration = practiceConfiguration(), mcq = configuration?.practiceType === "normal";
+    el("demo-practice-type").textContent = configuration ? TYPES[configuration.practiceType] : "Choose a topic";
+    el("demo-mcq-options").hidden = !mcq; el("demo-difficulty").disabled = el("demo-question-count").disabled = !mcq;
+    el("demo-question-count").required = mcq; el("demo-start-practice").disabled = !active || !configuration;
+  }
+  function practiceChoices() {
     if (!selected) return;
-    const language = el("demo-practice-language").value, currentType = resetType ? "" : el("demo-practice-type").value;
-    const types = [...new Set(selected.topics.flatMap(topic => topic.configurations.filter(item => item.language === language).map(item => item.practiceType)))];
-    options(el("demo-practice-type"), types.map(type => ({value: type, label: TYPES[type]})), null, types.includes(currentType) ? currentType : types[0]);
-    const type = el("demo-practice-type").value, topics = selected.topics.filter(topic => topic.configurations.some(item => item.language === language && item.practiceType === type));
+    const language = el("demo-practice-language").value;
+    const topics = selected.topics.filter(topic => topic.configurations.some(item => item.language === language));
     options(el("demo-practice-topic"), topics.map(topic => ({value: topic.id, label: topic.name})), "Choose topic");
-    el("demo-mcq-options").hidden = type !== "normal"; el("demo-question-count").required = type === "normal";
-    el("demo-start-practice").disabled = !language || !type;
+    el("demo-practice-topic").disabled = !topics.length; topicChanged();
   }
   function chooseSubject(subject) {
     revision++; clearPractice(); stopNews(); selected = subject;
-    el("practice-heading").textContent = "Make this practice yours"; el("demo-practice-context").textContent = subject.name;
+    el("practice-heading").textContent = "Choose a topic"; el("demo-practice-context").textContent = subject.name;
     el("demo-practice-setup").hidden = false;
     options(el("demo-practice-language"), subject.languages, "Choose language");
-    practiceChoices(true); status(); show("practice");
+    practiceChoices(); status(); show("practice");
   }
   async function backToSubjects() {
     if (!active) return;
@@ -262,9 +272,10 @@ export function mountDemo({root = document, api = demo, pollMs = 2000} = {}) {
     }
   }
   async function startPractice(event) {
-    event.preventDefault(); if (!active || !el("demo-practice-setup").reportValidity()) return;
+    event.preventDefault(); const configuration = practiceConfiguration();
+    if (!active || !configuration || !el("demo-practice-setup").reportValidity()) return;
     preparation = {requestId: crypto.randomUUID(), syllabusId: selected.id, language: el("demo-practice-language").value,
-      topicId: el("demo-practice-topic").value, practiceType: el("demo-practice-type").value};
+      topicId: el("demo-practice-topic").value, practiceType: configuration.practiceType};
     if (preparation.practiceType === "normal") Object.assign(preparation, {difficulty: el("demo-difficulty").value, questionCount: Number(el("demo-question-count").value)});
     el("demo-practice-setup").hidden = true; el("demo-practice-preparation").hidden = false; status("Preparing your practice…");
     await checkPractice();
@@ -456,8 +467,8 @@ export function mountDemo({root = document, api = demo, pollMs = 2000} = {}) {
     } catch {if (!disposed && current === revision) status("Your demo is finished. You can start again for a fresh experience.");}
   }
   listen(el("demo-country"), "change", countryChanged); listen(el("demo-level"), "change", levelChanged); listen(el("demo-grade"), "change", setupControls);
-  listen(el("demo-setup-form"), "submit", saveSetup); listen(el("demo-practice-language"), "change", () => practiceChoices(true));
-  listen(el("demo-practice-type"), "change", () => practiceChoices()); listen(el("demo-practice-setup"), "submit", startPractice);
+  listen(el("demo-setup-form"), "submit", saveSetup); listen(el("demo-practice-language"), "change", practiceChoices);
+  listen(el("demo-practice-topic"), "change", topicChanged); listen(el("demo-practice-setup"), "submit", startPractice);
   listen(el("demo-answer-form"), "submit", submitPractice); listen(el("demo-back-subjects"), "click", backToSubjects);
   listen(el("demo-fill-correct-answers"), "click", fillCorrectAnswers);
   listen(el("demo-news-subjects"), "click", backToSubjects); listen(el("demo-change-setup"), "click", () => {show("setup"); status();});

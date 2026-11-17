@@ -12,8 +12,11 @@ Only one pane is visible at a time:
    awards one coin.
 2. **Subjects:** active syllabuses matching that country, level and grade.
    Streams are not required. Each subject shows its configured practice types.
-3. **Practice:** choose the subject's language, practice type and eligible topic.
-   MCQ offers Easy/Medium/Hard and a student-selected count from 1–100. The
+3. **Practice:** choose the subject's language and topic. The topic list includes
+   all configured practice types for that language. The selected topic's practice
+   type is displayed as read-only text. MCQ offers Easy/Medium/Hard and a
+   student-selected count from 1–100; these controls are hidden and disabled for
+   essay and fill-in-the-blanks topics. The
    maximum is a fixed service limit, with no new admin parameter. Preparation,
    answering, results, answer review and inline tutor are states within this pane.
    Back to subjects allows multiple practices.

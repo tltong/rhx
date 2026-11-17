@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="referrer" content="same-origin">
     <title>Try RHX — ReadyHeroX</title>
-    <link rel="stylesheet" href="/features/demo/pages/demo.css?v=20261115-demo-v1">
+    <link rel="stylesheet" href="/features/demo/pages/demo.css?v=20261117-demo-topics-v1">
     <link rel="stylesheet" href="/features/fill_in_the_blanks_question_generator/components/passage_view.css">
     <link rel="stylesheet" href="/features/student_news/pages/common/news_questions.css">
     <link rel="stylesheet" href="/features/student_news/pages/common/news_vocabulary.css">
@@ -17,7 +17,7 @@
     <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script>
     <script defer src="/__/firebase/init.js"></script>
-    <script type="module" src="/features/demo/pages/demo.js?v=20261117-demo-tutor-fill-v1"></script>
+    <script type="module" src="/features/demo/pages/demo.js?v=20261117-demo-topics-v1"></script>
   </head>
   <body>
     <header class="demo-header">
@@ -59,16 +59,16 @@
       </section>
 
       <section id="pane-practice" class="pane" aria-labelledby="practice-heading" hidden>
-        <div class="heading"><p id="demo-practice-context" class="eyebrow"></p><h1 id="practice-heading">Make this practice yours</h1></div>
+        <div class="heading"><p id="demo-practice-context" class="eyebrow"></p><h1 id="practice-heading">Choose a topic</h1></div>
         <form id="demo-practice-setup">
           <div class="form-grid">
             <label>Language<select id="demo-practice-language" required></select></label>
-            <label>Practice type<select id="demo-practice-type" required></select></label>
-            <label>Topic<select id="demo-practice-topic" required></select></label>
+            <label>Topic<select id="demo-practice-topic" required disabled></select></label>
+            <div class="practice-type-field"><span id="demo-practice-type-label">Practice type</span><output id="demo-practice-type" for="demo-practice-language demo-practice-topic" aria-labelledby="demo-practice-type-label" aria-live="polite">Choose a topic</output></div>
           </div>
-          <div id="demo-mcq-options" class="form-grid">
-            <label>Difficulty<select id="demo-difficulty"><option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option></select></label>
-            <label>Number of questions<input id="demo-question-count" type="number" min="1" max="100" step="1" value="5" inputmode="numeric" required><small>Choose 1–100 questions.</small></label>
+          <div id="demo-mcq-options" class="form-grid" hidden>
+            <label>Difficulty<select id="demo-difficulty" disabled><option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option></select></label>
+            <label>Number of questions<input id="demo-question-count" type="number" min="1" max="100" step="1" value="5" inputmode="numeric" disabled><small>Choose 1–100 questions.</small></label>
           </div>
           <div class="actions"><button id="demo-start-practice" type="submit">Start practice</button></div>
         </form>
