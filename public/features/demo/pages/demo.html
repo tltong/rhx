@@ -17,7 +17,7 @@
     <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script>
     <script defer src="/__/firebase/init.js"></script>
-    <script type="module" src="/features/demo/pages/demo.js?v=20261115-demo-v1"></script>
+    <script type="module" src="/features/demo/pages/demo.js?v=20261117-demo-fill-answers-v1"></script>
   </head>
   <body>
     <header class="demo-header">
@@ -73,7 +73,13 @@
           <div class="actions"><button id="demo-start-practice" type="submit">Start practice</button></div>
         </form>
         <div id="demo-practice-preparation" class="panel" hidden><h2>Preparing your practice</h2><p id="demo-practice-progress" role="status"></p></div>
-        <form id="demo-answer-form" hidden><div id="demo-practice-questions"></div><button id="demo-submit-practice" type="submit">Complete practice</button></form>
+        <form id="demo-answer-form" hidden>
+          <div id="demo-practice-questions"></div>
+          <div class="actions">
+            <button id="demo-fill-correct-answers" type="button" class="secondary" hidden>Fill correct answers</button>
+            <button id="demo-submit-practice" type="submit">Complete practice</button>
+          </div>
+        </form>
         <div id="demo-practice-result" class="panel" hidden></div>
         <section id="demo-tutor" class="panel" aria-label="Tutor review" hidden></section>
         <div class="actions">

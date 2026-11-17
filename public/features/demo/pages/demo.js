@@ -11,6 +11,7 @@ export function mountDemo({root = document, api = demo, pollMs = 2000} = {}) {
   const el = id => root.getElementById(id), listeners = [];
   let revision = 0, disposed = false, active = false, currentPane = "setup", catalog = null, subjects = [], selected = null, scope = null;
   let summary = emptySummary(), practice = null, preparation = null, pendingSubmission = null, renderedAttempt = null, fillView = null;
+  let fillingAnswers = false;
   let practiceTimer, newsTimer, newsOperation = 0, newsResult = null, newsPage = 0, newsPending = null, questionsUi, vocabularyUi, progressUi;
   const listen = (element, event, callback) => {element.addEventListener(event, callback); listeners.push(() => element.removeEventListener(event, callback));};
   function node(tag, text, className) {
@@ -75,6 +76,8 @@ export function mountDemo({root = document, api = demo, pollMs = 2000} = {}) {
   }
   function clearPractice() {
     clearTimeout(practiceTimer); fillView?.dispose(); fillView = null; practice = preparation = pendingSubmission = renderedAttempt = null;
+    fillingAnswers = false; el("demo-fill-correct-answers").hidden = true; el("demo-fill-correct-answers").disabled = false;
+    el("demo-fill-correct-answers").textContent = "Fill correct answers";
     el("demo-practice-questions").replaceChildren(); el("demo-practice-result").replaceChildren();
     el("demo-tutor").replaceChildren(); el("demo-tutor").hidden = true; el("demo-answer-form").hidden = true;
     el("demo-practice-result").hidden = true; el("demo-practice-preparation").hidden = true;
@@ -191,6 +194,7 @@ export function mountDemo({root = document, api = demo, pollMs = 2000} = {}) {
       answer.addEventListener("input", () => {count.textContent = "Words: " + getEssayWordCount(answer.value, min).wordCount;});
       label.append(answer); panel.append(label, count); host.append(panel);
     } else fillView = mountFillInTheBlanksPassage({root: host, passage: practice.passage, idPrefix: "demo-"});
+    el("demo-fill-correct-answers").hidden = practice.practiceType !== "fillInTheBlanks";
     renderedAttempt = practice.attemptId; el("demo-answer-form").hidden = false; el("demo-submit-practice").disabled = false;
     el("demo-submit-practice").textContent = "Complete practice"; math(host);
   }
@@ -265,8 +269,31 @@ export function mountDemo({root = document, api = demo, pollMs = 2000} = {}) {
     el("demo-practice-setup").hidden = true; el("demo-practice-preparation").hidden = false; status("Preparing your practice…");
     await checkPractice();
   }
+  async function fillCorrectAnswers() {
+    if (!active || practice?.practiceType !== "fillInTheBlanks" || practice.submitted || pendingSubmission || fillingAnswers) return;
+    const current = revision, attemptId = practice.attemptId, control = el("demo-fill-correct-answers");
+    fillingAnswers = true; control.disabled = true; control.textContent = "Filling answers…";
+    el("demo-submit-practice").disabled = true; status("Filling the correct answers…");
+    try {
+      const result = await api.request("getFillInTheBlanksAnswers", {attemptId});
+      if (disposed || current !== revision || practice?.attemptId !== attemptId || practice.submitted) return;
+      for (const question of practice.passage.questions) {
+        const input = el("demo-blank-" + question.questionId);
+        input.value = result.answers[question.questionId];
+        input.dispatchEvent(new root.defaultView.Event("input", {bubbles: true}));
+      }
+      fillView.validate(); status("Correct answers filled. You can edit them or complete the practice.");
+    } catch (error) {
+      if (!disposed && current === revision) status(error.message, true);
+    } finally {
+      if (!disposed && current === revision && practice?.attemptId === attemptId && !practice.submitted) {
+        fillingAnswers = false; control.disabled = false; control.textContent = "Fill correct answers";
+        el("demo-submit-practice").disabled = false;
+      }
+    }
+  }
   async function submitPractice(event) {
-    event?.preventDefault(); if (!practice || !active || practice.submitted) return;
+    event?.preventDefault(); if (!practice || !active || practice.submitted || fillingAnswers) return;
     if (!pendingSubmission) {
       if (!el("demo-answer-form").reportValidity()) return;
       pendingSubmission = {attemptId: practice.attemptId};
@@ -283,6 +310,7 @@ export function mountDemo({root = document, api = demo, pollMs = 2000} = {}) {
       }
     }
     const current = revision; el("demo-submit-practice").disabled = true;
+    el("demo-fill-correct-answers").disabled = true;
     for (const input of el("demo-answer-form").querySelectorAll("input, textarea")) input.disabled = true;
     status("Submitting your practice…");
     try {
@@ -413,6 +441,7 @@ export function mountDemo({root = document, api = demo, pollMs = 2000} = {}) {
   listen(el("demo-setup-form"), "submit", saveSetup); listen(el("demo-practice-language"), "change", () => practiceChoices(true));
   listen(el("demo-practice-type"), "change", () => practiceChoices()); listen(el("demo-practice-setup"), "submit", startPractice);
   listen(el("demo-answer-form"), "submit", submitPractice); listen(el("demo-back-subjects"), "click", backToSubjects);
+  listen(el("demo-fill-correct-answers"), "click", fillCorrectAnswers);
   listen(el("demo-news-subjects"), "click", backToSubjects); listen(el("demo-change-setup"), "click", () => {show("setup"); status();});
   listen(el("demo-practice-retry"), "click", () => {void checkPractice(true);}); listen(el("demo-continue-news"), "click", continueNews);
   listen(el("demo-news-form"), "submit", event => {

@@ -45,6 +45,12 @@ returns prompts/options and withholds private keys. Essay and passage practices
 reuse attached content, with a topic-scoped pool fallback. Unprepared topics
 show an unavailable state; the demo adds generation rules only for MCQ.
 
+In a ready fill-in-the-blanks demo practice, **Fill correct answers** populates
+every blank from the attempt's frozen passage. Answers remain editable. This
+demo-only action requires the owning active session and an unsubmitted ready
+attempt; it does not submit the practice or award coins. Ordinary practice
+responses still withhold the answer keys.
+
 Every accepted practice completion awards the current bonusMissionCompletionCoins
 once per attempt, independently of score. Essay/passage grading is asynchronous;
 a marking failure does not remove or repeat coins. Submitted answers are

@@ -48,6 +48,33 @@ test("essay and passage completions earn immediately; grading retries retain imm
     assert.equal(fill.practice.result.questionsCorrect, 2); assert.equal(fill.summary.totalCoins, 41);
   } finally {await s.db.terminate();}
 });
+test("fill answers require the owning ready demo passage and do not submit or award coins", {skip: !enabled}, async () => {
+  const s = await fixture("fill-answers");
+  try {
+    const secret = await s.start(), other = await s.start();
+    const queued = await s.service.preparePractice(secret, {requestId: randomUUID(), syllabusId: "english", topicId: "grammar", language: "English", practiceType: "fillInTheBlanks"});
+    const input = {attemptId: queued.practice.attemptId};
+    await assert.rejects(s.service.getFillInTheBlanksAnswers(secret, input), {code: "failed-precondition"});
+    await s.drainPractice(secret, input.attemptId);
+    await assert.rejects(s.service.getFillInTheBlanksAnswers(other, input), {code: "not-found"});
+    await assert.rejects(s.service.getFillInTheBlanksAnswers(secret, {...input, passageId: "another-passage"}), {code: "invalid-argument"});
+    const filled = await s.service.getFillInTheBlanksAnswers(secret, input);
+    assert.deepEqual(filled, {...input, answers: {q1: "walks", q2: "reading"}});
+    const unchanged = await s.service.getPractice(secret, input);
+    assert.equal(unchanged.practice.submitted, false); assert.equal(unchanged.summary.totalCoins, 1);
+    assert.equal(JSON.stringify(unchanged).includes("correctAnswer"), false);
+    const mcq = await s.prepare(other);
+    await assert.rejects(s.service.getFillInTheBlanksAnswers(other, {attemptId: mcq.practice.attemptId}), {code: "failed-precondition"});
+    const completed = await s.service.submitPractice(secret, {...input, answers: filled.answers});
+    assert.equal(completed.summary.totalCoins, 21);
+    await assert.rejects(s.service.getFillInTheBlanksAnswers(secret, input), {code: "failed-precondition"});
+    const abandoned = await s.prepare(secret, {syllabusId: "english", topicId: "grammar", practiceType: "fillInTheBlanks"});
+    await s.service.cancelPractice(secret, {attemptId: abandoned.practice.attemptId});
+    await assert.rejects(s.service.getFillInTheBlanksAnswers(secret, {attemptId: abandoned.practice.attemptId}), {code: "failed-precondition"});
+    await s.service.finishDemo(secret, {});
+    await assert.rejects(s.service.getFillInTheBlanksAnswers(secret, input), {code: "failed-precondition"});
+  } finally {await s.db.terminate();}
+});
 test("simultaneous guests share replenishment and abandoned runs expire", {skip: !enabled}, async () => {
   const s = await fixture("pool-race"); let release, worker;
   try {

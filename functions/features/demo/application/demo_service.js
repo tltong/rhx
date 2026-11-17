@@ -65,6 +65,14 @@ function createDemoService({repository, content, news, now = () => new Date()}) 
     });
     return state(token, {attemptId});
   }
+  async function getFillInTheBlanksAnswers(token, input) {
+    d.fields(input, ["attemptId"]);
+    const {attempt} = await repository.readAttempt(token, d.id(input.attemptId));
+    if (attempt.practiceType !== "fillInTheBlanks" || attempt.status !== "ready" || attempt.submittedAt) {
+      throw d.fail("Open an unfinished fill-in-the-blanks practice to fill its answers.", "failed-precondition");
+    }
+    return {attemptId: attempt.attemptId, answers: Object.fromEntries(attempt.passage.questions.map(question => [question.questionId, question.correctAnswer]))};
+  }
   async function submit(token, input) {
     d.fields(input, ["attemptId", "answers", "essayText"]);
     const {sessionId, attempt} = await repository.readAttempt(token, d.id(input.attemptId));
@@ -157,7 +165,7 @@ function createDemoService({repository, content, news, now = () => new Date()}) 
       return {scope, ...(await content.subjects(scope))};
     },
     async getSubjects(token, input) {d.fields(input, []); const {session} = await configured(token); return content.subjects(session.scope);},
-    preparePractice: prepare, getPractice: state, submitPractice: submit, cancelPractice: cancel,
+    preparePractice: prepare, getPractice: state, getFillInTheBlanksAnswers, submitPractice: submit, cancelPractice: cancel,
     getTutor, checkTutor,
     async finishDemo(token, input) {d.fields(input, []); return {summary: await repository.finish(token)};},
     ...news,
