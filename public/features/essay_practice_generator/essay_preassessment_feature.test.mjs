@@ -104,7 +104,7 @@ const app = {firestore: () => db, auth: () => auth, functions: () => ({httpsCall
   return async () => ({data: {email: auth.currentUser?.email ?? null,
     emailVerified: auth.currentUser?.emailVerified === true, isAdmin: auth.currentUser?.uid === administrator.uid}});
 }})};
-globalThis.firebase = {apps: [], firestore, initializeApp: () => app};
+globalThis.firebase = {apps: [app], app: () => app, firestore, initializeApp: () => app};
 ops.getFirestoreDb = () => db;
 ops.getDocumentRef = (path, id) => ref(path + "/" + id);
 ops.getCollectionRef = collection;

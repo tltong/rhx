@@ -139,7 +139,7 @@ const app = {
   auth: () => auth,
   functions() { throw new Error("Score APIs must not invoke Firebase callables."); }
 };
-globalThis.firebase = {apps: [], firestore, initializeApp: () => app};
+globalThis.firebase = {apps: [app], app: () => app, firestore, initializeApp: () => app};
 
 backendOps.getDocumentRef = (path, id) => reference(path + "/" + id);
 backendOps.getCollectionRef = collection;

@@ -78,7 +78,7 @@ const db = {
 };
 const app = {firestore: () => db};
 globalThis.firebase = {
-  apps: [], firestore: () => db, initializeApp: () => app,
+  apps: [app], app: () => app, firestore: () => db, initializeApp: () => app,
 };
 
 beforeEach(() => {

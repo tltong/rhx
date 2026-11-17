@@ -77,7 +77,7 @@ const app = {
     }};
   },
 };
-globalThis.firebase = {apps: [], firestore, initializeApp: () => app};
+globalThis.firebase = {apps: [app], app: () => app, firestore, initializeApp: () => app};
 backendOps.readDocument = async (path, id) => {
   const record = await reference(path + "/" + id).get();
   return record.exists ? {...record.data(), id: record.id} : null;

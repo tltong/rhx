@@ -100,7 +100,7 @@ const firestore = () => db;
 firestore.FieldValue = {serverTimestamp: () => "server-timestamp"};
 firestore.FieldPath = {documentId: () => "__name__"};
 const app = {firestore: () => db, auth: () => auth, functions() {throw new Error("Essay practice APIs must not call Firebase endpoints");}};
-globalThis.firebase = {apps: [], firestore, initializeApp: () => app};
+globalThis.firebase = {apps: [app], app: () => app, firestore, initializeApp: () => app};
 backendOps.getFirestoreDb = () => db;
 backendOps.readDocument = async (collection, id) => (await read(collection + "/" + id)).data() ?? null;
 const backendModule = require("../../../functions/features/student_essay_practice/student_essay_practice_module");

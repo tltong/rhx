@@ -1,9 +1,23 @@
-export const firebaseConfig = {
-  apiKey: "AIzaSyDluqcDcYTL9UulcetU8M-WXWNlSF05hyQ",
-  authDomain: "readyherox.firebaseapp.com",
-  projectId: "readyherox",
-  storageBucket: "readyherox.firebasestorage.app",
-  messagingSenderId: "788606405643",
-  appId: "1:788606405643:web:269223f1e1d75467860b0e",
-  measurementId: "G-VW8CKZCRL3"
-};
+const configurationError = "Firebase configuration is unavailable. Load /__/firebase/init.js after the Firebase SDK and before using Firebase services.";
+
+// Firebase Hosting initializes the default app with this site's Web app settings.
+// Resolve it when needed, rather than reading the SDK during module import.
+export function getConfiguredFirebaseApp() {
+  if (typeof globalThis.firebase?.app !== "function") {
+    throw new Error(configurationError);
+  }
+
+  try {
+    return globalThis.firebase.app();
+  } catch (cause) {
+    throw new Error(configurationError, {cause});
+  }
+}
+
+export function getFirebaseConfig() {
+  const config = getConfiguredFirebaseApp().options;
+  if (typeof config?.projectId !== "string" || !config.projectId.trim()) {
+    throw new Error(configurationError);
+  }
+  return config;
+}

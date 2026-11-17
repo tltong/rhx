@@ -13,7 +13,7 @@ export class ImageOcrClient {
   async request(action, input, {signal, timeoutMs = ["extract", "test"].includes(action) ? 270000 : 30000} = {}) {
     if (!Number.isFinite(timeoutMs) || timeoutMs <= 0 || timeoutMs > 270000) throw new Error("OCR timeout must be between 1 and 270000 milliseconds.");
     const endpoint = this.endpointUrl || getHttpFunctionUrl("extractLlmImageText", this.urlOptions);
-    const url = new URL(endpoint, globalThis.location?.href || "https://readyherox.web.app");
+    const url = new URL(endpoint, globalThis.location?.href);
     if (url.protocol !== "https:" && !(url.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname))) throw new Error("OCR requires an HTTPS endpoint outside the local emulator.");
     const user = this.getUser();
     if (!user) throw Object.assign(new Error("Sign in before extracting image text."), {code: "unauthenticated"});

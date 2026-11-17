@@ -94,7 +94,7 @@ const app = {firestore: () => db, auth: () => auth, functions() {
     };
   }};
 }};
-globalThis.firebase = {apps: [], firestore, initializeApp: () => app};
+globalThis.firebase = {apps: [app], app: () => app, firestore, initializeApp: () => app};
 backendOps.readDocument = async (path, id) => {const result = await read(path + "/" + id); return result.exists ? result.data() : null;};
 backendOps.writeDocument = async (path, id, data, options) => save(path + "/" + id, data, options);
 backendOps.getFirestoreDb = () => db;
