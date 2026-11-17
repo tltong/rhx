@@ -1,6 +1,9 @@
 const assert = require("node:assert/strict");
 const {beforeEach, test} = require("node:test");
 const Module = require("node:module");
+const fs = require("node:fs");
+const path = require("node:path");
+const {parseEnv} = require("node:util");
 
 const requests = [];
 const clients = [];
@@ -20,8 +23,12 @@ class FakeOpenAI {
   }
 }
 const originalLoad = Module._load;
+const originalOrigins = process.env.ALLOWED_WEB_ORIGINS;
 let deepseek;
 try {
+  process.env.ALLOWED_WEB_ORIGINS = parseEnv(
+    fs.readFileSync(path.join(__dirname, ".env.readyherox"), "utf8")
+  ).ALLOWED_WEB_ORIGINS;
   Module._load = function(id, parent, ...args) {
     if ([require.resolve("./deepseek"), require.resolve("./utils/llm/deepseek_util")].includes(parent?.filename)) {
       if (id === "openai") return FakeOpenAI;
@@ -39,6 +46,8 @@ try {
   deepseek = require("./deepseek");
 } finally {
   Module._load = originalLoad;
+  if (originalOrigins === undefined) delete process.env.ALLOWED_WEB_ORIGINS;
+  else process.env.ALLOWED_WEB_ORIGINS = originalOrigins;
 }
 
 function completion(content) {
