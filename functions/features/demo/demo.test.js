@@ -3,11 +3,12 @@ const assert = require("node:assert/strict");
 const d = require("./domain/demo");
 const {createDemoHandler, processDemoPractice} = require("../../demo");
 
-test("demo capabilities and question-count validation reject malformed input", () => {
+test("demo capabilities, difficulty and question-count validation reject malformed input", () => {
   for (const input of [null, "", "student-id", "../arbitrary", "x".repeat(129)]) assert.throws(() => d.sessionId(input));
   assert.equal(d.sessionId("a".repeat(43)).length, 64);
   for (const questionCount of [0, -1, 1.5, 101, Infinity, "5"]) assert.throws(() => d.mcqChoices({questionCount, difficulty: "medium"}));
   assert.throws(() => d.mcqChoices({questionCount: 5, difficulty: "unknown"}));
+  for (const difficulty of [null, "", "unknown", 1]) assert.throws(() => d.difficulty(difficulty));
   assert.throws(() => d.fields({studentId: "another-student"}, []));
 });
 test("practice responses never expose private answer keys before submission", () => {

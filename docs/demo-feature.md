@@ -14,10 +14,10 @@ Only one pane is visible at a time:
    Streams are not required. Each subject shows its configured practice types.
 3. **Practice:** choose the subject's language and topic. The topic list includes
    all configured practice types for that language. The selected topic's practice
-   type is displayed as read-only text. MCQ offers Easy/Medium/Hard and a
-   student-selected count from 1–100; these controls are hidden and disabled for
-   essay and fill-in-the-blanks topics. The
-   maximum is a fixed service limit, with no new admin parameter. Preparation,
+   type is displayed as read-only text. MCQ and fill-in-the-blanks offer
+   Easy/Medium/Hard. Only MCQ offers a student-selected count from 1–100; the
+   maximum is a fixed service limit, with no new admin parameter. Essay uses its
+   configured difficulty. Preparation,
    answering, results, answer review and inline tutor are states within this pane.
    Back to subjects allows multiple practices.
 4. **News:** Continue to news appears after a valid practice completion. News
@@ -47,6 +47,10 @@ question so diagram-rich practices do not fill one Firestore document. The API
 returns prompts/options and withholds private keys. Essay and passage practices
 reuse attached content, with a topic-scoped pool fallback. Unprepared topics
 show an unavailable state; the demo adds generation rules only for MCQ.
+Fill-in-the-blanks uses the student's selected difficulty. An attached passage
+is reused only at that difficulty; otherwise the demo searches the matching
+topic/language pool. A missing level shows an unavailable message. Requests
+from older demo pages without a difficulty retain the framework default.
 
 In a ready fill-in-the-blanks demo practice, **Fill correct answers** populates
 every blank from the attempt's frozen passage. Answers remain editable. This

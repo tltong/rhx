@@ -48,6 +48,24 @@ test("essay and passage completions earn immediately; grading retries retain imm
     assert.equal(fill.practice.result.questionsCorrect, 2); assert.equal(fill.summary.totalCoins, 41);
   } finally {await s.db.terminate();}
 });
+test("fill-in-the-blanks honors the selected difficulty over a mismatched attached passage", {skip: !enabled}, async () => {
+  const s = await fixture("fill-difficulty");
+  try {
+    const secret = await s.start(), choices = {syllabusId: "english", topicId: "grammar", practiceType: "fillInTheBlanks"};
+    for (const difficulty of ["easy", "medium", "hard"]) {
+      const result = await s.prepare(secret, {...choices, difficulty});
+      assert.equal(result.practice.status, "ready"); assert.equal(result.practice.difficulty, difficulty);
+      assert.equal(result.practice.passage.difficulty, difficulty);
+      assert.equal(result.practice.passage.passageId, difficulty === "medium" ? "grammar-passage" : "grammar-" + difficulty);
+      assert.equal(JSON.stringify(result).includes("correctAnswer"), false);
+    }
+    for (const difficulty of ["unknown", null]) await assert.rejects(s.prepare(secret, {...choices, difficulty}), {code: "invalid-argument"});
+    s.state.passages = s.state.passages.filter(passage => passage.difficulty !== "hard");
+    const missing = await s.prepare(secret, {...choices, difficulty: "hard"});
+    assert.equal(missing.practice.status, "failed"); assert.match(missing.practice.errorMessage, /No hard passage/);
+    assert.equal(missing.summary.totalCoins, 1, "preparing a passage does not award completion coins");
+  } finally {await s.db.terminate();}
+});
 test("fill answers require the owning ready demo passage and do not submit or award coins", {skip: !enabled}, async () => {
   const s = await fixture("fill-answers");
   try {

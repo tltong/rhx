@@ -72,12 +72,15 @@ function createDemoContentGateway({
     const framework = frameworkId ? await frameworks.getAssessmentFrameworkById(frameworkId) : null;
     if (!framework || framework.frameworkType !== input.practiceType) throw d.fail("This practice type is not configured for the topic and language.", "failed-precondition");
     const first = [...framework.levels].sort((a, b) => a.sequenceOrder - b.sequenceOrder)[0];
-    const difficulty = input.practiceType === "fillInTheBlanks" ? framework.preAssessment?.difficultyLevel || "medium"
-      : String(first?.criteria?.difficultyLevel || "medium").toLowerCase();
+    const configuredDifficulty = d.key(input.practiceType === "fillInTheBlanks" ? framework.preAssessment?.difficultyLevel || "medium"
+      : first?.criteria?.difficultyLevel || "medium");
+    const choices = framework.frameworkType === "normal" ? d.mcqChoices(input)
+      : {difficulty: framework.frameworkType === "fillInTheBlanks"
+        ? d.difficulty(input.difficulty === undefined ? configuredDifficulty : input.difficulty) : configuredDifficulty, questionCount: 1};
     return {syllabusId: syllabus.id, topicId: topic.id, subject: syllabus.subject, topic: topic.topicName, language,
       practiceType: framework.frameworkType, frameworkId, level: d.key(syllabus.level), grade: Number(syllabus.year),
       tutorEnabled: topic.tutorEnabled !== false,
-      ...(framework.frameworkType === "normal" ? d.mcqChoices(input) : {difficulty, questionCount: 1})};
+      ...choices};
   }
   async function coinReward() {
     return (await rewards.getRewardConfig())?.bonusMissionCompletionCoins ?? DEFAULT_REWARD_CONFIG.bonusMissionCompletionCoins;
@@ -139,13 +142,16 @@ function createDemoContentGateway({
       const practice = await fillPractices.getFillInTheBlanksPracticeById(attached.practiceId);
       if (practice) passage = await passages.getFillInTheBlanksQuestionById(practice.passageId, {includeAnswers: true});
     }
+    if (passage && d.key(passage.difficulty) !== attempt.difficulty) passage = null;
     if (!passage) {
       const available = await passages.listFillInTheBlanksQuestions({syllabusId: attempt.syllabusId, topicId: attempt.topicId,
         language: attempt.language, difficulty: attempt.difficulty});
-      const candidate = available[0];
+      const candidate = available.find(item => d.key(item.difficulty) === attempt.difficulty);
       if (candidate) passage = await passages.getFillInTheBlanksQuestionById(candidate.passageId, {includeAnswers: true});
     }
-    if (!passage) throw d.fail("A passage has not been prepared for this topic yet. Choose another topic.", "failed-precondition");
+    if (!passage || d.key(passage.difficulty) !== attempt.difficulty) {
+      throw d.fail("No " + attempt.difficulty + " passage is available for this topic yet. Choose another difficulty or topic.", "failed-precondition");
+    }
     return {status: "ready", stage: "ready", passage: d.plain(passage), questionCount: passage.questions.length,
       scoringConfig: d.plain(await fillScoring.getFillInTheBlanksScoringConfig())};
   }

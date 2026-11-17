@@ -17,7 +17,7 @@
     <script defer src="/__/firebase/12.15.0/firebase-firestore-compat.js"></script>
     <script defer src="/__/firebase/12.15.0/firebase-functions-compat.js"></script>
     <script defer src="/__/firebase/init.js"></script>
-    <script type="module" src="/features/demo/pages/demo.js?v=20261117-demo-topics-v1"></script>
+    <script type="module" src="/features/demo/pages/demo.js?v=20261117-demo-fill-difficulty-v1"></script>
   </head>
   <body>
     <header class="demo-header">
@@ -66,9 +66,9 @@
             <label>Topic<select id="demo-practice-topic" required disabled></select></label>
             <div class="practice-type-field"><span id="demo-practice-type-label">Practice type</span><output id="demo-practice-type" for="demo-practice-language demo-practice-topic" aria-labelledby="demo-practice-type-label" aria-live="polite">Choose a topic</output></div>
           </div>
-          <div id="demo-mcq-options" class="form-grid" hidden>
+          <div id="demo-practice-options" class="form-grid" hidden>
             <label>Difficulty<select id="demo-difficulty" disabled><option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option></select></label>
-            <label>Number of questions<input id="demo-question-count" type="number" min="1" max="100" step="1" value="5" inputmode="numeric" disabled><small>Choose 1–100 questions.</small></label>
+            <label id="demo-question-count-field" hidden>Number of questions<input id="demo-question-count" type="number" min="1" max="100" step="1" value="5" inputmode="numeric" disabled><small>Choose 1–100 questions.</small></label>
           </div>
           <div class="actions"><button id="demo-start-practice" type="submit">Start practice</button></div>
         </form>

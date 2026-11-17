@@ -52,8 +52,12 @@ function scopeMatches(syllabus, scope) {
   return syllabus?.active === true && key(syllabus.country) === key(scope.country)
     && key(syllabus.level) === key(scope.level) && Number(syllabus.year) === scope.grade;
 }
+function difficulty(value) {
+  if (!["easy", "medium", "hard"].includes(value)) throw fail("Choose Easy, Medium or Hard.");
+  return value;
+}
 function mcqChoices(input) {
-  if (!["easy", "medium", "hard"].includes(input.difficulty)) throw fail("Choose Easy, Medium or Hard.");
+  difficulty(input.difficulty);
   if (!Number.isSafeInteger(input.questionCount) || input.questionCount < 1 || input.questionCount > MAX_MCQ_QUESTIONS) {
     throw fail("Choose a whole number of questions from 1 to " + MAX_MCQ_QUESTIONS + ".");
   }
@@ -113,4 +117,4 @@ function publicAttempt(attempt) {
   if (attempt.submittedAt) result.submission = attempt.submission;
   return result;
 }
-module.exports = {SESSION_MS, MAX_MCQ_QUESTIONS, LEASE_MS, fail, key, hash, millis, plain, fields, text, id, sessionId, active, summary, addCoins, scopeMatches, mcqChoices, submission, markMcq, publicAttempt};
+module.exports = {SESSION_MS, MAX_MCQ_QUESTIONS, LEASE_MS, fail, key, hash, millis, plain, fields, text, id, sessionId, active, summary, addCoins, scopeMatches, difficulty, mcqChoices, submission, markMcq, publicAttempt};

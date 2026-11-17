@@ -34,6 +34,7 @@ async function createDemoTestSystem(projectId) {
       {questionId: "q1", position: 1, requiredWordCount: 1, correctAnswer: "walks"},
       {questionId: "q2", position: 2, requiredWordCount: 1, correctAnswer: "reading"},
     ]};
+  state.passages = [passage, ...["easy", "hard"].map(difficulty => ({...passage, passageId: "grammar-" + difficulty, difficulty}))];
   function bankQuestion(index, input = {}) {
     return {id: "question-" + index, syllabusId: "math", topicId: "fractions", language: "English",
       difficulty: "medium", group: "assessment", hasDiagram: false, questionText: "What is " + index + " + 1?",
@@ -65,9 +66,10 @@ async function createDemoTestSystem(projectId) {
       if (input.question.questionId !== essay.questionId) throw Error("Wrong essay snapshot");
       return {score: 85, reviewComment: "Your story has a clear opening.", corrections: []};
     }},
-    passages: {getFillInTheBlanksQuestionById: async (_id, options) => {
-      if (!options?.includeAnswers) throw Error("The demo must request the private grading snapshot server-side"); return passage;
-    }, listFillInTheBlanksQuestions: async () => [passage]},
+    passages: {getFillInTheBlanksQuestionById: async (id, options) => {
+      if (!options?.includeAnswers) throw Error("The demo must request the private grading snapshot server-side");
+      return state.passages.find(item => item.passageId === id) || null;
+    }, listFillInTheBlanksQuestions: async input => state.passages.filter(item => item.difficulty === input.difficulty)},
     fillPractices: {getFillInTheBlanksPracticeById: async () => ({passageId: passage.passageId})},
     fillScoring: {getFillInTheBlanksScoringConfig: async () => ({markingInstructions: "configured"})},
     rewards: {getRewardConfig: async () => ({bonusMissionCompletionCoins: state.reward})},

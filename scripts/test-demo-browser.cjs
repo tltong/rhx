@@ -5,7 +5,7 @@ const {createDemoHandler} = require("../functions/demo");
 
 (async () => {
   const system = await createDemoTestSystem("demo-rhx-demo-browser"), handler = createDemoHandler({getFeature: () => system.service});
-  const publicRoot = path.resolve(__dirname, "../public"), errors = [], calls = [];
+  const publicRoot = path.resolve(__dirname, "../public"), errors = [], calls = [], prepared = [];
   let browser, page, server, lostPractice = true, lostNews = true, holdPreparation = false, releasePreparation, preparationHeld;
   async function screenshot(name) {
     if (!process.env.DEMO_SCREENSHOTS) return;
@@ -42,6 +42,7 @@ const {createDemoHandler} = require("../functions/demo");
       calls.push(payload.action);
       try {
         const result = await handler({data: payload, rawRequest: {ip: "127.0.0.1"}});
+        if (payload.action === "preparePractice") prepared.push(result.practice);
         await drain();
         if (payload.action === "submitPractice" && lostPractice) {lostPractice = false; return {error: {code: "unavailable", message: "Submission response interrupted"}};}
         if (payload.action === "submitNewsQuestions" && lostNews) {lostNews = false; return {error: {code: "unavailable", message: "News response interrupted"}};}
@@ -106,8 +107,12 @@ const {createDemoHandler} = require("../functions/demo");
     assert.deepEqual(await page.$$eval("#demo-practice-topic option", options => options.map(option => option.value).filter(Boolean).sort()), ["grammar", "writing"], "topics from different practice types appear together");
     assert.equal(await page.$eval("#demo-start-practice", element => element.disabled), true);
     await page.select("#demo-practice-topic", "grammar"); assert.equal(await text("demo-practice-type"), "Fill in the blanks");
+    assert.equal(await page.$eval("#demo-practice-options", element => element.hidden), false);
+    assert.equal(await page.$eval("#demo-difficulty", element => element.disabled), false);
+    assert.equal(await page.$eval("#demo-question-count-field", element => element.hidden), true);
     await page.select("#demo-practice-topic", "writing"); assert.equal(await text("demo-practice-type"), "Essay");
-    assert.equal(await page.$eval("#demo-mcq-options", element => element.hidden), true);
+    assert.equal(await page.$eval("#demo-practice-options", element => element.hidden), true);
+    assert.equal(await page.$eval("#demo-difficulty", element => element.disabled), true);
     assert.equal(await page.$eval("#demo-question-count", element => element.disabled), true);
     assert.equal(await page.$eval("#demo-practice-setup", element => element.checkValidity()), true, "an invalid hidden MCQ count does not block an essay topic");
     await page.setViewport({width:360,height:850});
@@ -118,7 +123,12 @@ const {createDemoHandler} = require("../functions/demo");
     await page.type("#demo-essay-answer", "I found treasure today."); await page.click("#demo-submit-practice"); await waitText("demo-practice-result", "Score: 85%");
     assert.equal(await text("demo-balance"), "41 coins");
     await page.click("#demo-back-subjects"); await subject("English"); await page.select("#demo-practice-topic", "grammar");
+    await page.select("#demo-difficulty", "easy");
+    await page.setViewport({width:360,height:850});
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    await screenshot("fill-difficulty-mobile"); await page.setViewport({width:1000,height:850});
     await page.click("#demo-start-practice"); await page.waitForSelector("#demo-blank-q1");
+    assert.equal(prepared.at(-1).difficulty, "easy", "the selected fill-in-the-blanks difficulty reaches the backend");
     await page.type("#demo-blank-q1", "too many words");
     assert.equal(await page.$eval("#demo-blank-q1", element => element.checkValidity()), false);
     await page.click("#demo-fill-correct-answers");
@@ -172,7 +182,7 @@ const {createDemoHandler} = require("../functions/demo");
     assert.equal(await page.$eval("#pane-practice", element => element.hidden), true);
     assert.deepEqual(errors, []);
     assert.equal((await system.db.collection("students").get()).size, 0); assert.equal((await system.db.collection("rewards").get()).size, 0);
-    console.log(JSON.stringify({passed:true,flows:["setup","topic selection + read-only practice type","MCQ + lost response","tutor + fill correct answer at each step","essay","fill in the blanks + fill correct answers","news + vocabulary + translated meaning","news quiz + lost response","language reward deduplication","summary","restart","late response after finish"],mobileWidth:360,runtimeErrors:errors,callCount:calls.length}));
+    console.log(JSON.stringify({passed:true,flows:["setup","topic selection + read-only practice type","MCQ + lost response","tutor + fill correct answer at each step","essay","fill in the blanks + difficulty choice + fill correct answers","news + vocabulary + translated meaning","news quiz + lost response","language reward deduplication","summary","restart","late response after finish"],mobileWidth:360,runtimeErrors:errors,callCount:calls.length}));
   } catch (error) {
     if (page) console.error(JSON.stringify({status: await page.$eval("#demo-status", element => element.textContent).catch(() => ""),
       errors, recentCalls: calls.slice(-10)}));

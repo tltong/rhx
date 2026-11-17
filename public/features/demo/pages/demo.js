@@ -77,7 +77,8 @@ export function mountDemo({root = document, api = demo, pollMs = 2000} = {}) {
   function clearPractice() {
     clearTimeout(practiceTimer); fillView?.dispose(); fillView = null; practice = preparation = pendingSubmission = renderedAttempt = null;
     el("demo-practice-type").textContent = "Choose a topic"; el("demo-practice-topic").disabled = true;
-    el("demo-mcq-options").hidden = true; el("demo-difficulty").disabled = el("demo-question-count").disabled = true;
+    el("demo-practice-options").hidden = true; el("demo-question-count-field").hidden = true;
+    el("demo-difficulty").disabled = el("demo-question-count").disabled = true;
     el("demo-question-count").required = false; el("demo-start-practice").disabled = true;
     fillingAnswers = false; el("demo-fill-correct-answers").hidden = true; el("demo-fill-correct-answers").disabled = false;
     el("demo-fill-correct-answers").textContent = "Fill correct answers";
@@ -135,8 +136,10 @@ export function mountDemo({root = document, api = demo, pollMs = 2000} = {}) {
   }
   function topicChanged() {
     const configuration = practiceConfiguration(), mcq = configuration?.practiceType === "normal";
+    const chooseDifficulty = mcq || configuration?.practiceType === "fillInTheBlanks";
     el("demo-practice-type").textContent = configuration ? TYPES[configuration.practiceType] : "Choose a topic";
-    el("demo-mcq-options").hidden = !mcq; el("demo-difficulty").disabled = el("demo-question-count").disabled = !mcq;
+    el("demo-practice-options").hidden = !chooseDifficulty; el("demo-difficulty").disabled = !chooseDifficulty;
+    el("demo-question-count-field").hidden = !mcq; el("demo-question-count").disabled = !mcq;
     el("demo-question-count").required = mcq; el("demo-start-practice").disabled = !active || !configuration;
   }
   function practiceChoices() {
@@ -276,7 +279,8 @@ export function mountDemo({root = document, api = demo, pollMs = 2000} = {}) {
     if (!active || !configuration || !el("demo-practice-setup").reportValidity()) return;
     preparation = {requestId: crypto.randomUUID(), syllabusId: selected.id, language: el("demo-practice-language").value,
       topicId: el("demo-practice-topic").value, practiceType: configuration.practiceType};
-    if (preparation.practiceType === "normal") Object.assign(preparation, {difficulty: el("demo-difficulty").value, questionCount: Number(el("demo-question-count").value)});
+    if (["normal", "fillInTheBlanks"].includes(preparation.practiceType)) preparation.difficulty = el("demo-difficulty").value;
+    if (preparation.practiceType === "normal") preparation.questionCount = Number(el("demo-question-count").value);
     el("demo-practice-setup").hidden = true; el("demo-practice-preparation").hidden = false; status("Preparing your practice…");
     await checkPractice();
   }
