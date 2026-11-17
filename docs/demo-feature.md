@@ -105,6 +105,16 @@ DEEPSEEK_API_KEY and OPENAI_API_KEY bindings. The existing news generation worke
 must be active. No new administrator settings, composite indexes or student
 migrations are required. This code change does not deploy the feature.
 
+Use the existing deployment script to release to readyherox in that order:
+
+    scripts/deploy-firebase.sh firestore-rules
+    scripts/deploy-firebase.sh demo-functions
+    scripts/deploy-firebase.sh hosting
+
+The demo-functions target deploys only demo, onDemoPracticeRequested and
+cleanupDemoSessions, and acknowledges the practice worker's retry policy.
+It leaves the other Functions codebases and exports out of the release.
+
 ## Validation
 
 Unit checks:

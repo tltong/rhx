@@ -5,9 +5,10 @@ set -euo pipefail
 umask 077
 
 usage() {
-  echo "Usage: $0 {hosting|functions|essay-functions|student-profile|firestore|firestore-indexes|firestore-rules|all|ocr-jobs}"
+  echo "Usage: $0 {hosting|functions|essay-functions|student-profile|demo-functions|firestore|firestore-indexes|firestore-rules|all|ocr-jobs}"
   echo "       firestore deploys the configured rules and indexes."
   echo "       student-profile deploys only the three student profile functions."
+  echo "       demo-functions deploys only the three guest demo functions."
   echo "       essay-functions deploys the essay configuration, generation and assessment functions."
   echo "       ocr-jobs prepares private temporary OCR job storage."
   echo "       $0 function <exported-function-name>"
@@ -20,7 +21,7 @@ function_name=''
 codebase_name=''
 resolved_codebase=''
 case "${1:-}" in
-  hosting|functions|essay-functions|student-profile|firestore|firestore-indexes|firestore-rules|all|ocr-jobs)
+  hosting|functions|essay-functions|student-profile|demo-functions|firestore|firestore-indexes|firestore-rules|all|ocr-jobs)
     [[ $# -eq 1 ]] || { usage >&2; exit 2; }
     case "$1" in
       hosting) targets=hosting ;;
@@ -31,6 +32,10 @@ case "${1:-}" in
         ;;
       student-profile)
         targets=functions:default:studentProfile,functions:default:onStudentUsernameChangeRequested,functions:default:retryStudentUsernameChanges
+        resolved_codebase=default
+        ;;
+      demo-functions)
+        targets=functions:default:demo,functions:default:onDemoPracticeRequested,functions:default:cleanupDemoSessions
         resolved_codebase=default
         ;;
       firestore) targets=firestore ;;
@@ -318,10 +323,10 @@ fi
 echo "Deploying $targets to readyherox..."
 cd "$deploy_tmp"
 # New Eventarc failure policies require explicit CLI acknowledgement. Limit it
-# to selected recoverable workers or the three-function student profile group;
+# to selected recoverable workers or the named student profile and demo groups;
 # never force a broad deployment.
 retry_policy_args=()
-if [[ "$function_name" == processImageOcrJob || "$function_name" == onStudentUsernameChangeRequested || "$function_name" == onNewsGenerationRequested || "${1:-}" == student-profile ]]; then
+if [[ "$function_name" == processImageOcrJob || "$function_name" == onStudentUsernameChangeRequested || "$function_name" == onNewsGenerationRequested || "$function_name" == onDemoPracticeRequested || "${1:-}" == student-profile || "${1:-}" == demo-functions ]]; then
   retry_policy_args+=(--force)
 fi
 node --require "$deploy_tmp/auth-proxy.cjs" \
