@@ -1,5 +1,12 @@
 # One-time administrator setup for OCR background jobs
 
+The commands below describe production's existing resources. Runtime bucket
+selection is now explicit in each project's Functions environment file:
+`readyherox-ocr-jobs` for `readyherox`, and `rhx-staging-ocr-jobs` for
+`rhx-staging`. For a new project, substitute its own bucket and project ID and
+resolve its Storage service agent with `gcloud storage service-agent --project`;
+do not reuse production's project number or service identities.
+
 The deployment identity is
 `codex-firebase-developer@readyherox.iam.gserviceaccount.com`.
 Google Cloud rejected creation of `readyherox-ocr-jobs` with HTTP 403 because this
@@ -46,9 +53,15 @@ bash scripts/deploy-firebase.sh function extractLlmImageText
 bash scripts/deploy-firebase.sh hosting
 ```
 
-The first command applies the one-day cleanup policy, disables versioning and
-soft delete, and grants the runtime accounts access to job objects and bucket
-metadata. It validates the bucket project and region before changing its policy.
+The first command explicitly selects `readyherox`. The setup implementation reads
+its matching `.env` file, resolves that project's number, applies the one-day
+cleanup policy, disables versioning and soft delete, and grants the runtime
+accounts access to job objects and bucket metadata. It validates bucket ownership
+and region before changing policy. Compliant policy and existing grants cause no
+writes. Staging must use an explicitly selected staging project through the
+appropriate credential/proxy wrapper; the current deployment wrapper still
+targets production. The setup implementation accepts `--project` and `--bucket`
+arguments and does not embed production's project ID or number.
 Deployment should then be checked with a generated image and a completed job,
 including deletion of the input object and rejection of reads by another user.
 
