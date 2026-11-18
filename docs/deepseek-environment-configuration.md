@@ -1,8 +1,9 @@
-# DeepSeek environment configuration
+# HTTP origin configuration
 
-The DeepSeek HTTP function reads `ALLOWED_WEB_ORIGINS` from its deployment
-environment. Both the Firebase CORS middleware and the handler's response headers
-use the same list, parsed once when the function loads.
+The DeepSeek, image-generation, and OCR HTTP functions read `ALLOWED_WEB_ORIGINS`
+from their deployment environment. Their Firebase CORS middleware uses the shared
+origin helper. DeepSeek's manually generated response headers use that same list.
+The list is parsed when each function loads.
 
 Both project configuration files belong in the same codebase:
 
@@ -27,10 +28,10 @@ CORS controls browser access to responses; it does not authenticate requests or
 restrict non-browser clients. Existing handling of requests without an Origin
 header is unchanged.
 
-This change applies to `generateDeepseekText`. The image-generation and OCR HTTP
-functions still have their own origin settings and require separate updates.
-Apply new settings by deploying the function to the intended project. The
-existing repository deployment script still explicitly targets `readyherox`.
+This configuration applies to `generateDeepseekText`, `generateLlmImage`, and
+`extractLlmImageText`. Apply new settings by deploying each function to the
+intended project. The existing repository deployment script still explicitly
+targets `readyherox`.
 
 The DeepSeek credential remains the project-specific Secret Manager secret
 `DEEPSEEK_API_KEY`. Do not add API keys to these `.env` files. The API endpoint
@@ -39,5 +40,5 @@ and model selection are unchanged.
 Run the configuration and DeepSeek checks with:
 
 ```sh
-node --test functions/utils/http/web_origins.test.js functions/deepseek_cors.test.js functions/deepseek.test.js
+node --test functions/utils/http/web_origins.test.js functions/http_cors.test.js functions/deepseek.test.js
 ```

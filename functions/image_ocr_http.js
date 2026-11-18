@@ -2,6 +2,7 @@ const {onRequest} = require("firebase-functions/v2/https");
 const {getAuth} = require("firebase-admin/auth");
 const logger = require("firebase-functions/logger");
 const {randomUUID} = require("node:crypto");
+const {getAllowedWebOrigins} = require("./utils/http/web_origins");
 const {getFirebaseApp} = require("./utils/firebase/firebase_ops");
 const {deepseekApiKey} = require("./utils/llm/deepseek_util");
 const {openaiApiKey} = require("./utils/llm/openai_util");
@@ -58,5 +59,5 @@ function createImageOcrHandler({verifyToken = token => getAuth(getFirebaseApp())
 }
 const extractLlmImageText = onRequest({region: "us-central1", invoker: "public", memory: "1GiB", concurrency: 8,
   timeoutSeconds: 600, secrets: [deepseekApiKey, openaiApiKey, sarvamApiKey],
-  cors: ["https://readyherox.web.app", "https://readyherox.firebaseapp.com", /^http:\/\/(localhost|127\.0\.0\.1):\d+$/]}, createImageOcrHandler());
+  cors: getAllowedWebOrigins()}, createImageOcrHandler());
 module.exports = {extractLlmImageText, createImageOcrHandler};
