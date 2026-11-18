@@ -120,6 +120,13 @@ deployment setup; the Python function itself still accepts the same synchronous,
 private HTTP contract.
 Before connecting the backend, grant its service account Cloud Run Invoker access
 to the second-generation function and use an audience-bound Google ID token.
+Set `PADDLEOCR_URL` in the Node callers' project configuration file:
+`functions/.env.readyherox` for production or `functions/.env.rhx-staging` for
+staging. It must be that project's deployed private service URL. The Node adapter
+has no production fallback; the setting is read only when PaddleOCR is invoked.
+This selects the service address without changing the bundled models or Python
+recognition code. Redeploy the Node OCR HTTP function and background worker to
+apply a changed URL.
 The local test client does not test IAM; deployed unauthenticated rejection must
 also be verified.
 

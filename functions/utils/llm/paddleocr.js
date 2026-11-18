@@ -3,10 +3,9 @@ const {normalizeOcrImage} = require("./image_ocr_settings");
 const {ocrFailure, parseOcrResult} = require("./image_ocr_result");
 
 const PADDLEOCR_MODEL = "PP-OCRv6_medium";
-const DEFAULT_PADDLEOCR_URL = "https://extractpaddleocrtext-xzfajdpwha-uc.a.run.app";
 
 class PaddleOcrUtil {
-  constructor({getEndpoint = () => process.env.PADDLEOCR_URL || DEFAULT_PADDLEOCR_URL,
+  constructor({getEndpoint = () => process.env.PADDLEOCR_URL,
     createClient = url => new GoogleAuth().getIdTokenClient(url)} = {}) {
     Object.assign(this, {getEndpoint, createClient});
     this.clients = new Map();
@@ -86,4 +85,4 @@ class PaddleOcrUtil {
 }
 
 const paddleOcrUtil = new PaddleOcrUtil();
-module.exports = {PaddleOcrUtil, paddleOcrUtil, PADDLEOCR_MODEL, DEFAULT_PADDLEOCR_URL};
+module.exports = {PaddleOcrUtil, paddleOcrUtil, PADDLEOCR_MODEL};

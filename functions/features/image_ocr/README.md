@@ -156,12 +156,20 @@ including authentication and response reading, shares one deadline and supports
 caller cancellation. The inference POST has retries and redirects disabled.
 Raw credentials, image data, provider error bodies, and recognized text are not logged.
 
-`PADDLEOCR_URL` is an optional server-side environment variable, defaulting to
+`PADDLEOCR_URL` is required when using PaddleOCR. Production sets it explicitly
+in `functions/.env.readyherox` to
 `https://extractpaddleocrtext-xzfajdpwha-uc.a.run.app`. It must identify the private
 Cloud Run HTTPS service and is also the ID token audience. The calling Node
 function's runtime service account needs Cloud Run Invoker on that service.
 Local scripts can provide ADC in the usual way; service-account JSON stays outside
 the application source. Production uses the runtime service account.
+
+There is no hardcoded production fallback. A missing or invalid URL returns
+`ocr-unavailable` before authentication or image submission. For staging, deploy
+its own private Python service, grant the Node callers invocation access, and
+set its URL in `functions/.env.rhx-staging`. Until then, leave that setting unset
+and use another OCR provider. Redeploy both `extractLlmImageText` and
+`processImageOcrJob` when changing their endpoint setting.
 
 The Python package, models, and HTTP contract are documented in
 `../../paddleocr/README.md`. A generated image checks basic integration; handwriting
