@@ -1,4 +1,4 @@
-import { firebaseConfig } from "../../config/firebase/firebase_config.js";
+import { getConfiguredFirebaseApp } from "../../config/firebase/firebase_config.js";
 
 let firebaseApp = null;
 let firestoreDb = null;
@@ -61,15 +61,11 @@ function documentResult(docRef) {
   };
 }
 
-export function initFirebase(config = firebaseConfig) {
+export function initFirebase() {
   const firebaseNamespace = getFirebaseNamespace();
 
   if (!firebaseApp) {
-    if (Array.isArray(firebaseNamespace.apps) && firebaseNamespace.apps.length > 0) {
-      firebaseApp = firebaseNamespace.app();
-    } else {
-      firebaseApp = firebaseNamespace.initializeApp(config);
-    }
+    firebaseApp = getConfiguredFirebaseApp();
   }
 
   if (!firestoreDb) {

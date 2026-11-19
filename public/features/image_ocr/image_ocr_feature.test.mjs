@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import {test} from "node:test";
+import {test, before, after} from "node:test";
 import {createRequire} from "node:module";
 import {createImageOcrFeature, DEFAULT_OCR_SETTINGS as defaults, toOcrImage} from "./image_ocr_module.js";
 import * as settings from "../../utils/llm/image_ocr_settings.js";
@@ -9,6 +9,9 @@ import {OpenAIUtil} from "../../utils/llm/openai_util.js";
 import {LlmUtil, registerLlmProvider} from "../../utils/llm/llm_util.js";
 const image = {mimeType: "image/png", base64: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg=="};
 const user = {uid: "admin", getIdToken: async () => "token"};
+const originalFirebase = globalThis.firebase;
+before(() => {globalThis.firebase = {app: () => ({options: {projectId: "readyherox"}})};});
+after(() => {if (originalFirebase === undefined) delete globalThis.firebase; else globalThis.firebase = originalFirebase;});
 const response = (payload, status = 200) => ({ok: status === 200, status, json: async () => payload});
 const blob = () => new Blob([Buffer.from(image.base64, "base64")], {type: "image/png"});
 test("Web sends image and normalized language through the shared authenticated client", async () => {

@@ -1,11 +1,19 @@
 const assert = require("node:assert/strict");
-const {test} = require("node:test");
+const {afterEach, test} = require("node:test");
+const fs = require("node:fs");
+const path = require("node:path");
+const {parseEnv} = require("node:util");
 const {PaddleOcrUtil, PADDLEOCR_MODEL} = require("./paddleocr");
 const {LlmUtil} = require("./llm_util");
 
 const image = {mimeType: "image/png", base64: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg=="};
 const endpoint = "https://paddleocr-test-uc.a.run.app";
 const result = {text: "學生\nHello studant", warnings: [], provider: "paddleocr", model: PADDLEOCR_MODEL};
+const originalEndpoint = process.env.PADDLEOCR_URL;
+afterEach(() => {
+  if (originalEndpoint === undefined) delete process.env.PADDLEOCR_URL;
+  else process.env.PADDLEOCR_URL = originalEndpoint;
+});
 function harness(overrides = {}) {
   const calls = [], audiences = [], headers = [];
   const client = {getRequestHeaders: async url => {headers.push(url); return {Authorization: "Bearer test-identity-token"};},
@@ -14,6 +22,31 @@ function harness(overrides = {}) {
     createClient: async url => {audiences.push(url); return client;}, ...overrides});
   return {util, calls, audiences, headers};
 }
+test("the environment selects the private service for both ID-token audience and HTTP requests", async () => {
+  const production = parseEnv(fs.readFileSync(path.join(__dirname, "../../.env.readyherox"), "utf8"));
+  assert.ok(production.PADDLEOCR_URL, "Production must configure its private PaddleOCR endpoint explicitly");
+  // An undefined injection exercises the constructor's real environment reader.
+  const h = harness({getEndpoint: undefined});
+  const expected = [production.PADDLEOCR_URL, "https://staging-paddleocr-test-uc.a.run.app"];
+  for (const configuredEndpoint of expected) {
+    process.env.PADDLEOCR_URL = configuredEndpoint;
+    assert.deepEqual(await h.util.extractTextFromImage({image}), result);
+  }
+  assert.deepEqual(h.audiences, expected);
+  assert.deepEqual(h.headers, expected);
+  assert.deepEqual(h.calls.map(call => call.url), expected);
+});
+test("missing or invalid environment configuration fails before authentication or image submission", async () => {
+  for (const value of [undefined, "", " ", "not-a-url", "http://paddleocr-test-uc.a.run.app", "https://example.com"]) {
+    if (value === undefined) delete process.env.PADDLEOCR_URL;
+    else process.env.PADDLEOCR_URL = value;
+    const h = harness({getEndpoint: undefined});
+    await assert.rejects(() => h.util.extractTextFromImage({image}), error =>
+      error.code === "ocr-unavailable" && error.status === 503 && /endpoint is not configured|private PaddleOCR Cloud Run URL/.test(error.message));
+    assert.deepEqual(h.audiences, []);
+    assert.deepEqual(h.calls, []);
+  }
+});
 test("PaddleOCR uses audience-bound auth and one request, reuses the client, and preserves transcription", async () => {
   const h = harness();
   assert.deepEqual(await h.util.extractTextFromImage({image, languageHint: " Chinese "}), result);

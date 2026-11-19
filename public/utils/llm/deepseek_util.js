@@ -1,4 +1,4 @@
-import { firebaseConfig } from "../../config/firebase/firebase_config.js";
+import { getFirebaseConfig } from "../../config/firebase/firebase_config.js";
 import {ImageOcrClient} from "./image_ocr_client.js?v=20261021-ocr-canvas-v1";
 
 export const DEEPSEEK_FUNCTION_NAME = "generateDeepseekText";
@@ -61,7 +61,7 @@ function formatUrlHost(hostname) {
 
 export function getDeepseekFunctionUrl(options = {}) {
   const projectId = requireNonEmptyString(
-    options.projectId || firebaseConfig.projectId,
+    options.projectId || getFirebaseConfig().projectId,
     "projectId"
   );
   const region = requireNonEmptyString(
@@ -239,7 +239,10 @@ function createHttpError(response, payload) {
 
 export class DeepseekUtil {
   constructor(options = {}) {
-    this.endpointUrl = options.endpointUrl || getDeepseekFunctionUrl(options);
+    // Hosting may initialize after modules are imported. Resolve the project
+    // when a request is made, not while creating the shared client.
+    this.endpointUrl = options.endpointUrl;
+    this.urlOptions = options;
     this.fetchImpl = options.fetchImpl || globalThis.fetch?.bind(globalThis);
     this.ocrClient = options.ocrClient || new ImageOcrClient({...options, endpointUrl: options.ocrEndpointUrl});
 
@@ -303,9 +306,10 @@ export class DeepseekUtil {
 
   async call(input, options = {}) {
     const body = normalizeRequest(input, options);
+    const urlOptions = {...this.urlOptions, ...options};
     const endpointUrl = options.useDirectFunction === true
-      ? buildDirectFunctionUrl(options)
-      : this.endpointUrl;
+      ? buildDirectFunctionUrl(urlOptions)
+      : this.endpointUrl || getDeepseekFunctionUrl(urlOptions);
 
     try {
       return await this.postJson(endpointUrl, body, options);
@@ -318,7 +322,7 @@ export class DeepseekUtil {
         throw error;
       }
 
-      const directFunctionUrl = buildDirectFunctionUrl(options);
+      const directFunctionUrl = buildDirectFunctionUrl(urlOptions);
 
       return this.postJson(directFunctionUrl, body, options);
     }

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import {test} from "node:test";
+import {test, before, after} from "node:test";
 import {createRequire} from "node:module";
 import {createImageGenerationFeature, DEFAULT_IMAGE_SETTINGS} from "./image_generation_module.js";
 import {ImageGenerationClient} from "../../utils/llm/image_generation_client.js";
@@ -9,6 +9,9 @@ import {getHttpFunctionUrl} from "../../utils/firebase/function_url.js";
 const backendSettings = createRequire(import.meta.url)("../../../functions/utils/llm/image_generation_settings.js");
 const response = (result, status = 200) => ({ok: status === 200, status, json: async () => result});
 const user = {uid: "student", getIdToken: async () => "token"};
+const originalFirebase = globalThis.firebase;
+before(() => {globalThis.firebase = {app: () => ({options: {projectId: "readyherox"}})};});
+after(() => {if (originalFirebase === undefined) delete globalThis.firebase; else globalThis.firebase = originalFirebase;});
 
 test("Web feature preserves omitted fields for server defaults and allows explicit false", async () => {
   const calls = [], saves = [];

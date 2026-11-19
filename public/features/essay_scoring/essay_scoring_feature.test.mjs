@@ -63,7 +63,7 @@ const app = {firestore: () => db, auth: () => auth,
       };
     }};
   }};
-globalThis.firebase = {apps: [], firestore, initializeApp: () => app};
+globalThis.firebase = {apps: [app], app: () => app, firestore, initializeApp: () => app};
 backendOps.getFirestoreDb = () => db;
 async function generateLlmText(prompt, options) {
   llmCalls.push({prompt, options}); await onLlm?.();

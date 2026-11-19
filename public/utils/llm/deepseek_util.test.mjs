@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
-import {test} from "node:test";
+import {test, before, after} from "node:test";
 import {
   DeepseekUtil, getDeepseekFunctionUrl, DEEPSEEK_HOSTING_REWRITE_PATH,
 } from "./deepseek_util.js";
 
 const directUrl = "https://us-central1-readyherox.cloudfunctions.net/generateDeepseekText";
+const originalFirebase = globalThis.firebase;
+before(() => {globalThis.firebase = {app: () => ({options: {projectId: "readyherox"}})};});
+after(() => {if (originalFirebase === undefined) delete globalThis.firebase; else globalThis.firebase = originalFirebase;});
 const html = '<!DOCTYPE html><html lang=en><title>Error 502 (Server Error)!!1</title></html>';
 function response(status, payload) {
   return {

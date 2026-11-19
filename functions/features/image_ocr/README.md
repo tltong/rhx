@@ -109,11 +109,14 @@ transcription is saved to browser storage, Firestore, or application logs.
 The bucket must enforce uniform bucket-level access, public access prevention,
 and the one-day deletion policy. The repository verifies those settings and
 rejects storage with soft delete/versioning enabled. This bucket is separate
-from the Firebase browser-upload bucket. The default name is
-`readyherox-ocr-jobs` (`IMAGE_OCR_JOBS_BUCKET` can override it on both Node
-functions for other environments; dedicated names must end in `-ocr-jobs`). The production setup command intentionally
-targets only the documented `readyherox-ocr-jobs` bucket and refuses another
-project or region.
+from the Firebase browser-upload bucket. Both Node callers require the explicit
+`IMAGE_OCR_JOBS_BUCKET` setting. Production configures `readyherox-ocr-jobs` in
+`functions/.env.readyherox`; staging configures `rhx-staging-ocr-jobs` in
+`functions/.env.rhx-staging`. Dedicated names use lowercase letters, digits, and
+hyphens, end in `-ocr-jobs`, and contain at most 63 characters. There is no
+project-derived or production fallback. Missing configuration fails before any
+storage client is initialized. The worker's deployment-time bucket parameter
+uses this same setting.
 
 Deployment order, using the existing temporary-credential wrapper:
 
@@ -128,13 +131,26 @@ bash scripts/deploy-firebase.sh function extractLlmImageText
 bash scripts/deploy-firebase.sh hosting
 ```
 
-The setup command creates/configures the dedicated bucket in `us-central1` and
-grants the gateway and default worker runtime accounts object access plus bucket
-metadata reads. The worker binds the existing provider secrets and needs the
+The production wrapper passes `--project readyherox` explicitly to the setup
+script. The setup implementation accepts `--project <project-id>` and an optional
+`--bucket <name>` override; otherwise it reads the selected project's bucket from
+its `.env` file. It resolves the project number through Google Cloud Resource
+Manager and refuses buckets owned by another project or located outside
+`us-central1`. The selected project must be active and its metadata readable by
+the setup identity. The bucket must exist before Firebase analyzes the worker.
+The general deployment wrapper still targets production; staging deployment
+tooling is a separate step.
+
+Setup grants the default compute runtime account and the actual deployed gateway
+and worker accounts object access plus bucket metadata reads. Before those
+functions exist, the default account is used; rerun setup if a custom runtime
+identity is introduced. Already-compliant policy and IAM bindings are left
+unchanged. The script does not read, copy, or delete job objects.
+The worker binds the existing provider secrets and needs the
 same private PaddleOCR invoker permission as the gateway. Firebase deployment
 also provisions the storage Eventarc trigger; deployment credentials must be
 able to configure its service identities. If using a custom worker identity,
-grant its bucket permissions and PaddleOCR invocation explicitly.
+grant its PaddleOCR invocation explicitly and rerun bucket setup for its storage permissions.
 
 No Python runtime/model redeployment is needed for this change. Storage, object
 operations, event delivery, and active worker processing incur usage charges;
@@ -156,12 +172,20 @@ including authentication and response reading, shares one deadline and supports
 caller cancellation. The inference POST has retries and redirects disabled.
 Raw credentials, image data, provider error bodies, and recognized text are not logged.
 
-`PADDLEOCR_URL` is an optional server-side environment variable, defaulting to
+`PADDLEOCR_URL` is required when using PaddleOCR. Production sets it explicitly
+in `functions/.env.readyherox` to
 `https://extractpaddleocrtext-xzfajdpwha-uc.a.run.app`. It must identify the private
 Cloud Run HTTPS service and is also the ID token audience. The calling Node
 function's runtime service account needs Cloud Run Invoker on that service.
 Local scripts can provide ADC in the usual way; service-account JSON stays outside
 the application source. Production uses the runtime service account.
+
+There is no hardcoded production fallback. A missing or invalid URL returns
+`ocr-unavailable` before authentication or image submission. For staging, deploy
+its own private Python service, grant the Node callers invocation access, and
+set its URL in `functions/.env.rhx-staging`. Until then, leave that setting unset
+and use another OCR provider. Redeploy both `extractLlmImageText` and
+`processImageOcrJob` when changing their endpoint setting.
 
 The Python package, models, and HTTP contract are documented in
 `../../paddleocr/README.md`. A generated image checks basic integration; handwriting

@@ -1,9 +1,9 @@
-import {firebaseConfig} from "../../config/firebase/firebase_config.js";
+import {getFirebaseConfig} from "../../config/firebase/firebase_config.js";
 
 // Image generation calls the function directly so Hosting's shorter request
 // deadline does not interrupt a long-running generation.
 export function getHttpFunctionUrl(functionName, options = {}) {
-  const projectId = options.projectId || firebaseConfig.projectId;
+  const projectId = options.projectId || getFirebaseConfig().projectId;
   const region = options.region || "us-central1";
   const hostname = options.hostname || globalThis.location?.hostname || "";
   if (options.useEmulator === true || ["localhost", "127.0.0.1", "::1", "[::1]"].includes(hostname)) {

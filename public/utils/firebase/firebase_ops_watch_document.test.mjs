@@ -28,7 +28,8 @@ test("watchDocument maps snapshots and returns Firestore unsubscribe", async () 
   const app = {firestore: () => firestore};
 
   globalThis.firebase = {
-    apps: [],
+    apps: [app],
+    app: () => app,
     initializeApp() {
       this.apps.push(app);
       return app;

@@ -316,7 +316,7 @@ NODE
 
 if [[ "$targets" == ocr-jobs ]]; then
   echo 'Preparing private OCR job storage in readyherox...'
-  node --require "$deploy_tmp/auth-proxy.cjs" "$repo_dir/scripts/configure-image-ocr-jobs.cjs"
+  node --require "$deploy_tmp/auth-proxy.cjs" "$repo_dir/scripts/configure-image-ocr-jobs.cjs" --project readyherox
   exit
 fi
 

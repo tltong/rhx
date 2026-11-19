@@ -41,7 +41,7 @@ const firestore = () => db; firestore.FieldPath = FieldPath; firestore.FieldValu
 const app = {firestore: () => db, auth: () => auth, functions: () => ({httpsCallable: name => async () => {
   assert.equal(name, "isCurrentUserSiteAdmin"); return {data: {isAdmin: admin, email: auth.currentUser?.email, emailVerified: true}};
 }})};
-globalThis.firebase = {apps: [], initializeApp: () => app, firestore};
+globalThis.firebase = {apps: [app], app: () => app, initializeApp: () => app, firestore};
 ops.getFirestoreDb = () => db;
 ops.readDocument = async (path, id) => {const doc = await ref(path + "/" + id).get(); return doc.exists ? {...doc.data(), id: doc.id} : null;};
 ops.readCollection = async path => list(path).map(doc => ({...doc.data(), id: doc.id}));

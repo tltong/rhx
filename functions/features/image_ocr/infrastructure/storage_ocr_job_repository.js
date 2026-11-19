@@ -1,13 +1,21 @@
 const {getStorage} = require("firebase-admin/storage");
 const {getFirebaseApp} = require("../../../utils/firebase/firebase_ops");
 const {ocrFailure} = require("../../../utils/llm/image_ocr_result");
+const {requireOcrJobsBucketName} = require("./ocr_job_bucket_config");
 
-const getOcrJobsBucket = () => process.env.IMAGE_OCR_JOBS_BUCKET ||
-  `${process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT || "readyherox"}-ocr-jobs`;
+function getOcrJobsBucket() {
+  try {return requireOcrJobsBucketName(process.env.IMAGE_OCR_JOBS_BUCKET);}
+  catch {throw ocrFailure("Configure the dedicated IMAGE_OCR_JOBS_BUCKET for this environment.", "ocr-unavailable", 503);}
+}
 const MAX_OBJECT_BYTES = 12 * 1024 * 1024;
 
+function getConfiguredBucket() {
+  const name = getOcrJobsBucket();
+  return getStorage(getFirebaseApp()).bucket(name);
+}
+
 class StorageOcrJobRepository {
-  constructor({getBucket = () => getStorage(getFirebaseApp()).bucket(getOcrJobsBucket()), now = () => Date.now()} = {}) {
+  constructor({getBucket = getConfiguredBucket, now = () => Date.now()} = {}) {
     Object.assign(this, {getBucket, now});
     this.verifiedAt = 0;
   }

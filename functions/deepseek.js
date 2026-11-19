@@ -4,21 +4,15 @@ const {randomUUID} = require("node:crypto");
 
 const {deepseekApiKey, normalizeMessages, DEFAULT_MODEL, DEEPSEEK_GENERATION_TIMEOUT_MS} = require("./utils/llm/deepseek_util");
 const {callLlm} = require("./utils/llm/llm_util");
+const {getAllowedWebOrigins, isAllowedWebOrigin} = require("./utils/http/web_origins");
 // Retained for existing backend imports. HTTP and feature calls share LlmUtil.
 function generateDeepseekJson(input, options = {}) {return callLlm(input, {...options, provider: "deepseek"});}
-const ALLOWED_ORIGINS = new Set([
-  "https://readyherox.web.app",
-  "https://readyherox.firebaseapp.com",
-]);
-
-function isAllowedLocalOrigin(origin) {
-  return /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin || "");
-}
+const allowedOrigins = getAllowedWebOrigins();
 
 function setCorsHeaders(req, res) {
   const origin = req.get("origin");
 
-  if (!origin || ALLOWED_ORIGINS.has(origin) || isAllowedLocalOrigin(origin)) {
+  if (!origin || isAllowedWebOrigin(origin, allowedOrigins)) {
     res.set("Access-Control-Allow-Origin", origin || "*");
   }
 
@@ -42,11 +36,7 @@ function parseRequestBody(req) {
 
 const generateDeepseekText = onRequest(
   {
-    cors: [
-      "https://readyherox.web.app",
-      "https://readyherox.firebaseapp.com",
-      /^http:\/\/(localhost|127\.0\.0\.1):\d+$/,
-    ],
+    cors: allowedOrigins,
     invoker: "public",
     region: "us-central1",
     secrets: [deepseekApiKey],

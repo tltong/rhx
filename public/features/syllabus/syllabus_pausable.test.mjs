@@ -68,9 +68,10 @@ const db = {
   }
 };
 
+const app = {firestore: () => db};
 globalThis.firebase = {
-  apps: [],
-  initializeApp: () => ({firestore: () => db}),
+  apps: [app], app: () => app,
+  initializeApp: () => app,
   firestore: () => db
 };
 after(() => {

@@ -182,8 +182,8 @@ const db = {
 };
 const firestore = () => db;
 firestore.FieldValue = {serverTimestamp: () => "server-timestamp"};
-const app = {firestore: () => db, auth: () => auth};
-globalThis.firebase = {apps: [], firestore, initializeApp: () => app};
+const app = {options: {projectId: "readyherox"}, firestore: () => db, auth: () => auth};
+globalThis.firebase = {apps: [app], app: () => app, firestore, initializeApp: () => app};
 
 function seedQuestion(id = "q", changes = {}) {
   const data = question({...changes, id});

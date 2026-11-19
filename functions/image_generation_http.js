@@ -2,6 +2,7 @@ const {onRequest} = require("firebase-functions/v2/https");
 const {getAuth} = require("firebase-admin/auth");
 const logger = require("firebase-functions/logger");
 const {randomUUID} = require("node:crypto");
+const {getAllowedWebOrigins} = require("./utils/http/web_origins");
 const {getFirebaseApp} = require("./utils/firebase/firebase_ops");
 const {deepseekApiKey} = require("./deepseek");
 const {openaiApiKey} = require("./utils/llm/openai_util");
@@ -41,5 +42,5 @@ function createImageGenerationHandler({verifyToken = token => getAuth(getFirebas
   };
 }
 const generateLlmImage = onRequest({region: "us-central1", invoker: "public", memory: "1GiB", timeoutSeconds: 600,
-  secrets: [openaiApiKey, deepseekApiKey], cors: ["https://readyherox.web.app", "https://readyherox.firebaseapp.com", /^http:\/\/(localhost|127\.0\.0\.1):\d+$/]}, createImageGenerationHandler());
+  secrets: [openaiApiKey, deepseekApiKey], cors: getAllowedWebOrigins()}, createImageGenerationHandler());
 module.exports = {generateLlmImage, createImageGenerationHandler};

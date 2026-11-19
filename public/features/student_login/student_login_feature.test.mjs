@@ -170,7 +170,7 @@ const app = {
     }};
   },
 };
-globalThis.firebase = {apps: [], firestore, initializeApp: () => app};
+globalThis.firebase = {apps: [app], app: () => app, firestore, initializeApp: () => app};
 backendOps.getDocumentRef = (collectionPath, id) => reference(collectionPath + "/" + id);
 backendOps.getCollectionRef = collection;
 backendOps.getFirestoreDb = () => db;
